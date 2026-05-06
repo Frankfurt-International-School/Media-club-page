@@ -1,2 +1,1782 @@
-# Media-club-page
-New Media Club web page
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaClub</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --bg2: #141416;
+    --bg3: #1a1a1d;
+    --bg4: #222226;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0eff4;
+    --text2: #a09eb8;
+    --text3: #6b6882;
+    --accent: #c8ff57;
+    --accent2: #9eff00;
+    --accent-dim: rgba(200,255,87,0.12);
+    --accent-dim2: rgba(200,255,87,0.06);
+    --purple: #b49dff;
+    --purple-dim: rgba(180,157,255,0.12);
+    --coral: #ff7b5e;
+    --coral-dim: rgba(255,123,94,0.12);
+    --teal: #4ef0c4;
+    --teal-dim: rgba(78,240,196,0.1);
+    --amber: #ffb547;
+    --amber-dim: rgba(255,181,71,0.1);
+    --blue: #5eaaff;
+    --blue-dim: rgba(94,170,255,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 18px;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --sidebar: 220px;
+    --topbar: 56px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: var(--sidebar);
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: transform 0.3s ease;
+  }
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo .logo-mark {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .sidebar-logo .logo-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 2px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sidebar-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+  .nav-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 10px 8px 6px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 13.5px;
+    font-weight: 400;
+    transition: all 0.15s;
+    margin-bottom: 1px;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: rgba(200,255,87,0.2);
+    font-weight: 500;
+  }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.8; }
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 20px;
+  }
+  .sidebar-footer {
+    padding: 14px 14px;
+    border-top: 1px solid var(--border);
+  }
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s;
+  }
+  .sidebar-user:hover { background: var(--bg3); }
+  .user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    border: 1px solid rgba(200,255,87,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: var(--font-head);
+  }
+  .user-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .user-role { font-size: 11px; color: var(--text3); }
+
+  /* ── MAIN ── */
+  .main {
+    margin-left: var(--sidebar);
+    flex: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .topbar {
+    height: var(--topbar);
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 90;
+  }
+  .topbar-title {
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    flex: 1;
+  }
+  .topbar-search {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px 14px 7px 34px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .topbar-search:focus { border-color: var(--border2); }
+  .search-wrap { position: relative; }
+  .search-wrap svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    color: var(--text3);
+    pointer-events: none;
+  }
+  .topbar-btn {
+    background: var(--accent);
+    color: #0d0d0f;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 7px 16px;
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .topbar-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+  .topbar-btn svg { width: 14px; height: 14px; }
+  .mob-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  /* ── PAGES ── */
+  .page { display: none; padding: 28px; animation: fadeIn 0.2s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── TYPOGRAPHY ── */
+  .page-header { margin-bottom: 24px; }
+  .page-title {
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+  .page-sub { font-size: 14px; color: var(--text2); }
+  h3.section-head {
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .card-sm { padding: 14px 16px; }
+  .card:hover { border-color: var(--border2); }
+
+  /* ── GRIDS ── */
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+
+  /* ── STAT CARDS ── */
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border2); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.green::before { background: var(--accent); }
+  .stat-card.purple::before { background: var(--purple); }
+  .stat-card.coral::before { background: var(--coral); }
+  .stat-card.amber::before { background: var(--amber); }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 8px; }
+  .stat-value { font-family: var(--font-head); font-size: 32px; font-weight: 800; color: var(--text); letter-spacing: -1px; }
+  .stat-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+  }
+  .badge-green { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(200,255,87,0.2); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(180,157,255,0.2); }
+  .badge-coral { background: var(--coral-dim); color: var(--coral); border: 1px solid rgba(255,123,94,0.2); }
+  .badge-teal { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(78,240,196,0.2); }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,181,71,0.2); }
+  .badge-blue { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(94,170,255,0.2); }
+  .badge-gray { background: var(--bg4); color: var(--text2); border: 1px solid var(--border); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .btn svg { width: 14px; height: 14px; }
+  .btn-accent { background: var(--accent); color: #0d0d0f; }
+  .btn-accent:hover { background: var(--accent2); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+  .btn-danger { background: var(--coral-dim); color: var(--coral); border: 1px solid rgba(255,123,94,0.2); }
+  .btn-danger:hover { background: rgba(255,123,94,0.2); }
+  .btn-sm { padding: 5px 12px; font-size: 11px; }
+
+  /* ── FORMS ── */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: rgba(200,255,87,0.4);
+    box-shadow: 0 0 0 3px rgba(200,255,87,0.06);
+  }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── DIVIDER ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* ── EVENTS ── */
+  .event-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transition: border-color 0.2s, transform 0.15s;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  .event-card:hover { border-color: var(--border2); transform: translateX(2px); }
+  .event-date-box {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    text-align: center;
+    min-width: 48px;
+    flex-shrink: 0;
+  }
+  .event-month { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); }
+  .event-day { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; }
+  .event-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .event-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+  .event-meta span { display: flex; align-items: center; gap: 4px; }
+  .event-meta svg { width: 12px; height: 12px; }
+  .progress-bar {
+    background: var(--bg4);
+    border-radius: 20px;
+    height: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 20px;
+    transition: width 0.4s ease;
+  }
+  .progress-label { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* ── MEMBER CARDS ── */
+  .member-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+  .member-card:hover { border-color: var(--border2); }
+  .member-avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .member-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .member-role { font-size: 12px; color: var(--text3); }
+  .member-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+  /* ── SIGNUP SHEET ── */
+  .sheet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sheet-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-table td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+  .sheet-table tr:last-child td { border-bottom: none; }
+  .sheet-table tr.empty-row td { color: var(--text3); font-style: italic; }
+  .sheet-table tr:hover td { background: var(--bg3); }
+  .row-num { color: var(--text3); font-size: 12px; font-family: var(--font-head); }
+
+  /* ── GALLERY ── */
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+  }
+  .gallery-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+    position: relative;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .gallery-item:hover { border-color: var(--border2); transform: scale(1.02); }
+  .gallery-item svg { width: 32px; height: 32px; color: var(--text3); }
+  .gallery-item .gallery-label { font-size: 12px; color: var(--text3); text-align: center; padding: 0 8px; }
+  .gallery-item.has-img { background-size: cover; background-position: center; }
+  .gallery-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    opacity: 0;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: flex-end;
+    padding: 10px;
+  }
+  .gallery-item:hover .gallery-overlay { opacity: 1; }
+  .gallery-overlay-title { font-size: 12px; font-weight: 500; color: #fff; }
+
+  /* ── EQUIPMENT ── */
+  .equipment-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+  .equipment-card:hover { border-color: var(--border2); }
+  .equip-icon {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .equip-icon svg { width: 20px; height: 20px; }
+  .equip-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .equip-detail { font-size: 12px; color: var(--text3); }
+  .equip-status { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+
+  /* ── ADMIN PANEL ── */
+  .admin-section { margin-bottom: 28px; }
+  .admin-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+  }
+  .admin-row:hover { border-color: var(--border2); }
+
+  /* ── MODAL ── */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; animation: fadeIn 0.15s ease; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+  .modal-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.15s;
+  }
+  .modal-close:hover { background: var(--bg4); color: var(--text); }
+  .modal-close svg { width: 14px; height: 14px; }
+
+  /* ── TOAST ── */
+  .toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text);
+    min-width: 240px;
+    animation: slideUp 0.2s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .toast svg { width: 16px; height: 16px; }
+  .toast.success { border-color: rgba(200,255,87,0.3); }
+  .toast.success svg { color: var(--accent); }
+  .toast.error { border-color: rgba(255,123,94,0.3); }
+  .toast.error svg { color: var(--coral); }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── TABS ── */
+  .tab-row { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+    font-family: var(--font-head);
+  }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── ANNOUNCEMENT ── */
+  .announcement {
+    background: var(--accent-dim2);
+    border: 1px solid rgba(200,255,87,0.15);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .announcement svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+  .announcement-title { font-size: 13px; font-weight: 500; color: var(--text); }
+  .announcement-text { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .announcement-date { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* ── CHECKBOX ── */
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    transition: all 0.15s;
+  }
+  .checkbox-label:hover { border-color: var(--border2); color: var(--text); }
+  .checkbox-label input { display: none; }
+  .checkbox-label.checked { border-color: rgba(200,255,87,0.3); background: var(--accent-dim); color: var(--accent); }
+
+  /* ── FILTER CHIPS ── */
+  .filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .filter-chip {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    background: transparent;
+    transition: all 0.15s;
+    font-family: var(--font-head);
+  }
+  .filter-chip:hover { border-color: var(--border2); color: var(--text); }
+  .filter-chip.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(200,255,87,0.3); }
+
+  /* ── NOTIFICATION DOT ── */
+  .notif-dot {
+    width: 6px; height: 6px;
+    background: var(--coral);
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; }
+    .mob-menu-btn { display: flex; }
+    .page { padding: 16px; }
+    .form-row2 { grid-template-columns: 1fr; }
+  }
+
+  /* ── MISC ── */
+  .flex { display: flex; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .flex-center { display: flex; align-items: center; }
+  .gap6 { gap: 6px; }
+  .gap10 { gap: 10px; }
+  .gap14 { gap: 14px; }
+  .mb8 { margin-bottom: 8px; }
+  .mb12 { margin-bottom: 12px; }
+  .mb16 { margin-bottom: 16px; }
+  .mb20 { margin-bottom: 20px; }
+  .mb24 { margin-bottom: 24px; }
+  .text-muted { color: var(--text3); font-size: 12px; }
+  .text-accent { color: var(--accent); }
+  .font-head { font-family: var(--font-head); }
+  .fw-700 { font-weight: 700; }
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text3);
+  }
+  .empty-state svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state p { font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark"><span class="logo-dot"></span> MediaClub</div>
+    <div class="logo-sub">Student Media Society</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Main</div>
+    <div class="nav-item active" onclick="navigate('home', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="navigate('events', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Events
+      <span class="nav-badge">4</span>
+    </div>
+    <div class="nav-item" onclick="navigate('signup', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Sign-up Sheets
+    </div>
+    <div class="nav-item" onclick="navigate('members', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Members
+    </div>
+    <div class="nav-section-label">Content</div>
+    <div class="nav-item" onclick="navigate('gallery', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      Project Gallery
+    </div>
+    <div class="nav-item" onclick="navigate('equipment', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      Equipment
+    </div>
+    <div class="nav-section-label">Club</div>
+    <div class="nav-item" onclick="navigate('join', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+      Join the Club
+    </div>
+    <div class="nav-item" onclick="navigate('admin', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+      Admin Panel
+      <span class="notif-dot"></span>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user" onclick="showToast('Profile settings coming soon!', 'success')">
+      <div class="user-avatar">JS</div>
+      <div>
+        <div class="user-name">Jana Stein</div>
+        <div class="user-role">President</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="main">
+  <div class="topbar">
+    <button class="mob-menu-btn" onclick="toggleSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="topbar-search" placeholder="Search..." id="global-search" oninput="handleSearch(this.value)" />
+    </div>
+    <button class="topbar-btn" onclick="openModal('event-modal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Event
+    </button>
+  </div>
+
+  <!-- ── DASHBOARD ── -->
+  <div id="page-home" class="page active">
+    <div class="page-header">
+      <div class="page-title">Good afternoon ✦</div>
+      <div class="page-sub">Here's what's happening in MediaClub this week.</div>
+    </div>
+    <div class="grid4 mb24">
+      <div class="stat-card green">
+        <div class="stat-label">Members</div>
+        <div class="stat-value" id="stat-members">34</div>
+        <div class="stat-sub">↑ 3 this month</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-label">Upcoming events</div>
+        <div class="stat-value" id="stat-events">4</div>
+        <div class="stat-sub">Next: May 14</div>
+      </div>
+      <div class="stat-card coral">
+        <div class="stat-label">Projects</div>
+        <div class="stat-value">12</div>
+        <div class="stat-sub">3 in progress</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">Equipment items</div>
+        <div class="stat-value">18</div>
+        <div class="stat-sub">5 checked out</div>
+      </div>
+    </div>
+    <div class="grid2 mb24">
+      <div>
+        <h3 class="section-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Upcoming events
+        </h3>
+        <div id="dash-events-list"></div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('events', document.querySelector('[onclick*=events]'))">View all events →</button>
+      </div>
+      <div>
+        <h3 class="section-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          Announcements
+        </h3>
+        <div id="announcements-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EVENTS ── -->
+  <div id="page-events" class="page">
+    <div class="flex-between mb24">
+      <div>
+        <div class="page-title">Events</div>
+        <div class="page-sub">All upcoming and past MediaClub activities.</div>
+      </div>
+      <button class="btn btn-accent" onclick="openModal('event-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add event
+      </button>
+    </div>
+    <div class="filter-row" id="event-filters">
+      <button class="filter-chip active" onclick="filterEvents('all', this)">All</button>
+      <button class="filter-chip" onclick="filterEvents('Workshop', this)">Workshop</button>
+      <button class="filter-chip" onclick="filterEvents('Screening', this)">Screening</button>
+      <button class="filter-chip" onclick="filterEvents('Competition', this)">Competition</button>
+      <button class="filter-chip" onclick="filterEvents('Recording', this)">Recording</button>
+      <button class="filter-chip" onclick="filterEvents('Social', this)">Social</button>
+    </div>
+    <div id="events-list"></div>
+  </div>
+
+  <!-- ── SIGN-UP SHEETS ── -->
+  <div id="page-signup" class="page">
+    <div class="flex-between mb20">
+      <div>
+        <div class="page-title">Sign-up Sheets</div>
+        <div class="page-sub">Google Sheets–style event sign-ups. Select an event and claim your slot.</div>
+      </div>
+    </div>
+    <div class="form-group" style="max-width:360px;">
+      <label class="form-label">Select event</label>
+      <select class="form-select" id="sheet-event-select" onchange="renderSignupSheet()"></select>
+    </div>
+    <div class="card mb16" style="overflow-x:auto;">
+      <div class="flex-between mb12">
+        <div>
+          <div style="font-size:14px;font-weight:500;color:var(--text)" id="sheet-event-title">—</div>
+          <div class="text-muted" id="sheet-event-cap">— slots</div>
+        </div>
+        <div id="sheet-cap-badge"></div>
+      </div>
+      <div class="progress-bar mb12"><div class="progress-fill" id="sheet-progress" style="width:0%"></div></div>
+      <table class="sheet-table" id="sheet-table"></table>
+    </div>
+    <div class="card card-sm">
+      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Add your name</div>
+      <div class="form-row2 mb12">
+        <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" placeholder="Your full name" /></div>
+        <div class="form-group" style="margin:0"><input class="form-input" id="signup-role" placeholder="Role / note (optional)" /></div>
+      </div>
+      <button class="btn btn-accent" onclick="addSignupRow()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Sign up
+      </button>
+    </div>
+  </div>
+
+  <!-- ── MEMBERS ── -->
+  <div id="page-members" class="page">
+    <div class="flex-between mb20">
+      <div>
+        <div class="page-title">Members</div>
+        <div class="page-sub">Everyone in the club, their roles, and specialisations.</div>
+      </div>
+      <button class="btn btn-accent" onclick="openModal('member-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add member
+      </button>
+    </div>
+    <div class="flex gap10 mb20" style="flex-wrap:wrap;">
+      <input class="form-input" style="max-width:260px;" placeholder="Search members..." id="member-search" oninput="renderMembers()" />
+      <select class="form-select" style="max-width:160px;" id="member-role-filter" onchange="renderMembers()">
+        <option value="">All roles</option>
+        <option>President</option>
+        <option>Vice President</option>
+        <option>Committee</option>
+        <option>Member</option>
+      </select>
+    </div>
+    <div class="grid2" id="members-grid"></div>
+    <div class="text-muted" style="margin-top:12px;" id="members-count"></div>
+  </div>
+
+  <!-- ── GALLERY ── -->
+  <div id="page-gallery" class="page">
+    <div class="flex-between mb20">
+      <div>
+        <div class="page-title">Project Gallery</div>
+        <div class="page-sub">Showcase of films, photos, and podcasts by club members.</div>
+      </div>
+      <button class="btn btn-accent" onclick="openModal('gallery-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Submit project
+      </button>
+    </div>
+    <div class="tab-row">
+      <div class="tab active" onclick="switchGalleryTab('all', this)">All</div>
+      <div class="tab" onclick="switchGalleryTab('Photo', this)">Photography</div>
+      <div class="tab" onclick="switchGalleryTab('Video', this)">Video</div>
+      <div class="tab" onclick="switchGalleryTab('Podcast', this)">Podcast</div>
+    </div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </div>
+
+  <!-- ── EQUIPMENT ── -->
+  <div id="page-equipment" class="page">
+    <div class="flex-between mb20">
+      <div>
+        <div class="page-title">Equipment</div>
+        <div class="page-sub">Book gear for your shoots and projects.</div>
+      </div>
+      <button class="btn btn-accent" onclick="openModal('equip-book-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Book equipment
+      </button>
+    </div>
+    <div class="grid3" id="equipment-grid"></div>
+  </div>
+
+  <!-- ── JOIN ── -->
+  <div id="page-join" class="page">
+    <div style="max-width:560px;">
+      <div class="page-title mb8">Join MediaClub</div>
+      <div class="page-sub mb24">Fill in the form below and a committee member will review your application.</div>
+      <div class="card" id="join-form-card">
+        <div class="form-row2">
+          <div class="form-group"><label class="form-label">First name *</label><input class="form-input" id="join-fname" placeholder="Anna" /></div>
+          <div class="form-group"><label class="form-label">Last name *</label><input class="form-input" id="join-lname" placeholder="Müller" /></div>
+        </div>
+        <div class="form-group"><label class="form-label">School email *</label><input class="form-input" id="join-email" type="email" placeholder="a.mueller@school.de" /></div>
+        <div class="form-row2">
+          <div class="form-group">
+            <label class="form-label">Year group</label>
+            <select class="form-select" id="join-year">
+              <option>Year 9</option><option>Year 10</option><option>Year 11</option><option>Year 12</option><option>Year 13</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Experience level</label>
+            <select class="form-select" id="join-exp">
+              <option>Complete beginner</option><option>Some experience</option><option>Intermediate</option><option>Advanced</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Interests (select all that apply)</label>
+          <div class="checkbox-group" id="interest-group">
+            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Photography"> Photography</label>
+            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Videography"> Videography</label>
+            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Podcasting"> Podcasting</label>
+            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Editing"> Editing</label>
+            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Social Media"> Social Media</label>
+            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Graphic Design"> Graphic Design</label>
+            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Writing"> Writing</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Why do you want to join? *</label>
+          <textarea class="form-textarea" id="join-why" placeholder="Tell us a bit about yourself, what you're hoping to learn or contribute..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Link to any previous work (optional)</label>
+          <input class="form-input" id="join-link" placeholder="https://..." />
+        </div>
+        <button class="btn btn-accent" style="width:100%;" onclick="submitJoin()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Submit application
+        </button>
+      </div>
+      <div id="join-success" style="display:none;" class="card">
+        <div style="text-align:center;padding:32px 16px;">
+          <div style="font-size:48px;margin-bottom:12px;">🎬</div>
+          <div style="font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--accent);margin-bottom:8px;">Application submitted!</div>
+          <div style="color:var(--text2);font-size:14px;">We'll review your application and get in touch within a few days. Welcome to the family!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADMIN ── -->
+  <div id="page-admin" class="page">
+    <div class="page-title mb8">Admin Panel</div>
+    <div class="page-sub mb24">Manage events, members, and club announcements.</div>
+    <div class="tab-row">
+      <div class="tab active" onclick="switchAdminTab('pending', this)">Pending applications <span class="nav-badge" style="margin-left:6px;" id="pending-count">0</span></div>
+      <div class="tab" onclick="switchAdminTab('manage-events', this)">Manage events</div>
+      <div class="tab" onclick="switchAdminTab('announcements', this)">Announcements</div>
+    </div>
+    <div class="tab-content active" id="admin-tab-pending">
+      <div id="pending-list"></div>
+    </div>
+    <div class="tab-content" id="admin-tab-manage-events">
+      <div id="manage-events-list"></div>
+    </div>
+    <div class="tab-content" id="admin-tab-announcements">
+      <div class="card mb16">
+        <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:14px;">Post new announcement</div>
+        <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="ann-title" placeholder="Important update..." /></div>
+        <div class="form-group"><label class="form-label">Message</label><textarea class="form-textarea" id="ann-body" placeholder="What do members need to know?"></textarea></div>
+        <button class="btn btn-accent" onclick="postAnnouncement()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>
+          Publish
+        </button>
+      </div>
+      <h3 class="section-head">All announcements</h3>
+      <div id="admin-ann-list"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── MODALS ── -->
+
+<!-- Add Event Modal -->
+<div class="modal-backdrop" id="event-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeModal('event-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">New event</div>
+    <div class="modal-sub">Add an upcoming event for all members to see.</div>
+    <div class="form-group"><label class="form-label">Event title *</label><input class="form-input" id="ev-title" placeholder="Short film workshop" /></div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Date *</label><input class="form-input" id="ev-date" type="date" /></div>
+      <div class="form-group"><label class="form-label">Time</label><input class="form-input" id="ev-time" type="time" /></div>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="ev-loc" placeholder="Room B12" /></div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="ev-cat">
+          <option>Workshop</option><option>Screening</option><option>Competition</option><option>Recording</option><option>Social</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Max slots</label><input class="form-input" id="ev-slots" type="number" placeholder="20" min="1" /></div>
+      <div class="form-group"><label class="form-label">Deadline to sign up</label><input class="form-input" id="ev-deadline" type="date" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ev-desc" placeholder="What will happen at this event?"></textarea></div>
+    <button class="btn btn-accent" style="width:100%;" onclick="addEvent()">Create event</button>
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div class="modal-backdrop" id="member-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeModal('member-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Add member</div>
+    <div class="modal-sub">Manually add a new member to the directory.</div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">First name *</label><input class="form-input" id="mem-fname" placeholder="Max" /></div>
+      <div class="form-group"><label class="form-label">Last name *</label><input class="form-input" id="mem-lname" placeholder="Krüger" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="mem-email" placeholder="m.krueger@school.de" /></div>
+    <div class="form-row2">
+      <div class="form-group">
+        <label class="form-label">Club role</label>
+        <select class="form-select" id="mem-role">
+          <option>Member</option><option>Committee</option><option>Vice President</option><option>President</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Specialisation</label><input class="form-input" id="mem-spec" placeholder="Photography, Video..." /></div>
+    </div>
+    <button class="btn btn-accent" style="width:100%;" onclick="addMember()">Add member</button>
+  </div>
+</div>
+
+<!-- Gallery Submit Modal -->
+<div class="modal-backdrop" id="gallery-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeModal('gallery-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Submit a project</div>
+    <div class="modal-sub">Share your work with the club community.</div>
+    <div class="form-group"><label class="form-label">Project title *</label><input class="form-input" id="gal-title" placeholder="City at night" /></div>
+    <div class="form-row2">
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="gal-type"><option>Photo</option><option>Video</option><option>Podcast</option><option>Design</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Your name *</label><input class="form-input" id="gal-author" placeholder="Your name" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="gal-desc" placeholder="Tell us about this project..."></textarea></div>
+    <div class="form-group"><label class="form-label">Link (Drive, YouTube, SoundCloud...)</label><input class="form-input" id="gal-link" placeholder="https://..." /></div>
+    <button class="btn btn-accent" style="width:100%;" onclick="submitProject()">Submit project</button>
+  </div>
+</div>
+
+<!-- Equipment Booking Modal -->
+<div class="modal-backdrop" id="equip-book-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeModal('equip-book-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Book equipment</div>
+    <div class="modal-sub">Reserve gear for your next project.</div>
+    <div class="form-group"><label class="form-label">Your name *</label><input class="form-input" id="book-name" placeholder="Your full name" /></div>
+    <div class="form-group">
+      <label class="form-label">Equipment item *</label>
+      <select class="form-select" id="book-item"></select>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Date needed *</label><input class="form-input" id="book-date" type="date" /></div>
+      <div class="form-group"><label class="form-label">Return by *</label><input class="form-input" id="book-return" type="date" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Purpose</label><input class="form-input" id="book-purpose" placeholder="Short film shoot, photoshoot..." /></div>
+    <button class="btn btn-accent" style="width:100%;" onclick="bookEquipment()">Confirm booking</button>
+  </div>
+</div>
+
+<!-- ── TOAST CONTAINER ── -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ══════════════════════════════
+// STATE
+// ══════════════════════════════
+const state = {
+  events: [
+    { id: 1, title: "Short film workshop", date: "2026-05-14", time: "15:30", loc: "Room B12", cat: "Workshop", slots: 20, desc: "Learn the fundamentals of short film production with our resident directors.", signups: [
+      { name: "Jana Stein", role: "Director", ts: "14:00" },
+      { name: "Tom Adler", role: "Camera operator", ts: "14:05" },
+      { name: "Lena Petrov", role: "", ts: "14:10" },
+      { name: "Max Krüger", role: "Sound", ts: "14:15" },
+    ]},
+    { id: 2, title: "Photography competition deadline", date: "2026-05-20", time: "23:59", loc: "Online", cat: "Competition", slots: 50, desc: "Submit your best photo series. Theme: urban life.", signups: [
+      { name: "Sophia Bauer", role: "Entry submitted", ts: "09:00" },
+      { name: "Kai Fischer", role: "Entry submitted", ts: "09:30" },
+    ]},
+    { id: 3, title: "Podcast recording session", date: "2026-05-28", time: "13:00", loc: "Studio A", cat: "Recording", slots: 8, desc: "Monthly episode recording for the MediaClub podcast. All welcome.", signups: [
+      { name: "Max Krüger", role: "Host", ts: "13:00" },
+      { name: "Lena Petrov", role: "Producer", ts: "13:02" },
+    ]},
+    { id: 4, title: "End-of-year screening night", date: "2026-06-06", time: "18:00", loc: "School hall", cat: "Screening", slots: 80, desc: "Celebrate the year's work with a screening of member films and photo exhibitions.", signups: [
+      { name: "Jana Stein", role: "Presenter", ts: "17:00" },
+      { name: "Tom Adler", role: "Technician", ts: "17:01" },
+    ]},
+  ],
+  members: [
+    { id: 1, fname: "Jana", lname: "Stein", email: "j.stein@school.de", role: "President", spec: "Photography", color: "green" },
+    { id: 2, fname: "Max", lname: "Krüger", email: "m.krueger@school.de", role: "Vice President", spec: "Videography", color: "purple" },
+    { id: 3, fname: "Lena", lname: "Petrov", email: "l.petrov@school.de", role: "Committee", spec: "Podcasting, Events", color: "amber" },
+    { id: 4, fname: "Tom", lname: "Adler", email: "t.adler@school.de", role: "Committee", spec: "Equipment, Photography", color: "coral" },
+    { id: 5, fname: "Sophia", lname: "Bauer", email: "s.bauer@school.de", role: "Member", spec: "Photography", color: "teal" },
+    { id: 6, fname: "Kai", lname: "Fischer", email: "k.fischer@school.de", role: "Member", spec: "Video, Editing", color: "blue" },
+  ],
+  gallery: [
+    { id: 1, title: "City at night", type: "Photo", author: "Sophia Bauer", desc: "Long exposure shots around Frankfurt city centre.", link: "#" },
+    { id: 2, title: "The quiet hour", type: "Video", author: "Kai Fischer", desc: "Short documentary about early morning routines.", link: "#" },
+    { id: 3, title: "Episode 12: AI in schools", type: "Podcast", author: "Max Krüger", desc: "Our monthly podcast discussing tech in education.", link: "#" },
+    { id: 4, title: "Spring light series", type: "Photo", author: "Jana Stein", desc: "Soft golden-hour portraits taken in the school garden.", link: "#" },
+    { id: 5, title: "Club promo reel 2026", type: "Video", author: "Tom Adler", desc: "Recruitment video for next year's intake.", link: "#" },
+  ],
+  equipment: [
+    { id: 1, name: "Sony A7 III", cat: "Camera", detail: "Full-frame mirrorless", icon: "camera", status: "available", bookedBy: null },
+    { id: 2, name: "Canon EOS R6", cat: "Camera", detail: "Mirrorless, 4K video", icon: "camera", status: "checked-out", bookedBy: "Kai Fischer" },
+    { id: 3, name: "DJI Ronin-S", cat: "Stabiliser", detail: "3-axis gimbal", icon: "video", status: "available", bookedBy: null },
+    { id: 4, name: "Rode NTG3", cat: "Microphone", detail: "Shotgun mic + blimp", icon: "mic", status: "available", bookedBy: null },
+    { id: 5, name: "Godox AD200", cat: "Lighting", detail: "Portable strobe kit", icon: "sun", status: "checked-out", bookedBy: "Jana Stein" },
+    { id: 6, name: "Manfrotto tripod", cat: "Support", detail: "Fluid head, 75mm bowl", icon: "sliders", status: "available", bookedBy: null },
+  ],
+  announcements: [
+    { id: 1, title: "New camera training slots open", body: "Sign up for a 1-hour induction on the Sony A7 III before borrowing it for the first time.", date: "May 5" },
+    { id: 2, title: "End-of-year screening: submit projects", body: "Submit your films or photo series by June 1st for consideration in the screening night.", date: "Apr 28" },
+    { id: 3, title: "Photography competition now open", body: "The theme this term is 'Urban life'. Entries close May 20. Any member can enter.", date: "Apr 20" },
+  ],
+  applications: [],
+  eventFilter: "all",
+  galleryFilter: "all",
+};
+
+// ══════════════════════════════
+// NAVIGATION
+// ══════════════════════════════
+const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", join: "Join the Club", admin: "Admin Panel" };
+
+function navigate(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('topbar-title').textContent = pageTitles[id] || id;
+  if (id === 'home') renderDashboard();
+  if (id === 'events') renderEvents();
+  if (id === 'signup') initSignupSheet();
+  if (id === 'members') renderMembers();
+  if (id === 'gallery') renderGallery();
+  if (id === 'equipment') renderEquipment();
+  if (id === 'admin') renderAdmin();
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ══════════════════════════════
+// MODAL
+// ══════════════════════════════
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  if (id === 'equip-book-modal') populateBookingSelect();
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-backdrop').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ══════════════════════════════
+// TOAST
+// ══════════════════════════════
+function showToast(msg, type = 'success') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icon = type === 'success'
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+  t.innerHTML = icon + msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ══════════════════════════════
+// HELPERS
+// ══════════════════════════════
+function fmtDate(d) {
+  const dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+function fmtMonth(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' }); }
+function fmtDay(d) { return new Date(d + 'T12:00:00').getDate(); }
+function catColor(cat) {
+  return { Workshop: 'purple', Screening: 'coral', Competition: 'amber', Recording: 'teal', Social: 'blue', Other: 'gray' }[cat] || 'gray';
+}
+function memberColor(c) {
+  const map = { green: ['var(--accent-dim)', 'var(--accent)'], purple: ['var(--purple-dim)', 'var(--purple)'], coral: ['var(--coral-dim)', 'var(--coral)'], amber: ['var(--amber-dim)', 'var(--amber)'], teal: ['var(--teal-dim)', 'var(--teal)'], blue: ['var(--blue-dim)', 'var(--blue)'] };
+  return map[c] || map.purple;
+}
+function initials(f, l) { return (f[0] + l[0]).toUpperCase(); }
+function toggleCheck(el) {
+  el.classList.toggle('checked');
+  el.querySelector('input').checked = el.classList.contains('checked');
+}
+
+// ══════════════════════════════
+// DASHBOARD
+// ══════════════════════════════
+function renderDashboard() {
+  document.getElementById('stat-members').textContent = state.members.length;
+  document.getElementById('stat-events').textContent = state.events.length;
+
+  const el = document.getElementById('dash-events-list');
+  el.innerHTML = state.events.slice(0, 3).map(ev => `
+    <div class="event-card" onclick="navigate('events', document.querySelector('[onclick*=events]'))">
+      <div class="event-date-box">
+        <div class="event-month">${fmtMonth(ev.date)}</div>
+        <div class="event-day">${fmtDay(ev.date)}</div>
+      </div>
+      <div style="flex:1;">
+        <div class="event-title">${ev.title}</div>
+        <div class="event-meta">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time || 'TBC'}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${ev.loc || 'TBC'}</span>
+        </div>
+        <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>
+      </div>
+    </div>`).join('');
+
+  const al = document.getElementById('announcements-list');
+  al.innerHTML = state.announcements.map(a => `
+    <div class="announcement">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>
+      <div>
+        <div class="announcement-title">${a.title}</div>
+        <div class="announcement-text">${a.body}</div>
+        <div class="announcement-date">${a.date}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════
+// EVENTS
+// ══════════════════════════════
+function renderEvents(filter) {
+  if (filter !== undefined) state.eventFilter = filter;
+  const f = state.eventFilter;
+  const list = f === 'all' ? state.events : state.events.filter(e => e.cat === f);
+  const el = document.getElementById('events-list');
+  if (!list.length) { el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>No events in this category.</p></div>'; return; }
+  el.innerHTML = list.map(ev => {
+    const pct = ev.slots ? Math.round((ev.signups.length / ev.slots) * 100) : 0;
+    return `
+      <div class="event-card">
+        <div class="event-date-box">
+          <div class="event-month">${fmtMonth(ev.date)}</div>
+          <div class="event-day">${fmtDay(ev.date)}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="flex-between mb8">
+            <div class="event-title">${ev.title}</div>
+            <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>
+          </div>
+          <div class="event-meta">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time || 'TBC'}</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${ev.loc || 'TBC'}</span>
+            ${ev.slots ? `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${ev.signups.length} / ${ev.slots} slots</span>` : ''}
+          </div>
+          ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ev.desc}</div>` : ''}
+          ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value=${ev.id};renderSignupSheet();},100)">Sign up</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteEvent(${ev.id})">Delete</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function filterEvents(f, el) {
+  document.querySelectorAll('#event-filters .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderEvents(f);
+}
+
+function addEvent() {
+  const title = document.getElementById('ev-title').value.trim();
+  const date = document.getElementById('ev-date').value;
+  if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
+  const ev = {
+    id: Date.now(),
+    title,
+    date,
+    time: document.getElementById('ev-time').value,
+    loc: document.getElementById('ev-loc').value,
+    cat: document.getElementById('ev-cat').value,
+    slots: parseInt(document.getElementById('ev-slots').value) || 0,
+    desc: document.getElementById('ev-desc').value,
+    signups: [],
+  };
+  state.events.push(ev);
+  closeModal('event-modal');
+  ['ev-title','ev-date','ev-time','ev-loc','ev-slots','ev-desc'].forEach(id => document.getElementById(id).value = '');
+  showToast(`Event "${ev.title}" created!`);
+  renderEvents();
+  renderDashboard();
+}
+
+function deleteEvent(id) {
+  state.events = state.events.filter(e => e.id !== id);
+  renderEvents();
+  showToast('Event removed.', 'error');
+}
+
+// ══════════════════════════════
+// SIGN-UP SHEETS
+// ══════════════════════════════
+function initSignupSheet() {
+  const sel = document.getElementById('sheet-event-select');
+  sel.innerHTML = state.events.map(e => `<option value="${e.id}">${e.title} — ${fmtDate(e.date)}</option>`).join('');
+  renderSignupSheet();
+}
+
+function renderSignupSheet() {
+  const id = parseInt(document.getElementById('sheet-event-select').value);
+  const ev = state.events.find(e => e.id === id);
+  if (!ev) return;
+  document.getElementById('sheet-event-title').textContent = ev.title;
+  const cap = ev.slots || '∞';
+  document.getElementById('sheet-event-cap').textContent = `${ev.signups.length} signed up${ev.slots ? ' · ' + ev.slots + ' max' : ''}`;
+  const pct = ev.slots ? Math.min(100, Math.round(ev.signups.length / ev.slots * 100)) : 0;
+  document.getElementById('sheet-progress').style.width = ev.slots ? pct + '%' : '0%';
+  const isFull = ev.slots && ev.signups.length >= ev.slots;
+  document.getElementById('sheet-cap-badge').innerHTML = isFull
+    ? '<span class="badge badge-coral">Full</span>'
+    : `<span class="badge badge-green">${ev.slots ? ev.slots - ev.signups.length + ' open' : 'Open'}</span>`;
+
+  let rows = ev.signups.map((s, i) => `
+    <tr>
+      <td class="row-num">${i + 1}</td>
+      <td>${s.name}</td>
+      <td>${s.role || '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeSignup(${ev.id}, ${i})">Remove</button></td>
+    </tr>`).join('');
+  if (ev.slots) {
+    const empty = Math.min(3, ev.slots - ev.signups.length);
+    for (let i = 0; i < empty; i++) {
+      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td></td></tr>`;
+    }
+  }
+  document.getElementById('sheet-table').innerHTML = `
+    <thead><tr><th>#</th><th>Name</th><th>Role / note</th><th>Time</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>`;
+}
+
+function addSignupRow() {
+  const id = parseInt(document.getElementById('sheet-event-select').value);
+  const ev = state.events.find(e => e.id === id);
+  const name = document.getElementById('signup-name').value.trim();
+  if (!name) { showToast('Please enter your name.', 'error'); return; }
+  if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
+  const now = new Date();
+  ev.signups.push({ name, role: document.getElementById('signup-role').value.trim(), ts: now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') });
+  document.getElementById('signup-name').value = '';
+  document.getElementById('signup-role').value = '';
+  showToast(`${name} signed up for ${ev.title}!`);
+  renderSignupSheet();
+}
+
+function removeSignup(evId, idx) {
+  const ev = state.events.find(e => e.id === evId);
+  const name = ev.signups[idx].name;
+  ev.signups.splice(idx, 1);
+  showToast(`Removed ${name}.`, 'error');
+  renderSignupSheet();
+}
+
+// ══════════════════════════════
+// MEMBERS
+// ══════════════════════════════
+function renderMembers() {
+  const q = (document.getElementById('member-search').value || '').toLowerCase();
+  const rf = document.getElementById('member-role-filter').value;
+  let list = state.members.filter(m => {
+    const name = (m.fname + ' ' + m.lname).toLowerCase();
+    return (!q || name.includes(q) || m.spec.toLowerCase().includes(q)) && (!rf || m.role === rf);
+  });
+  const grid = document.getElementById('members-grid');
+  if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
+  const roleColor = { President: 'green', 'Vice President': 'purple', Committee: 'amber', Member: 'gray' };
+  grid.innerHTML = list.map(m => {
+    const [bg, fg] = memberColor(m.color);
+    const tags = m.spec.split(',').map(s => `<span class="badge badge-gray">${s.trim()}</span>`).join('');
+    return `
+      <div class="member-card">
+        <div class="member-avatar" style="background:${bg};color:${fg};">${initials(m.fname, m.lname)}</div>
+        <div style="flex:1;">
+          <div class="member-name">${m.fname} ${m.lname}</div>
+          <div class="member-role">${m.email}</div>
+          <div class="member-tags">
+            <span class="badge badge-${roleColor[m.role] || 'gray'}">${m.role}</span>
+            ${tags}
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="removeMember(${m.id})">Remove</button>
+      </div>`;
+  }).join('');
+  document.getElementById('members-count').textContent = `Showing ${list.length} of ${state.members.length} members`;
+}
+
+function addMember() {
+  const fname = document.getElementById('mem-fname').value.trim();
+  const lname = document.getElementById('mem-lname').value.trim();
+  if (!fname || !lname) { showToast('Please fill in first and last name.', 'error'); return; }
+  const colors = ['green','purple','amber','coral','teal','blue'];
+  state.members.push({
+    id: Date.now(), fname, lname,
+    email: document.getElementById('mem-email').value.trim(),
+    role: document.getElementById('mem-role').value,
+    spec: document.getElementById('mem-spec').value || 'General',
+    color: colors[state.members.length % colors.length],
+  });
+  closeModal('member-modal');
+  ['mem-fname','mem-lname','mem-email','mem-spec'].forEach(id => document.getElementById(id).value = '');
+  showToast(`${fname} ${lname} added!`);
+  renderMembers();
+  document.getElementById('stat-members').textContent = state.members.length;
+}
+
+function removeMember(id) {
+  state.members = state.members.filter(m => m.id !== id);
+  renderMembers();
+  document.getElementById('stat-members').textContent = state.members.length;
+  showToast('Member removed.', 'error');
+}
+
+// ══════════════════════════════
+// GALLERY
+// ══════════════════════════════
+const galleryColors = { Photo: ['#EEEDFE','#b49dff'], Video: ['#FAECE7','#ff7b5e'], Podcast: ['#E1F5EE','#4ef0c4'], Design: ['#FAEEDA','#ffb547'] };
+const galleryIcons = {
+  Photo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+  Video: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
+  Podcast: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
+  Design: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
+};
+
+function renderGallery(filter) {
+  if (filter !== undefined) state.galleryFilter = filter;
+  const f = state.galleryFilter;
+  const list = f === 'all' ? state.gallery : state.gallery.filter(g => g.type === f);
+  const grid = document.getElementById('gallery-grid');
+  if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>No projects yet.</p></div>'; return; }
+  const [bg, fg] = galleryColors[list[0]?.type] || ['#1a1a1d','#a09eb8'];
+  grid.innerHTML = list.map(g => {
+    const [gbg, gfg] = galleryColors[g.type] || ['#1a1a1d','#a09eb8'];
+    return `
+      <div class="gallery-item" style="background:${gbg}20;" onclick="window.open('${g.link}','_blank')">
+        <div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>
+        <div style="text-align:center;padding:0 12px;">
+          <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px;">${g.title}</div>
+          <div style="font-size:11px;color:var(--text3);">${g.author}</div>
+          <div style="margin-top:4px;"><span class="badge" style="background:${gbg}40;color:${gfg};border-color:${gfg}30;">${g.type}</span></div>
+        </div>
+        <div class="gallery-overlay"><div class="gallery-overlay-title">${g.desc}</div></div>
+      </div>`;
+  }).join('');
+}
+
+function switchGalleryTab(f, el) {
+  document.querySelectorAll('#page-gallery .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderGallery(f);
+}
+
+function submitProject() {
+  const title = document.getElementById('gal-title').value.trim();
+  const author = document.getElementById('gal-author').value.trim();
+  if (!title || !author) { showToast('Title and name required.', 'error'); return; }
+  state.gallery.push({
+    id: Date.now(),
+    title,
+    type: document.getElementById('gal-type').value,
+    author,
+    desc: document.getElementById('gal-desc').value,
+    link: document.getElementById('gal-link').value || '#',
+  });
+  closeModal('gallery-modal');
+  showToast(`Project "${title}" submitted!`);
+  renderGallery();
+}
+
+// ══════════════════════════════
+// EQUIPMENT
+// ══════════════════════════════
+function renderEquipment() {
+  const equip = state.equipment;
+  document.getElementById('equipment-grid').innerHTML = equip.map(e => {
+    const avail = e.status === 'available';
+    return `
+      <div class="equipment-card">
+        <div class="equip-icon" style="background:${avail ? 'var(--accent-dim)' : 'var(--coral-dim)'};">
+          <svg viewBox="0 0 24 24" fill="none" stroke="${avail ? 'var(--accent)' : 'var(--coral)'}" style="width:20px;height:20px;">
+            ${e.icon === 'camera' ? '<rect x="1" y="7" width="15" height="12" rx="2"/><path d="M23 10l-7 5 7 5V10z"/>' :
+              e.icon === 'mic' ? '<path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/>' :
+              e.icon === 'sun' ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>' :
+              '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>'}
+          </svg>
+        </div>
+        <div class="equip-name">${e.name}</div>
+        <div class="equip-detail">${e.cat} · ${e.detail}</div>
+        <div class="equip-status">
+          <span class="badge badge-${avail ? 'green' : 'coral'}">${avail ? 'Available' : 'Checked out'}</span>
+          ${avail
+            ? `<button class="btn btn-ghost btn-sm" onclick="openModal('equip-book-modal');document.getElementById('book-item').value='${e.id}'">Book</button>`
+            : `<span style="font-size:11px;color:var(--text3);">by ${e.bookedBy}</span>`}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function populateBookingSelect() {
+  const avail = state.equipment.filter(e => e.status === 'available');
+  document.getElementById('book-item').innerHTML = avail.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+function bookEquipment() {
+  const name = document.getElementById('book-name').value.trim();
+  const id = parseInt(document.getElementById('book-item').value);
+  const date = document.getElementById('book-date').value;
+  if (!name || !date) { showToast('Please fill in required fields.', 'error'); return; }
+  const item = state.equipment.find(e => e.id === id);
+  item.status = 'checked-out';
+  item.bookedBy = name;
+  closeModal('equip-book-modal');
+  showToast(`${item.name} booked by ${name}!`);
+  renderEquipment();
+}
+
+// ══════════════════════════════
+// JOIN
+// ══════════════════════════════
+function submitJoin() {
+  const fname = document.getElementById('join-fname').value.trim();
+  const lname = document.getElementById('join-lname').value.trim();
+  const email = document.getElementById('join-email').value.trim();
+  const why = document.getElementById('join-why').value.trim();
+  if (!fname || !lname || !email || !why) { showToast('Please fill in all required fields.', 'error'); return; }
+  const interests = [...document.querySelectorAll('#interest-group .checked input')].map(i => i.value);
+  state.applications.push({ id: Date.now(), fname, lname, email, why, interests, status: 'pending', year: document.getElementById('join-year').value, exp: document.getElementById('join-exp').value });
+  document.getElementById('join-form-card').style.display = 'none';
+  document.getElementById('join-success').style.display = 'block';
+  document.querySelector('.nav-item[onclick*=admin] .notif-dot').style.display = 'inline-block';
+  showToast('Application submitted!');
+}
+
+// ══════════════════════════════
+// ADMIN
+// ══════════════════════════════
+function renderAdmin() {
+  document.getElementById('pending-count').textContent = state.applications.filter(a => a.status === 'pending').length;
+  renderPending();
+  renderManageEvents();
+  renderAdminAnn();
+}
+
+function renderPending() {
+  const list = state.applications.filter(a => a.status === 'pending');
+  const el = document.getElementById('pending-list');
+  if (!list.length) { el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg><p>No pending applications.</p></div>'; return; }
+  el.innerHTML = list.map(a => `
+    <div class="admin-row">
+      <div>
+        <div style="font-size:14px;font-weight:500;color:var(--text);">${a.fname} ${a.lname}</div>
+        <div style="font-size:12px;color:var(--text3);">${a.email} · ${a.year} · ${a.exp}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;max-width:500px;">${a.why}</div>
+        ${a.interests.length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${a.interests.map(i => `<span class="badge badge-gray">${i}</span>`).join('')}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-accent btn-sm" onclick="approveApp(${a.id})">Approve</button>
+        <button class="btn btn-danger btn-sm" onclick="rejectApp(${a.id})">Reject</button>
+      </div>
+    </div>`).join('');
+}
+
+function approveApp(id) {
+  const app = state.applications.find(a => a.id === id);
+  app.status = 'approved';
+  const colors = ['green','purple','amber','coral','teal','blue'];
+  state.members.push({ id: Date.now(), fname: app.fname, lname: app.lname, email: app.email, role: 'Member', spec: app.interests.join(', ') || 'General', color: colors[state.members.length % colors.length] });
+  showToast(`${app.fname} ${app.lname} approved and added to members!`);
+  renderAdmin();
+}
+
+function rejectApp(id) {
+  state.applications.find(a => a.id === id).status = 'rejected';
+  showToast('Application rejected.', 'error');
+  renderAdmin();
+}
+
+function renderManageEvents() {
+  document.getElementById('manage-events-list').innerHTML = state.events.map(ev => `
+    <div class="admin-row">
+      <div>
+        <div style="font-size:14px;font-weight:500;color:var(--text);">${ev.title}</div>
+        <div style="font-size:12px;color:var(--text3);">${fmtDate(ev.date)} · ${ev.loc} · <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span></div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;">${ev.signups.length} signed up${ev.slots ? ' / ' + ev.slots : ''}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteEvent(${ev.id});renderManageEvents();">Delete</button>
+    </div>`).join('');
+}
+
+function renderAdminAnn() {
+  document.getElementById('admin-ann-list').innerHTML = state.announcements.map(a => `
+    <div class="admin-row">
+      <div>
+        <div style="font-size:14px;font-weight:500;color:var(--text);">${a.title}</div>
+        <div style="font-size:12px;color:var(--text2);">${a.body}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${a.date}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteAnn(${a.id})">Delete</button>
+    </div>`).join('');
+}
+
+function postAnnouncement() {
+  const title = document.getElementById('ann-title').value.trim();
+  const body = document.getElementById('ann-body').value.trim();
+  if (!title || !body) { showToast('Please fill in both fields.', 'error'); return; }
+  state.announcements.unshift({ id: Date.now(), title, body, date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) });
+  document.getElementById('ann-title').value = '';
+  document.getElementById('ann-body').value = '';
+  showToast('Announcement published!');
+  renderAdminAnn();
+  renderDashboard();
+}
+
+function deleteAnn(id) {
+  state.announcements = state.announcements.filter(a => a.id !== id);
+  renderAdminAnn();
+  renderDashboard();
+  showToast('Announcement deleted.', 'error');
+}
+
+function switchAdminTab(name, el) {
+  document.querySelectorAll('#page-admin .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#page-admin .tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('admin-tab-' + name).classList.add('active');
+}
+
+// ══════════════════════════════
+// SEARCH
+// ══════════════════════════════
+function handleSearch(q) {
+  if (!q) return;
+}
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+renderDashboard();
+</script>
+</body>
+</html>
