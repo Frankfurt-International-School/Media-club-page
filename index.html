@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MediaClub</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<title>Media Club</title>
 <style>
 :root {
   --bg: #ffffff;
@@ -33,8 +32,8 @@
   --radius: 12px;
   --radius-sm: 8px;
   --radius-lg: 18px;
-  --font-head: 'Cinzel', Georgia, serif;
-  --font-body: 'Cormorant Garamond', Georgia, serif;
+  --font-head: Calibri, Arial, Helvetica, sans-serif;
+  --font-body: Calibri, Arial, Helvetica, sans-serif;
   --sidebar: 220px;
   --topbar: 56px;
 }
@@ -62,6 +61,7 @@
     z-index: 100;
     transition: transform 0.3s ease;
   }
+  body.sidebar-collapsed .sidebar { transform: translateX(-100%); }
   .sidebar-logo {
     padding: 20px 18px 16px;
     border-bottom: 1px solid var(--border);
@@ -168,7 +168,9 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    transition: margin-left 0.3s ease;
   }
+  body.sidebar-collapsed .main { margin-left: 0; }
   .topbar {
     height: var(--topbar);
     background: var(--bg2);
@@ -237,6 +239,21 @@
     cursor: pointer;
     padding: 4px;
   }
+  .sidebar-toggle-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text2);
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .sidebar-toggle-btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+  .sidebar-toggle-btn svg { width: 16px; height: 16px; }
 
   /* ── PAGES ── */
   .page { display: none; padding: 28px; animation: fadeIn 0.2s ease; }
@@ -687,6 +704,12 @@
   .checkbox-label:hover { border-color: var(--border2); color: var(--text); }
   .checkbox-label input { display: none; }
   .checkbox-label.checked { border-color: rgba(200,255,87,0.3); background: var(--accent-dim); color: var(--accent); }
+  .profile-preview {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
 
   /* ── FILTER CHIPS ── */
   .filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
@@ -714,6 +737,20 @@
     margin-left: 4px;
     vertical-align: middle;
   }
+  .wave-hand {
+    display: inline-block;
+    transform-origin: 70% 70%;
+    animation: waveBrief 1.15s ease-in-out 0.4s 1;
+  }
+  .wave-hand.wave-now { animation: waveBrief 1.15s ease-in-out 1; }
+  @keyframes waveBrief {
+    0%, 100% { transform: rotate(0deg); }
+    15% { transform: rotate(16deg); }
+    30% { transform: rotate(-9deg); }
+    45% { transform: rotate(14deg); }
+    60% { transform: rotate(-5deg); }
+    75% { transform: rotate(8deg); }
+  }
 
   /* ── SCROLLBAR ── */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -726,6 +763,7 @@
     .sidebar.open { transform: translateX(0); }
     .main { margin-left: 0; }
     .mob-menu-btn { display: flex; }
+    .sidebar-toggle-btn { display: none; }
     .page { padding: 16px; }
     .form-row2 { grid-template-columns: 1fr; }
   }
@@ -760,8 +798,8 @@
 <!-- ── SIDEBAR ── -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-mark"><img class="logo-image" src="assets/media-club-logo.svg" alt="MediaClub logo"> MediaClub</div>
-    <div class="logo-sub">Student Media Society</div>
+    <div class="logo-mark"><img class="logo-image" src="assets/media-club-logo.svg" alt="Media Club logo"> Media Club</div>
+    <div class="logo-sub">FIS Student Media club</div>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section-label">Main</div>
@@ -803,11 +841,11 @@
     </div>
   </nav>
   <div class="sidebar-footer">
-    <div class="sidebar-user" onclick="showToast('Profile settings coming soon!', 'success')">
-      <div class="user-avatar">JS</div>
+    <div class="sidebar-user" onclick="navigate('profile')">
+      <div class="user-avatar" id="sidebar-user-avatar">JS</div>
       <div>
-        <div class="user-name">Jana Stein</div>
-        <div class="user-role">President</div>
+        <div class="user-name" id="sidebar-user-name">Jana Stein</div>
+        <div class="user-role" id="sidebar-user-role">President</div>
       </div>
     </div>
   </div>
@@ -818,6 +856,9 @@
   <div class="topbar">
     <button class="mob-menu-btn" onclick="toggleSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" aria-label="Hide sidebar" title="Hide sidebar">
+      <svg id="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="topbar-title" id="topbar-title">Dashboard</div>
     <div class="search-wrap">
@@ -833,8 +874,8 @@
   <!-- ── DASHBOARD ── -->
   <div id="page-home" class="page active">
     <div class="page-header">
-      <div class="page-title">Good afternoon 👋</div>
-      <div class="page-sub">Here's what's happening in MediaClub this week.</div>
+      <div class="page-title">Good afternoon <span class="wave-hand" id="wave-hand">👋</span></div>
+      <div class="page-sub">Here's what's happening in Media Club this week.</div>
     </div>
     <div class="grid4 mb24">
       <div class="stat-card green">
@@ -849,13 +890,13 @@
       </div>
       <div class="stat-card coral">
         <div class="stat-label">Projects</div>
-        <div class="stat-value">12</div>
-        <div class="stat-sub">3 in progress</div>
+        <div class="stat-value" id="stat-projects">0</div>
+        <div class="stat-sub">Ready for submissions</div>
       </div>
       <div class="stat-card amber">
         <div class="stat-label">Equipment items</div>
-        <div class="stat-value">18</div>
-        <div class="stat-sub">5 checked out</div>
+        <div class="stat-value" id="stat-equipment">0</div>
+        <div class="stat-sub">Admin setup pending</div>
       </div>
     </div>
     <div class="grid2 mb24">
@@ -882,7 +923,7 @@
     <div class="flex-between mb24">
       <div>
         <div class="page-title">Events</div>
-        <div class="page-sub">All upcoming and past MediaClub activities.</div>
+        <div class="page-sub">All upcoming and past Media Club activities.</div>
       </div>
       <button class="btn btn-accent" onclick="openModal('event-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -988,20 +1029,73 @@
     <div class="flex-between mb20">
       <div>
         <div class="page-title">Equipment</div>
-        <div class="page-sub">Book gear for your shoots and projects.</div>
+        <div class="page-sub">Admin equipment list for cameras, audio, lighting, and production gear.</div>
       </div>
-      <button class="btn btn-accent" onclick="openModal('equip-book-modal')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Book equipment
+      <button class="btn btn-accent" id="add-equipment-btn" onclick="openModal('equip-add-modal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add equipment
       </button>
     </div>
     <div class="grid3" id="equipment-grid"></div>
   </div>
 
+  <!-- ── PROFILE ── -->
+  <div id="page-profile" class="page">
+    <div class="page-title mb8">Profile Settings</div>
+    <div class="page-sub mb24">Update the account shown in the Media Club dashboard.</div>
+    <div class="grid2">
+      <div class="card">
+        <h3 class="section-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Account details
+        </h3>
+        <div class="form-row2">
+          <div class="form-group"><label class="form-label">Display name</label><input class="form-input" id="profile-name" /></div>
+          <div class="form-group"><label class="form-label">Avatar initials</label><input class="form-input" id="profile-initials" maxlength="3" /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="profile-email" type="email" /></div>
+        <div class="form-row2">
+          <div class="form-group"><label class="form-label">Club role</label><input class="form-input" id="profile-role" /></div>
+          <div class="form-group">
+            <label class="form-label">Profile color</label>
+            <select class="form-select" id="profile-color">
+              <option value="green">Green</option><option value="purple">Purple</option><option value="amber">Amber</option><option value="coral">Coral</option><option value="teal">Teal</option><option value="blue">Blue</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="saveProfileSettings()">Save profile</button>
+          <button class="btn btn-ghost" onclick="resetProfileForm()">Reset</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="section-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          Preferences
+        </h3>
+        <div class="checkbox-group mb16">
+          <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" id="profile-email-updates"> Email updates</label>
+          <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" id="profile-event-reminders"> Event reminders</label>
+          <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" id="profile-project-alerts"> Project alerts</label>
+        </div>
+        <div class="profile-preview">
+          <div class="flex-center gap10">
+            <div class="user-avatar" id="profile-preview-avatar">JS</div>
+            <div>
+              <div class="user-name" id="profile-preview-name">Jana Stein</div>
+              <div class="user-role" id="profile-preview-role">President</div>
+            </div>
+          </div>
+          <div class="text-muted" style="margin-top:12px;" id="profile-preview-email">j.stein@school.de</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── JOIN ── -->
   <div id="page-join" class="page">
     <div style="max-width:560px;">
-      <div class="page-title mb8">Join MediaClub</div>
+      <div class="page-title mb8">Join Media Club</div>
       <div class="page-sub mb24">Fill in the form below and a committee member will review your application.</div>
       <div class="card" id="join-form-card">
         <div class="form-row2">
@@ -1165,23 +1259,18 @@
   </div>
 </div>
 
-<!-- Equipment Booking Modal -->
-<div class="modal-backdrop" id="equip-book-modal">
+<!-- Add Equipment Modal -->
+<div class="modal-backdrop" id="equip-add-modal">
   <div class="modal" style="position:relative;">
-    <button class="modal-close" onclick="closeModal('equip-book-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    <div class="modal-title">Book equipment</div>
-    <div class="modal-sub">Reserve gear for your next project.</div>
-    <div class="form-group"><label class="form-label">Your name *</label><input class="form-input" id="book-name" placeholder="Your full name" /></div>
-    <div class="form-group">
-      <label class="form-label">Equipment item *</label>
-      <select class="form-select" id="book-item"></select>
-    </div>
+    <button class="modal-close" onclick="closeModal('equip-add-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Add equipment</div>
+    <div class="modal-sub">Create an equipment record for future admin management.</div>
     <div class="form-row2">
-      <div class="form-group"><label class="form-label">Date needed *</label><input class="form-input" id="book-date" type="date" /></div>
-      <div class="form-group"><label class="form-label">Return by *</label><input class="form-input" id="book-return" type="date" /></div>
+      <div class="form-group"><label class="form-label">Item name *</label><input class="form-input" id="equip-name" placeholder="Sony A7 III" /></div>
+      <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="equip-cat" placeholder="Camera" /></div>
     </div>
-    <div class="form-group"><label class="form-label">Purpose</label><input class="form-input" id="book-purpose" placeholder="Short film shoot, photoshoot..." /></div>
-    <button class="btn btn-accent" style="width:100%;" onclick="bookEquipment()">Confirm booking</button>
+    <div class="form-group"><label class="form-label">Details</label><input class="form-input" id="equip-detail" placeholder="Full-frame mirrorless, 4K video..." /></div>
+    <button class="btn btn-accent" style="width:100%;" onclick="addEquipment()">Add equipment</button>
   </div>
 </div>
 
@@ -1193,6 +1282,19 @@
 // STATE
 // ══════════════════════════════
 const state = {
+  currentUser: {
+    name: "Jana Stein",
+    email: "j.stein@school.de",
+    role: "President",
+    initials: "JS",
+    color: "green",
+    isAdmin: true,
+    preferences: {
+      emailUpdates: true,
+      eventReminders: true,
+      projectAlerts: false,
+    },
+  },
   events: [
     { id: 1, title: "Short film workshop", date: "2026-05-14", time: "15:30", loc: "Room B12", cat: "Workshop", slots: 20, desc: "Learn the fundamentals of short film production with our resident directors.", signups: [
       { name: "Jana Stein", role: "Director", ts: "14:00" },
@@ -1204,7 +1306,7 @@ const state = {
       { name: "Sophia Bauer", role: "Entry submitted", ts: "09:00" },
       { name: "Kai Fischer", role: "Entry submitted", ts: "09:30" },
     ]},
-    { id: 3, title: "Podcast recording session", date: "2026-05-28", time: "13:00", loc: "Studio A", cat: "Recording", slots: 8, desc: "Monthly episode recording for the MediaClub podcast. All welcome.", signups: [
+    { id: 3, title: "Podcast recording session", date: "2026-05-28", time: "13:00", loc: "Studio A", cat: "Recording", slots: 8, desc: "Monthly episode recording for the Media Club podcast. All welcome.", signups: [
       { name: "Max Krüger", role: "Host", ts: "13:00" },
       { name: "Lena Petrov", role: "Producer", ts: "13:02" },
     ]},
@@ -1221,21 +1323,8 @@ const state = {
     { id: 5, fname: "Sophia", lname: "Bauer", email: "s.bauer@school.de", role: "Member", spec: "Photography", color: "teal" },
     { id: 6, fname: "Kai", lname: "Fischer", email: "k.fischer@school.de", role: "Member", spec: "Video, Editing", color: "blue" },
   ],
-  gallery: [
-    { id: 1, title: "City at night", type: "Photo", author: "Sophia Bauer", desc: "Long exposure shots around Frankfurt city centre.", link: "#" },
-    { id: 2, title: "The quiet hour", type: "Video", author: "Kai Fischer", desc: "Short documentary about early morning routines.", link: "#" },
-    { id: 3, title: "Episode 12: AI in schools", type: "Podcast", author: "Max Krüger", desc: "Our monthly podcast discussing tech in education.", link: "#" },
-    { id: 4, title: "Spring light series", type: "Photo", author: "Jana Stein", desc: "Soft golden-hour portraits taken in the school garden.", link: "#" },
-    { id: 5, title: "Club promo reel 2026", type: "Video", author: "Tom Adler", desc: "Recruitment video for next year's intake.", link: "#" },
-  ],
-  equipment: [
-    { id: 1, name: "Sony A7 III", cat: "Camera", detail: "Full-frame mirrorless", icon: "camera", status: "available", bookedBy: null },
-    { id: 2, name: "Canon EOS R6", cat: "Camera", detail: "Mirrorless, 4K video", icon: "camera", status: "checked-out", bookedBy: "Kai Fischer" },
-    { id: 3, name: "DJI Ronin-S", cat: "Stabiliser", detail: "3-axis gimbal", icon: "video", status: "available", bookedBy: null },
-    { id: 4, name: "Rode NTG3", cat: "Microphone", detail: "Shotgun mic + blimp", icon: "mic", status: "available", bookedBy: null },
-    { id: 5, name: "Godox AD200", cat: "Lighting", detail: "Portable strobe kit", icon: "sun", status: "checked-out", bookedBy: "Jana Stein" },
-    { id: 6, name: "Manfrotto tripod", cat: "Support", detail: "Fluid head, 75mm bowl", icon: "sliders", status: "available", bookedBy: null },
-  ],
+  gallery: [],
+  equipment: [],
   announcements: [
     { id: 1, title: "New camera training slots open", body: "Sign up for a 1-hour induction on the Sony A7 III before borrowing it for the first time.", date: "May 5" },
     { id: 2, title: "End-of-year screening: submit projects", body: "Submit your films or photo series by June 1st for consideration in the screening night.", date: "Apr 28" },
@@ -1249,7 +1338,7 @@ const state = {
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
 
 function navigate(id, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1263,6 +1352,7 @@ function navigate(id, el) {
   if (id === 'members') renderMembers();
   if (id === 'gallery') renderGallery();
   if (id === 'equipment') renderEquipment();
+  if (id === 'profile') renderProfile();
   if (id === 'admin') renderAdmin();
   document.getElementById('sidebar').classList.remove('open');
 }
@@ -1271,12 +1361,20 @@ function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
 }
 
+function toggleSidebarCollapse() {
+  const collapsed = document.body.classList.toggle('sidebar-collapsed');
+  const btn = document.getElementById('sidebar-toggle-btn');
+  const icon = document.getElementById('sidebar-toggle-icon');
+  btn.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
+  btn.setAttribute('title', collapsed ? 'Show sidebar' : 'Hide sidebar');
+  icon.innerHTML = collapsed ? '<polyline points="9 18 15 12 9 6"/>' : '<polyline points="15 18 9 12 15 6"/>';
+}
+
 // ══════════════════════════════
 // MODAL
 // ══════════════════════════════
 function openModal(id) {
   document.getElementById(id).classList.add('open');
-  if (id === 'equip-book-modal') populateBookingSelect();
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-backdrop').forEach(m => {
@@ -1320,12 +1418,82 @@ function toggleCheck(el) {
   el.querySelector('input').checked = el.classList.contains('checked');
 }
 
+function applyCheckedState(input, checked) {
+  input.checked = checked;
+  input.closest('.checkbox-label').classList.toggle('checked', checked);
+}
+
+function updateUserSurfaces() {
+  const user = state.currentUser;
+  const [bg, fg] = memberColor(user.color);
+  document.getElementById('sidebar-user-name').textContent = user.name;
+  document.getElementById('sidebar-user-role').textContent = user.role;
+  document.getElementById('sidebar-user-avatar').textContent = user.initials;
+  document.getElementById('sidebar-user-avatar').style.background = bg;
+  document.getElementById('sidebar-user-avatar').style.color = fg;
+  const previewAvatar = document.getElementById('profile-preview-avatar');
+  if (previewAvatar) {
+    previewAvatar.textContent = user.initials;
+    previewAvatar.style.background = bg;
+    previewAvatar.style.color = fg;
+    document.getElementById('profile-preview-name').textContent = user.name;
+    document.getElementById('profile-preview-role').textContent = user.role;
+    document.getElementById('profile-preview-email').textContent = user.email;
+  }
+}
+
+function renderProfile() {
+  const user = state.currentUser;
+  document.getElementById('profile-name').value = user.name;
+  document.getElementById('profile-initials').value = user.initials;
+  document.getElementById('profile-email').value = user.email;
+  document.getElementById('profile-role').value = user.role;
+  document.getElementById('profile-color').value = user.color;
+  applyCheckedState(document.getElementById('profile-email-updates'), user.preferences.emailUpdates);
+  applyCheckedState(document.getElementById('profile-event-reminders'), user.preferences.eventReminders);
+  applyCheckedState(document.getElementById('profile-project-alerts'), user.preferences.projectAlerts);
+  updateUserSurfaces();
+}
+
+function resetProfileForm() {
+  renderProfile();
+  showToast('Profile form reset.');
+}
+
+function saveProfileSettings() {
+  const name = document.getElementById('profile-name').value.trim();
+  const email = document.getElementById('profile-email').value.trim();
+  const role = document.getElementById('profile-role').value.trim();
+  const initialsValue = document.getElementById('profile-initials').value.trim().toUpperCase();
+  if (!name || !email || !role || !initialsValue) {
+    showToast('Please fill in all profile details.', 'error');
+    return;
+  }
+  state.currentUser = {
+    ...state.currentUser,
+    name,
+    email,
+    role,
+    initials: initialsValue,
+    color: document.getElementById('profile-color').value,
+    preferences: {
+      emailUpdates: document.getElementById('profile-email-updates').checked,
+      eventReminders: document.getElementById('profile-event-reminders').checked,
+      projectAlerts: document.getElementById('profile-project-alerts').checked,
+    },
+  };
+  updateUserSurfaces();
+  showToast('Profile settings saved.');
+}
+
 // ══════════════════════════════
 // DASHBOARD
 // ══════════════════════════════
 function renderDashboard() {
   document.getElementById('stat-members').textContent = state.members.length;
   document.getElementById('stat-events').textContent = state.events.length;
+  document.getElementById('stat-projects').textContent = state.gallery.length;
+  document.getElementById('stat-equipment').textContent = state.equipment.length;
 
   const el = document.getElementById('dash-events-list');
   el.innerHTML = state.events.slice(0, 3).map(ev => `
@@ -1568,7 +1736,15 @@ function renderGallery(filter) {
   const f = state.galleryFilter;
   const list = f === 'all' ? state.gallery : state.gallery.filter(g => g.type === f);
   const grid = document.getElementById('gallery-grid');
-  if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>No projects yet.</p></div>'; return; }
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <p>No projects have been submitted yet.</p>
+        <button class="btn btn-accent btn-sm" style="margin-top:14px;" onclick="openModal('gallery-modal')">Submit project</button>
+      </div>`;
+    return;
+  }
   const [bg, fg] = galleryColors[list[0]?.type] || ['#1a1a1d','#a09eb8'];
   grid.innerHTML = list.map(g => {
     const [gbg, gfg] = galleryColors[g.type] || ['#1a1a1d','#a09eb8'];
@@ -1604,8 +1780,10 @@ function submitProject() {
     link: document.getElementById('gal-link').value || '#',
   });
   closeModal('gallery-modal');
+  ['gal-title','gal-author','gal-desc','gal-link'].forEach(id => document.getElementById(id).value = '');
   showToast(`Project "${title}" submitted!`);
   renderGallery();
+  renderDashboard();
 }
 
 // ══════════════════════════════
@@ -1613,46 +1791,55 @@ function submitProject() {
 // ══════════════════════════════
 function renderEquipment() {
   const equip = state.equipment;
+  const grid = document.getElementById('equipment-grid');
+  if (!equip.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <p>No equipment has been added yet.</p>
+        ${state.currentUser.isAdmin ? "<button class=\"btn btn-accent btn-sm\" style=\"margin-top:14px;\" onclick=\"openModal('equip-add-modal')\">Add equipment</button>" : '<div class="text-muted" style="margin-top:10px;">Equipment can be added by admins.</div>'}
+      </div>`;
+    return;
+  }
   document.getElementById('equipment-grid').innerHTML = equip.map(e => {
-    const avail = e.status === 'available';
     return `
       <div class="equipment-card">
-        <div class="equip-icon" style="background:${avail ? 'var(--accent-dim)' : 'var(--coral-dim)'};">
-          <svg viewBox="0 0 24 24" fill="none" stroke="${avail ? 'var(--accent)' : 'var(--coral)'}" style="width:20px;height:20px;">
-            ${e.icon === 'camera' ? '<rect x="1" y="7" width="15" height="12" rx="2"/><path d="M23 10l-7 5 7 5V10z"/>' :
-              e.icon === 'mic' ? '<path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/>' :
-              e.icon === 'sun' ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>' :
-              '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>'}
+        <div class="equip-icon" style="background:var(--accent-dim);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" style="width:20px;height:20px;">
+            <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
           </svg>
         </div>
         <div class="equip-name">${e.name}</div>
         <div class="equip-detail">${e.cat} · ${e.detail}</div>
         <div class="equip-status">
-          <span class="badge badge-${avail ? 'green' : 'coral'}">${avail ? 'Available' : 'Checked out'}</span>
-          ${avail
-            ? `<button class="btn btn-ghost btn-sm" onclick="openModal('equip-book-modal');document.getElementById('book-item').value='${e.id}'">Book</button>`
-            : `<span style="font-size:11px;color:var(--text3);">by ${e.bookedBy}</span>`}
+          <span class="badge badge-green">Available</span>
+          <span class="text-muted">Admin item</span>
         </div>
       </div>`;
   }).join('');
 }
 
-function populateBookingSelect() {
-  const avail = state.equipment.filter(e => e.status === 'available');
-  document.getElementById('book-item').innerHTML = avail.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-}
-
-function bookEquipment() {
-  const name = document.getElementById('book-name').value.trim();
-  const id = parseInt(document.getElementById('book-item').value);
-  const date = document.getElementById('book-date').value;
-  if (!name || !date) { showToast('Please fill in required fields.', 'error'); return; }
-  const item = state.equipment.find(e => e.id === id);
-  item.status = 'checked-out';
-  item.bookedBy = name;
-  closeModal('equip-book-modal');
-  showToast(`${item.name} booked by ${name}!`);
+function addEquipment() {
+  if (!state.currentUser.isAdmin) {
+    showToast('Only admins can add equipment.', 'error');
+    return;
+  }
+  const name = document.getElementById('equip-name').value.trim();
+  if (!name) {
+    showToast('Please enter an equipment name.', 'error');
+    return;
+  }
+  state.equipment.push({
+    id: Date.now(),
+    name,
+    cat: document.getElementById('equip-cat').value.trim() || 'General',
+    detail: document.getElementById('equip-detail').value.trim() || 'Details pending',
+  });
+  closeModal('equip-add-modal');
+  ['equip-name','equip-cat','equip-detail'].forEach(id => document.getElementById(id).value = '');
+  showToast(`${name} added to equipment.`);
   renderEquipment();
+  renderDashboard();
 }
 
 // ══════════════════════════════
@@ -1773,10 +1960,22 @@ function handleSearch(q) {
   if (!q) return;
 }
 
+function startWaveAnimation() {
+  const hand = document.getElementById('wave-hand');
+  if (!hand) return;
+  setInterval(() => {
+    hand.classList.remove('wave-now');
+    void hand.offsetWidth;
+    hand.classList.add('wave-now');
+  }, 10000);
+}
+
 // ══════════════════════════════
 // INIT
 // ══════════════════════════════
+updateUserSurfaces();
 renderDashboard();
+startWaveAnimation();
 </script>
 </body>
 </html>
