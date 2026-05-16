@@ -5,49 +5,77 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Media Club</title>
 <style>
-:root {
-  --bg: #ffffff;
-  --bg2: #f8f9fa;
-  --bg3: #f1f3f5;
-  --bg4: #e9ecef;
-  --border: rgba(0,0,0,0.08);
-  --border2: rgba(0,0,0,0.14);
-  --text: #212529;
-  --text2: #495057;
-  --text3: #6c757d;
-  --accent: #EA7AF4;
-  --accent2: #EA7AF4;
-  --accent-dim: rgba(234,122,244,0.15);
-  --accent-dim2: rgba(234,122,244,0.08);
-  --purple: #b49dff;
-  --purple-dim: rgba(180,157,255,0.12);
-  --coral: #ff7b5e;
-  --coral-dim: rgba(255,123,94,0.12);
-  --teal: #4ef0c4;
-  --teal-dim: rgba(78,240,196,0.1);
-  --amber: #ffb547;
-  --amber-dim: rgba(255,181,71,0.1);
-  --blue: #5eaaff;
-  --blue-dim: rgba(94,170,255,0.1);
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 18px;
-  --font-head: Arial;
-  --font-body: Arial;
-  --sidebar: 220px;
-  --topbar: 56px;
-}
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
+  /* 1. Import the fonts from Google right at the top of your style tag */
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --bg2: #f8f9fa;
+    --bg3: #f1f3f5;
+    --bg4: #e9ecef;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #212529;
+    --text2: #495057;
+    --text3: #6c757d;
+    --accent: #EA7AF4;
+    --accent2: #EA7AF4;
+    --accent-dim: rgba(234,122,244,0.15);
+    --accent-dim2: rgba(234,122,244,0.08);
+    --purple: #b49dff;
+    --purple-dim: rgba(180,157,255,0.12);
+    --coral: #ff7b5e;
+    --coral-dim: rgba(255,123,94,0.12);
+    --teal: #4ef0c4;
+    --teal-dim: rgba(78,240,196,0.1);
+    --amber: #ffb547;
+    --amber-dim: rgba(255,181,71,0.1);
+    --blue: #5eaaff;
+    --blue-dim: rgba(94,170,255,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 18px;
+    
+    /* 2. Update your font variables to use the new font names */
+    --font-head: 'Bebas Neue', sans-serif;
+    --font-body: 'Space Grotesk', sans-serif;
+    
+    --sidebar: 220px;
+    --topbar: 56px;
+  }
+
+  *, *::before, *::after { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+  }
+  
+  html { 
+    scroll-behavior: smooth; 
+  }
+  
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: var(--font-body);
+    /* This automatically applies Space Grotesk to all text */
+    font-family: var(--font-body); 
     font-size: 14px;
     line-height: 1.6;
     min-height: 100vh;
     display: flex;
   }
+
+  /* 3. Add this rule so your headings know to use the --font-head variable */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-head);
+    letter-spacing: 1px; /* Bebas Neue looks best with a little extra space between letters */
+    font-weight: normal; /* Bebas Neue only has one weight, so we reset this to keep it crisp */
+  }
+</style>
+</head>
+<body>
+  </body>
+</html>
 
   /* ── SIDEBAR ── */
   .sidebar {
