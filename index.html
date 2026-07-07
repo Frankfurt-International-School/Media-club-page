@@ -1299,6 +1299,8 @@
 <!-- ── TOAST CONTAINER ── -->
 <div class="toast-container" id="toast-container"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 <script>
 // ══════════════════════════════
 // STATE
@@ -1317,34 +1319,8 @@ const state = {
       projectAlerts: false,
     },
   },
-  events: [
-    { id: 1, title: "Short film workshop", date: "2026-05-14", time: "15:30", loc: "Room B12", cat: "Workshop", slots: 20, desc: "Learn the fundamentals of short film production with our resident directors.", signups: [
-      { name: "Jana Stein", role: "Director", ts: "14:00" },
-      { name: "Tom Adler", role: "Camera operator", ts: "14:05" },
-      { name: "Lena Petrov", role: "", ts: "14:10" },
-      { name: "Max Krüger", role: "Sound", ts: "14:15" },
-    ]},
-    { id: 2, title: "Photography competition deadline", date: "2026-05-20", time: "23:59", loc: "Online", cat: "Competition", slots: 50, desc: "Submit your best photo series. Theme: urban life.", signups: [
-      { name: "Sophia Bauer", role: "Entry submitted", ts: "09:00" },
-      { name: "Kai Fischer", role: "Entry submitted", ts: "09:30" },
-    ]},
-    { id: 3, title: "Podcast recording session", date: "2026-05-28", time: "13:00", loc: "Studio A", cat: "Recording", slots: 8, desc: "Monthly episode recording for the Media Club podcast. All welcome.", signups: [
-      { name: "Max Krüger", role: "Host", ts: "13:00" },
-      { name: "Lena Petrov", role: "Producer", ts: "13:02" },
-    ]},
-    { id: 4, title: "End-of-year screening night", date: "2026-06-06", time: "18:00", loc: "School hall", cat: "Screening", slots: 80, desc: "Celebrate the year's work with a screening of member films and photo exhibitions.", signups: [
-      { name: "Jana Stein", role: "Presenter", ts: "17:00" },
-      { name: "Tom Adler", role: "Technician", ts: "17:01" },
-    ]},
-  ],
-  members: [
-    { id: 1, fname: "Jana", lname: "Stein", email: "j.stein@school.de", role: "President", spec: "Photography", color: "green" },
-    { id: 2, fname: "Max", lname: "Krüger", email: "m.krueger@school.de", role: "Vice President", spec: "Videography", color: "purple" },
-    { id: 3, fname: "Lena", lname: "Petrov", email: "l.petrov@school.de", role: "Committee", spec: "Podcasting, Events", color: "amber" },
-    { id: 4, fname: "Tom", lname: "Adler", email: "t.adler@school.de", role: "Committee", spec: "Equipment, Photography", color: "coral" },
-    { id: 5, fname: "Sophia", lname: "Bauer", email: "s.bauer@school.de", role: "Member", spec: "Photography", color: "teal" },
-    { id: 6, fname: "Kai", lname: "Fischer", email: "k.fischer@school.de", role: "Member", spec: "Video, Editing", color: "blue" },
-  ],
+  events: [],
+  members: [],
   gallery: [],
   equipment: [],
   announcements: [
@@ -1356,6 +1332,120 @@ const state = {
   eventFilter: "all",
   galleryFilter: "all",
 };
+
+const supabaseSettings = window.CREW_CENTER_SUPABASE || {};
+const supabaseClient = window.crewCenterSupabase || window.supabase?.createClient(supabaseSettings.url, supabaseSettings.anonKey);
+const colors = ['green','purple','amber','coral','teal','blue'];
+
+function showLoadError(targetId, message = "Couldn't load data.") {
+  const target = document.getElementById(targetId);
+  if (target) {
+    target.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><p>${message}</p></div>`;
+  }
+}
+
+function splitName(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return { fname: parts[0] || '', lname: parts.slice(1).join(' ') || '' };
+}
+
+function normalizeMember(member, index = 0) {
+  const { fname, lname } = splitName(member.name);
+  return {
+    id: member.id,
+    fname,
+    lname,
+    name: member.name,
+    email: member.email || '',
+    role: member.role || 'Member',
+    spec: member.status || 'active',
+    color: colors[index % colors.length],
+    joined_date: member.joined_date,
+  };
+}
+
+function normalizeEvent(event) {
+  const dt = new Date(event.date);
+  return {
+    id: event.id,
+    title: event.title,
+    date: dt.toISOString().slice(0, 10),
+    time: dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+    loc: event.location || 'TBC',
+    cat: 'Event',
+    slots: 0,
+    desc: event.description || '',
+    signups: (event.signups || []).map(signup => ({
+      id: signup.id,
+      memberId: signup.member_id,
+      name: signup.members?.name || 'Unknown member',
+      role: signup.members?.role || '',
+      ts: new Date(signup.signed_up_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+    })),
+  };
+}
+
+function normalizeGallery(item) {
+  return {
+    id: item.id,
+    title: item.project_name,
+    type: 'Photo',
+    author: '',
+    desc: item.description || '',
+    link: item.image_url || '#',
+    image_url: item.image_url || '',
+  };
+}
+
+function normalizeEquipment(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    status: item.status || 'available',
+    assignedName: item.members?.name || 'Unassigned',
+    detail: item.notes || 'No notes',
+  };
+}
+
+async function loadCrewCenterData() {
+  if (!supabaseClient || !supabaseSettings.url || supabaseSettings.url.includes('YOUR-PROJECT-REF')) {
+    showToast('Add your Supabase URL and anon key in supabase-config.js.', 'error');
+    ['dash-events-list', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
+    return;
+  }
+
+  try {
+    const [membersRes, eventsRes, galleryRes, equipmentRes] = await Promise.all([
+      supabaseClient.from('members').select('*').order('name'),
+      supabaseClient.from('events').select('*, signups(id, member_id, signed_up_at, members(name, role))').order('date', { ascending: true }),
+      supabaseClient.from('gallery').select('*').order('created_at', { ascending: false }),
+      supabaseClient.from('equipment').select('*, members(name)').order('name'),
+    ]);
+
+    const failed = [membersRes, eventsRes, galleryRes, equipmentRes].find(result => result.error);
+    if (failed) throw failed.error;
+
+    state.members = membersRes.data.map(normalizeMember);
+    state.events = eventsRes.data.map(normalizeEvent);
+    state.gallery = galleryRes.data.map(normalizeGallery);
+    state.equipment = equipmentRes.data.map(normalizeEquipment);
+    renderCurrentPage();
+  } catch (error) {
+    console.error(error);
+    showToast("Couldn't load Supabase data.", 'error');
+    ['dash-events-list', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
+  }
+}
+
+function renderCurrentPage() {
+  const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
+  if (activePage === 'home') renderDashboard();
+  if (activePage === 'events') renderEvents();
+  if (activePage === 'signup') initSignupSheet();
+  if (activePage === 'members') renderMembers();
+  if (activePage === 'gallery') renderGallery();
+  if (activePage === 'equipment') renderEquipment();
+}
 
 // ══════════════════════════════
 // NAVIGATION
@@ -1428,13 +1518,13 @@ function fmtDate(d) {
 function fmtMonth(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' }); }
 function fmtDay(d) { return new Date(d + 'T12:00:00').getDate(); }
 function catColor(cat) {
-  return { Workshop: 'purple', Screening: 'coral', Competition: 'amber', Recording: 'teal', Social: 'blue', Other: 'gray' }[cat] || 'gray';
+  return { Workshop: 'purple', Screening: 'coral', Competition: 'amber', Recording: 'teal', Social: 'blue', Event: 'green', Other: 'gray' }[cat] || 'gray';
 }
 function memberColor(c) {
   const map = { green: ['var(--accent-dim)', 'var(--accent)'], purple: ['var(--purple-dim)', 'var(--purple)'], coral: ['var(--coral-dim)', 'var(--coral)'], amber: ['var(--amber-dim)', 'var(--amber)'], teal: ['var(--teal-dim)', 'var(--teal)'], blue: ['var(--blue-dim)', 'var(--blue)'] };
   return map[c] || map.purple;
 }
-function initials(f, l) { return (f[0] + l[0]).toUpperCase(); }
+function initials(f = '', l = '') { return ((f[0] || '') + (l[0] || f[1] || '')).toUpperCase(); }
 function toggleCheck(el) {
   el.classList.toggle('checked');
   el.querySelector('input').checked = el.classList.contains('checked');
@@ -1512,13 +1602,15 @@ function saveProfileSettings() {
 // DASHBOARD
 // ══════════════════════════════
 function renderDashboard() {
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingEvents = state.events.filter(ev => ev.date >= today);
   document.getElementById('stat-members').textContent = state.members.length;
-  document.getElementById('stat-events').textContent = state.events.length;
+  document.getElementById('stat-events').textContent = upcomingEvents.length;
   document.getElementById('stat-projects').textContent = state.gallery.length;
   document.getElementById('stat-equipment').textContent = state.equipment.length;
 
   const el = document.getElementById('dash-events-list');
-  el.innerHTML = state.events.slice(0, 3).map(ev => `
+  el.innerHTML = upcomingEvents.length ? upcomingEvents.slice(0, 3).map(ev => `
     <div class="event-card" onclick="navigate('events', document.querySelector('[onclick*=events]'))">
       <div class="event-date-box">
         <div class="event-month">${fmtMonth(ev.date)}</div>
@@ -1532,7 +1624,7 @@ function renderDashboard() {
         </div>
         <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>
       </div>
-    </div>`).join('');
+    </div>`).join('') : '<div class="empty-state"><p>No upcoming events.</p></div>';
 
   const al = document.getElementById('announcements-list');
   al.innerHTML = state.announcements.map(a => `
@@ -1576,8 +1668,8 @@ function renderEvents(filter) {
           ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ev.desc}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:8px;">
-            <button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value=${ev.id};renderSignupSheet();},100)">Sign up</button>
-            <button class="btn btn-ghost btn-sm" onclick="deleteEvent(${ev.id})">Delete</button>
+            <button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>
+            <button class="btn btn-ghost btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>
           </div>
         </div>
       </div>`;
@@ -1590,22 +1682,25 @@ function filterEvents(f, el) {
   renderEvents(f);
 }
 
-function addEvent() {
+async function addEvent() {
   const title = document.getElementById('ev-title').value.trim();
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
-  const ev = {
-    id: Date.now(),
-    title,
-    date,
-    time: document.getElementById('ev-time').value,
-    loc: document.getElementById('ev-loc').value,
-    cat: document.getElementById('ev-cat').value,
-    slots: parseInt(document.getElementById('ev-slots').value) || 0,
-    desc: document.getElementById('ev-desc').value,
-    signups: [],
-  };
+  const eventDate = new Date(`${date}T${document.getElementById('ev-time').value || '12:00'}`);
+  const { data, error } = await supabaseClient
+    .from('events')
+    .insert({
+      title,
+      date: eventDate.toISOString(),
+      location: document.getElementById('ev-loc').value,
+      description: document.getElementById('ev-desc').value,
+    })
+    .select('*, signups(id, member_id, signed_up_at, members(name, role))')
+    .single();
+  if (error) { showToast("Couldn't create event.", 'error'); return; }
+  const ev = normalizeEvent(data);
   state.events.push(ev);
+  state.events.sort((a, b) => a.date.localeCompare(b.date));
   closeModal('event-modal');
   ['ev-title','ev-date','ev-time','ev-loc','ev-slots','ev-desc'].forEach(id => document.getElementById(id).value = '');
   showToast(`Event "${ev.title}" created!`);
@@ -1613,7 +1708,9 @@ function addEvent() {
   renderDashboard();
 }
 
-function deleteEvent(id) {
+async function deleteEvent(id) {
+  const { error } = await supabaseClient.from('events').delete().eq('id', id);
+  if (error) { showToast("Couldn't delete event.", 'error'); return; }
   state.events = state.events.filter(e => e.id !== id);
   renderEvents();
   showToast('Event removed.', 'error');
@@ -1629,9 +1726,12 @@ function initSignupSheet() {
 }
 
 function renderSignupSheet() {
-  const id = parseInt(document.getElementById('sheet-event-select').value);
+  const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
-  if (!ev) return;
+  if (!ev) {
+    document.getElementById('sheet-table').innerHTML = '<tbody><tr><td>No events available.</td></tr></tbody>';
+    return;
+  }
   document.getElementById('sheet-event-title').textContent = ev.title;
   const cap = ev.slots || '∞';
   document.getElementById('sheet-event-cap').textContent = `${ev.signups.length} signed up${ev.slots ? ' · ' + ev.slots + ' max' : ''}`;
@@ -1648,7 +1748,7 @@ function renderSignupSheet() {
       <td>${s.name}</td>
       <td>${s.role || '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="removeSignup(${ev.id}, ${i})">Remove</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${i})">Remove</button></td>
     </tr>`).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
@@ -1661,23 +1761,50 @@ function renderSignupSheet() {
     <tbody>${rows}</tbody>`;
 }
 
-function addSignupRow() {
-  const id = parseInt(document.getElementById('sheet-event-select').value);
+async function addSignupRow() {
+  const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
   const name = document.getElementById('signup-name').value.trim();
   if (!name) { showToast('Please enter your name.', 'error'); return; }
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
-  const now = new Date();
-  ev.signups.push({ name, role: document.getElementById('signup-role').value.trim(), ts: now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') });
+  const role = document.getElementById('signup-role').value.trim() || 'Member';
+  let member = state.members.find(m => m.name.toLowerCase() === name.toLowerCase());
+  if (!member) {
+    const safeEmail = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || Date.now()}@example.com`;
+    const { data: createdMember, error: memberError } = await supabaseClient
+      .from('members')
+      .insert({ name, role, email: safeEmail, status: 'active' })
+      .select('*')
+      .single();
+    if (memberError) { showToast("Couldn't add member for signup.", 'error'); return; }
+    member = normalizeMember(createdMember, state.members.length);
+    state.members.push(member);
+  }
+  const { data: signup, error } = await supabaseClient
+    .from('signups')
+    .insert({ event_id: ev.id, member_id: member.id })
+    .select('id, member_id, signed_up_at, members(name, role)')
+    .single();
+  if (error) { showToast("Couldn't save signup.", 'error'); return; }
+  ev.signups.push({
+    id: signup.id,
+    memberId: signup.member_id,
+    name: signup.members?.name || name,
+    role: signup.members?.role || role,
+    ts: new Date(signup.signed_up_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+  });
   document.getElementById('signup-name').value = '';
   document.getElementById('signup-role').value = '';
   showToast(`${name} signed up for ${ev.title}!`);
   renderSignupSheet();
 }
 
-function removeSignup(evId, idx) {
+async function removeSignup(evId, idx) {
   const ev = state.events.find(e => e.id === evId);
   const name = ev.signups[idx].name;
+  const signupId = ev.signups[idx].id;
+  const { error } = await supabaseClient.from('signups').delete().eq('id', signupId);
+  if (error) { showToast("Couldn't remove signup.", 'error'); return; }
   ev.signups.splice(idx, 1);
   showToast(`Removed ${name}.`, 'error');
   renderSignupSheet();
@@ -1710,24 +1837,28 @@ function renderMembers() {
             ${tags}
           </div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="removeMember(${m.id})">Remove</button>
+        <button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>
       </div>`;
   }).join('');
   document.getElementById('members-count').textContent = `Showing ${list.length} of ${state.members.length} members`;
 }
 
-function addMember() {
+async function addMember() {
   const fname = document.getElementById('mem-fname').value.trim();
   const lname = document.getElementById('mem-lname').value.trim();
   if (!fname || !lname) { showToast('Please fill in first and last name.', 'error'); return; }
-  const colors = ['green','purple','amber','coral','teal','blue'];
-  state.members.push({
-    id: Date.now(), fname, lname,
-    email: document.getElementById('mem-email').value.trim(),
-    role: document.getElementById('mem-role').value,
-    spec: document.getElementById('mem-spec').value || 'General',
-    color: colors[state.members.length % colors.length],
-  });
+  const { data, error } = await supabaseClient
+    .from('members')
+    .insert({
+      name: `${fname} ${lname}`,
+      email: document.getElementById('mem-email').value.trim(),
+      role: document.getElementById('mem-role').value,
+      status: document.getElementById('mem-spec').value || 'active',
+    })
+    .select('*')
+    .single();
+  if (error) { showToast("Couldn't add member.", 'error'); return; }
+  state.members.push(normalizeMember(data, state.members.length));
   closeModal('member-modal');
   ['mem-fname','mem-lname','mem-email','mem-spec'].forEach(id => document.getElementById(id).value = '');
   showToast(`${fname} ${lname} added!`);
@@ -1735,7 +1866,9 @@ function addMember() {
   document.getElementById('stat-members').textContent = state.members.length;
 }
 
-function removeMember(id) {
+async function removeMember(id) {
+  const { error } = await supabaseClient.from('members').delete().eq('id', id);
+  if (error) { showToast("Couldn't remove member.", 'error'); return; }
   state.members = state.members.filter(m => m.id !== id);
   renderMembers();
   document.getElementById('stat-members').textContent = state.members.length;
@@ -1771,8 +1904,8 @@ function renderGallery(filter) {
   grid.innerHTML = list.map(g => {
     const [gbg, gfg] = galleryColors[g.type] || ['#1a1a1d','#a09eb8'];
     return `
-      <div class="gallery-item" style="background:${gbg}20;" onclick="window.open('${g.link}','_blank')">
-        <div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>
+      <div class="gallery-item${g.image_url ? ' has-img' : ''}" style="${g.image_url ? `background-image:url('${g.image_url}');` : `background:${gbg}20;`}" onclick="window.open('${g.link}','_blank')">
+        ${g.image_url ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
         <div style="text-align:center;padding:0 12px;">
           <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px;">${g.title}</div>
           <div style="font-size:11px;color:var(--text3);">${g.author}</div>
@@ -1789,18 +1922,22 @@ function switchGalleryTab(f, el) {
   renderGallery(f);
 }
 
-function submitProject() {
+async function submitProject() {
   const title = document.getElementById('gal-title').value.trim();
   const author = document.getElementById('gal-author').value.trim();
   if (!title || !author) { showToast('Title and name required.', 'error'); return; }
-  state.gallery.push({
-    id: Date.now(),
-    title,
-    type: document.getElementById('gal-type').value,
-    author,
-    desc: document.getElementById('gal-desc').value,
-    link: document.getElementById('gal-link').value || '#',
-  });
+  const description = [document.getElementById('gal-desc').value, author ? `Submitted by ${author}` : ''].filter(Boolean).join(' — ');
+  const { data, error } = await supabaseClient
+    .from('gallery')
+    .insert({
+      project_name: title,
+      description,
+      image_url: document.getElementById('gal-link').value || null,
+    })
+    .select('*')
+    .single();
+  if (error) { showToast("Couldn't submit project.", 'error'); return; }
+  state.gallery.unshift(normalizeGallery(data));
   closeModal('gallery-modal');
   ['gal-title','gal-author','gal-desc','gal-link'].forEach(id => document.getElementById(id).value = '');
   showToast(`Project "${title}" submitted!`);
@@ -1832,16 +1969,16 @@ function renderEquipment() {
           </svg>
         </div>
         <div class="equip-name">${e.name}</div>
-        <div class="equip-detail">${e.cat} · ${e.detail}</div>
+        <div class="equip-detail">${e.assignedName} · ${e.detail}</div>
         <div class="equip-status">
-          <span class="badge badge-green">Available</span>
-          <span class="text-muted">Admin item</span>
+          <span class="badge badge-${e.status === 'available' ? 'green' : 'amber'}">${e.status}</span>
+          <span class="text-muted">${e.assignedName}</span>
         </div>
       </div>`;
   }).join('');
 }
 
-function addEquipment() {
+async function addEquipment() {
   if (!state.currentUser.isAdmin) {
     showToast('Only admins can add equipment.', 'error');
     return;
@@ -1851,12 +1988,17 @@ function addEquipment() {
     showToast('Please enter an equipment name.', 'error');
     return;
   }
-  state.equipment.push({
-    id: Date.now(),
-    name,
-    cat: document.getElementById('equip-cat').value.trim() || 'General',
-    detail: document.getElementById('equip-detail').value.trim() || 'Details pending',
-  });
+  const { data, error } = await supabaseClient
+    .from('equipment')
+    .insert({
+      name,
+      status: 'available',
+      notes: [document.getElementById('equip-cat').value.trim(), document.getElementById('equip-detail').value.trim()].filter(Boolean).join(' · ') || 'Details pending',
+    })
+    .select('*, members(name)')
+    .single();
+  if (error) { showToast("Couldn't add equipment.", 'error'); return; }
+  state.equipment.push(normalizeEquipment(data));
   closeModal('equip-add-modal');
   ['equip-name','equip-cat','equip-detail'].forEach(id => document.getElementById(id).value = '');
   showToast(`${name} added to equipment.`);
@@ -1933,7 +2075,7 @@ function renderManageEvents() {
         <div style="font-size:12px;color:var(--text3);">${fmtDate(ev.date)} · ${ev.loc} · <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span></div>
         <div style="font-size:12px;color:var(--text2);margin-top:2px;">${ev.signups.length} signed up${ev.slots ? ' / ' + ev.slots : ''}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteEvent(${ev.id});renderManageEvents();">Delete</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}');renderManageEvents();">Delete</button>
     </div>`).join('');
 }
 
@@ -1998,6 +2140,7 @@ function startWaveAnimation() {
 updateUserSurfaces();
 renderDashboard();
 startWaveAnimation();
+loadCrewCenterData();
 </script>
 </body>
 </html>
