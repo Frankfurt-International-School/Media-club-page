@@ -233,6 +233,18 @@ function applySignedInUser(user) {
   const name = metadata.full_name || metadata.name || metadata.display_name || user.email.split("@")[0] || "Media Club member";
   const role = metadata.role || appMetadata.role || "Member";
   const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
+  const palette = {
+    green: ["rgba(234,122,244,0.15)", "#EA7AF4"],
+    purple: ["rgba(180,157,255,0.12)", "#b49dff"],
+    coral: ["rgba(255,123,94,0.12)", "#ff7b5e"],
+    teal: ["rgba(78,240,196,0.1)", "#4ef0c4"],
+    amber: ["rgba(255,181,71,0.1)", "#ffb547"],
+    blue: ["rgba(94,170,255,0.1)", "#5eaaff"],
+  };
+  const colorNames = Object.keys(palette);
+  const colorSeed = [...(metadata.color || user.id || user.email || name)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const colorName = palette[metadata.color] ? metadata.color : colorNames[colorSeed % colorNames.length];
+  const [avatarBg, avatarFg] = palette[colorName];
   const surfaces = [
     ["sidebar-user-name", name],
     ["sidebar-user-role", role],
@@ -246,6 +258,12 @@ function applySignedInUser(user) {
   surfaces.forEach(([id, value]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
+  });
+  ["sidebar-user-avatar", "profile-preview-avatar"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.background = avatarBg;
+    el.style.color = avatarFg;
   });
 }
 
