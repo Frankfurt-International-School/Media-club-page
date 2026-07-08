@@ -459,6 +459,10 @@ function colorMemberRoleTags() {
       badge.style.background = "rgba(255,181,71,0.16)";
       badge.style.color = "#b87900";
       badge.style.borderColor = "rgba(255,181,71,0.34)";
+    } else if (label === "member" || label === "trainee") {
+      badge.style.background = "rgba(255, 160, 253, 0.12)";
+      badge.style.color = "#be95c4" ; 
+      badge.style.borderColor = "rgba(255, 160, 253, 0.28)"; 
     }
   });
 }
