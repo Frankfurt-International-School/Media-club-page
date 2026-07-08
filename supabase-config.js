@@ -226,12 +226,100 @@ function setAuthBusy(isBusy) {
   authSubmit.textContent = isBusy ? "Signing in..." : "Sign in";
 }
 
+function applyAdminControls() {
+  const isAdmin = Boolean(window.CREW_CENTER_IS_ADMIN);
+  const adminSelectors = [
+    '.nav-item[onclick*="admin"]',
+    'button[onclick*="event-modal"]',
+    'button[onclick*="member-modal"]',
+    'button[onclick*="gallery-modal"]',
+    'button[onclick*="equip-add-modal"]',
+    'button[onclick*="deleteEvent"]',
+    'button[onclick*="removeMember"]',
+    'button[onclick*="addEquipment"]',
+    'button[onclick*="addMember"]',
+    'button[onclick*="addEvent"]',
+    'button[onclick*="submitProject"]',
+    'button[onclick*="renderManageEvents"]',
+  ];
+
+  adminSelectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      el.style.display = isAdmin ? "" : "none";
+    });
+  });
+}
+
+function showNotAuthorized(action = "do that") {
+  if (typeof window.showToast === "function") {
+    window.showToast(`Not authorized: only admins can ${action}.`, "error");
+  } else {
+    setAuthError(`Not authorized: only admins can ${action}.`);
+  }
+}
+
+function installAdminFunctionGuards() {
+  const guarded = {
+    addEvent: "add events",
+    deleteEvent: "delete events",
+    addMember: "add members",
+    removeMember: "remove members",
+    submitProject: "add gallery projects",
+    addEquipment: "add equipment",
+    postAnnouncement: "post announcements",
+    deleteAnn: "delete announcements",
+    renderAdmin: "open the admin panel",
+  };
+
+  Object.entries(guarded).forEach(([name, action]) => {
+    if (typeof window[name] !== "function" || window[name].__adminGuarded) return;
+    const original = window[name];
+    window[name] = function(...args) {
+      if (!window.CREW_CENTER_IS_ADMIN) {
+        showNotAuthorized(action);
+        return undefined;
+      }
+      return original.apply(this, args);
+    };
+    window[name].__adminGuarded = true;
+  });
+
+  if (typeof window.navigate === "function" && !window.navigate.__adminGuarded) {
+    const originalNavigate = window.navigate;
+    window.navigate = function(id, ...args) {
+      if (id === "admin" && !window.CREW_CENTER_IS_ADMIN) {
+        showNotAuthorized("open the admin panel");
+        return undefined;
+      }
+      return originalNavigate.call(this, id, ...args);
+    };
+    window.navigate.__adminGuarded = true;
+  }
+
+  if (typeof window.openModal === "function" && !window.openModal.__adminGuarded) {
+    const originalOpenModal = window.openModal;
+    window.openModal = function(id, ...args) {
+      const adminModalIds = ["event-modal", "member-modal", "gallery-modal", "equip-add-modal"];
+      if (adminModalIds.includes(id) && !window.CREW_CENTER_IS_ADMIN) {
+        showNotAuthorized("manage club content");
+        return undefined;
+      }
+      return originalOpenModal.call(this, id, ...args);
+    };
+    window.openModal.__adminGuarded = true;
+  }
+}
+
 function applySignedInUser(user) {
   window.CREW_CENTER_AUTH_USER = user;
+  if (typeof window.applyCrewCenterAuthUser === "function") {
+    window.applyCrewCenterAuthUser(user);
+  }
   const metadata = user.user_metadata || {};
   const appMetadata = user.app_metadata || {};
   const name = metadata.full_name || metadata.name || metadata.display_name || user.email.split("@")[0] || "Media Club member";
-  const role = metadata.role || appMetadata.role || "Member";
+  const role = appMetadata.role || metadata.role || "Member";
+  window.CREW_CENTER_IS_ADMIN = (appMetadata.role || "").toLowerCase() === "admin";
   const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
   const palette = {
     green: ["rgba(234,122,244,0.15)", "#EA7AF4"],
@@ -265,6 +353,7 @@ function applySignedInUser(user) {
     el.style.background = avatarBg;
     el.style.color = avatarFg;
   });
+  applyAdminControls();
 }
 
 async function revealDashboard(user) {
@@ -279,6 +368,7 @@ async function revealDashboard(user) {
 }
 
 function showSignIn() {
+  window.CREW_CENTER_IS_ADMIN = false;
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
   setAuthBusy(false);
@@ -332,4 +422,14 @@ document.addEventListener("click", () => {
   if (window.CREW_CENTER_AUTH_USER && document.body.classList.contains("auth-ready")) {
     setTimeout(() => applySignedInUser(window.CREW_CENTER_AUTH_USER), 80);
   }
+});
+
+setTimeout(() => {
+  installAdminFunctionGuards();
+  applyAdminControls();
+}, 0);
+
+new MutationObserver(() => applyAdminControls()).observe(document.body, {
+  childList: true,
+  subtree: true,
 });
