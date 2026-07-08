@@ -433,3 +433,64 @@ new MutationObserver(() => applyAdminControls()).observe(document.body, {
   childList: true,
   subtree: true,
 });
+
+function polishDashboardUi() {
+  hideProfileAccountDetails();
+  colorMemberRoleTags();
+  updateEventsBadge();
+}
+
+function hideProfileAccountDetails() {
+  const profilePage = document.getElementById("page-profile");
+  if (!profilePage) return;
+  const cards = profilePage.querySelectorAll(".grid2 > .card");
+  const accountCard = [...cards].find(card => card.textContent.includes("Account details"));
+  if (accountCard) accountCard.style.display = "none";
+
+  const profileSub = profilePage.querySelector(".page-sub");
+  if (profileSub) {
+    profileSub.textContent = "Your signed-in profile is shown in the bottom-left sidebar.";
+  }
+}
+
+function colorMemberRoleTags() {
+  document.querySelectorAll("#members-grid .member-tags .badge").forEach(badge => {
+    const label = badge.textContent.trim().toLowerCase();
+    if (label === "leader" || label === "co-leader") {
+      badge.style.background = "rgba(255,123,94,0.12)";
+      badge.style.color = "#ff7b5e";
+      badge.style.borderColor = "rgba(255,123,94,0.28)";
+    } else if (label === "moderator" || label === "moderators") {
+      badge.style.background = "rgba(255,181,71,0.16)";
+      badge.style.color = "#b87900";
+      badge.style.borderColor = "rgba(255,181,71,0.34)";
+    }
+  });
+}
+
+function updateEventsBadge() {
+  const eventsNav = document.querySelector('.nav-item[onclick*="events"]');
+  if (!eventsNav) return;
+  const badge = eventsNav.querySelector(".nav-badge");
+  if (!badge) return;
+
+  const stat = document.getElementById("stat-events");
+  const countFromStat = Number.parseInt(stat?.textContent || "", 10);
+  const visibleEventCards = document.querySelectorAll("#events-list .event-card").length;
+  const count = Number.isFinite(countFromStat) ? countFromStat : visibleEventCards;
+
+  if (count > 0) {
+    badge.textContent = String(count);
+    badge.style.display = "";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+setInterval(polishDashboardUi, 1000);
+new MutationObserver(polishDashboardUi).observe(document.body, {
+  childList: true,
+  subtree: true,
+  characterData: true,
+});
+polishDashboardUi();
