@@ -429,11 +429,6 @@ setTimeout(() => {
   applyAdminControls();
 }, 0);
 
-new MutationObserver(() => applyAdminControls()).observe(document.body, {
-  childList: true,
-  subtree: true,
-});
-
 function polishDashboardUi() {
   hideProfileAccountDetails();
   colorMemberRoleTags();
@@ -445,10 +440,10 @@ function hideProfileAccountDetails() {
   if (!profilePage) return;
   const cards = profilePage.querySelectorAll(".grid2 > .card");
   const accountCard = [...cards].find(card => card.textContent.includes("Account details"));
-  if (accountCard) accountCard.style.display = "none";
+  if (accountCard && accountCard.style.display !== "none") accountCard.style.display = "none";
 
   const profileSub = profilePage.querySelector(".page-sub");
-  if (profileSub) {
+  if (profileSub && profileSub.textContent !== "Your signed-in profile is shown in the bottom-left sidebar.") {
     profileSub.textContent = "Your signed-in profile is shown in the bottom-left sidebar.";
   }
 }
@@ -488,9 +483,5 @@ function updateEventsBadge() {
 }
 
 setInterval(polishDashboardUi, 1000);
-new MutationObserver(polishDashboardUi).observe(document.body, {
-  childList: true,
-  subtree: true,
-  characterData: true,
-});
+setInterval(applyAdminControls, 1000);
 polishDashboardUi();
