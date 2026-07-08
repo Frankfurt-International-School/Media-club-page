@@ -227,6 +227,7 @@ function setAuthBusy(isBusy) {
 }
 
 function applySignedInUser(user) {
+  window.CREW_CENTER_AUTH_USER = user;
   const metadata = user.user_metadata || {};
   const appMetadata = user.app_metadata || {};
   const name = metadata.full_name || metadata.name || metadata.display_name || user.email.split("@")[0] || "Media Club member";
@@ -252,6 +253,8 @@ async function revealDashboard(user) {
   applySignedInUser(user);
   document.body.classList.remove("auth-locked");
   document.body.classList.add("auth-ready");
+  setTimeout(() => applySignedInUser(user), 0);
+  setTimeout(() => applySignedInUser(user), 250);
   if (typeof window.loadCrewCenterData === "function") {
     await window.loadCrewCenterData();
   }
@@ -306,3 +309,9 @@ if (window.crewCenterSupabase) {
   showSignIn();
   setAuthError("Supabase is not available yet. Check the connection and try again.");
 }
+
+document.addEventListener("click", () => {
+  if (window.CREW_CENTER_AUTH_USER && document.body.classList.contains("auth-ready")) {
+    setTimeout(() => applySignedInUser(window.CREW_CENTER_AUTH_USER), 80);
+  }
+});
