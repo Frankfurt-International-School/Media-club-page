@@ -5,7 +5,304 @@ window.CREW_CENTER_SUPABASE = {
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByc3d1cXp6Z29yZHl3b3did3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDU0ODIsImV4cCI6MjA5ODkyMTQ4Mn0.N7eRfvik6PsAj4IDa6jA_gGbUV3bqee8oRBz7shWIsM",
 };
 
-window.crewCenterSupabase = window.supabase.createClient(
+document.body.classList.add("auth-locked");
+
+const authStyle = document.createElement("style");
+authStyle.textContent = `
+  body.auth-locked .sidebar,
+  body.auth-locked .main {
+    display: none !important;
+  }
+
+  body.auth-ready .auth-gate {
+    display: none !important;
+  }
+
+  .auth-gate {
+    min-height: 100vh;
+    width: 100%;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+      linear-gradient(135deg, rgba(234,122,244,0.13), transparent 34%),
+      linear-gradient(315deg, rgba(78,240,196,0.10), transparent 30%),
+      #ffffff;
+    color: #212529;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .auth-gate-card {
+    width: min(100%, 420px);
+    background: rgba(248,249,250,0.92);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    padding: 28px;
+    backdrop-filter: blur(10px);
+  }
+
+  .auth-gate-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .auth-gate-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(176,5,43,0.2);
+  }
+
+  .auth-gate-name,
+  .auth-gate-title {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 1px;
+    font-weight: normal;
+  }
+
+  .auth-gate-name {
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .auth-gate-kicker {
+    color: #6c757d;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .auth-gate-title {
+    font-size: 34px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .auth-gate-sub {
+    color: #495057;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 22px;
+  }
+
+  .auth-gate-label {
+    display: block;
+    color: #495057;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .auth-gate-field {
+    margin-bottom: 16px;
+  }
+
+  .auth-gate-input {
+    width: 100%;
+    background: #f1f3f5;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 8px;
+    color: #212529;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+    padding: 10px 12px;
+  }
+
+  .auth-gate-input:focus {
+    border-color: rgba(234,122,244,0.55);
+    box-shadow: 0 0 0 3px rgba(234,122,244,0.09);
+  }
+
+  .auth-gate-button,
+  .auth-signout {
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 1px;
+  }
+
+  .auth-gate-button {
+    width: 100%;
+    min-height: 40px;
+    background: #EA7AF4;
+    color: #0d0d0f;
+    font-size: 14px;
+  }
+
+  .auth-gate-button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+  }
+
+  .auth-gate-error {
+    display: none;
+    background: rgba(255,123,94,0.12);
+    border: 1px solid rgba(255,123,94,0.22);
+    border-radius: 8px;
+    color: #ff7b5e;
+    font-size: 12px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+
+  .auth-gate-error.visible {
+    display: block;
+  }
+
+  .auth-gate-note {
+    color: #6c757d;
+    font-size: 12px;
+    margin-top: 14px;
+  }
+
+  .auth-signout {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 180;
+    background: #f1f3f5;
+    border: 1px solid rgba(0,0,0,0.08);
+    color: #495057;
+    padding: 9px 14px;
+  }
+
+  body.auth-locked .auth-signout {
+    display: none;
+  }
+`;
+document.head.appendChild(authStyle);
+
+document.body.insertAdjacentHTML("afterbegin", `
+  <section class="auth-gate" aria-labelledby="auth-gate-title">
+    <div class="auth-gate-card">
+      <div class="auth-gate-brand">
+        <img class="auth-gate-logo" src="assets/media-club-logo.svg" alt="Media Club logo">
+        <div>
+          <div class="auth-gate-name">Media Club</div>
+          <div class="auth-gate-kicker">FIS Student Media Club</div>
+        </div>
+      </div>
+      <h1 class="auth-gate-title" id="auth-gate-title">Sign in</h1>
+      <p class="auth-gate-sub">Use the account created for you in Supabase to open the Media Club dashboard.</p>
+      <div class="auth-gate-error" id="auth-gate-error"></div>
+      <form id="auth-gate-form">
+        <div class="auth-gate-field">
+          <label class="auth-gate-label" for="auth-gate-email">Email</label>
+          <input class="auth-gate-input" id="auth-gate-email" type="email" autocomplete="email" placeholder="name@school.edu" required>
+        </div>
+        <div class="auth-gate-field">
+          <label class="auth-gate-label" for="auth-gate-password">Password</label>
+          <input class="auth-gate-input" id="auth-gate-password" type="password" autocomplete="current-password" placeholder="Password" required>
+        </div>
+        <button class="auth-gate-button" id="auth-gate-submit" type="submit">Sign in</button>
+      </form>
+      <p class="auth-gate-note">Accounts are created manually by the club admin.</p>
+    </div>
+  </section>
+  <button class="auth-signout" id="auth-signout" type="button">Sign out</button>
+`);
+
+const authError = document.getElementById("auth-gate-error");
+const authForm = document.getElementById("auth-gate-form");
+const authSubmit = document.getElementById("auth-gate-submit");
+const authPassword = document.getElementById("auth-gate-password");
+
+window.crewCenterSupabase = window.supabase?.createClient(
   window.CREW_CENTER_SUPABASE.url,
   window.CREW_CENTER_SUPABASE.anonKey
 );
+
+function setAuthError(message = "") {
+  authError.textContent = message;
+  authError.classList.toggle("visible", Boolean(message));
+}
+
+function setAuthBusy(isBusy) {
+  authSubmit.disabled = isBusy;
+  authSubmit.textContent = isBusy ? "Signing in..." : "Sign in";
+}
+
+function applySignedInUser(user) {
+  const metadata = user.user_metadata || {};
+  const appMetadata = user.app_metadata || {};
+  const name = metadata.full_name || metadata.name || metadata.display_name || user.email.split("@")[0] || "Media Club member";
+  const role = metadata.role || appMetadata.role || "Member";
+  const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
+  const surfaces = [
+    ["sidebar-user-name", name],
+    ["sidebar-user-role", role],
+    ["sidebar-user-avatar", initials],
+    ["profile-preview-name", name],
+    ["profile-preview-role", role],
+    ["profile-preview-email", user.email || ""],
+    ["profile-preview-avatar", initials],
+  ];
+
+  surfaces.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+}
+
+async function revealDashboard(user) {
+  applySignedInUser(user);
+  document.body.classList.remove("auth-locked");
+  document.body.classList.add("auth-ready");
+  if (typeof window.loadCrewCenterData === "function") {
+    await window.loadCrewCenterData();
+  }
+}
+
+function showSignIn() {
+  document.body.classList.add("auth-locked");
+  document.body.classList.remove("auth-ready");
+  setAuthBusy(false);
+}
+
+authForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  setAuthError("");
+  if (!window.crewCenterSupabase) {
+    setAuthError("Supabase is not available yet. Check the connection and try again.");
+    return;
+  }
+  setAuthBusy(true);
+
+  const email = document.getElementById("auth-gate-email").value.trim();
+  const password = authPassword.value;
+  const { data, error } = await window.crewCenterSupabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    setAuthBusy(false);
+    setAuthError(error.message || "Sign in failed. Check the email and password.");
+    return;
+  }
+
+  await revealDashboard(data.user);
+  setAuthBusy(false);
+});
+
+document.getElementById("auth-signout").addEventListener("click", async () => {
+  if (!window.crewCenterSupabase) return;
+  await window.crewCenterSupabase.auth.signOut();
+  authPassword.value = "";
+  showSignIn();
+});
+
+if (window.crewCenterSupabase) {
+  window.crewCenterSupabase.auth.getSession().then(({ data }) => {
+    const user = data.session?.user;
+    if (user) {
+      revealDashboard(user);
+    } else {
+      showSignIn();
+    }
+  });
+} else {
+  showSignIn();
+  setAuthError("Supabase is not available yet. Check the connection and try again.");
+}
