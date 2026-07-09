@@ -1328,11 +1328,26 @@ const memberSignupRoles = ['mixing', 'obs', 'robocam', 'handheld', 'photographer
 const supervisorSignupRoles = ['student_supervisor', ...memberSignupRoles];
 const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld', 'wireless', 'photographer'];
 
+function normalizeRoleName(role = '') {
+  return role.toLowerCase().trim().replace(/\s+/g, '-');
+}
+
+function currentMemberRecord() {
+  const email = (window.CREW_CENTER_AUTH_USER?.email || state.currentUser.email || '').toLowerCase();
+  if (email) {
+    const byEmail = state.members.find(member => (member.email || '').toLowerCase() === email);
+    if (byEmail) return byEmail;
+  }
+  const name = (state.currentUser.name || '').toLowerCase();
+  return state.members.find(member => (member.name || '').toLowerCase() === name) || null;
+}
+
 function currentUserSignupRoleKeys() {
   if (state.currentUser.isVisitor) return [];
   if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return adminSignupRoles;
-  const role = (state.currentUser.role || '').toLowerCase();
-  if (['moderator', 'co-leader', 'co leader', 'leader'].includes(role)) return supervisorSignupRoles;
+  const memberRecord = currentMemberRecord();
+  const role = normalizeRoleName(memberRecord?.role || state.currentUser.role);
+  if (['moderator', 'co-leader', 'leader'].includes(role)) return supervisorSignupRoles;
   return memberSignupRoles;
 }
 
