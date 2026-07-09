@@ -979,6 +979,7 @@
       <div class="flex-between mb12">
         <div>
           <div style="font-size:14px;font-weight:500;color:var(--text)" id="sheet-event-title">—</div>
+          <div class="text-muted" id="sheet-event-time">—</div>
           <div class="text-muted" id="sheet-event-cap">— slots</div>
         </div>
         <div id="sheet-cap-badge"></div>
@@ -1811,11 +1812,13 @@ function renderSignupSheet() {
   const ev = state.events.find(e => e.id === id);
   if (!ev) {
     document.getElementById('sheet-table').innerHTML = '<tbody><tr><td>No events available.</td></tr></tbody>';
+    document.getElementById('sheet-event-time').textContent = '—';
     renderSignupRoleOptions(null);
     return;
   }
   renderSignupRoleOptions(ev);
   document.getElementById('sheet-event-title').textContent = ev.title;
+  document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}`;
   const cap = ev.slots || '∞';
   document.getElementById('sheet-event-cap').textContent = `${ev.signups.length} signed up${ev.slots ? ' · ' + ev.slots + ' max' : ''}`;
   const pct = ev.slots ? Math.min(100, Math.round(ev.signups.length / ev.slots * 100)) : 0;
@@ -1825,22 +1828,23 @@ function renderSignupSheet() {
     ? '<span class="badge badge-coral">Full</span>'
     : `<span class="badge badge-green">${ev.slots ? ev.slots - ev.signups.length + ' open' : 'Open'}</span>`;
 
+  const removeHeader = state.currentUser.isAdmin ? '<th></th>' : '';
   let rows = ev.signups.map((s, i) => `
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${s.name}</td>
       <td>${s.role || '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${i})">Remove</button></td>
+      ${state.currentUser.isAdmin ? `<td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${i})">Remove</button></td>` : ''}
     </tr>`).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
     for (let i = 0; i < empty; i++) {
-      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td></td></tr>`;
+      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td>${state.currentUser.isAdmin ? '<td></td>' : ''}</tr>`;
     }
   }
   document.getElementById('sheet-table').innerHTML = `
-    <thead><tr><th>#</th><th>Name</th><th>Role / note</th><th>Time</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
 }
 
