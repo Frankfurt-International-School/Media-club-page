@@ -261,6 +261,16 @@ function applyAdminControls() {
       el.style.display = isVisitor ? "none" : "";
     });
   });
+  enforceVisitorPageAccess();
+}
+
+function enforceVisitorPageAccess() {
+  if (!window.CREW_CENTER_IS_VISITOR) return;
+  const allowedPages = new Set(["home", "events", "gallery", "equipment", "join"]);
+  const activePage = document.querySelector(".page.active")?.id?.replace("page-", "") || "home";
+  if (!allowedPages.has(activePage) && typeof window.navigate === "function") {
+    window.navigate("home");
+  }
 }
 
 function showNotAuthorized(action = "do that") {
