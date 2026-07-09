@@ -1928,12 +1928,27 @@ async function removeSignup(evId, idx) {
 // ══════════════════════════════
 // MEMBERS
 // ══════════════════════════════
+function memberRankPriority(role = '') {
+  const normalized = role.toLowerCase().replace(/\s+/g, '-');
+  return { leader: 0, 'co-leader': 1, moderator: 2, member: 3 }[normalized] ?? 4;
+}
+
+function memberJoinTime(member) {
+  return member.joined_date ? new Date(`${member.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+}
+
 function renderMembers() {
   const q = (document.getElementById('member-search').value || '').toLowerCase();
   const rf = document.getElementById('member-role-filter').value;
   let list = state.members.filter(m => {
     const name = (m.fname + ' ' + m.lname).toLowerCase();
     return (!q || name.includes(q) || m.spec.toLowerCase().includes(q)) && (!rf || m.role === rf);
+  }).sort((a, b) => {
+    const rankDiff = memberRankPriority(a.role) - memberRankPriority(b.role);
+    if (rankDiff) return rankDiff;
+    const joinedDiff = memberJoinTime(a) - memberJoinTime(b);
+    if (joinedDiff) return joinedDiff;
+    return a.name.localeCompare(b.name);
   });
   const grid = document.getElementById('members-grid');
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
