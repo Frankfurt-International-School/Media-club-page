@@ -1899,19 +1899,8 @@ async function addSignupRow() {
     member = state.members.find(m => (m.email || '').toLowerCase() === authEmail);
   }
   if (!member) {
-    if (!state.currentUser.isAdmin) {
-      showToast("Couldn't find your member record. Ask an admin to add your account email to Members first.", 'error');
-      return;
-    }
-    const safeEmail = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || Date.now()}@example.com`;
-    const { data: createdMember, error: memberError } = await supabaseClient
-      .from('members')
-      .insert({ name, role, email: safeEmail, status: 'active' })
-      .select('*')
-      .single();
-    if (memberError) { showToast("Couldn't add member for signup.", 'error'); return; }
-    member = normalizeMember(createdMember, state.members.length);
-    state.members.push(member);
+    showToast("Couldn't find that member. Add them on the Members page first.", 'error');
+    return;
   }
   const { data: signup, error } = await supabaseClient
     .from('signups')
