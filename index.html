@@ -212,38 +212,23 @@
     color: var(--text);
     flex: 1;
   }
-  .topbar-btn {
-    background: var(--accent);
-    color: #0d0d0f;
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 7px 16px;
-    font-family: var(--font-head);
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s;
+  .topbar-motto {
+    flex: 1;
+    text-align: center;
+    color: rgba(160,158,184,0.62);
+    font-family: Georgia, serif;
+    font-size: 13px;
+    font-style: italic;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  .berlin-clock {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    min-width: 150px;
+    justify-content: center;
   }
-  .topbar-btn:hover { background: var(--accent2); transform: translateY(-1px); }
-  .topbar-btn svg { width: 14px; height: 14px; }
-  .berlin-clock {
-    display: none;
-    align-items: center;
-    gap: 10px;
-    min-width: 190px;
-    justify-content: flex-end;
-    background:
-      linear-gradient(135deg, rgba(200,255,87,0.14), rgba(78,240,196,0.08)),
-      var(--bg3);
-    border: 1px solid rgba(200,255,87,0.22);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    box-shadow: 0 0 24px rgba(200,255,87,0.06);
-  }
-  .berlin-clock { display: flex; }
   .clock-dot {
     width: 8px;
     height: 8px;
@@ -895,17 +880,14 @@
       <svg id="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-motto">Vox Populi, Vox Media</div>
     <div class="berlin-clock" aria-live="polite">
       <div class="clock-dot"></div>
       <div>
-        <div class="clock-city">Berlin</div>
+        <div class="clock-city">Frankfurt</div>
         <div class="clock-time" id="berlin-clock-time">--:--:--</div>
       </div>
     </div>
-    <button class="topbar-btn" onclick="openModal('event-modal')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New Event
-    </button>
   </div>
 
   <!-- ── DASHBOARD ── -->
