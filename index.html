@@ -1872,8 +1872,16 @@ async function addSignupRow() {
     renderSignupSheet();
     return;
   }
+  const authEmail = (window.CREW_CENTER_AUTH_USER?.email || state.currentUser.email || '').toLowerCase();
   let member = state.members.find(m => m.name.toLowerCase() === name.toLowerCase());
+  if (!member && authEmail) {
+    member = state.members.find(m => (m.email || '').toLowerCase() === authEmail);
+  }
   if (!member) {
+    if (!state.currentUser.isAdmin) {
+      showToast("Couldn't find your member record. Ask an admin to add your account email to Members first.", 'error');
+      return;
+    }
     const safeEmail = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || Date.now()}@example.com`;
     const { data: createdMember, error: memberError } = await supabaseClient
       .from('members')
@@ -1891,7 +1899,7 @@ async function addSignupRow() {
     .single();
   if (error) {
     if (error.code === '23505') {
-      showToast(`${role} is already taken for this event.`, 'error');
+      showToast(`${role} is already taken, or you are already signed up for this event.`, 'error');
       await loadCrewCenterData();
       return;
     }

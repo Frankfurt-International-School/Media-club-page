@@ -258,7 +258,7 @@ function applyAdminControls() {
   ];
   visitorHiddenSelectors.forEach(selector => {
     document.querySelectorAll(selector).forEach(el => {
-      if (isVisitor) el.style.display = "none";
+      el.style.display = isVisitor ? "none" : "";
     });
   });
 }

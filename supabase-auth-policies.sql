@@ -64,7 +64,7 @@ using (true);
 create policy "Signed-in users can add signups"
 on public.signups for insert
 to authenticated
-with check (coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'member') <> 'visitor');
+with check (lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'member')) <> 'visitor');
 
 create policy "Admins can delete signups"
 on public.signups for delete
