@@ -312,8 +312,7 @@ function installAdminFunctionGuards() {
     const visitorAllowedPages = new Set(["home", "events", "gallery", "equipment", "join"]);
     window.navigate = function(id, ...args) {
       if (id === "admin" && !window.CREW_CENTER_IS_ADMIN) {
-        showNotAuthorized("open the admin panel");
-        return undefined;
+        return originalNavigate.call(this, "home");
       }
       if (window.CREW_CENTER_IS_VISITOR && !visitorAllowedPages.has(id)) {
         showNotAuthorized("open that page");
