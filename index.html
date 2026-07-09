@@ -1371,6 +1371,16 @@ function renderSignupRoleOptions(ev) {
   }
 }
 
+function renderSignupNameField() {
+  const input = document.getElementById('signup-name');
+  if (!input) return;
+  input.disabled = !state.currentUser.isAdmin;
+  input.placeholder = state.currentUser.isAdmin ? 'Member full name' : 'Your name';
+  if (!state.currentUser.isAdmin) {
+    input.value = currentMemberRecord()?.name || state.currentUser.name || '';
+  }
+}
+
 function showLoadError(targetId, message = "Couldn't load data.") {
   const target = document.getElementById(targetId);
   if (target) {
@@ -1702,6 +1712,7 @@ window.applyCrewCenterAuthUser = function(user) {
   state.currentUser.initials = metadata.initials || state.currentUser.name.split(/\s+/).map(part => part[0]).join('').slice(0, 3).toUpperCase() || 'MC';
   updateUserSurfaces();
   renderSignupRoleOptions(state.events.find(event => event.id === document.getElementById('sheet-event-select')?.value));
+  renderSignupNameField();
 };
 
 function renderProfile() {
@@ -1910,6 +1921,7 @@ function renderSignupSheet() {
     return;
   }
   renderSignupRoleOptions(ev);
+  renderSignupNameField();
   document.getElementById('sheet-event-title').textContent = ev.title;
   document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}`;
   const cap = ev.slots || '∞';
@@ -1959,10 +1971,13 @@ async function addSignupRow() {
     return;
   }
   const authEmail = (window.CREW_CENTER_AUTH_USER?.email || state.currentUser.email || '').toLowerCase();
-  let member = state.members.find(m => m.name.toLowerCase() === name.toLowerCase());
-  if (!member && authEmail) {
-    member = state.members.find(m => (m.email || '').toLowerCase() === authEmail);
-  }
+  const signedInMember = authEmail
+    ? state.members.find(m => (m.email || '').toLowerCase() === authEmail)
+    : currentMemberRecord();
+  let member = state.currentUser.isAdmin
+    ? state.members.find(m => m.name.toLowerCase() === name.toLowerCase())
+    : signedInMember;
+  if (!member) member = signedInMember;
   if (!member) {
     showToast("Couldn't find that member. Add them on the Members page first.", 'error');
     return;
@@ -1984,12 +1999,12 @@ async function addSignupRow() {
   ev.signups.push({
     id: signup.id,
     memberId: signup.member_id,
-    name: signup.members?.name || name,
+    name: signup.members?.name || member.name,
     role: signup.signup_role || role,
     ts: new Date(signup.signed_up_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
   });
   document.getElementById('signup-name').value = '';
-  showToast(`${name} signed up for ${ev.title}!`);
+  showToast(`${member.name} signed up for ${ev.title}!`);
   renderSignupSheet();
 }
 
