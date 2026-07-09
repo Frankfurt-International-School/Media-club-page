@@ -228,6 +228,7 @@ function setAuthBusy(isBusy) {
 
 function applyAdminControls() {
   const isAdmin = Boolean(window.CREW_CENTER_IS_ADMIN);
+  const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
   const adminSelectors = [
     '.nav-item[onclick*="admin"]',
     'button[onclick*="event-modal"]',
@@ -246,6 +247,18 @@ function applyAdminControls() {
   adminSelectors.forEach(selector => {
     document.querySelectorAll(selector).forEach(el => {
       el.style.display = isAdmin ? "" : "none";
+    });
+  });
+
+  const visitorHiddenSelectors = [
+    '.nav-item[onclick*="signup"]',
+    '.nav-item[onclick*="members"]',
+    '.nav-item[onclick*="admin"]',
+    '.sidebar-footer',
+  ];
+  visitorHiddenSelectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      if (isVisitor) el.style.display = "none";
     });
   });
 }
@@ -286,9 +299,14 @@ function installAdminFunctionGuards() {
 
   if (typeof window.navigate === "function" && !window.navigate.__adminGuarded) {
     const originalNavigate = window.navigate;
+    const visitorAllowedPages = new Set(["home", "events", "gallery", "equipment", "join"]);
     window.navigate = function(id, ...args) {
       if (id === "admin" && !window.CREW_CENTER_IS_ADMIN) {
         showNotAuthorized("open the admin panel");
+        return undefined;
+      }
+      if (window.CREW_CENTER_IS_VISITOR && !visitorAllowedPages.has(id)) {
+        showNotAuthorized("open that page");
         return undefined;
       }
       return originalNavigate.call(this, id, ...args);
@@ -320,6 +338,7 @@ function applySignedInUser(user) {
   const name = metadata.full_name || metadata.name || metadata.display_name || user.email.split("@")[0] || "Media Club member";
   const role = appMetadata.role || metadata.role || "Member";
   window.CREW_CENTER_IS_ADMIN = (appMetadata.role || "").toLowerCase() === "admin";
+  window.CREW_CENTER_IS_VISITOR = (appMetadata.role || metadata.role || "").toLowerCase() === "visitor";
   const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
   const palette = {
     green: ["rgba(234,122,244,0.15)", "#EA7AF4"],
@@ -376,6 +395,7 @@ async function revealDashboard(user) {
 
 function showSignIn() {
   window.CREW_CENTER_IS_ADMIN = false;
+  window.CREW_CENTER_IS_VISITOR = false;
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
   setAuthBusy(false);

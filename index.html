@@ -1070,9 +1070,9 @@
           Preferences
         </h3>
         <div class="checkbox-group mb16">
-          <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" id="profile-email-updates"> Email updates</label>
-          <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" id="profile-event-reminders"> Event reminders</label>
-          <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" id="profile-project-alerts"> Project alerts</label>
+          <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" id="profile-email-updates"> Email updates</label>
+          <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" id="profile-event-reminders"> Event reminders</label>
+          <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" id="profile-project-alerts"> Project alerts</label>
         </div>
         <div class="profile-preview">
           <div class="flex-center gap10">
@@ -1116,13 +1116,13 @@
         <div class="form-group">
           <label class="form-label">Interests (select all that apply)</label>
           <div class="checkbox-group" id="interest-group">
-            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Photography"> Photography</label>
-            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Videography"> Videography</label>
-            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Podcasting"> Podcasting</label>
-            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Editing"> Editing</label>
-            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Social Media"> Social Media</label>
-            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Graphic Design"> Graphic Design</label>
-            <label class="checkbox-label" onclick="toggleCheck(this)"><input type="checkbox" value="Writing"> Writing</label>
+            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Photography"> Photography</label>
+            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Videography"> Videography</label>
+            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Podcasting"> Podcasting</label>
+            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Editing"> Editing</label>
+            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Social Media"> Social Media</label>
+            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Graphic Design"> Graphic Design</label>
+            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Writing"> Writing</label>
           </div>
         </div>
         <div class="form-group">
@@ -1287,6 +1287,7 @@ const state = {
     initials: "JS",
     color: "green",
     isAdmin: true,
+    isVisitor: false,
     preferences: {
       emailUpdates: true,
       eventReminders: true,
@@ -1325,6 +1326,7 @@ const supervisorSignupRoles = ['student_supervisor', ...memberSignupRoles];
 const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld', 'wireless', 'photographer'];
 
 function currentUserSignupRoleKeys() {
+  if (state.currentUser.isVisitor) return [];
   if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return adminSignupRoles;
   const role = (state.currentUser.role || '').toLowerCase();
   if (['moderator', 'co-leader', 'co leader', 'leader'].includes(role)) return supervisorSignupRoles;
@@ -1569,7 +1571,10 @@ function memberColor(c) {
   return map[c] || map.purple;
 }
 function initials(f = '', l = '') { return ((f[0] || '') + (l[0] || f[1] || '')).toUpperCase(); }
-function toggleCheck(el) {
+function toggleCheck(eventOrEl, maybeEl) {
+  const event = maybeEl ? eventOrEl : null;
+  const el = maybeEl || eventOrEl;
+  if (event) event.preventDefault();
   el.classList.toggle('checked');
   el.querySelector('input').checked = el.classList.contains('checked');
 }
@@ -1605,6 +1610,7 @@ window.applyCrewCenterAuthUser = function(user) {
   state.currentUser.email = user.email || '';
   state.currentUser.role = appMetadata.role || metadata.role || 'Member';
   state.currentUser.isAdmin = (appMetadata.role || '').toLowerCase() === 'admin';
+  state.currentUser.isVisitor = (appMetadata.role || metadata.role || '').toLowerCase() === 'visitor';
   state.currentUser.initials = metadata.initials || state.currentUser.name.split(/\s+/).map(part => part[0]).join('').slice(0, 3).toUpperCase() || 'MC';
   updateUserSurfaces();
   renderSignupRoleOptions(state.events.find(event => event.id === document.getElementById('sheet-event-select')?.value));
@@ -1747,7 +1753,9 @@ function renderEvents(filter) {
           ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ev.desc}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:8px;">
-            <button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>
+            ${state.currentUser.isVisitor
+              ? '<span class="text-muted">Visitors can view events only.</span>'
+              : `<button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>`}
             <button class="btn btn-ghost btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>
           </div>
         </div>
@@ -1846,6 +1854,10 @@ function renderSignupSheet() {
 }
 
 async function addSignupRow() {
+  if (state.currentUser.isVisitor) {
+    showToast('Visitors can view events, but cannot sign up for roles.', 'error');
+    return;
+  }
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
   const name = document.getElementById('signup-name').value.trim();
