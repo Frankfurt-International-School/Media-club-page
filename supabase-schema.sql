@@ -21,9 +21,15 @@ create table if not exists public.signups (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events(id) on delete cascade,
   member_id uuid not null references public.members(id) on delete cascade,
+  signup_role text,
   signed_up_at timestamptz not null default now(),
   unique (event_id, member_id)
 );
+
+alter table public.signups add column if not exists signup_role text;
+create unique index if not exists signups_event_signup_role_idx
+on public.signups (event_id, signup_role)
+where signup_role is not null;
 
 create table if not exists public.equipment (
   id uuid primary key default gen_random_uuid(),

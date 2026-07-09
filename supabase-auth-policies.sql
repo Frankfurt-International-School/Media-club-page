@@ -107,6 +107,12 @@ end $$;
 
 do $$
 begin
+  alter publication supabase_realtime add table public.signups;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
   alter publication supabase_realtime add table public.gallery;
 exception when duplicate_object then null;
 end $$;

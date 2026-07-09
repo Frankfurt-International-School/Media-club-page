@@ -990,7 +990,7 @@
       <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Add your name</div>
       <div class="form-row2 mb12">
         <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" placeholder="Your full name" /></div>
-        <div class="form-group" style="margin:0"><input class="form-input" id="signup-role" placeholder="Role / note (optional)" /></div>
+        <div class="form-group" style="margin:0"><select class="form-select" id="signup-role"></select></div>
       </div>
       <button class="btn btn-accent" onclick="addSignupRow()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1312,6 +1312,46 @@ const state = {
 const supabaseSettings = window.CREW_CENTER_SUPABASE || {};
 const supabaseClient = window.crewCenterSupabase || window.supabase?.createClient(supabaseSettings.url, supabaseSettings.anonKey);
 const colors = ['green','purple','amber','coral','teal','blue'];
+const signupRoleLabels = {
+  adult_supervisor: 'Adult Supervisor',
+  student_supervisor: 'Student Supervisor',
+  mixing: 'MIXING',
+  obs: 'OBS',
+  robocam: 'Robocam',
+  handheld: 'Handheld',
+  wireless: 'Wireless',
+  photographer: 'Photographer',
+};
+const memberSignupRoles = ['mixing', 'obs', 'robocam', 'handheld', 'photographer'];
+const supervisorSignupRoles = ['student_supervisor', ...memberSignupRoles];
+const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld', 'wireless', 'photographer'];
+
+function currentUserSignupRoleKeys() {
+  if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return adminSignupRoles;
+  const role = (state.currentUser.role || '').toLowerCase();
+  if (['moderator', 'co-leader', 'co leader', 'leader'].includes(role)) return supervisorSignupRoles;
+  return memberSignupRoles;
+}
+
+function getTakenSignupRoles(ev) {
+  return new Set((ev?.signups || []).map(signup => signup.role).filter(Boolean));
+}
+
+function renderSignupRoleOptions(ev) {
+  const select = document.getElementById('signup-role');
+  if (!select) return;
+  const selected = select.value;
+  const taken = getTakenSignupRoles(ev);
+  select.innerHTML = currentUserSignupRoleKeys().map(key => {
+    const label = signupRoleLabels[key];
+    const disabled = taken.has(label) ? ' disabled' : '';
+    const suffix = taken.has(label) ? ' - taken' : '';
+    return `<option value="${label}"${disabled}>${label}${suffix}</option>`;
+  }).join('');
+  if ([...select.options].some(option => option.value === selected && !option.disabled)) {
+    select.value = selected;
+  }
+}
 
 function showLoadError(targetId, message = "Couldn't load data.") {
   const target = document.getElementById(targetId);
@@ -1355,7 +1395,7 @@ function normalizeEvent(event) {
       id: signup.id,
       memberId: signup.member_id,
       name: signup.members?.name || 'Unknown member',
-      role: signup.members?.role || '',
+      role: signup.signup_role || signup.members?.role || '',
       ts: new Date(signup.signed_up_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     })),
   };
@@ -1405,7 +1445,7 @@ async function loadCrewCenterData() {
   try {
     const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
-      supabaseClient.from('events').select('*, signups(id, member_id, signed_up_at, members(name, role))').order('date', { ascending: true }),
+      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name)').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
@@ -1436,6 +1476,7 @@ function subscribeToCrewCenterChanges() {
     .channel('crew-center-live-data')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, loadCrewCenterData)
@@ -1558,6 +1599,18 @@ function updateUserSurfaces() {
     document.getElementById('profile-preview-email').textContent = user.email;
   }
 }
+
+window.applyCrewCenterAuthUser = function(user) {
+  const metadata = user.user_metadata || {};
+  const appMetadata = user.app_metadata || {};
+  state.currentUser.name = metadata.full_name || metadata.name || metadata.display_name || user.email?.split('@')[0] || 'Media Club member';
+  state.currentUser.email = user.email || '';
+  state.currentUser.role = appMetadata.role || metadata.role || 'Member';
+  state.currentUser.isAdmin = (appMetadata.role || '').toLowerCase() === 'admin';
+  state.currentUser.initials = metadata.initials || state.currentUser.name.split(/\s+/).map(part => part[0]).join('').slice(0, 3).toUpperCase() || 'MC';
+  updateUserSurfaces();
+  renderSignupRoleOptions(state.events.find(event => event.id === document.getElementById('sheet-event-select')?.value));
+};
 
 function renderProfile() {
   const user = state.currentUser;
@@ -1723,7 +1776,7 @@ async function addEvent() {
       location: document.getElementById('ev-loc').value,
       description: document.getElementById('ev-desc').value,
     })
-    .select('*, signups(id, member_id, signed_up_at, members(name, role))')
+    .select('*, signups(id, member_id, signup_role, signed_up_at, members(name, role))')
     .single();
   if (error) { showToast("Couldn't create event.", 'error'); return; }
   const ev = normalizeEvent(data);
@@ -1758,8 +1811,10 @@ function renderSignupSheet() {
   const ev = state.events.find(e => e.id === id);
   if (!ev) {
     document.getElementById('sheet-table').innerHTML = '<tbody><tr><td>No events available.</td></tr></tbody>';
+    renderSignupRoleOptions(null);
     return;
   }
+  renderSignupRoleOptions(ev);
   document.getElementById('sheet-event-title').textContent = ev.title;
   const cap = ev.slots || '∞';
   document.getElementById('sheet-event-cap').textContent = `${ev.signups.length} signed up${ev.slots ? ' · ' + ev.slots + ' max' : ''}`;
@@ -1795,7 +1850,13 @@ async function addSignupRow() {
   const name = document.getElementById('signup-name').value.trim();
   if (!name) { showToast('Please enter your name.', 'error'); return; }
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
-  const role = document.getElementById('signup-role').value.trim() || 'Member';
+  const role = document.getElementById('signup-role').value;
+  if (!role) { showToast('Please choose an available role.', 'error'); return; }
+  if (ev.signups.some(signup => signup.role === role)) {
+    showToast(`${role} is already taken for this event.`, 'error');
+    renderSignupSheet();
+    return;
+  }
   let member = state.members.find(m => m.name.toLowerCase() === name.toLowerCase());
   if (!member) {
     const safeEmail = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || Date.now()}@example.com`;
@@ -1810,19 +1871,26 @@ async function addSignupRow() {
   }
   const { data: signup, error } = await supabaseClient
     .from('signups')
-    .insert({ event_id: ev.id, member_id: member.id })
-    .select('id, member_id, signed_up_at, members(name, role)')
+    .insert({ event_id: ev.id, member_id: member.id, signup_role: role })
+    .select('id, member_id, signup_role, signed_up_at, members(name, role)')
     .single();
-  if (error) { showToast("Couldn't save signup.", 'error'); return; }
+  if (error) {
+    if (error.code === '23505') {
+      showToast(`${role} is already taken for this event.`, 'error');
+      await loadCrewCenterData();
+      return;
+    }
+    showToast("Couldn't save signup.", 'error');
+    return;
+  }
   ev.signups.push({
     id: signup.id,
     memberId: signup.member_id,
     name: signup.members?.name || name,
-    role: signup.members?.role || role,
+    role: signup.signup_role || role,
     ts: new Date(signup.signed_up_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
   });
   document.getElementById('signup-name').value = '';
-  document.getElementById('signup-role').value = '';
   showToast(`${name} signed up for ${ev.title}!`);
   renderSignupSheet();
 }
