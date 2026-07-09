@@ -1288,7 +1288,7 @@ const state = {
     role: "President",
     initials: "JS",
     color: "green",
-    isAdmin: true,
+    isAdmin: false,
     isVisitor: false,
     preferences: {
       emailUpdates: true,
@@ -1554,7 +1554,10 @@ function navItemForPage(id) {
 }
 
 function navigate(id, el, options = {}) {
-  const page = document.getElementById('page-' + id) ? id : 'home';
+  let page = document.getElementById('page-' + id) ? id : 'home';
+  if (page === 'admin' && !state.currentUser.isAdmin && !window.CREW_CENTER_IS_ADMIN) {
+    page = 'home';
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
@@ -2228,6 +2231,10 @@ async function submitJoin() {
 // ADMIN
 // ══════════════════════════════
 function renderAdmin() {
+  if (!state.currentUser.isAdmin && !window.CREW_CENTER_IS_ADMIN) {
+    navigate('home');
+    return;
+  }
   document.getElementById('pending-count').textContent = state.applications.filter(a => a.status === 'pending').length;
   renderPending();
   renderManageEvents();
