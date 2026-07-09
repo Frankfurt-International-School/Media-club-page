@@ -213,7 +213,9 @@
     flex: 1;
   }
   .topbar-motto {
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     text-align: center;
     color: rgba(160,158,184,0.62);
     font-family: Georgia, serif;
@@ -1103,13 +1105,13 @@
           <div class="form-group">
             <label class="form-label">Year group</label>
             <select class="form-select" id="join-year">
-              <option>Year 9</option><option>Year 10</option><option>Year 11</option><option>Year 12</option><option>Year 13</option>
+              <option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Experience level</label>
             <select class="form-select" id="join-exp">
-              <option>Complete beginner</option><option>Some experience</option><option>Intermediate</option><option>Advanced</option>
+              <option>Beginner</option><option>Intermediate</option><option>Proficient</option><option>Advanced</option>
             </select>
           </div>
         </div>
