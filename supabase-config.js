@@ -230,6 +230,7 @@ function applyAdminControls() {
   const isAdmin = Boolean(window.CREW_CENTER_IS_ADMIN);
   const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
   const adminSelectors = [
+    '.admin-only',
     '.nav-item[onclick*="admin"]',
     'button[onclick*="event-modal"]',
     'button[onclick*="member-modal"]',
