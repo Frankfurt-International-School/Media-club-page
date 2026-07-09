@@ -365,6 +365,13 @@ async function revealDashboard(user) {
   if (typeof window.loadCrewCenterData === "function") {
     await window.loadCrewCenterData();
   }
+  const startLiveUpdates = () => {
+    if (typeof window.subscribeToCrewCenterChanges === "function") {
+      window.subscribeToCrewCenterChanges();
+    }
+  };
+  startLiveUpdates();
+  setTimeout(startLiveUpdates, 0);
 }
 
 function showSignIn() {

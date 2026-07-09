@@ -41,8 +41,16 @@ create table if not exists public.gallery (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists events_date_idx on public.events (date);
 create index if not exists signups_event_id_idx on public.signups (event_id);
 create index if not exists signups_member_id_idx on public.signups (member_id);
 create index if not exists equipment_assigned_to_idx on public.equipment (assigned_to);
 create index if not exists gallery_created_at_idx on public.gallery (created_at desc);
+create index if not exists announcements_created_at_idx on public.announcements (created_at desc);

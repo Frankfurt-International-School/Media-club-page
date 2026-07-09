@@ -903,22 +903,22 @@
       <div class="stat-card green">
         <div class="stat-label">Members</div>
         <div class="stat-value" id="stat-members">34</div>
-        <div class="stat-sub">↑ 3 this month</div>
+        <div class="stat-sub" id="stat-members-sub">Loading this month...</div>
       </div>
       <div class="stat-card purple">
         <div class="stat-label">Upcoming events</div>
         <div class="stat-value" id="stat-events">4</div>
-        <div class="stat-sub">Next: May 14</div>
+        <div class="stat-sub" id="stat-events-sub">Loading events...</div>
       </div>
       <div class="stat-card coral">
         <div class="stat-label">Projects</div>
         <div class="stat-value" id="stat-projects">0</div>
-        <div class="stat-sub">Ready for submissions</div>
+        <div class="stat-sub" id="stat-projects-sub">Loading submissions...</div>
       </div>
       <div class="stat-card amber">
         <div class="stat-label">Equipment items</div>
         <div class="stat-value" id="stat-equipment">0</div>
-        <div class="stat-sub">Admin setup pending</div>
+        <div class="stat-sub" id="stat-equipment-sub">Loading equipment...</div>
       </div>
     </div>
     <div class="grid2 mb24">
@@ -1394,6 +1394,7 @@ function normalizeGallery(item) {
     desc: item.description || '',
     link: item.image_url || '#',
     image_url: item.image_url || '',
+    created_at: item.created_at,
   };
 }
 
@@ -1407,6 +1408,17 @@ function normalizeEquipment(item) {
   };
 }
 
+function normalizeAnnouncement(item) {
+  const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+  return {
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    date: createdAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+    created_at: item.created_at,
+  };
+}
+
 async function loadCrewCenterData() {
   if (!supabaseClient || !supabaseSettings.url || supabaseSettings.url.includes('YOUR-PROJECT-REF')) {
     showToast('Add your Supabase URL and anon key in supabase-config.js.', 'error');
@@ -1415,11 +1427,12 @@ async function loadCrewCenterData() {
   }
 
   try {
-    const [membersRes, eventsRes, galleryRes, equipmentRes] = await Promise.all([
+    const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
       supabaseClient.from('events').select('*, signups(id, member_id, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name)').order('name'),
+      supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
     ]);
 
     const failed = [membersRes, eventsRes, galleryRes, equipmentRes].find(result => result.error);
@@ -1429,12 +1442,28 @@ async function loadCrewCenterData() {
     state.events = eventsRes.data.map(normalizeEvent);
     state.gallery = galleryRes.data.map(normalizeGallery);
     state.equipment = equipmentRes.data.map(normalizeEquipment);
+    if (!announcementsRes.error) {
+      state.announcements = announcementsRes.data.map(normalizeAnnouncement);
+    }
     renderCurrentPage();
   } catch (error) {
     console.error(error);
     showToast("Couldn't load Supabase data.", 'error');
     ['dash-events-list', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
   }
+}
+
+function subscribeToCrewCenterChanges() {
+  if (!supabaseClient || window.CREW_CENTER_REALTIME_READY) return;
+  window.CREW_CENTER_REALTIME_READY = true;
+  supabaseClient
+    .channel('crew-center-live-data')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, loadCrewCenterData)
+    .subscribe();
 }
 
 function renderCurrentPage() {
@@ -1603,11 +1632,34 @@ function saveProfileSettings() {
 // ══════════════════════════════
 function renderDashboard() {
   const today = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
   const upcomingEvents = state.events.filter(ev => ev.date >= today);
+  const membersThisMonth = state.members.filter(member => {
+    if (!member.joined_date) return false;
+    return new Date(`${member.joined_date}T00:00:00`) >= monthStart;
+  }).length;
+  const projectsThisMonth = state.gallery.filter(project => {
+    if (!project.created_at) return false;
+    return new Date(project.created_at) >= monthStart;
+  }).length;
+  const nextEvent = upcomingEvents[0];
+  const availableEquipment = state.equipment.filter(item => item.status === 'available').length;
   document.getElementById('stat-members').textContent = state.members.length;
   document.getElementById('stat-events').textContent = upcomingEvents.length;
   document.getElementById('stat-projects').textContent = state.gallery.length;
   document.getElementById('stat-equipment').textContent = state.equipment.length;
+  document.getElementById('stat-members-sub').textContent = `↑ ${membersThisMonth} this month`;
+  document.getElementById('stat-events-sub').textContent = upcomingEvents.length
+    ? `${upcomingEvents.length} upcoming · next ${fmtDate(nextEvent.date)}`
+    : 'No upcoming events';
+  document.getElementById('stat-projects-sub').textContent = projectsThisMonth
+    ? `↑ ${projectsThisMonth} this month`
+    : 'Ready for submissions';
+  document.getElementById('stat-equipment-sub').textContent = state.equipment.length
+    ? `${availableEquipment} available now`
+    : 'Admin setup pending';
 
   const el = document.getElementById('dash-events-list');
   el.innerHTML = upcomingEvents.length ? upcomingEvents.slice(0, 3).map(ev => `
@@ -1863,7 +1915,7 @@ async function addMember() {
   ['mem-fname','mem-lname','mem-email','mem-spec'].forEach(id => document.getElementById(id).value = '');
   showToast(`${fname} ${lname} added!`);
   renderMembers();
-  document.getElementById('stat-members').textContent = state.members.length;
+  renderDashboard();
 }
 
 async function removeMember(id) {
@@ -1871,7 +1923,7 @@ async function removeMember(id) {
   if (error) { showToast("Couldn't remove member.", 'error'); return; }
   state.members = state.members.filter(m => m.id !== id);
   renderMembers();
-  document.getElementById('stat-members').textContent = state.members.length;
+  renderDashboard();
   showToast('Member removed.', 'error');
 }
 
@@ -2087,15 +2139,21 @@ function renderAdminAnn() {
         <div style="font-size:12px;color:var(--text2);">${a.body}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px;">${a.date}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteAnn(${a.id})">Delete</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteAnn('${a.id}')">Delete</button>
     </div>`).join('');
 }
 
-function postAnnouncement() {
+async function postAnnouncement() {
   const title = document.getElementById('ann-title').value.trim();
   const body = document.getElementById('ann-body').value.trim();
   if (!title || !body) { showToast('Please fill in both fields.', 'error'); return; }
-  state.announcements.unshift({ id: Date.now(), title, body, date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) });
+  const { data, error } = await supabaseClient
+    .from('announcements')
+    .insert({ title, body })
+    .select('*')
+    .single();
+  if (error) { showToast("Couldn't publish announcement. Run the announcements SQL first.", 'error'); return; }
+  state.announcements.unshift(normalizeAnnouncement(data));
   document.getElementById('ann-title').value = '';
   document.getElementById('ann-body').value = '';
   showToast('Announcement published!');
@@ -2103,7 +2161,9 @@ function postAnnouncement() {
   renderDashboard();
 }
 
-function deleteAnn(id) {
+async function deleteAnn(id) {
+  const { error } = await supabaseClient.from('announcements').delete().eq('id', id);
+  if (error) { showToast("Couldn't delete announcement.", 'error'); return; }
   state.announcements = state.announcements.filter(a => a.id !== id);
   renderAdminAnn();
   renderDashboard();
