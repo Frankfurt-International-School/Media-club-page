@@ -4,6 +4,7 @@ alter table public.signups enable row level security;
 alter table public.equipment enable row level security;
 alter table public.gallery enable row level security;
 alter table public.announcements enable row level security;
+alter table public.join_applications enable row level security;
 
 drop policy if exists "Authenticated users can read members" on public.members;
 drop policy if exists "Authenticated users can add members" on public.members;
@@ -33,6 +34,9 @@ drop policy if exists "Signed-in users can read gallery" on public.gallery;
 drop policy if exists "Admins can manage gallery" on public.gallery;
 drop policy if exists "Signed-in users can read announcements" on public.announcements;
 drop policy if exists "Admins can manage announcements" on public.announcements;
+drop policy if exists "Signed-in users can submit join applications" on public.join_applications;
+drop policy if exists "Admins can read join applications" on public.join_applications;
+drop policy if exists "Admins can manage join applications" on public.join_applications;
 
 create policy "Signed-in users can read members"
 on public.members for select
@@ -104,6 +108,22 @@ to authenticated
 using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
 with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
+create policy "Signed-in users can submit join applications"
+on public.join_applications for insert
+to authenticated
+with check (true);
+
+create policy "Admins can read join applications"
+on public.join_applications for select
+to authenticated
+using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+create policy "Admins can manage join applications"
+on public.join_applications for update
+to authenticated
+using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
 do $$
 begin
   alter publication supabase_realtime add table public.members;
@@ -137,5 +157,11 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.announcements;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.join_applications;
 exception when duplicate_object then null;
 end $$;

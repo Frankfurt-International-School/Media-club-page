@@ -1437,6 +1437,22 @@ function normalizeAnnouncement(item) {
   };
 }
 
+function normalizeApplication(item) {
+  const nameParts = splitName(item.name || '');
+  return {
+    id: item.id,
+    fname: nameParts.fname,
+    lname: nameParts.lname,
+    email: item.email || '',
+    why: item.why || '',
+    interests: item.interests || [],
+    status: item.status || 'pending',
+    year: item.year_group || '',
+    exp: item.experience_level || '',
+    link: item.work_link || '',
+  };
+}
+
 async function loadCrewCenterData() {
   if (!supabaseClient || !supabaseSettings.url || supabaseSettings.url.includes('YOUR-PROJECT-REF')) {
     showToast('Add your Supabase URL and anon key in supabase-config.js.', 'error');
@@ -1445,12 +1461,13 @@ async function loadCrewCenterData() {
   }
 
   try {
-    const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes] = await Promise.all([
+    const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
       supabaseClient.from('events').select('*, signups(id, member_id, signup_role, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name)').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
+      supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
     ]);
 
     const failed = [membersRes, eventsRes, galleryRes, equipmentRes].find(result => result.error);
@@ -1462,6 +1479,9 @@ async function loadCrewCenterData() {
     state.equipment = equipmentRes.data.map(normalizeEquipment);
     if (!announcementsRes.error) {
       state.announcements = announcementsRes.data.map(normalizeAnnouncement);
+    }
+    if (!applicationsRes.error && state.currentUser.isAdmin) {
+      state.applications = applicationsRes.data.map(normalizeApplication);
     }
     renderCurrentPage();
   } catch (error) {
@@ -1482,6 +1502,7 @@ function subscribeToCrewCenterChanges() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'join_applications' }, loadCrewCenterData)
     .subscribe();
 }
 
@@ -2143,14 +2164,25 @@ async function addEquipment() {
 // ══════════════════════════════
 // JOIN
 // ══════════════════════════════
-function submitJoin() {
+async function submitJoin() {
   const fname = document.getElementById('join-fname').value.trim();
   const lname = document.getElementById('join-lname').value.trim();
   const email = document.getElementById('join-email').value.trim();
   const why = document.getElementById('join-why').value.trim();
   if (!fname || !lname || !email || !why) { showToast('Please fill in all required fields.', 'error'); return; }
   const interests = [...document.querySelectorAll('#interest-group .checked input')].map(i => i.value);
-  state.applications.push({ id: Date.now(), fname, lname, email, why, interests, status: 'pending', year: document.getElementById('join-year').value, exp: document.getElementById('join-exp').value });
+  const { error } = await supabaseClient
+    .from('join_applications')
+    .insert({
+      name: `${fname} ${lname}`,
+      email,
+      year_group: document.getElementById('join-year').value,
+      experience_level: document.getElementById('join-exp').value,
+      interests,
+      why,
+      work_link: document.getElementById('join-link').value.trim() || null,
+    });
+  if (error) { showToast("Couldn't submit application.", 'error'); return; }
   document.getElementById('join-form-card').style.display = 'none';
   document.getElementById('join-success').style.display = 'block';
   document.querySelector('.nav-item[onclick*=admin] .notif-dot').style.display = 'inline-block';
@@ -2186,18 +2218,33 @@ function renderPending() {
     </div>`).join('');
 }
 
-function approveApp(id) {
+async function approveApp(id) {
   const app = state.applications.find(a => a.id === id);
+  if (!app) return;
+  const { error: memberError } = await supabaseClient
+    .from('members')
+    .insert({
+      name: `${app.fname} ${app.lname}`,
+      email: app.email,
+      role: 'Member',
+      status: app.interests.join(', ') || 'General',
+    });
+  if (memberError && memberError.code !== '23505') { showToast("Couldn't add member.", 'error'); return; }
+  const { error } = await supabaseClient.from('join_applications').update({ status: 'approved' }).eq('id', id);
+  if (error) { showToast("Couldn't approve application.", 'error'); return; }
   app.status = 'approved';
-  const colors = ['green','purple','amber','coral','teal','blue'];
-  state.members.push({ id: Date.now(), fname: app.fname, lname: app.lname, email: app.email, role: 'Member', spec: app.interests.join(', ') || 'General', color: colors[state.members.length % colors.length] });
   showToast(`${app.fname} ${app.lname} approved and added to members!`);
+  await loadCrewCenterData();
   renderAdmin();
 }
 
-function rejectApp(id) {
-  state.applications.find(a => a.id === id).status = 'rejected';
+async function rejectApp(id) {
+  const { error } = await supabaseClient.from('join_applications').update({ status: 'rejected' }).eq('id', id);
+  if (error) { showToast("Couldn't reject application.", 'error'); return; }
+  const app = state.applications.find(a => a.id === id);
+  if (app) app.status = 'rejected';
   showToast('Application rejected.', 'error');
+  await loadCrewCenterData();
   renderAdmin();
 }
 
