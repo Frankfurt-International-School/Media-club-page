@@ -212,30 +212,6 @@
     color: var(--text);
     flex: 1;
   }
-  .topbar-search {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 7px 14px 7px 34px;
-    color: var(--text);
-    font-family: var(--font-body);
-    font-size: 13px;
-    width: 220px;
-    outline: none;
-    transition: border-color 0.2s;
-    position: relative;
-  }
-  .topbar-search:focus { border-color: var(--border2); }
-  .search-wrap { position: relative; }
-  .search-wrap svg {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 14px; height: 14px;
-    color: var(--text3);
-    pointer-events: none;
-  }
   .topbar-btn {
     background: var(--accent);
     color: #0d0d0f;
@@ -267,9 +243,7 @@
     padding: 8px 12px;
     box-shadow: 0 0 24px rgba(200,255,87,0.06);
   }
-  body.dashboard-active .berlin-clock { display: flex; }
-  body.dashboard-active .search-wrap,
-  body.dashboard-active .topbar-btn { display: none; }
+  .berlin-clock { display: flex; }
   .clock-dot {
     width: 8px;
     height: 8px;
@@ -928,10 +902,6 @@
         <div class="clock-time" id="berlin-clock-time">--:--:--</div>
       </div>
     </div>
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="topbar-search" placeholder="Search..." id="global-search" oninput="handleSearch(this.value)" />
-    </div>
     <button class="topbar-btn" onclick="openModal('event-modal')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New Event
@@ -1531,7 +1501,6 @@ function subscribeToCrewCenterChanges() {
 
 function renderCurrentPage() {
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
-  updateTopbarMode(activePage);
   if (activePage === 'home') renderDashboard();
   if (activePage === 'events') renderEvents();
   if (activePage === 'signup') initSignupSheet();
@@ -1545,17 +1514,12 @@ function renderCurrentPage() {
 // ══════════════════════════════
 const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
 
-function updateTopbarMode(pageId) {
-  document.body.classList.toggle('dashboard-active', pageId === 'home');
-}
-
 function navigate(id, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   if (el) el.classList.add('active');
   document.getElementById('topbar-title').textContent = pageTitles[id] || id;
-  updateTopbarMode(id);
   if (id === 'home') renderDashboard();
   if (id === 'events') renderEvents();
   if (id === 'signup') initSignupSheet();
@@ -2276,13 +2240,6 @@ function switchAdminTab(name, el) {
   document.getElementById('admin-tab-' + name).classList.add('active');
 }
 
-// ══════════════════════════════
-// SEARCH
-// ══════════════════════════════
-function handleSearch(q) {
-  if (!q) return;
-}
-
 function updateBerlinClock() {
   const el = document.getElementById('berlin-clock-time');
   if (!el) return;
@@ -2314,7 +2271,6 @@ function startWaveAnimation() {
 // INIT
 // ══════════════════════════════
 updateUserSurfaces();
-updateTopbarMode('home');
 renderDashboard();
 startWaveAnimation();
 startBerlinClock();
