@@ -38,6 +38,22 @@ drop policy if exists "Signed-in users can submit join applications" on public.j
 drop policy if exists "Admins can read join applications" on public.join_applications;
 drop policy if exists "Admins can manage join applications" on public.join_applications;
 
+create or replace function public.is_admin_panel_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin'
+    or exists (
+      select 1
+      from public.members member
+      where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        and replace(lower(member.role), ' ', '-') in ('leader', 'co-leader', 'moderator')
+    );
+$$;
+
 create policy "Signed-in users can read members"
 on public.members for select
 to authenticated
@@ -46,8 +62,8 @@ using (true);
 create policy "Admins can manage members"
 on public.members for all
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
-with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user())
+with check (public.is_admin_panel_user());
 
 create policy "Signed-in users can read events"
 on public.events for select
@@ -57,8 +73,8 @@ using (true);
 create policy "Admins can manage events"
 on public.events for all
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
-with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user())
+with check (public.is_admin_panel_user());
 
 create policy "Signed-in users can read signups"
 on public.signups for select
@@ -73,7 +89,7 @@ with check (lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'member')) <
 create policy "Admins can delete signups"
 on public.signups for delete
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user());
 
 create policy "Signed-in users can read equipment"
 on public.equipment for select
@@ -83,8 +99,8 @@ using (true);
 create policy "Admins can manage equipment"
 on public.equipment for all
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
-with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user())
+with check (public.is_admin_panel_user());
 
 create policy "Signed-in users can read gallery"
 on public.gallery for select
@@ -94,8 +110,8 @@ using (true);
 create policy "Admins can manage gallery"
 on public.gallery for all
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
-with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user())
+with check (public.is_admin_panel_user());
 
 create policy "Signed-in users can read announcements"
 on public.announcements for select
@@ -105,8 +121,8 @@ using (true);
 create policy "Admins can manage announcements"
 on public.announcements for all
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
-with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user())
+with check (public.is_admin_panel_user());
 
 create policy "Signed-in users can submit join applications"
 on public.join_applications for insert
@@ -116,13 +132,13 @@ with check (true);
 create policy "Admins can read join applications"
 on public.join_applications for select
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user());
 
 create policy "Admins can manage join applications"
 on public.join_applications for update
 to authenticated
-using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
-with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+using (public.is_admin_panel_user())
+with check (public.is_admin_panel_user());
 
 do $$
 begin

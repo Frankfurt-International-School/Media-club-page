@@ -1342,6 +1342,14 @@ function currentMemberRecord() {
   return state.members.find(member => (member.name || '').toLowerCase() === name) || null;
 }
 
+function canAccessAdminPanel() {
+  if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return true;
+  const role = normalizeRoleName(currentMemberRecord()?.role || '');
+  return ['leader', 'co-leader', 'moderator'].includes(role);
+}
+
+window.canAccessCrewCenterAdminPanel = canAccessAdminPanel;
+
 function currentUserSignupRoleKeys() {
   if (state.currentUser.isVisitor) return [];
   if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return adminSignupRoles;
@@ -1506,7 +1514,7 @@ async function loadCrewCenterData() {
     if (!announcementsRes.error) {
       state.announcements = announcementsRes.data.map(normalizeAnnouncement);
     }
-    if (!applicationsRes.error && state.currentUser.isAdmin) {
+    if (!applicationsRes.error && canAccessAdminPanel()) {
       state.applications = applicationsRes.data.map(normalizeApplication);
     }
     renderCurrentPage();
@@ -1581,7 +1589,7 @@ function navItemForPage(id) {
 
 function navigate(id, el, options = {}) {
   let page = document.getElementById('page-' + id) ? id : 'home';
-  if (page === 'admin' && !state.currentUser.isAdmin && !window.CREW_CENTER_IS_ADMIN) {
+  if (page === 'admin' && !canAccessAdminPanel()) {
     page = 'home';
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2255,7 +2263,7 @@ async function submitJoin() {
   document.getElementById('join-form-card').style.display = 'none';
   document.getElementById('join-success').style.display = 'block';
   const adminDot = document.querySelector('.nav-item[onclick*=admin] .notif-dot');
-  if (adminDot && state.currentUser.isAdmin) adminDot.style.display = 'inline-block';
+  if (adminDot && canAccessAdminPanel()) adminDot.style.display = 'inline-block';
   showToast('Application submitted!');
 }
 
@@ -2263,7 +2271,7 @@ async function submitJoin() {
 // ADMIN
 // ══════════════════════════════
 function renderAdmin() {
-  if (!state.currentUser.isAdmin && !window.CREW_CENTER_IS_ADMIN) {
+  if (!canAccessAdminPanel()) {
     navigate('home');
     return;
   }

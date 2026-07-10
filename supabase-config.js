@@ -227,10 +227,12 @@ function setAuthBusy(isBusy) {
 }
 
 function applyAdminControls() {
-  const isAdmin = Boolean(window.CREW_CENTER_IS_ADMIN);
+  const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
   const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = hasAdminPanelAccess ? "" : "none";
+  });
   const adminSelectors = [
-    '.admin-only',
     '.nav-item[onclick*="admin"]',
     'button[onclick*="event-modal"]',
     'button[onclick*="member-modal"]',
@@ -247,7 +249,11 @@ function applyAdminControls() {
 
   adminSelectors.forEach(selector => {
     document.querySelectorAll(selector).forEach(el => {
-      el.style.display = isAdmin ? "" : "none";
+      if (el.classList.contains("admin-only")) {
+        el.style.display = hasAdminPanelAccess ? "" : "none";
+      } else {
+        el.style.display = hasAdminPanelAccess ? "" : "none";
+      }
     });
   });
 
@@ -299,7 +305,8 @@ function installAdminFunctionGuards() {
     if (typeof window[name] !== "function" || window[name].__adminGuarded) return;
     const original = window[name];
     window[name] = function(...args) {
-      if (!window.CREW_CENTER_IS_ADMIN) {
+      const allowed = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
+      if (!allowed) {
         showNotAuthorized(action);
         return undefined;
       }
@@ -312,7 +319,8 @@ function installAdminFunctionGuards() {
     const originalNavigate = window.navigate;
     const visitorAllowedPages = new Set(["home", "events", "gallery", "equipment", "join"]);
     window.navigate = function(id, ...args) {
-      if (id === "admin" && !window.CREW_CENTER_IS_ADMIN) {
+      const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
+      if (id === "admin" && !hasAdminPanelAccess) {
         return originalNavigate.call(this, "home");
       }
       if (window.CREW_CENTER_IS_VISITOR && !visitorAllowedPages.has(id)) {
@@ -328,7 +336,7 @@ function installAdminFunctionGuards() {
     const originalOpenModal = window.openModal;
     window.openModal = function(id, ...args) {
       const adminModalIds = ["event-modal", "member-modal", "gallery-modal", "equip-add-modal"];
-      if (adminModalIds.includes(id) && !window.CREW_CENTER_IS_ADMIN) {
+      if (adminModalIds.includes(id) && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.())) {
         showNotAuthorized("manage club content");
         return undefined;
       }
