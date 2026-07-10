@@ -954,11 +954,10 @@
     </div>
     <div class="filter-row" id="event-filters">
       <button class="filter-chip active" onclick="filterEvents('all', this)">All</button>
-      <button class="filter-chip" onclick="filterEvents('Workshop', this)">Workshop</button>
-      <button class="filter-chip" onclick="filterEvents('Screening', this)">Screening</button>
-      <button class="filter-chip" onclick="filterEvents('Competition', this)">Competition</button>
-      <button class="filter-chip" onclick="filterEvents('Recording', this)">Recording</button>
-      <button class="filter-chip" onclick="filterEvents('Social', this)">Social</button>
+      <button class="filter-chip" onclick="filterEvents('Livestream', this)">Livestream</button>
+      <button class="filter-chip" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
+      <button class="filter-chip" onclick="filterEvents('Event', this)">Event</button>
+      <button class="filter-chip" onclick="filterEvents('Other', this)">Other</button>
     </div>
     <div id="events-list"></div>
   </div>
@@ -1200,10 +1199,14 @@
       <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="ev-loc" placeholder="Room B12" /></div>
       <div class="form-group">
         <label class="form-label">Category</label>
-        <select class="form-select" id="ev-cat">
-          <option>Workshop</option><option>Screening</option><option>Competition</option><option>Recording</option><option>Social</option><option>Other</option>
+        <select class="form-select" id="ev-cat" onchange="updateLivestreamSetupField()">
+          <option>Livestream</option><option>Recording (live cut)</option><option selected>Event</option><option>Other</option>
         </select>
       </div>
+    </div>
+    <div class="form-group" id="ev-livestream-setup-group">
+      <label class="form-label">Setup date (starts at 15:15)</label>
+      <input class="form-input" id="ev-livestream-setup-date" type="date" />
     </div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Max slots</label><input class="form-input" id="ev-slots" type="number" placeholder="20" min="1" /></div>
@@ -1432,13 +1435,21 @@ function normalizeMember(member, index = 0) {
 
 function normalizeEvent(event) {
   const dt = new Date(event.date);
+  const legacyCategoryMap = {
+    Workshop: 'Event',
+    Screening: 'Event',
+    Competition: 'Event',
+    Recording: 'Recording (live cut)',
+    Social: 'Other',
+  };
   return {
     id: event.id,
     title: event.title,
     date: dt.toISOString().slice(0, 10),
     time: dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     loc: event.location || 'TBC',
-    cat: 'Event',
+    cat: legacyCategoryMap[event.category] || event.category || 'Event',
+    livestreamSetupDate: event.livestream_setup_date || '',
     slots: 0,
     desc: event.description || '',
     signups: (event.signups || []).map(signup => ({
@@ -1690,7 +1701,18 @@ function fmtDate(d) {
 function fmtMonth(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' }); }
 function fmtDay(d) { return new Date(d + 'T12:00:00').getDate(); }
 function catColor(cat) {
-  return { Workshop: 'purple', Screening: 'coral', Competition: 'amber', Recording: 'teal', Social: 'blue', Event: 'green', Other: 'gray' }[cat] || 'gray';
+  return { Livestream: 'coral', 'Recording (live cut)': 'teal', Event: 'green', Other: 'gray' }[cat] || 'gray';
+}
+
+function formatEventDate(date) {
+  if (!date) return '';
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(`${date}T00:00:00Z`));
+}
+
+function livestreamSetupCaption(ev) {
+  if (ev.cat !== 'Livestream' || !ev.livestreamSetupDate) return '';
+  return `Setup occurs on ${formatEventDate(ev.livestreamSetupDate)} at 15:15.`;
 }
 function memberColor(c) {
   const map = { green: ['var(--accent-dim)', 'var(--accent)'], purple: ['var(--purple-dim)', 'var(--purple)'], coral: ['var(--coral-dim)', 'var(--coral)'], amber: ['var(--amber-dim)', 'var(--amber)'], teal: ['var(--teal-dim)', 'var(--teal)'], blue: ['var(--blue-dim)', 'var(--blue)'] };
@@ -1835,6 +1857,7 @@ function renderDashboard() {
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${ev.loc || 'TBC'}</span>
         </div>
         <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>
+        ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${livestreamSetupCaption(ev)}</div>` : ''}
       </div>
     </div>`).join('') : '<div class="empty-state"><p>No upcoming events.</p></div>';
 
@@ -1878,6 +1901,7 @@ function renderEvents(filter) {
             ${ev.slots ? `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${ev.signups.length} / ${ev.slots} slots</span>` : ''}
           </div>
           ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ev.desc}</div>` : ''}
+          ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${livestreamSetupCaption(ev)}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:8px;">
             ${state.currentUser.isVisitor
@@ -1896,10 +1920,31 @@ function filterEvents(f, el) {
   renderEvents(f);
 }
 
+function dateBefore(date) {
+  if (!date) return '';
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() - 1);
+  return value.toISOString().slice(0, 10);
+}
+
+function updateLivestreamSetupField() {
+  const category = document.getElementById('ev-cat').value;
+  const group = document.getElementById('ev-livestream-setup-group');
+  const setupDate = document.getElementById('ev-livestream-setup-date');
+  group.style.display = category === 'Livestream' ? '' : 'none';
+  if (category === 'Livestream' && !setupDate.value) {
+    setupDate.value = dateBefore(document.getElementById('ev-date').value);
+  }
+}
+
 async function addEvent() {
   const title = document.getElementById('ev-title').value.trim();
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
+  if (document.getElementById('ev-cat').value === 'Livestream' && !document.getElementById('ev-livestream-setup-date').value) {
+    showToast('Please choose the Livestream setup date.', 'error');
+    return;
+  }
   const eventDate = new Date(`${date}T${document.getElementById('ev-time').value || '12:00'}`);
   const { data, error } = await supabaseClient
     .from('events')
@@ -1908,6 +1953,10 @@ async function addEvent() {
       date: eventDate.toISOString(),
       location: document.getElementById('ev-loc').value,
       description: document.getElementById('ev-desc').value,
+      category: document.getElementById('ev-cat').value,
+      livestream_setup_date: document.getElementById('ev-cat').value === 'Livestream'
+        ? document.getElementById('ev-livestream-setup-date').value || null
+        : null,
     })
     .select('*, signups(id, member_id, signup_role, signed_up_at, members(name, role))')
     .single();
@@ -1916,7 +1965,9 @@ async function addEvent() {
   state.events.push(ev);
   state.events.sort((a, b) => a.date.localeCompare(b.date));
   closeModal('event-modal');
-  ['ev-title','ev-date','ev-time','ev-loc','ev-slots','ev-desc'].forEach(id => document.getElementById(id).value = '');
+  ['ev-title','ev-date','ev-time','ev-loc','ev-slots','ev-desc','ev-livestream-setup-date'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ev-cat').value = 'Event';
+  updateLivestreamSetupField();
   showToast(`Event "${ev.title}" created!`);
   renderEvents();
   renderDashboard();
@@ -2519,6 +2570,12 @@ updateUserSurfaces();
 openPageFromUrl();
 startWaveAnimation();
 startBerlinClock();
+document.getElementById('ev-date').addEventListener('change', () => {
+  if (document.getElementById('ev-cat').value === 'Livestream') {
+    document.getElementById('ev-livestream-setup-date').value = dateBefore(document.getElementById('ev-date').value);
+  }
+});
+updateLivestreamSetupField();
 loadCrewCenterData();
 </script>
 </body>

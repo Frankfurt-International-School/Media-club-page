@@ -14,8 +14,13 @@ create table if not exists public.events (
   title text not null,
   description text,
   date timestamptz not null,
-  location text
+  location text,
+  category text not null default 'Event' check (category in ('Livestream', 'Recording (live cut)', 'Event', 'Other')),
+  livestream_setup_date date
 );
+
+alter table public.events add column if not exists category text not null default 'Event';
+alter table public.events add column if not exists livestream_setup_date date;
 
 create table if not exists public.signups (
   id uuid primary key default gen_random_uuid(),
