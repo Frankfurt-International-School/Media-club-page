@@ -1455,8 +1455,8 @@ function normalizeGallery(item) {
   return {
     id: item.id,
     title: item.project_name,
-    type: 'Photo',
-    author: '',
+    type: item.project_type || 'Photo',
+    author: item.members?.name || '',
     desc: item.description || '',
     link: item.image_url || '#',
     image_url: item.image_url || '',
@@ -1513,7 +1513,7 @@ async function loadCrewCenterData() {
     const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
       supabaseClient.from('events').select('*, signups(id, member_id, signup_role, signed_up_at, members(name, role))').order('date', { ascending: true }),
-      supabaseClient.from('gallery').select('*').order('created_at', { ascending: false }),
+      supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name)').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
       supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
@@ -1533,6 +1533,7 @@ async function loadCrewCenterData() {
       state.applications = applicationsRes.data.map(normalizeApplication);
     }
     window.applyCrewCenterAdminControls?.();
+    renderGalleryAuthorField();
     window.CREW_CENTER_DATA_LOADED = true;
     renderCurrentPage();
     window.updateCrewCenterEventsBadge?.();
@@ -1656,6 +1657,7 @@ function toggleSidebarCollapse() {
 // MODAL
 // ══════════════════════════════
 function openModal(id) {
+  if (id === 'gallery-modal') renderGalleryAuthorField();
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -2136,6 +2138,13 @@ const galleryIcons = {
   Design: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
 };
 
+function renderGalleryAuthorField() {
+  const input = document.getElementById('gal-author');
+  if (!input) return;
+  input.disabled = true;
+  input.value = currentMemberRecord()?.name || state.currentUser.name || '';
+}
+
 function renderGallery(filter) {
   if (filter !== undefined) state.galleryFilter = filter;
   const f = state.galleryFilter;
@@ -2173,23 +2182,35 @@ function switchGalleryTab(f, el) {
 }
 
 async function submitProject() {
+  if (state.currentUser.isVisitor) {
+    showToast('Visitors cannot submit gallery projects.', 'error');
+    return;
+  }
   const title = document.getElementById('gal-title').value.trim();
-  const author = document.getElementById('gal-author').value.trim();
-  if (!title || !author) { showToast('Title and name required.', 'error'); return; }
-  const description = [document.getElementById('gal-desc').value, author ? `Submitted by ${author}` : ''].filter(Boolean).join(' — ');
+  const member = currentMemberRecord();
+  if (!title) { showToast('Project title required.', 'error'); return; }
+  if (!member) {
+    showToast("Couldn't match your signed-in email to a member record.", 'error');
+    return;
+  }
+  const projectType = document.getElementById('gal-type').value;
   const { data, error } = await supabaseClient
     .from('gallery')
     .insert({
       project_name: title,
-      description,
+      project_type: projectType,
+      member_id: member.id,
+      description: document.getElementById('gal-desc').value.trim() || null,
       image_url: document.getElementById('gal-link').value || null,
     })
-    .select('*')
+    .select('*, members(name)')
     .single();
   if (error) { showToast("Couldn't submit project.", 'error'); return; }
   state.gallery.unshift(normalizeGallery(data));
   closeModal('gallery-modal');
-  ['gal-title','gal-author','gal-desc','gal-link'].forEach(id => document.getElementById(id).value = '');
+  ['gal-title','gal-desc','gal-link'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('gal-type').value = 'Photo';
+  renderGalleryAuthorField();
   showToast(`Project "${title}" submitted!`);
   renderGallery();
   renderDashboard();

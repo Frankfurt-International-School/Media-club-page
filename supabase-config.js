@@ -249,14 +249,12 @@ function applyAdminControls() {
     '.nav-item[onclick*="admin"]',
     'button[onclick*="event-modal"]',
     'button[onclick*="member-modal"]',
-    'button[onclick*="gallery-modal"]',
     'button[onclick*="equip-add-modal"]',
     'button[onclick*="deleteEvent"]',
     'button[onclick*="removeMember"]',
     'button[onclick*="addEquipment"]',
     'button[onclick*="addMember"]',
     'button[onclick*="addEvent"]',
-    'button[onclick*="submitProject"]',
     'button[onclick*="renderManageEvents"]',
   ];
 
@@ -308,7 +306,6 @@ function installAdminFunctionGuards() {
     deleteEvent: "delete events",
     addMember: "add members",
     removeMember: "remove members",
-    submitProject: "add gallery projects",
     addEquipment: "add equipment",
     postAnnouncement: "post announcements",
     deleteAnn: "delete announcements",
@@ -349,7 +346,11 @@ function installAdminFunctionGuards() {
   if (typeof window.openModal === "function" && !window.openModal.__adminGuarded) {
     const originalOpenModal = window.openModal;
     window.openModal = function(id, ...args) {
-      const adminModalIds = ["event-modal", "member-modal", "gallery-modal", "equip-add-modal"];
+      const adminModalIds = ["event-modal", "member-modal", "equip-add-modal"];
+      if (id === "gallery-modal" && window.CREW_CENTER_IS_VISITOR) {
+        showNotAuthorized("submit gallery projects");
+        return undefined;
+      }
       if (adminModalIds.includes(id) && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.())) {
         showNotAuthorized("manage club content");
         return undefined;

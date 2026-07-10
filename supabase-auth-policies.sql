@@ -31,7 +31,10 @@ drop policy if exists "Admins can manage equipment" on public.equipment;
 drop policy if exists "Authenticated users can read gallery" on public.gallery;
 drop policy if exists "Authenticated users can manage gallery" on public.gallery;
 drop policy if exists "Signed-in users can read gallery" on public.gallery;
+drop policy if exists "Signed-in members can submit gallery projects" on public.gallery;
 drop policy if exists "Admins can manage gallery" on public.gallery;
+drop policy if exists "Admins can update gallery" on public.gallery;
+drop policy if exists "Admins can delete gallery" on public.gallery;
 drop policy if exists "Signed-in users can read announcements" on public.announcements;
 drop policy if exists "Admins can manage announcements" on public.announcements;
 drop policy if exists "Signed-in users can submit join applications" on public.join_applications;
@@ -107,11 +110,29 @@ on public.gallery for select
 to authenticated
 using (true);
 
-create policy "Admins can manage gallery"
-on public.gallery for all
+create policy "Signed-in members can submit gallery projects"
+on public.gallery for insert
+to authenticated
+with check (
+  lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'member')) <> 'visitor'
+  and exists (
+    select 1
+    from public.members member
+    where member.id = gallery.member_id
+      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  )
+);
+
+create policy "Admins can update gallery"
+on public.gallery for update
 to authenticated
 using (public.is_admin_panel_user())
 with check (public.is_admin_panel_user());
+
+create policy "Admins can delete gallery"
+on public.gallery for delete
+to authenticated
+using (public.is_admin_panel_user());
 
 create policy "Signed-in users can read announcements"
 on public.announcements for select
