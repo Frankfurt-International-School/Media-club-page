@@ -10,13 +10,6 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
-const escapeHtml = (value: string) => value
-  .replaceAll("&", "&amp;")
-  .replaceAll("<", "&lt;")
-  .replaceAll(">", "&gt;")
-  .replaceAll('"', "&quot;")
-  .replaceAll("'", "&#039;");
-
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -77,22 +70,6 @@ Deno.serve(async request => {
   }
 
   if (!String(reason).trim()) return json({ error: "A rejection reason is required." }, 400);
-  const resendKey = Deno.env.get("RESEND_API_KEY");
-  const fromEmail = Deno.env.get("FROM_EMAIL");
-  if (!resendKey || !fromEmail) return json({ error: "Rejection email is not configured yet." }, 503);
-
-  const emailResponse = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: [application.email],
-      subject: "Your Media Club application",
-      html: `<p>Hello ${escapeHtml(application.name)},</p><p>Thank you for applying to the FIS Student Media Club. We are unable to approve your application at this time.</p><p><strong>Reason:</strong> ${escapeHtml(String(reason).trim())}</p><p>Media Club Team</p>`,
-    }),
-  });
-  if (!emailResponse.ok) return json({ error: "The decision email could not be sent." }, 502);
-
   const { error: updateError } = await adminClient.from("join_applications").update({
     status: "rejected",
     rejection_reason: String(reason).trim(),
@@ -100,5 +77,5 @@ Deno.serve(async request => {
     reviewed_by: user.id,
   }).eq("id", applicationId);
   if (updateError) return json({ error: updateError.message }, 500);
-  return json({ ok: true });
+  return json({ ok: true, applicantEmail: application.email });
 });

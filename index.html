@@ -1283,7 +1283,7 @@
       <label class="form-label" for="reject-application-reason">Reason *</label>
       <textarea class="form-textarea" id="reject-application-reason" placeholder="Please provide a clear and respectful reason." required></textarea>
     </div>
-    <button class="btn btn-danger" id="reject-application-submit" style="width:100%;justify-content:center;" onclick="submitApplicationRejection()">Reject and send email</button>
+    <button class="btn btn-danger" id="reject-application-submit" style="width:100%;justify-content:center;" onclick="submitApplicationRejection()">Reject application</button>
   </div>
 </div>
 
@@ -1668,7 +1668,7 @@ document.querySelectorAll('.modal-backdrop').forEach(m => {
 // ══════════════════════════════
 // TOAST
 // ══════════════════════════════
-function showToast(msg, type = 'success') {
+function showToast(msg, type = 'success', duration = 3500) {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
   t.className = `toast ${type}`;
@@ -1677,7 +1677,7 @@ function showToast(msg, type = 'success') {
     : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
   t.innerHTML = icon + msg;
   c.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
+  setTimeout(() => t.remove(), duration);
 }
 
 // ══════════════════════════════
@@ -2392,15 +2392,15 @@ async function submitApplicationRejection() {
   if (!id || !reason) { showToast('Enter a reason for the applicant.', 'error'); return; }
   const button = document.getElementById('reject-application-submit');
   button.disabled = true;
-  button.textContent = 'Sending...';
-  const { error } = await supabaseClient.functions.invoke('review-application', {
+  button.textContent = 'Rejecting...';
+  const { data, error } = await supabaseClient.functions.invoke('review-application', {
     body: { applicationId: id, decision: 'reject', reason },
   });
   button.disabled = false;
-  button.textContent = 'Reject and send email';
+  button.textContent = 'Reject application';
   if (error) { showToast(await edgeFunctionErrorMessage(error, "Couldn't reject application."), 'error'); return; }
   closeRejectApplicationModal();
-  showToast('Application rejected and email sent.');
+  showToast(`Application rejected. Please email ${data?.applicantEmail || 'the applicant'} and inform them that their application was unsuccessful.`, 'error', 10000);
   await loadCrewCenterData();
   renderAdmin();
 }

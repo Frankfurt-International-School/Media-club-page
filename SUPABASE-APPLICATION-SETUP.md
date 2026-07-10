@@ -30,17 +30,12 @@ supabase functions deploy review-application
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are supplied to
 hosted Edge Functions by Supabase. Never put the service role key in frontend code.
 
-## 4. Configure rejection email
-
-Create a Resend account, verify a sending domain, and create an API key. In Supabase,
-open **Edge Functions > Secrets** and add:
-
-- `RESEND_API_KEY`: the Resend API key
-- `FROM_EMAIL`: a verified sender, for example `Media Club <crew@your-domain.com>`
-- `SITE_URL`: `https://media-club-page.pages.dev`
+## 4. Configure the invitation email
 
 Approval emails use Supabase Auth's invitation template. You can edit that message in
-**Authentication > Email Templates > Invite user**.
+**Authentication > Email Templates > Invite user**. Rejected applications are recorded
+in Supabase and the reviewer is reminded to email the applicant manually; no custom
+email domain or Resend account is required.
 
 ## 5. Publish and test
 
@@ -49,6 +44,5 @@ deployment. Submit a test application with an email address you control, then te
 
 1. Approve: the application disappears from Pending, a Member row is created, and an
    invitation email arrives. Its link opens the Set Password screen.
-2. Reject: the admin must enter a reason. The application is marked rejected only after
-   the decision email is accepted by Resend.
-
+2. Reject: the admin must enter a reason. The application is marked rejected and a
+   notification reminds the reviewer to email the applicant manually.
