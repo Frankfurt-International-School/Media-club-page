@@ -896,7 +896,7 @@
   <!-- ── DASHBOARD ── -->
   <div id="page-home" class="page active">
     <div class="page-header">
-      <div class="page-title">Good afternoon <span class="wave-hand" id="wave-hand">👋</span></div>
+      <div class="page-title"><span id="dashboard-greeting">Good afternoon</span> <span class="wave-hand" id="wave-hand">👋</span></div>
       <div class="page-sub">Here's what's happening in Media Club this week.</div>
     </div>
     <div class="grid4 mb24">
@@ -2475,9 +2475,31 @@ function updateBerlinClock() {
   }).format(new Date());
 }
 
+function updateDashboardGreeting() {
+  const el = document.getElementById('dashboard-greeting');
+  if (!el) return;
+  const berlinHour = Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Berlin',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date()));
+  const greeting = berlinHour >= 21 || berlinHour < 5
+    ? 'Good night'
+    : berlinHour >= 18
+      ? 'Good evening'
+      : berlinHour >= 12
+        ? 'Good afternoon'
+        : 'Good morning';
+  el.textContent = greeting;
+}
+
 function startBerlinClock() {
   updateBerlinClock();
-  setInterval(updateBerlinClock, 1000);
+  updateDashboardGreeting();
+  setInterval(() => {
+    updateBerlinClock();
+    updateDashboardGreeting();
+  }, 1000);
 }
 
 function startWaveAnimation() {
