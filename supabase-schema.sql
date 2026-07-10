@@ -1,4 +1,5 @@
 create extension if not exists pgcrypto;
+create extension if not exists btree_gist;
 
 create table if not exists public.members (
   id uuid primary key default gen_random_uuid(),
@@ -16,25 +17,47 @@ create table if not exists public.events (
   date timestamptz not null,
   location text,
   category text not null default 'Event' check (category in ('Livestream', 'Recording (live cut)', 'Event', 'Other')),
-  livestream_setup_date date
+  livestream_setup_date date,
+  is_sports boolean not null default false,
+  game_1_start time,
+  game_1_end time,
+  game_2_start time,
+  game_2_end time
 );
 
 alter table public.events add column if not exists category text not null default 'Event';
 alter table public.events add column if not exists livestream_setup_date date;
+alter table public.events add column if not exists is_sports boolean not null default false;
+alter table public.events add column if not exists game_1_start time;
+alter table public.events add column if not exists game_1_end time;
+alter table public.events add column if not exists game_2_start time;
+alter table public.events add column if not exists game_2_end time;
 
 create table if not exists public.signups (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events(id) on delete cascade,
   member_id uuid not null references public.members(id) on delete cascade,
   signup_role text,
+  attendance_type text not null default 'whole' check (attendance_type in ('whole', 'game_1', 'game_2', 'custom')),
+  attendance_start timestamptz,
+  attendance_end timestamptz,
   signed_up_at timestamptz not null default now(),
   unique (event_id, member_id)
 );
 
 alter table public.signups add column if not exists signup_role text;
-create unique index if not exists signups_event_signup_role_idx
-on public.signups (event_id, signup_role)
-where signup_role is not null;
+alter table public.signups add column if not exists attendance_type text not null default 'whole';
+alter table public.signups add column if not exists attendance_start timestamptz;
+alter table public.signups add column if not exists attendance_end timestamptz;
+drop index if exists public.signups_event_signup_role_idx;
+alter table public.signups drop constraint if exists signups_role_attendance_no_overlap;
+alter table public.signups add constraint signups_role_attendance_no_overlap
+exclude using gist (
+  event_id with =,
+  signup_role with =,
+  tstzrange(attendance_start, attendance_end, '[)') with &&
+)
+where (signup_role is not null and attendance_start is not null and attendance_end is not null);
 
 create table if not exists public.equipment (
   id uuid primary key default gen_random_uuid(),

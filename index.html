@@ -991,6 +991,19 @@
         <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" placeholder="Your full name" /></div>
         <div class="form-group" style="margin:0"><select class="form-select" id="signup-role"></select></div>
       </div>
+      <div class="form-row2 mb12">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Staying for</label>
+          <select class="form-select" id="signup-attendance" onchange="renderSignupRoleOptionsForCurrentEvent()"></select>
+        </div>
+        <div class="form-group" style="margin:0;display:flex;align-items:flex-end;">
+          <label class="checkbox-label"><input type="checkbox" id="signup-custom-time" onchange="updateSignupAttendanceFields()"> Custom arrival and leaving time</label>
+        </div>
+      </div>
+      <div class="form-row2 mb12" id="signup-custom-time-fields" style="display:none;">
+        <div class="form-group" style="margin:0"><label class="form-label">Arrival time</label><input class="form-input" id="signup-start-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Leaving time</label><input class="form-input" id="signup-end-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
+      </div>
       <button class="btn btn-accent" onclick="addSignupRow()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Sign up
@@ -1207,6 +1220,21 @@
       <label class="form-label">Setup date (starts at 15:15)</label>
       <input class="form-input" id="ev-livestream-setup-date" type="date" />
     </div>
+    <div id="ev-sports-group" style="display:none;">
+      <label class="checkbox-label mb12"><input type="checkbox" id="ev-sports" onchange="updateSportsFields()"> Sports Livestream</label>
+      <div id="ev-game-times" style="display:none;">
+        <div class="form-label mb8">Game 1</div>
+        <div class="form-row2">
+          <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="ev-game1-start" type="time" /></div>
+          <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="ev-game1-end" type="time" /></div>
+        </div>
+        <div class="form-label mb8">Game 2</div>
+        <div class="form-row2">
+          <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="ev-game2-start" type="time" /></div>
+          <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="ev-game2-end" type="time" /></div>
+        </div>
+      </div>
+    </div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Max slots</label><input class="form-input" id="ev-slots" type="number" placeholder="20" min="1" /></div>
       <div class="form-group"><label class="form-label">Deadline to sign up</label><input class="form-input" id="ev-deadline" type="date" /></div>
@@ -1336,13 +1364,15 @@ const signupRoleLabels = {
   mixing: 'MIXING',
   obs: 'OBS',
   robocam: 'Robocam',
-  handheld: 'Handheld',
+  handheld_1: 'Handheld 1',
+  handheld_2: 'Handheld 2',
+  handheld_3: 'Handheld 3 (optional)',
   wireless: 'Wireless',
   photographer: 'Photographer',
 };
-const memberSignupRoles = ['mixing', 'obs', 'robocam', 'handheld', 'photographer'];
+const memberSignupRoles = ['mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2', 'handheld_3', 'photographer'];
 const supervisorSignupRoles = ['student_supervisor', ...memberSignupRoles];
-const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld', 'wireless', 'photographer'];
+const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2', 'handheld_3', 'wireless', 'photographer'];
 
 function normalizeRoleName(role = '') {
   return role.toLowerCase().trim().replace(/\s+/g, '-');
@@ -1375,24 +1405,61 @@ function currentUserSignupRoleKeys() {
   return memberSignupRoles;
 }
 
-function getTakenSignupRoles(ev) {
-  return new Set((ev?.signups || []).map(signup => signup.role).filter(Boolean));
+function timeValue(date, time) {
+  return date && time ? new Date(`${date}T${time}`).getTime() : null;
+}
+
+function selectedAttendanceWindow(ev) {
+  if (!ev) return null;
+  const custom = document.getElementById('signup-custom-time')?.checked;
+  const type = custom ? 'custom' : document.getElementById('signup-attendance')?.value || 'whole';
+  const ranges = {
+    game_1: [ev.game1Start, ev.game1End],
+    game_2: [ev.game2Start, ev.game2End],
+    whole: [ev.game1Start || ev.time, ev.game2End || ev.game1End || '23:59'],
+    custom: [document.getElementById('signup-start-time')?.value, document.getElementById('signup-end-time')?.value],
+  };
+  const [startTime, endTime] = ranges[type] || [];
+  const start = timeValue(ev.date, startTime);
+  const end = timeValue(ev.date, endTime);
+  return start && end && end > start ? { type, start, end, startTime, endTime } : null;
+}
+
+function signupOverlaps(signup, window) {
+  if (!window || !signup.attendanceStart || !signup.attendanceEnd) return true;
+  return new Date(signup.attendanceStart).getTime() < window.end && new Date(signup.attendanceEnd).getTime() > window.start;
 }
 
 function renderSignupRoleOptions(ev) {
   const select = document.getElementById('signup-role');
   if (!select) return;
   const selected = select.value;
-  const taken = getTakenSignupRoles(ev);
+  const attendance = selectedAttendanceWindow(ev);
   select.innerHTML = currentUserSignupRoleKeys().map(key => {
     const label = signupRoleLabels[key];
-    const disabled = taken.has(label) ? ' disabled' : '';
-    const suffix = taken.has(label) ? ' - taken' : '';
+    const sameRole = (ev?.signups || []).filter(signup => signup.role === label);
+    const overlapping = sameRole.filter(signup => signupOverlaps(signup, attendance));
+    const occupied = overlapping.length > 0;
+    const latestEnd = sameRole.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
+    const occupiedUntil = overlapping.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
+    const disabled = occupied ? ' disabled' : '';
+    const suffix = occupied
+      ? occupiedUntil
+        ? ` - occupied until ${new Date(occupiedUntil).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+        : ' - slot occupied'
+      : latestEnd
+        ? ' - available for selected time'
+        : '';
     return `<option value="${label}"${disabled}>${label}${suffix}</option>`;
   }).join('');
   if ([...select.options].some(option => option.value === selected && !option.disabled)) {
     select.value = selected;
   }
+}
+
+function renderSignupRoleOptionsForCurrentEvent() {
+  const ev = state.events.find(event => event.id === document.getElementById('sheet-event-select')?.value);
+  renderSignupRoleOptions(ev);
 }
 
 function renderSignupNameField() {
@@ -1449,6 +1516,11 @@ function normalizeEvent(event) {
     loc: event.location || 'TBC',
     cat: legacyCategoryMap[event.category] || event.category || 'Event',
     livestreamSetupDate: event.livestream_setup_date || '',
+    isSports: Boolean(event.is_sports),
+    game1Start: event.game_1_start?.slice(0, 5) || '',
+    game1End: event.game_1_end?.slice(0, 5) || '',
+    game2Start: event.game_2_start?.slice(0, 5) || '',
+    game2End: event.game_2_end?.slice(0, 5) || '',
     slots: 0,
     desc: event.description || '',
     signups: (event.signups || []).map(signup => ({
@@ -1456,6 +1528,9 @@ function normalizeEvent(event) {
       memberId: signup.member_id,
       name: signup.members?.name || 'Unknown member',
       role: signup.signup_role || signup.members?.role || '',
+      attendanceType: signup.attendance_type || 'whole',
+      attendanceStart: signup.attendance_start || '',
+      attendanceEnd: signup.attendance_end || '',
       ts: new Date(signup.signed_up_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     })),
   };
@@ -1522,7 +1597,7 @@ async function loadCrewCenterData() {
   try {
     const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
-      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, signed_up_at, members(name, role))').order('date', { ascending: true }),
+      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name)').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
@@ -1713,6 +1788,11 @@ function livestreamSetupCaption(ev) {
   if (ev.cat !== 'Livestream' || !ev.livestreamSetupDate) return '';
   return `Setup occurs on ${formatEventDate(ev.livestreamSetupDate)} at 15:15.`;
 }
+
+function sportsScheduleCaption(ev) {
+  if (!ev.isSports) return '';
+  return `Game 1: ${ev.game1Start}–${ev.game1End} · Game 2: ${ev.game2Start}–${ev.game2End}`;
+}
 function memberColor(c) {
   const map = { green: ['var(--accent-dim)', 'var(--accent)'], purple: ['var(--purple-dim)', 'var(--purple)'], coral: ['var(--coral-dim)', 'var(--coral)'], amber: ['var(--amber-dim)', 'var(--amber)'], teal: ['var(--teal-dim)', 'var(--teal)'], blue: ['var(--blue-dim)', 'var(--blue)'] };
   return map[c] || map.purple;
@@ -1900,6 +1980,7 @@ function renderEvents(filter) {
             ${ev.slots ? `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${ev.signups.length} / ${ev.slots} slots</span>` : ''}
           </div>
           ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ev.desc}</div>` : ''}
+          ${sportsScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${sportsScheduleCaption(ev)}</div>` : ''}
           ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${livestreamSetupCaption(ev)}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:8px;">
@@ -1931,9 +2012,16 @@ function updateLivestreamSetupField() {
   const group = document.getElementById('ev-livestream-setup-group');
   const setupDate = document.getElementById('ev-livestream-setup-date');
   group.style.display = category === 'Livestream' ? '' : 'none';
+  document.getElementById('ev-sports-group').style.display = category === 'Livestream' ? '' : 'none';
+  if (category !== 'Livestream') document.getElementById('ev-sports').checked = false;
+  updateSportsFields();
   if (category === 'Livestream' && !setupDate.value) {
     setupDate.value = dateBefore(document.getElementById('ev-date').value);
   }
+}
+
+function updateSportsFields() {
+  document.getElementById('ev-game-times').style.display = document.getElementById('ev-sports').checked ? '' : 'none';
 }
 
 async function addEvent() {
@@ -1944,7 +2032,18 @@ async function addEvent() {
     showToast('Please choose the Livestream setup date.', 'error');
     return;
   }
-  const eventDate = new Date(`${date}T${document.getElementById('ev-time').value || '12:00'}`);
+  const isSports = document.getElementById('ev-cat').value === 'Livestream' && document.getElementById('ev-sports').checked;
+  const gameTimes = ['ev-game1-start', 'ev-game1-end', 'ev-game2-start', 'ev-game2-end'].map(id => document.getElementById(id).value);
+  if (isSports && gameTimes.some(value => !value)) {
+    showToast('Please enter the start and end times for both games.', 'error');
+    return;
+  }
+  if (isSports && !(gameTimes[0] < gameTimes[1] && gameTimes[1] <= gameTimes[2] && gameTimes[2] < gameTimes[3])) {
+    showToast('Game times must be in order and cannot overlap.', 'error');
+    return;
+  }
+  const eventStartTime = isSports ? gameTimes[0] : document.getElementById('ev-time').value || '12:00';
+  const eventDate = new Date(`${date}T${eventStartTime}`);
   const { data, error } = await supabaseClient
     .from('events')
     .insert({
@@ -1956,15 +2055,21 @@ async function addEvent() {
       livestream_setup_date: document.getElementById('ev-cat').value === 'Livestream'
         ? document.getElementById('ev-livestream-setup-date').value || null
         : null,
+      is_sports: isSports,
+      game_1_start: isSports ? gameTimes[0] : null,
+      game_1_end: isSports ? gameTimes[1] : null,
+      game_2_start: isSports ? gameTimes[2] : null,
+      game_2_end: isSports ? gameTimes[3] : null,
     })
-    .select('*, signups(id, member_id, signup_role, signed_up_at, members(name, role))')
+    .select('*, signups(id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))')
     .single();
   if (error) { showToast("Couldn't create event.", 'error'); return; }
   const ev = normalizeEvent(data);
   state.events.push(ev);
   state.events.sort((a, b) => a.date.localeCompare(b.date));
   closeModal('event-modal');
-  ['ev-title','ev-date','ev-time','ev-loc','ev-slots','ev-desc','ev-livestream-setup-date'].forEach(id => document.getElementById(id).value = '');
+  ['ev-title','ev-date','ev-time','ev-loc','ev-slots','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ev-sports').checked = false;
   document.getElementById('ev-cat').value = 'Event';
   updateLivestreamSetupField();
   showToast(`Event "${ev.title}" created!`);
@@ -1989,6 +2094,30 @@ function initSignupSheet() {
   renderSignupSheet();
 }
 
+function renderSignupAttendanceOptions(ev) {
+  const select = document.getElementById('signup-attendance');
+  const previous = select.value;
+  select.innerHTML = ev?.isSports
+    ? '<option value="whole">Whole time (2 games)</option><option value="game_1">Half-the-time (Game 1)</option><option value="game_2">Half-the-time (Game 2)</option>'
+    : '<option value="whole">Whole time</option>';
+  if ([...select.options].some(option => option.value === previous)) select.value = previous;
+}
+
+function updateSignupAttendanceFields() {
+  const custom = document.getElementById('signup-custom-time').checked;
+  document.getElementById('signup-custom-time-fields').style.display = custom ? '' : 'none';
+  document.getElementById('signup-attendance').disabled = custom;
+  renderSignupRoleOptionsForCurrentEvent();
+}
+
+function attendanceLabel(signup) {
+  if (!signup.attendanceStart || !signup.attendanceEnd) return 'Whole time';
+  const start = new Date(signup.attendanceStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const end = new Date(signup.attendanceEnd).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const labels = { whole: 'Whole time', game_1: 'Game 1', game_2: 'Game 2', custom: 'Custom' };
+  return `${labels[signup.attendanceType] || 'Custom'} · ${start}–${end}`;
+}
+
 function renderSignupSheet() {
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
@@ -1998,10 +2127,12 @@ function renderSignupSheet() {
     renderSignupRoleOptions(null);
     return;
   }
+  renderSignupAttendanceOptions(ev);
+  updateSignupAttendanceFields();
   renderSignupRoleOptions(ev);
   renderSignupNameField();
   document.getElementById('sheet-event-title').textContent = ev.title;
-  document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}`;
+  document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}`;
   const cap = ev.slots || '∞';
   document.getElementById('sheet-event-cap').textContent = `${ev.signups.length} signed up${ev.slots ? ' · ' + ev.slots + ' max' : ''}`;
   const pct = ev.slots ? Math.min(100, Math.round(ev.signups.length / ev.slots * 100)) : 0;
@@ -2017,17 +2148,18 @@ function renderSignupSheet() {
       <td class="row-num">${i + 1}</td>
       <td>${s.name}</td>
       <td>${s.role || '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="color:var(--text2);font-size:12px;">${attendanceLabel(s)}</td>
       <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
       ${state.currentUser.isAdmin ? `<td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${i})">Remove</button></td>` : ''}
     </tr>`).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
     for (let i = 0; i < empty; i++) {
-      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td>${state.currentUser.isAdmin ? '<td></td>' : ''}</tr>`;
+      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${state.currentUser.isAdmin ? '<td></td>' : ''}</tr>`;
     }
   }
   document.getElementById('sheet-table').innerHTML = `
-    <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Signed up</th>${removeHeader}</tr></thead>
+    <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Staying for</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
 }
 
@@ -2043,8 +2175,19 @@ async function addSignupRow() {
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
   const role = document.getElementById('signup-role').value;
   if (!role) { showToast('Please choose an available role.', 'error'); return; }
-  if (ev.signups.some(signup => signup.role === role)) {
-    showToast(`${role} is already taken for this event.`, 'error');
+  const attendance = selectedAttendanceWindow(ev);
+  if (!attendance) {
+    showToast('Please choose valid arrival and leaving times.', 'error');
+    return;
+  }
+  const eventStart = timeValue(ev.date, ev.game1Start || ev.time);
+  const eventEnd = timeValue(ev.date, ev.game2End || ev.game1End || '23:59');
+  if (attendance.type === 'custom' && (attendance.start < eventStart || attendance.end > eventEnd)) {
+    showToast('Custom attendance must be within the event times.', 'error');
+    return;
+  }
+  if (ev.signups.some(signup => signup.role === role && signupOverlaps(signup, attendance))) {
+    showToast(`Slot occupied: ${role} is already assigned during that time.`, 'error');
     renderSignupSheet();
     return;
   }
@@ -2062,12 +2205,19 @@ async function addSignupRow() {
   }
   const { data: signup, error } = await supabaseClient
     .from('signups')
-    .insert({ event_id: ev.id, member_id: member.id, signup_role: role })
-    .select('id, member_id, signup_role, signed_up_at, members(name, role)')
+    .insert({
+      event_id: ev.id,
+      member_id: member.id,
+      signup_role: role,
+      attendance_type: attendance.type,
+      attendance_start: new Date(attendance.start).toISOString(),
+      attendance_end: new Date(attendance.end).toISOString(),
+    })
+    .select('id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role)')
     .single();
   if (error) {
-    if (error.code === '23505') {
-      showToast(`${role} is already taken, or you are already signed up for this event.`, 'error');
+    if (error.code === '23505' || error.code === '23P01') {
+      showToast(error.code === '23P01' ? 'Slot occupied during that time.' : 'You are already signed up for this event.', 'error');
       await loadCrewCenterData();
       return;
     }
@@ -2079,6 +2229,9 @@ async function addSignupRow() {
     memberId: signup.member_id,
     name: signup.members?.name || member.name,
     role: signup.signup_role || role,
+    attendanceType: signup.attendance_type || attendance.type,
+    attendanceStart: signup.attendance_start,
+    attendanceEnd: signup.attendance_end,
     ts: new Date(signup.signed_up_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
   });
   document.getElementById('signup-name').value = '';
