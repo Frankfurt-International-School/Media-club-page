@@ -2318,6 +2318,19 @@ function renderPending() {
     </div>`).join('');
 }
 
+async function edgeFunctionErrorMessage(error, fallback) {
+  try {
+    const response = error?.context;
+    if (response && typeof response.clone === 'function') {
+      const body = await response.clone().json();
+      if (body?.error) return body.error;
+    }
+  } catch (_) {
+    // Keep the useful fallback when the response body is unavailable.
+  }
+  return error?.message || fallback;
+}
+
 async function approveApp(id) {
   const app = state.applications.find(a => a.id === id);
   if (!app) return;
@@ -2328,7 +2341,7 @@ async function approveApp(id) {
   });
   if (error) {
     if (button) { button.disabled = false; button.textContent = 'Approve'; }
-    showToast(error.message || "Couldn't approve application.", 'error');
+    showToast(await edgeFunctionErrorMessage(error, "Couldn't approve application."), 'error');
     return;
   }
   showToast(`${app.fname} ${app.lname} approved. Invitation email sent.`);
@@ -2364,7 +2377,7 @@ async function submitApplicationRejection() {
   });
   button.disabled = false;
   button.textContent = 'Reject and send email';
-  if (error) { showToast(error.message || "Couldn't reject application.", 'error'); return; }
+  if (error) { showToast(await edgeFunctionErrorMessage(error, "Couldn't reject application."), 'error'); return; }
   closeRejectApplicationModal();
   showToast('Application rejected and email sent.');
   await loadCrewCenterData();
