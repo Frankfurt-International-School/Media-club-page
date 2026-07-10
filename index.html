@@ -762,7 +762,6 @@
   .wave-hand {
     display: inline-block;
     transform-origin: 70% 70%;
-    animation: waveBrief 1.15s ease-in-out 0.4s 1;
   }
   .wave-hand.wave-now { animation: waveBrief 1.15s ease-in-out 1; }
   @keyframes waveBrief {
@@ -2534,10 +2533,8 @@ function updateDashboardGreeting() {
     hour: '2-digit',
     hourCycle: 'h23',
   }).format(new Date()));
-  const greeting = berlinHour >= 21 || berlinHour < 5
-    ? 'Good night'
-    : berlinHour >= 18
-      ? 'Good evening'
+  const greeting = berlinHour >= 18 || berlinHour < 5
+    ? 'Good evening'
       : berlinHour >= 12
         ? 'Good afternoon'
         : 'Good morning';
@@ -2556,11 +2553,13 @@ function startBerlinClock() {
 function startWaveAnimation() {
   const hand = document.getElementById('wave-hand');
   if (!hand) return;
-  setInterval(() => {
+  const wave = () => {
     hand.classList.remove('wave-now');
     void hand.offsetWidth;
     hand.classList.add('wave-now');
-  }, 10000);
+  };
+  wave();
+  setInterval(wave, 10000);
 }
 
 // ══════════════════════════════
