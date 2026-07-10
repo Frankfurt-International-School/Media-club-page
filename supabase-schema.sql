@@ -64,8 +64,15 @@ create table if not exists public.join_applications (
   why text not null,
   work_link text,
   status text not null default 'pending',
+  rejection_reason text,
+  reviewed_at timestamptz,
+  reviewed_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+alter table public.join_applications add column if not exists rejection_reason text;
+alter table public.join_applications add column if not exists reviewed_at timestamptz;
+alter table public.join_applications add column if not exists reviewed_by uuid references auth.users(id) on delete set null;
 
 create index if not exists events_date_idx on public.events (date);
 create index if not exists signups_event_id_idx on public.signups (event_id);

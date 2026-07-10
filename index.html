@@ -832,7 +832,7 @@
     <div class="nav-item" onclick="navigate('events', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Events
-      <span class="nav-badge">4</span>
+      <span class="nav-badge" style="display:none;"></span>
     </div>
     <div class="nav-item" onclick="navigate('signup', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -1273,6 +1273,20 @@
   </div>
 </div>
 
+<!-- Reject Application Modal -->
+<div class="modal-backdrop" id="reject-application-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeRejectApplicationModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Reject application</div>
+    <div class="modal-sub" id="reject-application-name">Explain the decision to the applicant.</div>
+    <div class="form-group">
+      <label class="form-label" for="reject-application-reason">Reason *</label>
+      <textarea class="form-textarea" id="reject-application-reason" placeholder="Please provide a clear and respectful reason." required></textarea>
+    </div>
+    <button class="btn btn-danger" id="reject-application-submit" style="width:100%;justify-content:center;" onclick="submitApplicationRejection()">Reject and send email</button>
+  </div>
+</div>
+
 <!-- ── TOAST CONTAINER ── -->
 <div class="toast-container" id="toast-container"></div>
 
@@ -1484,6 +1498,7 @@ function normalizeApplication(item) {
     year: item.year_group || '',
     exp: item.experience_level || '',
     link: item.work_link || '',
+    rejectionReason: item.rejection_reason || '',
   };
 }
 
@@ -1518,7 +1533,9 @@ async function loadCrewCenterData() {
       state.applications = applicationsRes.data.map(normalizeApplication);
     }
     window.applyCrewCenterAdminControls?.();
+    window.CREW_CENTER_DATA_LOADED = true;
     renderCurrentPage();
+    window.updateCrewCenterEventsBadge?.();
   } catch (error) {
     console.error(error);
     showToast("Couldn't load Supabase data.", 'error');
@@ -2295,8 +2312,8 @@ function renderPending() {
         ${a.interests.length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${a.interests.map(i => `<span class="badge badge-gray">${i}</span>`).join('')}</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="btn btn-accent btn-sm" onclick="approveApp(${a.id})">Approve</button>
-        <button class="btn btn-danger btn-sm" onclick="rejectApp(${a.id})">Reject</button>
+        <button class="btn btn-accent btn-sm" id="approve-app-${a.id}" onclick="approveApp('${a.id}')">Approve</button>
+        <button class="btn btn-danger btn-sm" onclick="openRejectApplicationModal('${a.id}')">Reject</button>
       </div>
     </div>`).join('');
 }
@@ -2304,29 +2321,52 @@ function renderPending() {
 async function approveApp(id) {
   const app = state.applications.find(a => a.id === id);
   if (!app) return;
-  const { error: memberError } = await supabaseClient
-    .from('members')
-    .insert({
-      name: `${app.fname} ${app.lname}`,
-      email: app.email,
-      role: 'Member',
-      status: app.interests.join(', ') || 'General',
-    });
-  if (memberError && memberError.code !== '23505') { showToast("Couldn't add member.", 'error'); return; }
-  const { error } = await supabaseClient.from('join_applications').update({ status: 'approved' }).eq('id', id);
-  if (error) { showToast("Couldn't approve application.", 'error'); return; }
-  app.status = 'approved';
-  showToast(`${app.fname} ${app.lname} approved and added to members!`);
+  const button = document.getElementById(`approve-app-${id}`);
+  if (button) { button.disabled = true; button.textContent = 'Approving...'; }
+  const { error } = await supabaseClient.functions.invoke('review-application', {
+    body: { applicationId: id, decision: 'approve' },
+  });
+  if (error) {
+    if (button) { button.disabled = false; button.textContent = 'Approve'; }
+    showToast(error.message || "Couldn't approve application.", 'error');
+    return;
+  }
+  showToast(`${app.fname} ${app.lname} approved. Invitation email sent.`);
   await loadCrewCenterData();
   renderAdmin();
 }
 
-async function rejectApp(id) {
-  const { error } = await supabaseClient.from('join_applications').update({ status: 'rejected' }).eq('id', id);
-  if (error) { showToast("Couldn't reject application.", 'error'); return; }
+let rejectingApplicationId = null;
+
+function openRejectApplicationModal(id) {
   const app = state.applications.find(a => a.id === id);
-  if (app) app.status = 'rejected';
-  showToast('Application rejected.', 'error');
+  if (!app) return;
+  rejectingApplicationId = id;
+  document.getElementById('reject-application-name').textContent = `Send a decision email to ${app.fname} ${app.lname}.`;
+  document.getElementById('reject-application-reason').value = '';
+  openModal('reject-application-modal');
+}
+
+function closeRejectApplicationModal() {
+  rejectingApplicationId = null;
+  closeModal('reject-application-modal');
+}
+
+async function submitApplicationRejection() {
+  const id = rejectingApplicationId;
+  const reason = document.getElementById('reject-application-reason').value.trim();
+  if (!id || !reason) { showToast('Enter a reason for the applicant.', 'error'); return; }
+  const button = document.getElementById('reject-application-submit');
+  button.disabled = true;
+  button.textContent = 'Sending...';
+  const { error } = await supabaseClient.functions.invoke('review-application', {
+    body: { applicationId: id, decision: 'reject', reason },
+  });
+  button.disabled = false;
+  button.textContent = 'Reject and send email';
+  if (error) { showToast(error.message || "Couldn't reject application.", 'error'); return; }
+  closeRejectApplicationModal();
+  showToast('Application rejected and email sent.');
   await loadCrewCenterData();
   renderAdmin();
 }

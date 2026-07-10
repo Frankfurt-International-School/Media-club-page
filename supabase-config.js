@@ -200,6 +200,17 @@ document.body.insertAdjacentHTML("afterbegin", `
         </div>
         <button class="auth-gate-button" id="auth-gate-submit" type="submit">Sign in</button>
       </form>
+      <form id="auth-password-setup-form" style="display:none;">
+        <div class="auth-gate-field">
+          <label class="auth-gate-label" for="auth-new-password">New password</label>
+          <input class="auth-gate-input" id="auth-new-password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="auth-gate-field">
+          <label class="auth-gate-label" for="auth-confirm-password">Confirm password</label>
+          <input class="auth-gate-input" id="auth-confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <button class="auth-gate-button" id="auth-password-setup-submit" type="submit">Set password</button>
+      </form>
       <p class="auth-gate-note">Accounts are created manually by the club admin.</p>
     </div>
   </section>
@@ -210,6 +221,8 @@ const authError = document.getElementById("auth-gate-error");
 const authForm = document.getElementById("auth-gate-form");
 const authSubmit = document.getElementById("auth-gate-submit");
 const authPassword = document.getElementById("auth-gate-password");
+const passwordSetupForm = document.getElementById("auth-password-setup-form");
+const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite";
 
 window.crewCenterSupabase = window.supabase?.createClient(
   window.CREW_CENTER_SUPABASE.url,
@@ -420,6 +433,37 @@ function showSignIn() {
   setAuthBusy(false);
 }
 
+function showPasswordSetup() {
+  document.body.classList.add("auth-locked");
+  document.body.classList.remove("auth-ready");
+  authForm.style.display = "none";
+  passwordSetupForm.style.display = "block";
+  document.getElementById("auth-gate-title").textContent = "Set your password";
+  document.querySelector(".auth-gate-sub").textContent = "Choose a password to finish creating your Media Club account.";
+  document.querySelector(".auth-gate-note").textContent = "Use at least 8 characters.";
+}
+
+passwordSetupForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  setAuthError("");
+  const password = document.getElementById("auth-new-password").value;
+  const confirmation = document.getElementById("auth-confirm-password").value;
+  if (password !== confirmation) { setAuthError("The passwords do not match."); return; }
+  const button = document.getElementById("auth-password-setup-submit");
+  button.disabled = true;
+  button.textContent = "Saving...";
+  const { data, error } = await window.crewCenterSupabase.auth.updateUser({ password });
+  if (error) {
+    button.disabled = false;
+    button.textContent = "Set password";
+    setAuthError(error.message || "Could not set the password.");
+    return;
+  }
+  history.replaceState({}, "", window.location.pathname);
+  passwordSetupForm.style.display = "none";
+  await revealDashboard(data.user);
+});
+
 authForm.addEventListener("submit", async event => {
   event.preventDefault();
   setAuthError("");
@@ -454,7 +498,8 @@ if (window.crewCenterSupabase) {
   window.crewCenterSupabase.auth.getSession().then(({ data }) => {
     const user = data.session?.user;
     if (user) {
-      revealDashboard(user);
+      if (inviteFlow) showPasswordSetup();
+      else revealDashboard(user);
     } else {
       showSignIn();
     }
@@ -519,10 +564,14 @@ function updateEventsBadge() {
   const badge = eventsNav.querySelector(".nav-badge");
   if (!badge) return;
 
-  const stat = document.getElementById("stat-events");
-  const countFromStat = Number.parseInt(stat?.textContent || "", 10);
-  const visibleEventCards = document.querySelectorAll("#events-list .event-card").length;
-  const count = Number.isFinite(countFromStat) ? countFromStat : visibleEventCards;
+  if (!window.CREW_CENTER_DATA_LOADED) {
+    badge.style.display = "none";
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const count = Array.isArray(window.state?.events)
+    ? window.state.events.filter(event => event.date >= today).length
+    : Number.parseInt(document.getElementById("stat-events")?.textContent || "0", 10);
 
   if (count > 0) {
     badge.textContent = String(count);
@@ -531,6 +580,8 @@ function updateEventsBadge() {
     badge.style.display = "none";
   }
 }
+
+window.updateCrewCenterEventsBadge = updateEventsBadge;
 
 setInterval(polishDashboardUi, 1000);
 setInterval(applyAdminControls, 1000);
