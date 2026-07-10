@@ -1517,6 +1517,7 @@ async function loadCrewCenterData() {
     if (!applicationsRes.error && canAccessAdminPanel()) {
       state.applications = applicationsRes.data.map(normalizeApplication);
     }
+    window.applyCrewCenterAdminControls?.();
     renderCurrentPage();
   } catch (error) {
     console.error(error);

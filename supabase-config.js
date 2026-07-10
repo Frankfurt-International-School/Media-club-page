@@ -230,7 +230,7 @@ function applyAdminControls() {
   const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
   const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
   document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = hasAdminPanelAccess ? "" : "none";
+    el.style.display = hasAdminPanelAccess && !isVisitor ? "flex" : "none";
   });
   const adminSelectors = [
     '.nav-item[onclick*="admin"]',
@@ -250,7 +250,7 @@ function applyAdminControls() {
   adminSelectors.forEach(selector => {
     document.querySelectorAll(selector).forEach(el => {
       if (el.classList.contains("admin-only")) {
-        el.style.display = hasAdminPanelAccess ? "" : "none";
+        el.style.display = hasAdminPanelAccess && !isVisitor ? "flex" : "none";
       } else {
         el.style.display = hasAdminPanelAccess ? "" : "none";
       }
@@ -260,7 +260,6 @@ function applyAdminControls() {
   const visitorHiddenSelectors = [
     '.nav-item[onclick*="signup"]',
     '.nav-item[onclick*="members"]',
-    '.nav-item[onclick*="admin"]',
     '.sidebar-footer',
   ];
   visitorHiddenSelectors.forEach(selector => {
@@ -270,6 +269,8 @@ function applyAdminControls() {
   });
   enforceVisitorPageAccess();
 }
+
+window.applyCrewCenterAdminControls = applyAdminControls;
 
 function enforceVisitorPageAccess() {
   if (!window.CREW_CENTER_IS_VISITOR) return;
