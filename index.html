@@ -726,6 +726,12 @@
   .checkbox-label:hover { border-color: var(--border2); color: var(--text); }
   .checkbox-label input { display: none; }
   .checkbox-label.checked { border-color: rgba(200,255,87,0.3); background: var(--accent-dim); color: var(--accent); }
+  .checkbox-label.sports-selected {
+    border-color: rgba(78,240,196,0.55);
+    background: rgba(78,240,196,0.12);
+    color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(78,240,196,0.07);
+  }
   .profile-preview {
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -1217,11 +1223,12 @@
       </div>
     </div>
     <div class="form-group" id="ev-livestream-setup-group">
-      <label class="form-label">Setup date (starts at 15:15)</label>
+      <label class="form-label">Setup date (optional — setup starts at 15:15)</label>
       <input class="form-input" id="ev-livestream-setup-date" type="date" />
+      <div class="text-muted" style="margin-top:6px;">If left blank, the Livestream will be published without a setup message.</div>
     </div>
     <div id="ev-sports-group" style="display:none;">
-      <label class="checkbox-label mb12"><input type="checkbox" id="ev-sports" onchange="updateSportsFields()"> Sports Livestream</label>
+      <label class="checkbox-label mb12" id="ev-sports-label"><input type="checkbox" id="ev-sports" onchange="updateSportsFields()"> Sports Livestream</label>
       <div id="ev-game-times" style="display:none;">
         <div class="form-label mb8">Game 1</div>
         <div class="form-row2">
@@ -1373,6 +1380,7 @@ const signupRoleLabels = {
 const memberSignupRoles = ['mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2', 'handheld_3', 'photographer'];
 const supervisorSignupRoles = ['student_supervisor', ...memberSignupRoles];
 const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2', 'handheld_3', 'wireless', 'photographer'];
+const signupRoleDisplayOrder = adminSignupRoles.map(key => signupRoleLabels[key]);
 
 function normalizeRoleName(role = '') {
   return role.toLowerCase().trim().replace(/\s+/g, '-');
@@ -2021,17 +2029,15 @@ function updateLivestreamSetupField() {
 }
 
 function updateSportsFields() {
-  document.getElementById('ev-game-times').style.display = document.getElementById('ev-sports').checked ? '' : 'none';
+  const selected = document.getElementById('ev-sports').checked;
+  document.getElementById('ev-game-times').style.display = selected ? '' : 'none';
+  document.getElementById('ev-sports-label').classList.toggle('sports-selected', selected);
 }
 
 async function addEvent() {
   const title = document.getElementById('ev-title').value.trim();
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
-  if (document.getElementById('ev-cat').value === 'Livestream' && !document.getElementById('ev-livestream-setup-date').value) {
-    showToast('Please choose the Livestream setup date.', 'error');
-    return;
-  }
   const isSports = document.getElementById('ev-cat').value === 'Livestream' && document.getElementById('ev-sports').checked;
   const gameTimes = ['ev-game1-start', 'ev-game1-end', 'ev-game2-start', 'ev-game2-end'].map(id => document.getElementById(id).value);
   if (isSports && gameTimes.some(value => !value)) {
@@ -2143,14 +2149,24 @@ function renderSignupSheet() {
     : `<span class="badge badge-green">${ev.slots ? ev.slots - ev.signups.length + ' open' : 'Open'}</span>`;
 
   const removeHeader = state.currentUser.isAdmin ? '<th></th>' : '';
-  let rows = ev.signups.map((s, i) => `
+  const orderedSignups = ev.signups
+    .map((signup, originalIndex) => ({ signup, originalIndex }))
+    .sort((a, b) => {
+      const roleA = signupRoleDisplayOrder.indexOf(a.signup.role);
+      const roleB = signupRoleDisplayOrder.indexOf(b.signup.role);
+      const roleOrder = (roleA < 0 ? signupRoleDisplayOrder.length : roleA) - (roleB < 0 ? signupRoleDisplayOrder.length : roleB);
+      if (roleOrder) return roleOrder;
+      const timeOrder = (a.signup.attendanceStart || '').localeCompare(b.signup.attendanceStart || '');
+      return timeOrder || a.signup.name.localeCompare(b.signup.name);
+    });
+  let rows = orderedSignups.map(({ signup: s, originalIndex }, i) => `
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${s.name}</td>
       <td>${s.role || '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text2);font-size:12px;">${attendanceLabel(s)}</td>
       <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
-      ${state.currentUser.isAdmin ? `<td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${i})">Remove</button></td>` : ''}
+      ${state.currentUser.isAdmin ? `<td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button></td>` : ''}
     </tr>`).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
