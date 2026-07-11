@@ -361,6 +361,19 @@
   .badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,181,71,0.2); }
   .badge-blue { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(94,170,255,0.2); }
   .badge-gray { background: var(--bg4); color: var(--text2); border: 1px solid var(--border); }
+  .attendance-choice {
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    margin: -8px;
+    transition: all 0.15s;
+  }
+  .attendance-choice.part-time-selected {
+    border-color: rgba(78,240,196,0.55);
+    background: rgba(78,240,196,0.1);
+    box-shadow: 0 0 0 3px rgba(78,240,196,0.06);
+  }
+  .attendance-choice.part-time-selected .form-label { color: var(--teal); }
 
   /* ── BUTTONS ── */
   .btn {
@@ -997,13 +1010,10 @@
         <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" list="signup-member-list" placeholder="Your full name" /><datalist id="signup-member-list"></datalist></div>
         <div class="form-group" style="margin:0"><select class="form-select" id="signup-role"></select></div>
       </div>
-      <div class="form-row2 mb12">
-        <div class="form-group" style="margin:0">
+      <div class="mb12">
+        <div class="form-group attendance-choice" id="signup-attendance-choice" style="margin:0">
           <label class="form-label">Staying for</label>
-          <select class="form-select" id="signup-attendance" onchange="renderSignupRoleOptionsForCurrentEvent()"></select>
-        </div>
-        <div class="form-group" style="margin:0;display:flex;align-items:flex-end;">
-          <label class="checkbox-label"><input type="checkbox" id="signup-custom-time" onchange="updateSignupAttendanceFields()"> Custom arrival and leaving time</label>
+          <select class="form-select" id="signup-attendance" onchange="updateSignupAttendanceFields()"></select>
         </div>
       </div>
       <div class="form-row2 mb12" id="signup-custom-time-fields" style="display:none;">
@@ -1428,8 +1438,7 @@ function timeValue(date, time) {
 
 function selectedAttendanceWindow(ev) {
   if (!ev) return null;
-  const custom = document.getElementById('signup-custom-time')?.checked;
-  const type = custom ? 'custom' : document.getElementById('signup-attendance')?.value || 'whole';
+  const type = document.getElementById('signup-attendance')?.value || 'whole';
   const ranges = {
     game_1: [ev.game1Start, ev.game1End],
     game_2: [ev.game2Start, ev.game2End],
@@ -2120,15 +2129,15 @@ function renderSignupAttendanceOptions(ev) {
   const select = document.getElementById('signup-attendance');
   const previous = select.value;
   select.innerHTML = ev?.isSports
-    ? '<option value="whole">Whole time (2 games)</option><option value="game_1">Half-the-time (Game 1)</option><option value="game_2">Half-the-time (Game 2)</option>'
-    : '<option value="whole">Whole time</option>';
+    ? '<option value="whole">Whole time (2 games)</option><option value="game_1">Half-the-time (Game 1)</option><option value="game_2">Half-the-time (Game 2)</option><option value="custom">Part time (choose arrival and leaving time)</option>'
+    : '<option value="whole">Whole time</option><option value="custom">Part time (choose arrival and leaving time)</option>';
   if ([...select.options].some(option => option.value === previous)) select.value = previous;
 }
 
 function updateSignupAttendanceFields() {
-  const custom = document.getElementById('signup-custom-time').checked;
+  const custom = document.getElementById('signup-attendance').value === 'custom';
   document.getElementById('signup-custom-time-fields').style.display = custom ? '' : 'none';
-  document.getElementById('signup-attendance').disabled = custom;
+  document.getElementById('signup-attendance-choice').classList.toggle('part-time-selected', custom);
   renderSignupRoleOptionsForCurrentEvent();
 }
 
