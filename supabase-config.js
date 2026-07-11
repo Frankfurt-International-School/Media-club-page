@@ -523,7 +523,6 @@ setTimeout(() => {
 
 function polishDashboardUi() {
   hideProfileAccountDetails();
-  colorMemberRoleTags();
   updateEventsBadge();
 }
 
@@ -538,25 +537,6 @@ function hideProfileAccountDetails() {
   if (profileSub && profileSub.textContent !== "Your signed-in profile is shown in the bottom-left sidebar.") {
     profileSub.textContent = "Your signed-in profile is shown in the bottom-left sidebar.";
   }
-}
-
-function colorMemberRoleTags() {
-  document.querySelectorAll("#members-grid .member-tags .badge").forEach(badge => {
-    const label = badge.textContent.trim().toLowerCase();
-    if (label === "leader" || label === "co-leader") {
-      badge.style.background = "rgba(255,123,94,0.12)";
-      badge.style.color = "#ff7b5e";
-      badge.style.borderColor = "rgba(255,123,94,0.28)";
-    } else if (label === "moderator" || label === "moderators") {
-      badge.style.background = "rgba(255,181,71,0.16)";
-      badge.style.color = "#b87900";
-      badge.style.borderColor = "rgba(255,181,71,0.34)";
-    } else if (label === "member" || label === "trainee") {
-      badge.style.background = "rgba(255, 160, 253, 0.12)";
-      badge.style.color = "#be95c4" ; 
-      badge.style.borderColor = "rgba(255, 160, 253, 0.28)"; 
-    }
-  });
 }
 
 function updateEventsBadge() {

@@ -1033,9 +1033,10 @@
       <input class="form-input" style="max-width:260px;" placeholder="Search members..." id="member-search" oninput="renderMembers()" />
       <select class="form-select" style="max-width:160px;" id="member-role-filter" onchange="renderMembers()">
         <option value="">All roles</option>
-        <option>President</option>
-        <option>Vice President</option>
-        <option>Committee</option>
+        <option>Leader</option>
+        <option>Co-Leader</option>
+        <option>Moderator</option>
+        <option>Faculty</option>
         <option>Member</option>
       </select>
     </div>
@@ -1266,7 +1267,7 @@
       <div class="form-group">
         <label class="form-label">Club role</label>
         <select class="form-select" id="mem-role">
-          <option>Member</option><option>Committee</option><option>Vice President</option><option>President</option>
+          <option>Member</option><option>Moderator</option><option>Co-Leader</option><option>Leader</option><option>Faculty</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">Specialisation</label><input class="form-input" id="mem-spec" placeholder="Photography, Video..." /></div>
@@ -1399,7 +1400,7 @@ function currentMemberRecord() {
 function canAccessAdminPanel() {
   if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return true;
   const role = normalizeRoleName(currentMemberRecord()?.role || '');
-  return ['leader', 'co-leader', 'moderator'].includes(role);
+  return ['leader', 'faculty', 'co-leader', 'moderator'].includes(role);
 }
 
 window.canAccessCrewCenterAdminPanel = canAccessAdminPanel;
@@ -1409,7 +1410,7 @@ function currentUserSignupRoleKeys() {
   if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return adminSignupRoles;
   const memberRecord = currentMemberRecord();
   const role = normalizeRoleName(memberRecord?.role || state.currentUser.role);
-  if (['moderator', 'co-leader', 'leader'].includes(role)) return supervisorSignupRoles;
+  if (['moderator', 'co-leader', 'leader', 'faculty'].includes(role)) return supervisorSignupRoles;
   return memberSignupRoles;
 }
 
@@ -2271,11 +2272,19 @@ async function removeSignup(evId, idx) {
 // ══════════════════════════════
 function memberRankPriority(role = '') {
   const normalized = role.toLowerCase().replace(/\s+/g, '-');
-  return { leader: 0, 'co-leader': 1, moderator: 2, member: 3 }[normalized] ?? 4;
+  return { leader: 0, faculty: 0, 'co-leader': 1, moderator: 2, member: 3 }[normalized] ?? 4;
 }
 
-function memberJoinTime(member) {
-  return member.joined_date ? new Date(`${member.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+function memberRoleColor(role = '') {
+  const normalized = normalizeRoleName(role);
+  return {
+    leader: 'coral',
+    faculty: 'blue',
+    'co-leader': 'coral',
+    moderator: 'amber',
+    member: 'purple',
+    trainee: 'purple',
+  }[normalized] || 'gray';
 }
 
 function renderMembers() {
@@ -2287,13 +2296,10 @@ function renderMembers() {
   }).sort((a, b) => {
     const rankDiff = memberRankPriority(a.role) - memberRankPriority(b.role);
     if (rankDiff) return rankDiff;
-    const joinedDiff = memberJoinTime(a) - memberJoinTime(b);
-    if (joinedDiff) return joinedDiff;
     return a.name.localeCompare(b.name);
   });
   const grid = document.getElementById('members-grid');
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
-  const roleColor = { President: 'green', 'Vice President': 'purple', Committee: 'amber', Member: 'gray' };
   grid.innerHTML = list.map(m => {
     const [bg, fg] = memberColor(m.color);
     const tags = m.spec.split(',').map(s => `<span class="badge badge-gray">${s.trim()}</span>`).join('');
@@ -2304,7 +2310,7 @@ function renderMembers() {
           <div class="member-name">${m.fname} ${m.lname}</div>
           <div class="member-role">${m.email}</div>
           <div class="member-tags">
-            <span class="badge badge-${roleColor[m.role] || 'gray'}">${m.role}</span>
+            <span class="badge badge-${memberRoleColor(m.role)}">${m.role}</span>
             ${tags}
           </div>
         </div>

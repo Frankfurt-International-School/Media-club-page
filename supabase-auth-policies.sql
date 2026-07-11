@@ -53,7 +53,7 @@ as $$
       select 1
       from public.members member
       where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-        and replace(lower(member.role), ' ', '-') in ('leader', 'co-leader', 'moderator')
+        and replace(lower(member.role), ' ', '-') in ('leader', 'faculty', 'co-leader', 'moderator')
     );
 $$;
 

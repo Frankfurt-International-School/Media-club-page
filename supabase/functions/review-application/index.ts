@@ -27,7 +27,7 @@ Deno.serve(async request => {
   const authAdmin = String(user.app_metadata?.role || "").toLowerCase() === "admin";
   const { data: member } = await adminClient.from("members").select("role").ilike("email", user.email || "").maybeSingle();
   const memberRole = String(member?.role || "").toLowerCase().trim().replaceAll(" ", "-");
-  if (!authAdmin && !["leader", "co-leader", "moderator"].includes(memberRole)) {
+  if (!authAdmin && !["leader", "faculty", "co-leader", "moderator"].includes(memberRole)) {
     return json({ error: "You do not have permission to review applications." }, 403);
   }
 
