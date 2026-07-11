@@ -241,21 +241,24 @@ function setAuthBusy(isBusy) {
 
 function applyAdminControls() {
   const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
+  const hasCrewOperationsAccess = Boolean(hasAdminPanelAccess || window.canManageCrewOperations?.());
   const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
   document.querySelectorAll('.admin-only').forEach(el => {
     el.style.display = hasAdminPanelAccess && !isVisitor ? "flex" : "none";
   });
   const adminSelectors = [
     '.nav-item[onclick*="admin"]',
-    'button[onclick*="event-modal"]',
     'button[onclick*="member-modal"]',
-    'button[onclick*="equip-add-modal"]',
     'button[onclick*="deleteEvent"]',
     'button[onclick*="removeMember"]',
-    'button[onclick*="addEquipment"]',
     'button[onclick*="addMember"]',
-    'button[onclick*="addEvent"]',
     'button[onclick*="renderManageEvents"]',
+  ];
+  const crewOperationsSelectors = [
+    'button[onclick*="event-modal"]',
+    'button[onclick*="equip-add-modal"]',
+    'button[onclick*="addEquipment"]',
+    'button[onclick*="addEvent"]',
   ];
 
   adminSelectors.forEach(selector => {
@@ -265,6 +268,12 @@ function applyAdminControls() {
       } else {
         el.style.display = hasAdminPanelAccess ? "" : "none";
       }
+    });
+  });
+
+  crewOperationsSelectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      el.style.display = hasCrewOperationsAccess && !isVisitor ? "" : "none";
     });
   });
 
@@ -294,29 +303,45 @@ function enforceVisitorPageAccess() {
 
 function showNotAuthorized(action = "do that") {
   if (typeof window.showToast === "function") {
-    window.showToast(`Not authorized: only admins can ${action}.`, "error");
+    window.showToast(`Not authorized: you cannot ${action}.`, "error");
   } else {
-    setAuthError(`Not authorized: only admins can ${action}.`);
+    setAuthError(`Not authorized: you cannot ${action}.`);
   }
 }
 
 function installAdminFunctionGuards() {
-  const guarded = {
-    addEvent: "add events",
+  const adminGuarded = {
     deleteEvent: "delete events",
     addMember: "add members",
     removeMember: "remove members",
-    addEquipment: "add equipment",
     postAnnouncement: "post announcements",
     deleteAnn: "delete announcements",
     renderAdmin: "open the admin panel",
   };
+  const crewOperationsGuarded = {
+    addEvent: "add events",
+    addEquipment: "add equipment",
+  };
 
-  Object.entries(guarded).forEach(([name, action]) => {
+  Object.entries(adminGuarded).forEach(([name, action]) => {
     if (typeof window[name] !== "function" || window[name].__adminGuarded) return;
     const original = window[name];
     window[name] = function(...args) {
       const allowed = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
+      if (!allowed) {
+        showNotAuthorized(action);
+        return undefined;
+      }
+      return original.apply(this, args);
+    };
+    window[name].__adminGuarded = true;
+  });
+
+  Object.entries(crewOperationsGuarded).forEach(([name, action]) => {
+    if (typeof window[name] !== "function" || window[name].__adminGuarded) return;
+    const original = window[name];
+    window[name] = function(...args) {
+      const allowed = Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.());
       if (!allowed) {
         showNotAuthorized(action);
         return undefined;
@@ -346,13 +371,18 @@ function installAdminFunctionGuards() {
   if (typeof window.openModal === "function" && !window.openModal.__adminGuarded) {
     const originalOpenModal = window.openModal;
     window.openModal = function(id, ...args) {
-      const adminModalIds = ["event-modal", "member-modal", "equip-add-modal"];
+      const adminModalIds = ["member-modal"];
+      const crewOperationsModalIds = ["event-modal", "equip-add-modal"];
       if (id === "gallery-modal" && window.CREW_CENTER_IS_VISITOR) {
         showNotAuthorized("submit gallery projects");
         return undefined;
       }
       if (adminModalIds.includes(id) && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.())) {
         showNotAuthorized("manage club content");
+        return undefined;
+      }
+      if (crewOperationsModalIds.includes(id) && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.())) {
+        showNotAuthorized("manage production content");
         return undefined;
       }
       return originalOpenModal.call(this, id, ...args);

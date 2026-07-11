@@ -994,7 +994,7 @@
     <div class="card card-sm">
       <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Add your name</div>
       <div class="form-row2 mb12">
-        <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" placeholder="Your full name" /></div>
+        <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" list="signup-member-list" placeholder="Your full name" /><datalist id="signup-member-list"></datalist></div>
         <div class="form-group" style="margin:0"><select class="form-select" id="signup-role"></select></div>
       </div>
       <div class="form-row2 mb12">
@@ -1400,17 +1400,25 @@ function currentMemberRecord() {
 function canAccessAdminPanel() {
   if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return true;
   const role = normalizeRoleName(currentMemberRecord()?.role || '');
-  return ['leader', 'faculty', 'co-leader', 'moderator'].includes(role);
+  return role === 'faculty';
 }
 
 window.canAccessCrewCenterAdminPanel = canAccessAdminPanel;
 
+function canManageCrewOperations() {
+  if (canAccessAdminPanel()) return true;
+  const role = normalizeRoleName(currentMemberRecord()?.role || state.currentUser.role || '');
+  return ['leader', 'co-leader', 'moderator'].includes(role);
+}
+
+window.canManageCrewOperations = canManageCrewOperations;
+
 function currentUserSignupRoleKeys() {
   if (state.currentUser.isVisitor) return [];
-  if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return adminSignupRoles;
+  if (canAccessAdminPanel()) return adminSignupRoles;
   const memberRecord = currentMemberRecord();
   const role = normalizeRoleName(memberRecord?.role || state.currentUser.role);
-  if (['moderator', 'co-leader', 'leader', 'faculty'].includes(role)) return supervisorSignupRoles;
+  if (['moderator', 'co-leader', 'leader'].includes(role)) return supervisorSignupRoles;
   return memberSignupRoles;
 }
 
@@ -1474,9 +1482,13 @@ function renderSignupRoleOptionsForCurrentEvent() {
 function renderSignupNameField() {
   const input = document.getElementById('signup-name');
   if (!input) return;
-  input.disabled = !state.currentUser.isAdmin;
-  input.placeholder = state.currentUser.isAdmin ? 'Member full name' : 'Your name';
-  if (!state.currentUser.isAdmin) {
+  const canChooseMember = canManageCrewOperations();
+  document.getElementById('signup-member-list').innerHTML = canChooseMember
+    ? state.members.map(member => `<option value="${member.name}"></option>`).join('')
+    : '';
+  input.disabled = !canChooseMember;
+  input.placeholder = canChooseMember ? 'Member full name' : 'Your name';
+  if (!canChooseMember) {
     input.value = currentMemberRecord()?.name || state.currentUser.name || '';
   }
 }
@@ -1629,6 +1641,9 @@ async function loadCrewCenterData() {
     window.applyCrewCenterAdminControls?.();
     renderGalleryAuthorField();
     window.CREW_CENTER_DATA_LOADED = true;
+    if (pageFromPath() === 'admin') {
+      navigate(canAccessAdminPanel() ? 'admin' : 'home', navItemForPage(canAccessAdminPanel() ? 'admin' : 'home'), { skipUrl: canAccessAdminPanel() });
+    }
     renderCurrentPage();
     window.updateCrewCenterEventsBadge?.();
   } catch (error) {
@@ -1996,7 +2011,7 @@ function renderEvents(filter) {
             ${state.currentUser.isVisitor
               ? '<span class="text-muted">Visitors can view events only.</span>'
               : `<button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>`}
-            <button class="btn btn-ghost btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>
+            ${canAccessAdminPanel() ? `<button class="btn btn-ghost btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -2149,7 +2164,7 @@ function renderSignupSheet() {
     ? '<span class="badge badge-coral">Full</span>'
     : `<span class="badge badge-green">${ev.slots ? ev.slots - ev.signups.length + ' open' : 'Open'}</span>`;
 
-  const removeHeader = state.currentUser.isAdmin ? '<th></th>' : '';
+  const removeHeader = canAccessAdminPanel() ? '<th></th>' : '';
   const orderedSignups = ev.signups
     .map((signup, originalIndex) => ({ signup, originalIndex }))
     .sort((a, b) => {
@@ -2167,12 +2182,12 @@ function renderSignupSheet() {
       <td>${s.role || '<span style="color:var(--text3)">—</span>'}</td>
       <td style="color:var(--text2);font-size:12px;">${attendanceLabel(s)}</td>
       <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
-      ${state.currentUser.isAdmin ? `<td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button></td>` : ''}
+      ${canAccessAdminPanel() ? `<td><button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button></td>` : ''}
     </tr>`).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
     for (let i = 0; i < empty; i++) {
-      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${state.currentUser.isAdmin ? '<td></td>' : ''}</tr>`;
+      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${canAccessAdminPanel() ? '<td></td>' : ''}</tr>`;
     }
   }
   document.getElementById('sheet-table').innerHTML = `
@@ -2212,12 +2227,12 @@ async function addSignupRow() {
   const signedInMember = authEmail
     ? state.members.find(m => (m.email || '').toLowerCase() === authEmail)
     : currentMemberRecord();
-  let member = state.currentUser.isAdmin
+  const canChooseMember = canManageCrewOperations();
+  const member = canChooseMember
     ? state.members.find(m => m.name.toLowerCase() === name.toLowerCase())
     : signedInMember;
-  if (!member) member = signedInMember;
   if (!member) {
-    showToast("Couldn't find that member. Add them on the Members page first.", 'error');
+    showToast(canChooseMember ? 'Choose a member from the existing member list.' : "Couldn't find your member record.", 'error');
     return;
   }
   const { data: signup, error } = await supabaseClient
@@ -2314,7 +2329,7 @@ function renderMembers() {
             ${tags}
           </div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>
+        ${canAccessAdminPanel() ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : ''}
       </div>`;
   }).join('');
   document.getElementById('members-count').textContent = `Showing ${list.length} of ${state.members.length} members`;
@@ -2452,7 +2467,7 @@ function renderEquipment() {
       <div class="empty-state" style="grid-column:1/-1">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
         <p>No equipment has been added yet.</p>
-        ${state.currentUser.isAdmin ? "<button class=\"btn btn-accent btn-sm\" style=\"margin-top:14px;\" onclick=\"openModal('equip-add-modal')\">Add equipment</button>" : '<div class="text-muted" style="margin-top:10px;">Equipment can be added by admins.</div>'}
+        ${canManageCrewOperations() ? "<button class=\"btn btn-accent btn-sm\" style=\"margin-top:14px;\" onclick=\"openModal('equip-add-modal')\">Add equipment</button>" : '<div class="text-muted" style="margin-top:10px;">Equipment can be added by production staff.</div>'}
       </div>`;
     return;
   }
@@ -2475,8 +2490,8 @@ function renderEquipment() {
 }
 
 async function addEquipment() {
-  if (!state.currentUser.isAdmin) {
-    showToast('Only admins can add equipment.', 'error');
+  if (!canManageCrewOperations()) {
+    showToast('Only production staff can add equipment.', 'error');
     return;
   }
   const name = document.getElementById('equip-name').value.trim();

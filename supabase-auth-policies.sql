@@ -18,6 +18,7 @@ drop policy if exists "Authenticated users can update events" on public.events;
 drop policy if exists "Authenticated users can delete events" on public.events;
 drop policy if exists "Signed-in users can read events" on public.events;
 drop policy if exists "Admins can manage events" on public.events;
+drop policy if exists "Production staff can add events" on public.events;
 drop policy if exists "Authenticated users can read signups" on public.signups;
 drop policy if exists "Authenticated users can add signups" on public.signups;
 drop policy if exists "Authenticated users can delete signups" on public.signups;
@@ -28,6 +29,7 @@ drop policy if exists "Authenticated users can read equipment" on public.equipme
 drop policy if exists "Authenticated users can manage equipment" on public.equipment;
 drop policy if exists "Signed-in users can read equipment" on public.equipment;
 drop policy if exists "Admins can manage equipment" on public.equipment;
+drop policy if exists "Production staff can add equipment" on public.equipment;
 drop policy if exists "Authenticated users can read gallery" on public.gallery;
 drop policy if exists "Authenticated users can manage gallery" on public.gallery;
 drop policy if exists "Signed-in users can read gallery" on public.gallery;
@@ -53,7 +55,23 @@ as $$
       select 1
       from public.members member
       where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-        and replace(lower(member.role), ' ', '-') in ('leader', 'faculty', 'co-leader', 'moderator')
+        and replace(lower(member.role), ' ', '-') = 'faculty'
+    );
+$$;
+
+create or replace function public.is_crew_operations_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin_panel_user()
+    or exists (
+      select 1
+      from public.members member
+      where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        and replace(lower(member.role), ' ', '-') in ('leader', 'co-leader', 'moderator')
     );
 $$;
 
@@ -79,6 +97,11 @@ to authenticated
 using (public.is_admin_panel_user())
 with check (public.is_admin_panel_user());
 
+create policy "Production staff can add events"
+on public.events for insert
+to authenticated
+with check (public.is_crew_operations_user());
+
 create policy "Signed-in users can read signups"
 on public.signups for select
 to authenticated
@@ -92,6 +115,15 @@ with check (
   and attendance_start is not null
   and attendance_end is not null
   and attendance_end > attendance_start
+  and (
+    public.is_crew_operations_user()
+    or exists (
+      select 1
+      from public.members member
+      where member.id = signups.member_id
+        and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    )
+  )
 );
 
 create policy "Admins can delete signups"
@@ -109,6 +141,11 @@ on public.equipment for all
 to authenticated
 using (public.is_admin_panel_user())
 with check (public.is_admin_panel_user());
+
+create policy "Production staff can add equipment"
+on public.equipment for insert
+to authenticated
+with check (public.is_crew_operations_user());
 
 create policy "Signed-in users can read gallery"
 on public.gallery for select
