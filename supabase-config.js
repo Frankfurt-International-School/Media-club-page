@@ -249,7 +249,6 @@ function applyAdminControls() {
   const adminSelectors = [
     '.nav-item[onclick*="admin"]',
     'button[onclick*="member-modal"]',
-    'button[onclick*="deleteEvent"]',
     'button[onclick*="removeMember"]',
     'button[onclick*="addMember"]',
     'button[onclick*="renderManageEvents"]',
@@ -259,6 +258,9 @@ function applyAdminControls() {
     'button[onclick*="equip-add-modal"]',
     'button[onclick*="addEquipment"]',
     'button[onclick*="addEvent"]',
+    'button[onclick*="deleteEvent"]',
+    'button[onclick*="deleteEquipment"]',
+    'button[onclick*="toggleEquipmentAvailability"]',
   ];
 
   adminSelectors.forEach(selector => {
@@ -311,7 +313,6 @@ function showNotAuthorized(action = "do that") {
 
 function installAdminFunctionGuards() {
   const adminGuarded = {
-    deleteEvent: "delete events",
     addMember: "add members",
     removeMember: "remove members",
     postAnnouncement: "post announcements",
@@ -321,6 +322,9 @@ function installAdminFunctionGuards() {
   const crewOperationsGuarded = {
     addEvent: "add events",
     addEquipment: "add equipment",
+    deleteEvent: "delete events",
+    deleteEquipment: "delete equipment",
+    toggleEquipmentAvailability: "change equipment availability",
   };
 
   Object.entries(adminGuarded).forEach(([name, action]) => {

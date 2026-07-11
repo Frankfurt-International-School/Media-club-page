@@ -1034,7 +1034,7 @@
         <div class="page-title">Members</div>
         <div class="page-sub">Everyone in the club, their roles, and specialisations.</div>
       </div>
-      <button class="btn btn-accent" onclick="openModal('member-modal')">
+      <button class="btn btn-accent" style="display:none;" onclick="openModal('member-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add member
       </button>
@@ -1080,7 +1080,7 @@
     <div class="flex-between mb20">
       <div>
         <div class="page-title">Equipment</div>
-        <div class="page-sub">Admin equipment list for cameras, audio, lighting, and production gear.</div>
+        <div class="page-sub">Browse availability and reserve cameras, audio, and production equipment.</div>
       </div>
       <button class="btn btn-accent" id="add-equipment-btn" onclick="openModal('equip-add-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1314,10 +1314,28 @@
     <div class="modal-sub">Create an equipment record for future admin management.</div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Item name *</label><input class="form-input" id="equip-name" placeholder="Sony A7 III" /></div>
-      <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="equip-cat" placeholder="Camera" /></div>
+      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="equip-cat" onchange="updateEquipmentOtherCategory()"><option>Recording Cameras</option><option>Camera</option><option>Tripod</option><option>Microphone</option><option>Accessories</option><option>Other</option></select></div>
     </div>
+    <div class="form-group" id="equip-other-category-group" style="display:none;"><label class="form-label">Other category *</label><input class="form-input" id="equip-other-category" placeholder="Type the equipment category" /></div>
     <div class="form-group"><label class="form-label">Details</label><input class="form-input" id="equip-detail" placeholder="Full-frame mirrorless, 4K video..." /></div>
     <button class="btn btn-accent" style="width:100%;" onclick="addEquipment()">Add equipment</button>
+  </div>
+</div>
+
+<!-- Reserve Equipment Modal -->
+<div class="modal-backdrop" id="equip-reserve-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeModal('equip-reserve-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Reserve equipment</div>
+    <div class="modal-sub" id="reserve-equipment-name">Choose when you need this item.</div>
+    <div class="form-group"><label class="form-label">Use</label><select class="form-select" id="reserve-type" onchange="updateReservationFields()"><option value="event">During an event</option><option value="non_event">Not during an event</option></select></div>
+    <div class="form-group" id="reserve-event-group"><label class="form-label">Event</label><select class="form-select" id="reserve-event" onchange="prefillEventReservationTimes()"></select></div>
+    <div class="form-group" id="reserve-date-group" style="display:none;"><label class="form-label">Date</label><input class="form-input" id="reserve-date" type="date" /></div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="reserve-start" type="time" /></div>
+      <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="reserve-end" type="time" /></div>
+    </div>
+    <button class="btn btn-accent" style="width:100%;" onclick="reserveEquipment()">Reserve</button>
   </div>
 </div>
 
@@ -1551,6 +1569,7 @@ function normalizeEvent(event) {
     game1End: event.game_1_end?.slice(0, 5) || '',
     game2Start: event.game_2_start?.slice(0, 5) || '',
     game2End: event.game_2_end?.slice(0, 5) || '',
+    endsAt: event.ends_at || '',
     slots: 0,
     desc: event.description || '',
     signups: (event.signups || []).map(signup => ({
@@ -1583,9 +1602,20 @@ function normalizeEquipment(item) {
   return {
     id: item.id,
     name: item.name,
+    category: item.category || 'Other',
     status: item.status || 'available',
     assignedName: item.members?.name || 'Unassigned',
     detail: item.notes || 'No notes',
+    reservations: (item.equipment_reservations || []).map(reservation => ({
+      id: reservation.id,
+      memberId: reservation.member_id,
+      memberName: reservation.members?.name || 'Unknown member',
+      eventId: reservation.event_id,
+      eventTitle: reservation.events?.title || '',
+      type: reservation.reservation_type,
+      startsAt: reservation.starts_at,
+      endsAt: reservation.ends_at,
+    })),
   };
 }
 
@@ -1629,7 +1659,7 @@ async function loadCrewCenterData() {
       supabaseClient.from('members').select('*').order('name'),
       supabaseClient.from('events').select('*, signups(id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
-      supabaseClient.from('equipment').select('*, members(name)').order('name'),
+      supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, starts_at, ends_at, members(name), events(title))').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
       supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
     ]);
@@ -1672,6 +1702,7 @@ function subscribeToCrewCenterChanges() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment_reservations' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'join_applications' }, loadCrewCenterData)
     .subscribe();
@@ -2020,7 +2051,7 @@ function renderEvents(filter) {
             ${state.currentUser.isVisitor
               ? '<span class="text-muted">Visitors can view events only.</span>'
               : `<button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>`}
-            ${canAccessAdminPanel() ? `<button class="btn btn-ghost btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>` : ''}
+            ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -2075,6 +2106,7 @@ async function addEvent() {
   }
   const eventStartTime = isSports ? gameTimes[0] : document.getElementById('ev-time').value || '12:00';
   const eventDate = new Date(`${date}T${eventStartTime}`);
+  const eventEnd = new Date(`${date}T${isSports ? gameTimes[3] : '23:59'}`);
   const { data, error } = await supabaseClient
     .from('events')
     .insert({
@@ -2091,6 +2123,7 @@ async function addEvent() {
       game_1_end: isSports ? gameTimes[1] : null,
       game_2_start: isSports ? gameTimes[2] : null,
       game_2_end: isSports ? gameTimes[3] : null,
+      ends_at: eventEnd.toISOString(),
     })
     .select('*, signups(id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))')
     .single();
@@ -2481,6 +2514,9 @@ function renderEquipment() {
     return;
   }
   document.getElementById('equipment-grid').innerHTML = equip.map(e => {
+    const reservations = e.reservations
+      .filter(reservation => new Date(reservation.endsAt) > new Date())
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     return `
       <div class="equipment-card">
         <div class="equip-icon" style="background:var(--accent-dim);">
@@ -2489,13 +2525,22 @@ function renderEquipment() {
           </svg>
         </div>
         <div class="equip-name">${e.name}</div>
-        <div class="equip-detail">${e.assignedName} · ${e.detail}</div>
+        <div class="equip-detail">${e.category} · ${e.detail}</div>
         <div class="equip-status">
           <span class="badge badge-${e.status === 'available' ? 'green' : 'amber'}">${e.status}</span>
-          <span class="text-muted">${e.assignedName}</span>
+          <span class="text-muted">${reservations.length} upcoming</span>
+        </div>
+        ${reservations.slice(0, 2).map(reservation => `<div class="text-muted" style="margin-top:6px;">${reservation.memberName} · ${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${reservation.eventTitle ? ` · ${reservation.eventTitle}` : ''}</div>`).join('')}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
+          <button class="btn btn-accent btn-sm" ${e.status !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>
+          ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="toggleEquipmentAvailability('${e.id}')">Mark ${e.status === 'available' ? 'unavailable' : 'available'}</button><button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>` : ''}
         </div>
       </div>`;
   }).join('');
+}
+
+function updateEquipmentOtherCategory() {
+  document.getElementById('equip-other-category-group').style.display = document.getElementById('equip-cat').value === 'Other' ? '' : 'none';
 }
 
 async function addEquipment() {
@@ -2504,26 +2549,146 @@ async function addEquipment() {
     return;
   }
   const name = document.getElementById('equip-name').value.trim();
+  const selectedCategory = document.getElementById('equip-cat').value;
+  const category = selectedCategory === 'Other' ? document.getElementById('equip-other-category').value.trim() : selectedCategory;
   if (!name) {
     showToast('Please enter an equipment name.', 'error');
     return;
   }
+  if (!category) { showToast('Please enter the other equipment category.', 'error'); return; }
   const { data, error } = await supabaseClient
     .from('equipment')
     .insert({
       name,
+      category,
       status: 'available',
-      notes: [document.getElementById('equip-cat').value.trim(), document.getElementById('equip-detail').value.trim()].filter(Boolean).join(' · ') || 'Details pending',
+      notes: document.getElementById('equip-detail').value.trim() || 'Details pending',
     })
     .select('*, members(name)')
     .single();
   if (error) { showToast("Couldn't add equipment.", 'error'); return; }
   state.equipment.push(normalizeEquipment(data));
   closeModal('equip-add-modal');
-  ['equip-name','equip-cat','equip-detail'].forEach(id => document.getElementById(id).value = '');
+  ['equip-name','equip-detail','equip-other-category'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('equip-cat').value = 'Recording Cameras';
+  updateEquipmentOtherCategory();
   showToast(`${name} added to equipment.`);
   renderEquipment();
   renderDashboard();
+}
+
+async function toggleEquipmentAvailability(id) {
+  if (!canManageCrewOperations()) return;
+  const item = state.equipment.find(equipment => equipment.id === id);
+  const status = item.status === 'available' ? 'unavailable' : 'available';
+  const { error } = await supabaseClient.from('equipment').update({ status }).eq('id', id);
+  if (error) { showToast("Couldn't update equipment availability.", 'error'); return; }
+  item.status = status;
+  renderEquipment();
+  renderDashboard();
+  showToast(`${item.name} marked ${status}.`);
+}
+
+async function deleteEquipment(id) {
+  if (!canManageCrewOperations()) return;
+  const item = state.equipment.find(equipment => equipment.id === id);
+  const { error } = await supabaseClient.from('equipment').delete().eq('id', id);
+  if (error) { showToast("Couldn't delete equipment.", 'error'); return; }
+  state.equipment = state.equipment.filter(equipment => equipment.id !== id);
+  renderEquipment();
+  renderDashboard();
+  showToast(`${item.name} deleted.`, 'error');
+}
+
+let reservingEquipmentId = null;
+
+function openEquipmentReservation(id) {
+  if (state.currentUser.isVisitor) { showToast('Visitors cannot reserve equipment.', 'error'); return; }
+  const item = state.equipment.find(equipment => equipment.id === id);
+  if (!item || item.status !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
+  reservingEquipmentId = id;
+  document.getElementById('reserve-equipment-name').textContent = `${item.name} · ${item.category}`;
+  document.getElementById('reserve-event').innerHTML = state.events.map(event => `<option value="${event.id}">${event.title} — ${fmtDate(event.date)}</option>`).join('');
+  document.getElementById('reserve-type').value = state.events.length ? 'event' : 'non_event';
+  updateReservationFields();
+  openModal('equip-reserve-modal');
+}
+
+function updateReservationFields() {
+  const duringEvent = document.getElementById('reserve-type').value === 'event';
+  document.getElementById('reserve-event-group').style.display = duringEvent ? '' : 'none';
+  document.getElementById('reserve-date-group').style.display = duringEvent ? 'none' : '';
+  if (duringEvent) prefillEventReservationTimes();
+}
+
+function localTimeFromIso(value) {
+  return value ? new Date(value).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+}
+
+function prefillEventReservationTimes() {
+  const event = state.events.find(item => item.id === document.getElementById('reserve-event').value);
+  if (!event) return;
+  const member = currentMemberRecord();
+  const item = state.equipment.find(equipment => equipment.id === reservingEquipmentId);
+  const photographerSignup = event.signups.find(signup => signup.memberId === member?.id && signup.role === 'Photographer');
+  const useSignupWindow = item && ['Camera', 'Recording Cameras'].includes(item.category) && !canAccessAdminPanel() && photographerSignup;
+  document.getElementById('reserve-start').value = useSignupWindow ? localTimeFromIso(photographerSignup.attendanceStart) : event.game1Start || event.time;
+  document.getElementById('reserve-end').value = useSignupWindow ? localTimeFromIso(photographerSignup.attendanceEnd) : event.game2End || localTimeFromIso(event.endsAt) || '23:59';
+}
+
+function reservationOverlaps(start, end, otherStart, otherEnd) {
+  return start < new Date(otherEnd).getTime() && end > new Date(otherStart).getTime();
+}
+
+async function reserveEquipment() {
+  const item = state.equipment.find(equipment => equipment.id === reservingEquipmentId);
+  const member = currentMemberRecord();
+  if (!item || !member) { showToast("Couldn't match your account to an equipment or member record.", 'error'); return; }
+  if (item.status !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
+  const type = document.getElementById('reserve-type').value;
+  const event = type === 'event' ? state.events.find(item => item.id === document.getElementById('reserve-event').value) : null;
+  const date = event?.date || document.getElementById('reserve-date').value;
+  const startTime = document.getElementById('reserve-start').value;
+  const endTime = document.getElementById('reserve-end').value;
+  if (!date || !startTime || !endTime) { showToast('Please choose a date, start time, and end time.', 'error'); return; }
+  const start = new Date(`${date}T${startTime}`).getTime();
+  const end = new Date(`${date}T${endTime}`).getTime();
+  if (end <= start) { showToast('The reservation end time must be after its start time.', 'error'); return; }
+  if (item.reservations.some(reservation => reservationOverlaps(start, end, reservation.startsAt, reservation.endsAt))) {
+    showToast('This equipment is already reserved during that time.', 'error');
+    return;
+  }
+  const camera = ['Camera', 'Recording Cameras'].includes(item.category);
+  const overlappingRestrictedEvent = state.events.find(candidate => {
+    if (!['Livestream', 'Event'].includes(candidate.cat)) return false;
+    const eventStart = new Date(candidate.date + 'T' + (candidate.game1Start || candidate.time)).getTime();
+    const eventEnd = candidate.endsAt ? new Date(candidate.endsAt).getTime() : new Date(candidate.date + 'T23:59').getTime();
+    return start < eventEnd && end > eventStart;
+  });
+  if (camera && overlappingRestrictedEvent && !canAccessAdminPanel()) {
+    const photographerSignup = overlappingRestrictedEvent.signups.find(signup => signup.memberId === member.id && signup.role === 'Photographer');
+    const covered = photographerSignup && new Date(photographerSignup.attendanceStart).getTime() <= start && new Date(photographerSignup.attendanceEnd).getTime() >= end;
+    if (!covered) {
+      showToast('This time is during an event. To use a camera, sign up as Photographer and reserve only within your signup time.', 'error', 6000);
+      return;
+    }
+  }
+  const { data, error } = await supabaseClient.from('equipment_reservations').insert({
+    equipment_id: item.id,
+    member_id: member.id,
+    event_id: event?.id || null,
+    reservation_type: type,
+    starts_at: new Date(start).toISOString(),
+    ends_at: new Date(end).toISOString(),
+  }).select('id, member_id, event_id, reservation_type, starts_at, ends_at, members(name), events(title)').single();
+  if (error) {
+    showToast(error.code === '23P01' ? 'This equipment is already reserved during that time.' : "Couldn't reserve equipment. Check your event signup and requested time.", 'error', 6000);
+    return;
+  }
+  item.reservations.push({ id: data.id, memberId: data.member_id, memberName: data.members?.name || member.name, eventId: data.event_id, eventTitle: data.events?.title || '', type: data.reservation_type, startsAt: data.starts_at, endsAt: data.ends_at });
+  closeModal('equip-reserve-modal');
+  renderEquipment();
+  showToast(`${item.name} reserved.`);
 }
 
 // ══════════════════════════════

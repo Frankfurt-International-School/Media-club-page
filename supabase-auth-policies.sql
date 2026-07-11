@@ -2,6 +2,7 @@ alter table public.members enable row level security;
 alter table public.events enable row level security;
 alter table public.signups enable row level security;
 alter table public.equipment enable row level security;
+alter table public.equipment_reservations enable row level security;
 alter table public.gallery enable row level security;
 alter table public.announcements enable row level security;
 alter table public.join_applications enable row level security;
@@ -19,6 +20,7 @@ drop policy if exists "Authenticated users can delete events" on public.events;
 drop policy if exists "Signed-in users can read events" on public.events;
 drop policy if exists "Admins can manage events" on public.events;
 drop policy if exists "Production staff can add events" on public.events;
+drop policy if exists "Production staff can delete events" on public.events;
 drop policy if exists "Authenticated users can read signups" on public.signups;
 drop policy if exists "Authenticated users can add signups" on public.signups;
 drop policy if exists "Authenticated users can delete signups" on public.signups;
@@ -30,6 +32,11 @@ drop policy if exists "Authenticated users can manage equipment" on public.equip
 drop policy if exists "Signed-in users can read equipment" on public.equipment;
 drop policy if exists "Admins can manage equipment" on public.equipment;
 drop policy if exists "Production staff can add equipment" on public.equipment;
+drop policy if exists "Production staff can update equipment" on public.equipment;
+drop policy if exists "Production staff can delete equipment" on public.equipment;
+drop policy if exists "Signed-in users can read equipment reservations" on public.equipment_reservations;
+drop policy if exists "Signed-in members can reserve equipment" on public.equipment_reservations;
+drop policy if exists "Users can cancel equipment reservations" on public.equipment_reservations;
 drop policy if exists "Authenticated users can read gallery" on public.gallery;
 drop policy if exists "Authenticated users can manage gallery" on public.gallery;
 drop policy if exists "Signed-in users can read gallery" on public.gallery;
@@ -75,6 +82,58 @@ as $$
     );
 $$;
 
+create or replace function public.can_create_equipment_reservation(
+  p_equipment_id uuid,
+  p_member_id uuid,
+  p_event_id uuid,
+  p_reservation_type text,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', auth.jwt() -> 'user_metadata' ->> 'role', 'member')) <> 'visitor'
+    and p_ends_at > p_starts_at
+    and ((p_reservation_type = 'event' and p_event_id is not null) or (p_reservation_type = 'non_event' and p_event_id is null))
+    and exists (
+      select 1 from public.members member
+      where member.id = p_member_id
+        and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    )
+    and exists (
+      select 1 from public.equipment item
+      where item.id = p_equipment_id and item.status = 'available'
+    )
+    and (
+      public.is_admin_panel_user()
+      or not exists (
+        select 1
+        from public.events event
+        join public.equipment item on item.id = p_equipment_id
+        where item.category in ('Camera', 'Recording Cameras')
+          and event.category in ('Livestream', 'Event')
+          and tstzrange(
+                event.date,
+                coalesce(event.ends_at, (date_trunc('day', event.date at time zone 'Europe/Berlin') + interval '1 day') at time zone 'Europe/Berlin'),
+                '[)'
+              )
+              && tstzrange(p_starts_at, p_ends_at, '[)')
+          and not exists (
+            select 1 from public.signups signup
+            where signup.event_id = event.id
+              and signup.member_id = p_member_id
+              and signup.signup_role = 'Photographer'
+              and signup.attendance_start <= p_starts_at
+              and signup.attendance_end >= p_ends_at
+          )
+      )
+    );
+$$;
+
 create policy "Signed-in users can read members"
 on public.members for select
 to authenticated
@@ -101,6 +160,11 @@ create policy "Production staff can add events"
 on public.events for insert
 to authenticated
 with check (public.is_crew_operations_user());
+
+create policy "Production staff can delete events"
+on public.events for delete
+to authenticated
+using (public.is_crew_operations_user());
 
 create policy "Signed-in users can read signups"
 on public.signups for select
@@ -146,6 +210,41 @@ create policy "Production staff can add equipment"
 on public.equipment for insert
 to authenticated
 with check (public.is_crew_operations_user());
+
+create policy "Production staff can update equipment"
+on public.equipment for update
+to authenticated
+using (public.is_crew_operations_user())
+with check (public.is_crew_operations_user());
+
+create policy "Production staff can delete equipment"
+on public.equipment for delete
+to authenticated
+using (public.is_crew_operations_user());
+
+create policy "Signed-in users can read equipment reservations"
+on public.equipment_reservations for select
+to authenticated
+using (true);
+
+create policy "Signed-in members can reserve equipment"
+on public.equipment_reservations for insert
+to authenticated
+with check (public.can_create_equipment_reservation(
+  equipment_id, member_id, event_id, reservation_type, starts_at, ends_at
+));
+
+create policy "Users can cancel equipment reservations"
+on public.equipment_reservations for delete
+to authenticated
+using (
+  public.is_admin_panel_user()
+  or exists (
+    select 1 from public.members member
+    where member.id = equipment_reservations.member_id
+      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  )
+);
 
 create policy "Signed-in users can read gallery"
 on public.gallery for select
@@ -230,6 +329,12 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.equipment;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.equipment_reservations;
 exception when duplicate_object then null;
 end $$;
 
