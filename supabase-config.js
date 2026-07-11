@@ -160,6 +160,7 @@ authStyle.textContent = `
   }
 
   .auth-signout {
+    display: none;
     position: fixed;
     right: 18px;
     bottom: 18px;
@@ -168,6 +169,10 @@ authStyle.textContent = `
     border: 1px solid rgba(0,0,0,0.08);
     color: #495057;
     padding: 9px 14px;
+  }
+
+  .auth-signout.visible {
+    display: block;
   }
 
   body.auth-locked .auth-signout {

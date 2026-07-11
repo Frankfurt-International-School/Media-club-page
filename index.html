@@ -1766,6 +1766,7 @@ function navigate(id, el, options = {}) {
   const activeNav = el || navItemForPage(page);
   if (activeNav) activeNav.classList.add('active');
   document.getElementById('topbar-title').textContent = pageTitles[page] || page;
+  document.getElementById('auth-signout')?.classList.toggle('visible', page === 'profile');
   if (!options.skipUrl) {
     const route = pageRoutes[page] || pageRoutes.home;
     if (window.location.pathname !== route) {
