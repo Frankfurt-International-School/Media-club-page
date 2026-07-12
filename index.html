@@ -564,14 +564,14 @@
   .gallery-item:hover { border-color: var(--border2); transform: scale(1.02); }
   .gallery-delete {
     position: absolute;
-    top: 8px;
+    bottom: 8px;
     right: 8px;
     z-index: 4;
     opacity: 0;
     transform: translateY(-3px);
     transition: opacity 0.15s, transform 0.15s;
   }
-  .gallery-item:hover .gallery-delete, .gallery-delete.admin-delete { opacity: 1; transform: translateY(0); }
+  .gallery-item:hover .gallery-delete { opacity: 1; transform: translateY(0); }
   .gallery-category-section { grid-column: 1 / -1; margin-bottom: 14px; }
   .gallery-category-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
   .gallery-item svg { width: 32px; height: 32px; color: var(--text3); }
@@ -2495,7 +2495,7 @@ function renderGallery(filter) {
     const canDelete = state.currentUser.isAdmin || (currentMemberId && g.memberId === currentMemberId);
     return `
       <div class="gallery-item${g.image_url ? ' has-img' : ''}" style="${g.image_url ? `background-image:url('${g.image_url}');` : `background:${gbg}20;`}" onclick="window.open('${g.link}','_blank')">
-        ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete${state.currentUser.isAdmin ? ' admin-delete' : ''}" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
+        ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
         ${g.image_url ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
         <div style="text-align:center;padding:0 12px;">
           <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px;">${g.title}</div>
