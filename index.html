@@ -1320,7 +1320,7 @@
     </div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="gal-desc" placeholder="Tell us about this project..."></textarea></div>
     <div class="form-group"><label class="form-label">Link (Drive, YouTube, SoundCloud...) *</label><input class="form-input" id="gal-link" type="url" placeholder="https://..." required /></div>
-    <button class="btn btn-accent" style="width:100%;" onclick="submitProject()">Submit project</button>
+    <button class="btn btn-accent" id="gallery-submit-button" style="width:100%;" onclick="submitProject()">Submit project</button>
   </div>
 </div>
 
@@ -2531,6 +2531,25 @@ function switchGalleryTab(f, el) {
 }
 
 let pendingGalleryDeleteId = null;
+let lastGallerySubmissionAt = 0;
+let gallerySubmissionInFlight = false;
+
+function galleryCooldownRemaining() {
+  return Math.max(0, 20000 - (Date.now() - lastGallerySubmissionAt));
+}
+
+function updateGallerySubmitCooldown() {
+  const button = document.getElementById('gallery-submit-button');
+  if (!button) return;
+  const remaining = galleryCooldownRemaining();
+  button.disabled = gallerySubmissionInFlight || remaining > 0;
+  button.textContent = gallerySubmissionInFlight
+    ? 'Submitting...'
+    : remaining > 0
+      ? `Submit again in ${Math.ceil(remaining / 1000)}s`
+      : 'Submit project';
+  if (remaining > 0) setTimeout(updateGallerySubmitCooldown, Math.min(1000, remaining));
+}
 
 function requestDeleteGalleryProject(id) {
   const project = state.gallery.find(item => item.id === id);
@@ -2564,6 +2583,13 @@ async function submitProject() {
     showToast('Visitors cannot submit gallery projects.', 'error');
     return;
   }
+  if (gallerySubmissionInFlight) return;
+  const cooldown = galleryCooldownRemaining();
+  if (cooldown > 0) {
+    showToast(`Please wait ${Math.ceil(cooldown / 1000)} seconds before submitting another project.`, 'error');
+    updateGallerySubmitCooldown();
+    return;
+  }
   const title = document.getElementById('gal-title').value.trim();
   const link = document.getElementById('gal-link').value.trim();
   const member = currentMemberRecord();
@@ -2581,6 +2607,8 @@ async function submitProject() {
     return;
   }
   const projectType = document.getElementById('gal-type').value;
+  gallerySubmissionInFlight = true;
+  updateGallerySubmitCooldown();
   const { data, error } = await supabaseClient
     .from('gallery')
     .insert({
@@ -2592,7 +2620,10 @@ async function submitProject() {
     })
     .select('*, members(name)')
     .single();
-  if (error) { showToast("Couldn't submit project.", 'error'); return; }
+  gallerySubmissionInFlight = false;
+  if (error) { updateGallerySubmitCooldown(); showToast("Couldn't submit project.", 'error'); return; }
+  lastGallerySubmissionAt = Date.now();
+  updateGallerySubmitCooldown();
   state.gallery.unshift(normalizeGallery(data));
   closeModal('gallery-modal');
   ['gal-title','gal-desc','gal-link'].forEach(id => document.getElementById(id).value = '');
