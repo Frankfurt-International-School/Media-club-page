@@ -562,6 +562,18 @@
     gap: 8px;
   }
   .gallery-item:hover { border-color: var(--border2); transform: scale(1.02); }
+  .gallery-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 4;
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .gallery-item:hover .gallery-delete, .gallery-delete.admin-delete { opacity: 1; transform: translateY(0); }
+  .gallery-category-section { grid-column: 1 / -1; margin-bottom: 14px; }
+  .gallery-category-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
   .gallery-item svg { width: 32px; height: 32px; color: var(--text3); }
   .gallery-item .gallery-label { font-size: 12px; color: var(--text3); text-align: center; padding: 0 8px; }
   .gallery-item.has-img { background-size: cover; background-position: center; }
@@ -1307,8 +1319,19 @@
       <div class="form-group"><label class="form-label">Your name *</label><input class="form-input" id="gal-author" placeholder="Your name" /></div>
     </div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="gal-desc" placeholder="Tell us about this project..."></textarea></div>
-    <div class="form-group"><label class="form-label">Link (Drive, YouTube, SoundCloud...)</label><input class="form-input" id="gal-link" placeholder="https://..." /></div>
+    <div class="form-group"><label class="form-label">Link (Drive, YouTube, SoundCloud...) *</label><input class="form-input" id="gal-link" type="url" placeholder="https://..." required /></div>
     <button class="btn btn-accent" style="width:100%;" onclick="submitProject()">Submit project</button>
+  </div>
+</div>
+
+<!-- Delete Gallery Project Modal -->
+<div class="modal-backdrop" id="gallery-delete-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeModal('gallery-delete-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Delete project?</div>
+    <div class="modal-sub" id="gallery-delete-project-name">This cannot be undone.</div>
+    <div id="gallery-delete-admin-warning" style="display:none;color:#ff5f57;background:rgba(255,95,87,0.1);border:1px solid rgba(255,95,87,0.25);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;">You are deleting another member's project as Auth Admin. Confirm that you intend to permanently remove their work.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost" onclick="closeModal('gallery-delete-modal')">Cancel</button><button class="btn btn-danger" onclick="confirmDeleteGalleryProject()">Confirm deletion</button></div>
   </div>
 </div>
 
@@ -1596,6 +1619,7 @@ function normalizeGallery(item) {
     id: item.id,
     title: item.project_name,
     type: item.project_type || 'Photo',
+    memberId: item.member_id || '',
     author: item.members?.name || '',
     desc: item.description || '',
     link: item.image_url || '#',
@@ -2465,11 +2489,13 @@ function renderGallery(filter) {
       </div>`;
     return;
   }
-  const [bg, fg] = galleryColors[list[0]?.type] || ['#1a1a1d','#a09eb8'];
-  grid.innerHTML = list.map(g => {
+  const currentMemberId = currentMemberRecord()?.id;
+  const galleryCard = g => {
     const [gbg, gfg] = galleryColors[g.type] || ['#1a1a1d','#a09eb8'];
+    const canDelete = state.currentUser.isAdmin || (currentMemberId && g.memberId === currentMemberId);
     return `
       <div class="gallery-item${g.image_url ? ' has-img' : ''}" style="${g.image_url ? `background-image:url('${g.image_url}');` : `background:${gbg}20;`}" onclick="window.open('${g.link}','_blank')">
+        ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete${state.currentUser.isAdmin ? ' admin-delete' : ''}" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
         ${g.image_url ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
         <div style="text-align:center;padding:0 12px;">
           <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px;">${g.title}</div>
@@ -2478,6 +2504,23 @@ function renderGallery(filter) {
         </div>
         <div class="gallery-overlay"><div class="gallery-overlay-title">${g.desc}</div></div>
       </div>`;
+  };
+  if (f !== 'all') {
+    grid.innerHTML = list.map(galleryCard).join('');
+    return;
+  }
+  const categoryOrder = ['Photo', 'Video', 'Podcast', 'Design'];
+  const categories = [...new Set(list.map(project => project.type))].sort((a, b) => {
+    const indexA = categoryOrder.indexOf(a);
+    const indexB = categoryOrder.indexOf(b);
+    return (indexA < 0 ? categoryOrder.length : indexA) - (indexB < 0 ? categoryOrder.length : indexB) || a.localeCompare(b);
+  });
+  grid.innerHTML = categories.map(category => {
+    const projects = list.filter(project => project.type === category);
+    return `<section class="gallery-category-section">
+      <div class="member-section-head"><span class="member-section-title">${category}</span><span class="badge" style="background:${(galleryColors[category] || ['#1a1a1d'])[0]};">${projects.length}</span><span class="member-section-line"></span></div>
+      <div class="gallery-category-items">${projects.map(galleryCard).join('')}</div>
+    </section>`;
   }).join('');
 }
 
@@ -2487,14 +2530,52 @@ function switchGalleryTab(f, el) {
   renderGallery(f);
 }
 
+let pendingGalleryDeleteId = null;
+
+function requestDeleteGalleryProject(id) {
+  const project = state.gallery.find(item => item.id === id);
+  const currentMemberId = currentMemberRecord()?.id;
+  const ownsProject = Boolean(currentMemberId && project?.memberId === currentMemberId);
+  if (!project || (!state.currentUser.isAdmin && !ownsProject)) {
+    showToast('You can only delete your own gallery projects.', 'error');
+    return;
+  }
+  pendingGalleryDeleteId = id;
+  document.getElementById('gallery-delete-project-name').textContent = `Permanently delete “${project.title}”? This cannot be undone.`;
+  document.getElementById('gallery-delete-admin-warning').style.display = state.currentUser.isAdmin && !ownsProject ? '' : 'none';
+  openModal('gallery-delete-modal');
+}
+
+async function confirmDeleteGalleryProject() {
+  const project = state.gallery.find(item => item.id === pendingGalleryDeleteId);
+  if (!project) return;
+  const { error } = await supabaseClient.from('gallery').delete().eq('id', project.id);
+  if (error) { showToast("Couldn't delete this project.", 'error'); return; }
+  state.gallery = state.gallery.filter(item => item.id !== project.id);
+  pendingGalleryDeleteId = null;
+  closeModal('gallery-delete-modal');
+  renderGallery();
+  renderDashboard();
+  showToast(`Project “${project.title}” deleted.`, 'error');
+}
+
 async function submitProject() {
   if (state.currentUser.isVisitor) {
     showToast('Visitors cannot submit gallery projects.', 'error');
     return;
   }
   const title = document.getElementById('gal-title').value.trim();
+  const link = document.getElementById('gal-link').value.trim();
   const member = currentMemberRecord();
   if (!title) { showToast('Project title required.', 'error'); return; }
+  if (!link) { showToast('A project URL is required.', 'error'); return; }
+  try {
+    const url = new URL(link);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Unsupported URL');
+  } catch {
+    showToast('Enter a valid project URL beginning with http:// or https://.', 'error');
+    return;
+  }
   if (!member) {
     showToast("Couldn't match your signed-in email to a member record.", 'error');
     return;
@@ -2507,7 +2588,7 @@ async function submitProject() {
       project_type: projectType,
       member_id: member.id,
       description: document.getElementById('gal-desc').value.trim() || null,
-      image_url: document.getElementById('gal-link').value || null,
+      image_url: link,
     })
     .select('*, members(name)')
     .single();

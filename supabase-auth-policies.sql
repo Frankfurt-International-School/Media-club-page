@@ -256,6 +256,8 @@ on public.gallery for insert
 to authenticated
 with check (
   lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'member')) <> 'visitor'
+  and image_url is not null
+  and btrim(image_url) <> ''
   and exists (
     select 1
     from public.members member
@@ -273,7 +275,15 @@ with check (public.is_admin_panel_user());
 create policy "Admins can delete gallery"
 on public.gallery for delete
 to authenticated
-using (public.is_admin_panel_user());
+using (
+  lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin'
+  or exists (
+    select 1
+    from public.members member
+    where member.id = gallery.member_id
+      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  )
+);
 
 create policy "Signed-in users can read announcements"
 on public.announcements for select
