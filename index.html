@@ -611,6 +611,23 @@
   .equip-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
   .equip-detail { font-size: 12px; color: var(--text3); }
   .equip-status { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .catalog-section { margin-bottom: 22px; }
+  #equipment-grid > .catalog-section { grid-column: 1 / -1; }
+  .catalog-section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 13px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--accent-dim2), transparent 72%);
+  }
+  .catalog-section-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; }
+  .catalog-section-count { margin-left: auto; }
+  .catalog-equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .catalog-event-list { display: grid; gap: 10px; }
 
   /* ── ADMIN PANEL ── */
   .admin-section { margin-bottom: 28px; }
@@ -2056,7 +2073,7 @@ function renderEvents(filter) {
   const list = f === 'all' ? state.events : state.events.filter(e => e.cat === f);
   const el = document.getElementById('events-list');
   if (!list.length) { el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>No events in this category.</p></div>'; return; }
-  el.innerHTML = list.map(ev => {
+  const eventCard = ev => {
     const pct = ev.slots ? Math.round((ev.signups.length / ev.slots) * 100) : 0;
     return `
       <div class="event-card">
@@ -2086,6 +2103,23 @@ function renderEvents(filter) {
           </div>
         </div>
       </div>`;
+  };
+  if (f !== 'all') {
+    el.innerHTML = list.map(eventCard).join('');
+    return;
+  }
+  const eventCategoryOrder = ['Livestream', 'Recording (live cut)', 'Event', 'Other'];
+  const categories = [...new Set(list.map(event => event.cat))].sort((a, b) => {
+    const indexA = eventCategoryOrder.indexOf(a);
+    const indexB = eventCategoryOrder.indexOf(b);
+    return (indexA < 0 ? eventCategoryOrder.length : indexA) - (indexB < 0 ? eventCategoryOrder.length : indexB) || a.localeCompare(b);
+  });
+  el.innerHTML = categories.map(category => {
+    const events = list.filter(event => event.cat === category).sort((a, b) => a.date.localeCompare(b.date));
+    return `<section class="catalog-section">
+      <div class="catalog-section-head"><span class="catalog-section-title">${category}</span><span class="badge badge-${catColor(category)} catalog-section-count">${events.length}</span></div>
+      <div class="catalog-event-list">${events.map(eventCard).join('')}</div>
+    </section>`;
   }).join('');
 }
 
@@ -2649,7 +2683,7 @@ function renderEquipment() {
       </div>`;
     return;
   }
-  document.getElementById('equipment-grid').innerHTML = equip.map(e => {
+  const equipmentCard = e => {
     const reservations = e.reservations
       .filter(reservation => new Date(reservation.endsAt) > new Date())
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -2672,6 +2706,19 @@ function renderEquipment() {
           ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="toggleEquipmentAvailability('${e.id}')">Mark ${e.status === 'available' ? 'unavailable' : 'available'}</button><button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>` : ''}
         </div>
       </div>`;
+  };
+  const equipmentCategoryOrder = ['Recording Cameras', 'Camera', 'Tripod', 'Microphone', 'Accessories', 'Other'];
+  const categories = [...new Set(equip.map(item => item.category))].sort((a, b) => {
+    const indexA = equipmentCategoryOrder.indexOf(a);
+    const indexB = equipmentCategoryOrder.indexOf(b);
+    return (indexA < 0 ? equipmentCategoryOrder.length : indexA) - (indexB < 0 ? equipmentCategoryOrder.length : indexB) || a.localeCompare(b);
+  });
+  grid.innerHTML = categories.map(category => {
+    const items = equip.filter(item => item.category === category).sort((a, b) => a.name.localeCompare(b.name));
+    return `<section class="catalog-section">
+      <div class="catalog-section-head"><span class="catalog-section-title">${category}</span><span class="badge badge-gray catalog-section-count">${items.length}</span></div>
+      <div class="catalog-equipment-grid">${items.map(equipmentCard).join('')}</div>
+    </section>`;
   }).join('');
 }
 
