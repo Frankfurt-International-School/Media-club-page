@@ -510,6 +510,12 @@
   .member-name { font-size: 14px; font-weight: 500; color: var(--text); }
   .member-role { font-size: 12px; color: var(--text3); }
   .member-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .member-role-section { grid-column: 1 / -1; margin-bottom: 12px; }
+  .member-role-section + .member-role-section { margin-top: 8px; }
+  .member-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .member-section-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; }
+  .member-section-count { font-size: 11px; color: var(--text3); }
+  .member-section-line { height: 1px; flex: 1; background: linear-gradient(90deg, var(--border2), transparent); }
 
   /* ── SIGNUP SHEET ── */
   .sheet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -2330,7 +2336,7 @@ async function removeSignup(evId, idx) {
 // ══════════════════════════════
 function memberRankPriority(role = '') {
   const normalized = role.toLowerCase().replace(/\s+/g, '-');
-  return { leader: 0, faculty: 0, 'co-leader': 1, moderator: 2, member: 3 }[normalized] ?? 4;
+  return { faculty: 0, leader: 1, 'co-leader': 2, moderator: 3, member: 4 }[normalized] ?? 5;
 }
 
 function memberRoleColor(role = '') {
@@ -2348,17 +2354,13 @@ function memberRoleColor(role = '') {
 function renderMembers() {
   const q = (document.getElementById('member-search').value || '').toLowerCase();
   const rf = document.getElementById('member-role-filter').value;
-  let list = state.members.filter(m => {
+  const list = state.members.filter(m => {
     const name = (m.fname + ' ' + m.lname).toLowerCase();
     return (!q || name.includes(q) || m.spec.toLowerCase().includes(q)) && (!rf || m.role === rf);
-  }).sort((a, b) => {
-    const rankDiff = memberRankPriority(a.role) - memberRankPriority(b.role);
-    if (rankDiff) return rankDiff;
-    return a.name.localeCompare(b.name);
   });
   const grid = document.getElementById('members-grid');
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
-  grid.innerHTML = list.map(m => {
+  const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
     const tags = m.spec.split(',').map(s => `<span class="badge badge-gray">${s.trim()}</span>`).join('');
     return `
@@ -2374,6 +2376,27 @@ function renderMembers() {
         </div>
         ${canAccessAdminPanel() ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : ''}
       </div>`;
+  };
+  const groups = new Map();
+  list.forEach(member => {
+    const role = member.role || 'Other';
+    if (!groups.has(role)) groups.set(role, []);
+    groups.get(role).push(member);
+  });
+  const orderedGroups = [...groups.entries()].sort(([roleA], [roleB]) => memberRankPriority(roleA) - memberRankPriority(roleB) || roleA.localeCompare(roleB));
+  grid.innerHTML = orderedGroups.map(([role, members]) => {
+    const orderedMembers = [...members].sort((a, b) => {
+      if (normalizeRoleName(role) === 'leader') {
+        const joinedA = a.joined_date ? new Date(`${a.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+        const joinedB = b.joined_date ? new Date(`${b.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+        if (joinedA !== joinedB) return joinedA - joinedB;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    return `<section class="member-role-section">
+      <div class="member-section-head"><span class="member-section-title">${role}</span><span class="badge badge-${memberRoleColor(role)}">${members.length}</span><span class="member-section-line"></span></div>
+      <div class="grid2">${orderedMembers.map(memberCard).join('')}</div>
+    </section>`;
   }).join('');
   document.getElementById('members-count').textContent = `Showing ${list.length} of ${state.members.length} members`;
 }
