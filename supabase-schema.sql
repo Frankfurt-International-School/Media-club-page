@@ -6,9 +6,12 @@ create table if not exists public.members (
   name text not null,
   role text not null default 'Member',
   email text not null unique,
+  grade_level text,
   status text not null default 'active',
   joined_date date not null default current_date
 );
+
+alter table public.members add column if not exists grade_level text;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),

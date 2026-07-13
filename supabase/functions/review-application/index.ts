@@ -55,6 +55,7 @@ Deno.serve(async request => {
       name: application.name,
       email: application.email,
       role: "Member",
+      grade_level: application.year_group || null,
       status: application.interests?.join(", ") || "General",
     }, { onConflict: "email" });
     if (memberError) return json({ error: `Member record failed: ${memberError.message}` }, 500);

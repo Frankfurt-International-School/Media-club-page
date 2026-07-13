@@ -1307,7 +1307,10 @@
       <div class="form-group"><label class="form-label">First name *</label><input class="form-input" id="mem-fname" placeholder="Max" /></div>
       <div class="form-group"><label class="form-label">Last name *</label><input class="form-input" id="mem-lname" placeholder="Krüger" /></div>
     </div>
-    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="mem-email" placeholder="m.krueger@school.de" /></div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="mem-email" placeholder="m.krueger@school.de" /></div>
+      <div class="form-group"><label class="form-label">Grade level</label><select class="form-select" id="mem-grade"><option value="">Not applicable</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option></select></div>
+    </div>
     <div class="form-row2">
       <div class="form-group">
         <label class="form-label">Club role</label>
@@ -1586,6 +1589,7 @@ function normalizeMember(member, index = 0) {
     lname,
     name: member.name,
     email: member.email || '',
+    gradeLevel: member.grade_level || '',
     role: member.role || 'Member',
     spec: member.status || 'active',
     color: colors[index % colors.length],
@@ -2414,7 +2418,7 @@ function renderMembers() {
   const rf = document.getElementById('member-role-filter').value;
   const list = state.members.filter(m => {
     const name = (m.fname + ' ' + m.lname).toLowerCase();
-    return (!q || name.includes(q) || m.spec.toLowerCase().includes(q)) && (!rf || m.role === rf);
+    return (!q || name.includes(q) || m.spec.toLowerCase().includes(q) || m.gradeLevel.toLowerCase().includes(q)) && (!rf || m.role === rf);
   });
   const grid = document.getElementById('members-grid');
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
@@ -2426,7 +2430,7 @@ function renderMembers() {
         <div class="member-avatar" style="background:${bg};color:${fg};">${initials(m.fname, m.lname)}</div>
         <div style="flex:1;">
           <div class="member-name">${m.fname} ${m.lname}</div>
-          <div class="member-role">${m.email}</div>
+          <div class="member-role">${m.email}${m.gradeLevel ? ` · ${m.gradeLevel}` : ''}</div>
           <div class="member-tags">
             <span class="badge badge-${memberRoleColor(m.role)}">${m.role}</span>
             ${tags}
@@ -2468,6 +2472,7 @@ async function addMember() {
     .insert({
       name: `${fname} ${lname}`,
       email: document.getElementById('mem-email').value.trim(),
+      grade_level: document.getElementById('mem-grade').value || null,
       role: document.getElementById('mem-role').value,
       status: document.getElementById('mem-spec').value || 'active',
     })
@@ -2477,6 +2482,7 @@ async function addMember() {
   state.members.push(normalizeMember(data, state.members.length));
   closeModal('member-modal');
   ['mem-fname','mem-lname','mem-email','mem-spec'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mem-grade').value = '';
   showToast(`${fname} ${lname} added!`);
   renderMembers();
   renderDashboard();
