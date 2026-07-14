@@ -145,3 +145,6 @@ create index if not exists gallery_member_id_idx on public.gallery (member_id);
 create index if not exists announcements_created_at_idx on public.announcements (created_at desc);
 create index if not exists join_applications_created_at_idx on public.join_applications (created_at desc);
 create index if not exists join_applications_status_idx on public.join_applications (status);
+create unique index if not exists join_applications_one_pending_email_idx
+on public.join_applications (lower(btrim(email)))
+where status = 'pending';

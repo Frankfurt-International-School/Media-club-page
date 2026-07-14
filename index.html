@@ -2887,7 +2887,7 @@ async function reserveEquipment() {
 async function submitJoin() {
   const fname = document.getElementById('join-fname').value.trim();
   const lname = document.getElementById('join-lname').value.trim();
-  const email = document.getElementById('join-email').value.trim();
+  const email = document.getElementById('join-email').value.trim().toLowerCase();
   const why = document.getElementById('join-why').value.trim();
   if (!fname || !lname || !email || !why) { showToast('Please fill in all required fields.', 'error'); return; }
   const interests = [...document.querySelectorAll('#interest-group .checked input')].map(i => i.value);
@@ -2902,7 +2902,11 @@ async function submitJoin() {
       why,
       work_link: document.getElementById('join-link').value.trim() || null,
     });
-  if (error) { showToast("Couldn't submit application.", 'error'); return; }
+  if (error) {
+    const duplicatePending = error.code === '23505';
+    showToast(duplicatePending ? 'An application with this email is already awaiting review.' : "Couldn't submit application.", 'error', 6000);
+    return;
+  }
   document.getElementById('join-form-card').style.display = 'none';
   document.getElementById('join-success').style.display = 'block';
   const adminDot = document.querySelector('.nav-item[onclick*=admin] .notif-dot');
