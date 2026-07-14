@@ -371,7 +371,7 @@ window.applyCrewCenterAdminControls = applyAdminControls;
 
 function enforceVisitorPageAccess() {
   if (!window.CREW_CENTER_IS_VISITOR) return;
-  const allowedPages = new Set(["home", "events", "gallery", "equipment", "join"]);
+  const allowedPages = new Set(["home", "events", "gallery", "equipment", "role-guide", "join"]);
   const activePage = document.querySelector(".page.active")?.id?.replace("page-", "") || "home";
   if (!allowedPages.has(activePage) && typeof window.navigate === "function") {
     window.navigate("home");
@@ -432,7 +432,7 @@ function installAdminFunctionGuards() {
 
   if (typeof window.navigate === "function" && !window.navigate.__adminGuarded) {
     const originalNavigate = window.navigate;
-    const visitorAllowedPages = new Set(["home", "events", "gallery", "equipment", "join"]);
+    const visitorAllowedPages = new Set(["home", "events", "gallery", "equipment", "role-guide", "join"]);
     window.navigate = function(id, ...args) {
       const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
       if (id === "admin" && !hasAdminPanelAccess) {

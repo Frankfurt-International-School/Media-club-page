@@ -866,6 +866,86 @@
   }
   .empty-state svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.4; }
   .empty-state p { font-size: 14px; }
+
+  /* ── MEDIA ROLE GUIDE ── */
+  .role-guide-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 30px;
+    margin-bottom: 22px;
+    border: 1px solid rgba(234,122,244,0.24);
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(circle at 88% 18%, rgba(78,240,196,0.18), transparent 28%),
+      radial-gradient(circle at 12% 100%, rgba(234,122,244,0.25), transparent 34%),
+      #17171b;
+    color: #fff;
+  }
+  .role-guide-hero::after {
+    content: "";
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    right: -60px;
+    bottom: -100px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 50%;
+    box-shadow: 0 0 0 28px rgba(255,255,255,0.025), 0 0 0 56px rgba(255,255,255,0.018);
+  }
+  .role-guide-credit {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    margin-bottom: 18px;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.78);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+  .role-guide-credit span { color: #EA7AF4; }
+  .role-guide-hero h1 { font-size: clamp(38px, 6vw, 64px); line-height: 0.92; margin-bottom: 12px; }
+  .role-guide-hero p { max-width: 650px; color: rgba(255,255,255,0.68); line-height: 1.55; }
+  .role-guide-section { margin-top: 26px; }
+  .role-guide-section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    color: var(--text2);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .role-guide-section-head::after { content: ""; height: 1px; flex: 1; background: var(--border); }
+  .role-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .role-guide-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 190px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg2);
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .role-guide-card:hover { transform: translateY(-3px); border-color: var(--role-color); box-shadow: 0 12px 30px rgba(0,0,0,0.06); }
+  .role-guide-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--role-color); }
+  .role-guide-card.supervision { --role-color: #ffb547; --role-soft: rgba(255,181,71,0.12); }
+  .role-guide-card.production { --role-color: #EA7AF4; --role-soft: rgba(234,122,244,0.10); }
+  .role-guide-card.camera { --role-color: #4ef0c4; --role-soft: rgba(78,240,196,0.10); }
+  .role-guide-number { position: absolute; top: 13px; right: 16px; color: var(--border2); font-family: var(--font-head); font-size: 42px; line-height: 1; }
+  .role-guide-tag { display: inline-block; padding: 4px 8px; margin-bottom: 12px; border-radius: 999px; background: var(--role-soft); color: var(--role-color); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .role-guide-card h3 { position: relative; font-size: 25px; line-height: 1; margin-bottom: 10px; }
+  .role-guide-card p { position: relative; color: var(--text2); font-size: 13px; line-height: 1.58; }
+  .role-guide-card strong { color: var(--text); }
+  @media (max-width: 700px) {
+    .role-guide-grid { grid-template-columns: 1fr; }
+    .role-guide-hero { padding: 24px 20px; }
+  }
 </style>
 </head>
 <body>
@@ -903,6 +983,10 @@
     <div class="nav-item" onclick="navigate('equipment', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
       Equipment
+    </div>
+    <div class="nav-item" onclick="navigate('role-guide', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><line x1="9" y1="7" x2="16" y2="7"/><line x1="9" y1="11" x2="16" y2="11"/></svg>
+      Media Role Guide
     </div>
     <div class="nav-section-label">Club</div>
     <div class="nav-item" onclick="navigate('join', this)">
@@ -1123,6 +1207,73 @@
       </button>
     </div>
     <div class="grid3" id="equipment-grid"></div>
+  </div>
+
+  <!-- ── PROFILE ── -->
+  <div id="page-role-guide" class="page">
+    <div class="role-guide-hero">
+      <div class="role-guide-credit"><span>♥</span> Made with love by Lennox · Grade 11</div>
+      <h1>Media Role Guide</h1>
+      <p>Every great production is a team effort. Explore the responsibilities, expectations, and equipment behind each role before choosing your place on the crew.</p>
+    </div>
+
+    <section class="role-guide-section">
+      <div class="role-guide-section-head">Supervision &amp; leadership</div>
+      <div class="role-guide-grid">
+        <article class="role-guide-card supervision">
+          <div class="role-guide-number">01</div><div class="role-guide-tag">Adult only</div>
+          <h3>Adult Supervisors</h3>
+          <p>This role is for the adults present to support the production. <strong>They know what they are doing, so do not change or claim this role.</strong></p>
+        </article>
+        <article class="role-guide-card supervision">
+          <div class="role-guide-number">02</div><div class="role-guide-tag">Experienced crew</div>
+          <h3>Student Supervisor</h3>
+          <p>Student leaders or experienced members who can run the stream with less adult help. <strong>An adult's explicit permission is required.</strong> Student Supervisors cannot also cover Photography because they must remain in the stream area.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="role-guide-section">
+      <div class="role-guide-section-head">Production control</div>
+      <div class="role-guide-grid">
+        <article class="role-guide-card production">
+          <div class="role-guide-number">03</div><div class="role-guide-tag">Live direction</div>
+          <h3>Mixing</h3>
+          <p>The mixer chooses which camera feed goes live and calls “camera — prep/live” over the headsets. They relay a shot caller's direction, or make the calls themselves when there is no shot caller.</p>
+        </article>
+        <article class="role-guide-card production">
+          <div class="role-guide-number">04</div><div class="role-guide-tag">Stream systems</div>
+          <h3>OBS</h3>
+          <p>OBS controls the production computer. For sports streams this includes instant replays and the scoreboard overlay. The operator also monitors the stream or recording uplink and sound.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="role-guide-section">
+      <div class="role-guide-section-head">Camera crew</div>
+      <div class="role-guide-grid">
+        <article class="role-guide-card camera">
+          <div class="role-guide-number">05</div><div class="role-guide-tag">Remote camera</div>
+          <h3>Robocam</h3>
+          <p>Operates a remotely controlled camera using a monitor, joystick, and zoom rocker. Robocam carries the same responsibility as a handheld operator: follow the mixer's direction and film the action.</p>
+        </article>
+        <article class="role-guide-card camera">
+          <div class="role-guide-number">06</div><div class="role-guide-tag">Core camera</div>
+          <h3>Handheld</h3>
+          <p>The backbone of many streams. Handheld operators film the action from outside positions, take direction through a headset, and send their pictures to the Regie. The usual cameras are Sony PXW-X70s.</p>
+        </article>
+        <article class="role-guide-card camera">
+          <div class="role-guide-number">07</div><div class="role-guide-tag">Mobile camera</div>
+          <h3>Wireless</h3>
+          <p>Shares the handheld operator's responsibilities but can move freely while sending video wirelessly to the Regie. Usually uses a Panasonic Lumix GH6 on a gimbal and is reserved for experienced members.</p>
+        </article>
+        <article class="role-guide-card camera">
+          <div class="role-guide-number">08</div><div class="role-guide-tag">Independent</div>
+          <h3>Photographer</h3>
+          <p>Photographers independently decide which parts of the action to capture. <strong>This role uses loan cameras, so all equipment must be returned.</strong> Typical cameras include the Canon 70/450/600/700D, with R6 and GH6 bodies reserved for experienced users or special occasions with adult approval.</p>
+        </article>
+      </div>
+    </section>
   </div>
 
   <!-- ── PROFILE ── -->
@@ -1772,7 +1923,7 @@ function renderCurrentPage() {
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   home: '/dashboard',
   events: '/events',
@@ -1780,6 +1931,7 @@ const pageRoutes = {
   members: '/members',
   gallery: '/gallery',
   equipment: '/equipment',
+  'role-guide': '/role-guide',
   profile: '/profile',
   join: '/join',
   admin: '/admin',
@@ -1792,6 +1944,7 @@ const routePages = {
   '/members': 'members',
   '/gallery': 'gallery',
   '/equipment': 'equipment',
+  '/role-guide': 'role-guide',
   '/profile': 'profile',
   '/join': 'join',
   '/admin': 'admin',
