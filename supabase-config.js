@@ -117,6 +117,8 @@ authStyle.textContent = `
   }
 
   .auth-gate-button,
+  .auth-visitor-button,
+  .auth-visitor-exit,
   .auth-signout {
     border: 0;
     border-radius: 8px;
@@ -136,6 +138,48 @@ authStyle.textContent = `
   .auth-gate-button:disabled {
     cursor: wait;
     opacity: 0.7;
+  }
+
+  .auth-visitor-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #6c757d;
+    font-size: 11px;
+    margin: 18px 0;
+    text-transform: uppercase;
+  }
+
+  .auth-visitor-divider::before,
+  .auth-visitor-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(0,0,0,0.08);
+  }
+
+  .auth-visitor-button {
+    width: 100%;
+    min-height: 52px;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.12);
+    color: #212529;
+    font-size: 15px;
+  }
+
+  .auth-visitor-button span {
+    display: block;
+    color: #6c757d;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    margin-top: 1px;
+  }
+
+  .auth-visitor-button:hover {
+    border-color: rgba(234,122,244,0.7);
+    background: rgba(234,122,244,0.05);
   }
 
   .auth-gate-error {
@@ -175,6 +219,22 @@ authStyle.textContent = `
     display: block;
   }
 
+  .auth-visitor-exit {
+    display: none;
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 180;
+    background: #f1f3f5;
+    border: 1px solid rgba(0,0,0,0.08);
+    color: #495057;
+    padding: 9px 14px;
+  }
+
+  .auth-visitor-exit.visible {
+    display: block;
+  }
+
   body.auth-locked .auth-signout {
     display: none;
   }
@@ -205,6 +265,13 @@ document.body.insertAdjacentHTML("afterbegin", `
         </div>
         <button class="auth-gate-button" id="auth-gate-submit" type="submit">Sign in</button>
       </form>
+      <div id="auth-visitor-option">
+        <div class="auth-visitor-divider">or</div>
+        <button class="auth-visitor-button" id="auth-visitor-submit" type="button">
+          First time here?
+          <span>Explore the Crew Center with limited access</span>
+        </button>
+      </div>
       <form id="auth-password-setup-form" style="display:none;">
         <div class="auth-gate-field">
           <label class="auth-gate-label" for="auth-new-password">New password</label>
@@ -220,12 +287,14 @@ document.body.insertAdjacentHTML("afterbegin", `
     </div>
   </section>
   <button class="auth-signout" id="auth-signout" type="button">Sign out</button>
+  <button class="auth-visitor-exit" id="auth-visitor-exit" type="button">Member sign in</button>
 `);
 
 const authError = document.getElementById("auth-gate-error");
 const authForm = document.getElementById("auth-gate-form");
 const authSubmit = document.getElementById("auth-gate-submit");
 const authPassword = document.getElementById("auth-gate-password");
+const visitorSubmit = document.getElementById("auth-visitor-submit");
 const passwordSetupForm = document.getElementById("auth-password-setup-form");
 const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite";
 
@@ -242,6 +311,7 @@ function setAuthError(message = "") {
 function setAuthBusy(isBusy) {
   authSubmit.disabled = isBusy;
   authSubmit.textContent = isBusy ? "Signing in..." : "Sign in";
+  visitorSubmit.disabled = isBusy;
 }
 
 function applyAdminControls() {
@@ -407,10 +477,11 @@ function applySignedInUser(user) {
   }
   const metadata = user.user_metadata || {};
   const appMetadata = user.app_metadata || {};
-  const name = metadata.full_name || metadata.name || metadata.display_name || user.email.split("@")[0] || "Media Club member";
-  const role = appMetadata.role || metadata.role || "Member";
+  const isVisitor = Boolean(user.is_anonymous) || (appMetadata.role || metadata.role || "").toLowerCase() === "visitor";
+  const name = metadata.full_name || metadata.name || metadata.display_name || user.email?.split("@")[0] || (isVisitor ? "Visitor" : "Media Club member");
+  const role = isVisitor ? "Visitor" : appMetadata.role || metadata.role || "Member";
   window.CREW_CENTER_IS_ADMIN = (appMetadata.role || "").toLowerCase() === "admin";
-  window.CREW_CENTER_IS_VISITOR = (appMetadata.role || metadata.role || "").toLowerCase() === "visitor";
+  window.CREW_CENTER_IS_VISITOR = isVisitor;
   const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
   const palette = {
     green: ["rgba(234,122,244,0.15)", "#EA7AF4"],
@@ -444,6 +515,7 @@ function applySignedInUser(user) {
     el.style.background = avatarBg;
     el.style.color = avatarFg;
   });
+  document.getElementById("auth-visitor-exit")?.classList.toggle("visible", window.CREW_CENTER_IS_VISITOR);
   applyAdminControls();
 }
 
@@ -466,10 +538,13 @@ async function revealDashboard(user) {
 }
 
 function showSignIn() {
+  window.CREW_CENTER_AUTH_USER = null;
   window.CREW_CENTER_IS_ADMIN = false;
   window.CREW_CENTER_IS_VISITOR = false;
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
+  document.getElementById("auth-visitor-exit")?.classList.remove("visible");
+  document.getElementById("auth-visitor-option").style.display = "block";
   setAuthBusy(false);
 }
 
@@ -477,6 +552,7 @@ function showPasswordSetup() {
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
   authForm.style.display = "none";
+  document.getElementById("auth-visitor-option").style.display = "none";
   passwordSetupForm.style.display = "block";
   document.getElementById("auth-gate-title").textContent = "Set your password";
   document.querySelector(".auth-gate-sub").textContent = "Choose a password to finish creating your Media Club account.";
@@ -527,10 +603,36 @@ authForm.addEventListener("submit", async event => {
   setAuthBusy(false);
 });
 
+visitorSubmit.addEventListener("click", async () => {
+  setAuthError("");
+  if (!window.crewCenterSupabase) {
+    setAuthError("Supabase is not available yet. Check the connection and try again.");
+    return;
+  }
+  setAuthBusy(true);
+  visitorSubmit.innerHTML = 'Opening visitor access...<span>Please wait</span>';
+  const { data, error } = await window.crewCenterSupabase.auth.signInAnonymously();
+  if (error) {
+    setAuthBusy(false);
+    visitorSubmit.innerHTML = 'First time here?<span>Explore the Crew Center with limited access</span>';
+    setAuthError(error.message || "Visitor access is not available right now.");
+    return;
+  }
+  await revealDashboard(data.user);
+  setAuthBusy(false);
+  visitorSubmit.innerHTML = 'First time here?<span>Explore the Crew Center with limited access</span>';
+});
+
 document.getElementById("auth-signout").addEventListener("click", async () => {
   if (!window.crewCenterSupabase) return;
   await window.crewCenterSupabase.auth.signOut();
   authPassword.value = "";
+  showSignIn();
+});
+
+document.getElementById("auth-visitor-exit").addEventListener("click", async () => {
+  if (!window.crewCenterSupabase) return;
+  await window.crewCenterSupabase.auth.signOut();
   showSignIn();
 });
 

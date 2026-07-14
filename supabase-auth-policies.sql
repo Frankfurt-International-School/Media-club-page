@@ -82,6 +82,19 @@ as $$
     );
 $$;
 
+create or replace function public.is_visitor_session()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false)
+    or lower(coalesce(
+      auth.jwt() -> 'app_metadata' ->> 'role',
+      auth.jwt() -> 'user_metadata' ->> 'role',
+      ''
+    )) = 'visitor';
+$$;
+
 create or replace function public.can_create_equipment_reservation(
   p_equipment_id uuid,
   p_member_id uuid,
@@ -96,7 +109,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', auth.jwt() -> 'user_metadata' ->> 'role', 'member')) <> 'visitor'
+  select not public.is_visitor_session()
     and p_ends_at > p_starts_at
     and ((p_reservation_type = 'event' and p_event_id is not null) or (p_reservation_type = 'non_event' and p_event_id is null))
     and exists (
@@ -175,7 +188,7 @@ create policy "Signed-in users can add signups"
 on public.signups for insert
 to authenticated
 with check (
-  lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'member')) <> 'visitor'
+  not public.is_visitor_session()
   and attendance_start is not null
   and attendance_end is not null
   and attendance_end > attendance_start
@@ -255,7 +268,7 @@ create policy "Signed-in members can submit gallery projects"
 on public.gallery for insert
 to authenticated
 with check (
-  lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', 'member')) <> 'visitor'
+  not public.is_visitor_session()
   and image_url is not null
   and btrim(image_url) <> ''
   and exists (

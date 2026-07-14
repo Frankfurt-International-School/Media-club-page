@@ -1949,11 +1949,12 @@ function updateUserSurfaces() {
 window.applyCrewCenterAuthUser = function(user) {
   const metadata = user.user_metadata || {};
   const appMetadata = user.app_metadata || {};
-  state.currentUser.name = metadata.full_name || metadata.name || metadata.display_name || user.email?.split('@')[0] || 'Media Club member';
+  const isVisitor = Boolean(user.is_anonymous) || (appMetadata.role || metadata.role || '').toLowerCase() === 'visitor';
+  state.currentUser.name = metadata.full_name || metadata.name || metadata.display_name || user.email?.split('@')[0] || (isVisitor ? 'Visitor' : 'Media Club member');
   state.currentUser.email = user.email || '';
-  state.currentUser.role = appMetadata.role || metadata.role || 'Member';
+  state.currentUser.role = isVisitor ? 'Visitor' : appMetadata.role || metadata.role || 'Member';
   state.currentUser.isAdmin = (appMetadata.role || '').toLowerCase() === 'admin';
-  state.currentUser.isVisitor = (appMetadata.role || metadata.role || '').toLowerCase() === 'visitor';
+  state.currentUser.isVisitor = isVisitor;
   state.currentUser.initials = metadata.initials || state.currentUser.name.split(/\s+/).map(part => part[0]).join('').slice(0, 3).toUpperCase() || 'MC';
   updateUserSurfaces();
   renderSignupRoleOptions(state.events.find(event => event.id === document.getElementById('sheet-event-select')?.value));
