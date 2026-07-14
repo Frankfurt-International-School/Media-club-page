@@ -269,7 +269,7 @@ document.body.insertAdjacentHTML("afterbegin", `
         <div class="auth-visitor-divider">or</div>
         <button class="auth-visitor-button" id="auth-visitor-submit" type="button">
           First time here?
-          <span>Explore the Crew Center with limited access</span>
+          <span>Explore the fantastic Crew Center!</span>
         </button>
       </div>
       <form id="auth-password-setup-form" style="display:none;">
@@ -283,7 +283,7 @@ document.body.insertAdjacentHTML("afterbegin", `
         </div>
         <button class="auth-gate-button" id="auth-password-setup-submit" type="submit">Set password</button>
       </form>
-      <p class="auth-gate-note">Accounts are created manually by the club admin.</p>
+      <p class="auth-gate-note">Please submit an application for an account.</p>
     </div>
   </section>
   <button class="auth-signout" id="auth-signout" type="button">Sign out</button>
