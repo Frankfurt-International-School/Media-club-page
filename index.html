@@ -84,6 +84,7 @@
     transition: transform 0.3s ease;
   }
   body.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+  .sidebar-scrim { display: none; }
   .sidebar-logo {
     padding: 20px 18px 16px;
     border-bottom: 1px solid var(--border);
@@ -874,11 +875,44 @@
   @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
+    body.sidebar-collapsed .sidebar.open { transform: translateX(0); }
+    .sidebar-scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 95;
+      background: rgba(20,20,24,0.32);
+      backdrop-filter: blur(2px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .sidebar-scrim.open { opacity: 1; pointer-events: auto; }
     .main { margin-left: 0; }
     .mob-menu-btn { display: flex; }
     .sidebar-toggle-btn { display: none; }
+    .topbar { padding: 0 12px; gap: 8px; }
+    .topbar-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 15px;
+    }
+    .topbar-motto { display: none; }
+    .berlin-clock {
+      min-width: 0;
+      margin-left: auto;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    .clock-time { font-size: 15px; }
     .page { padding: 16px; }
     .form-row2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 420px) {
+    .clock-dot, .clock-city { display: none; }
+    .berlin-clock { gap: 0; }
   }
 
   /* ── MISC ── */
@@ -1047,11 +1081,12 @@
     </div>
   </div>
 </aside>
+<div class="sidebar-scrim" id="sidebar-scrim" onclick="closeMobileSidebar()" aria-hidden="true"></div>
 
 <!-- ── MAIN ── -->
 <main class="main">
   <div class="topbar">
-    <button class="mob-menu-btn" onclick="toggleSidebar()">
+    <button class="mob-menu-btn" id="mobile-menu-button" onclick="toggleSidebar()" aria-label="Open navigation" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" aria-label="Hide sidebar" title="Hide sidebar">
@@ -2074,7 +2109,7 @@ function navigate(id, el, options = {}) {
   if (page === 'equipment') renderEquipment();
   if (page === 'profile') renderProfile();
   if (page === 'admin') renderAdmin();
-  document.getElementById('sidebar').classList.remove('open');
+  closeMobileSidebar();
 }
 
 function openPageFromUrl() {
@@ -2084,7 +2119,16 @@ function openPageFromUrl() {
 window.addEventListener('popstate', openPageFromUrl);
 
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
+  const sidebar = document.getElementById('sidebar');
+  const open = sidebar.classList.toggle('open');
+  document.getElementById('sidebar-scrim').classList.toggle('open', open);
+  document.getElementById('mobile-menu-button').setAttribute('aria-expanded', String(open));
+}
+
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-scrim').classList.remove('open');
+  document.getElementById('mobile-menu-button')?.setAttribute('aria-expanded', 'false');
 }
 
 function toggleSidebarCollapse() {
