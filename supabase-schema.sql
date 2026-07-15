@@ -37,6 +37,30 @@ alter table public.events add column if not exists game_1_end time;
 alter table public.events add column if not exists game_2_start time;
 alter table public.events add column if not exists game_2_end time;
 alter table public.events add column if not exists ends_at timestamptz;
+alter table public.events add column if not exists is_festival boolean not null default false;
+alter table public.events add column if not exists setup_start time;
+alter table public.events add column if not exists setup_end time;
+alter table public.events add column if not exists shift_1_start time;
+alter table public.events add column if not exists shift_1_end time;
+alter table public.events add column if not exists shift_2_start time;
+alter table public.events add column if not exists shift_2_end time;
+alter table public.events add column if not exists takedown_start time;
+alter table public.events add column if not exists takedown_end time;
+alter table public.events drop constraint if exists events_festival_schedule_check;
+alter table public.events add constraint events_festival_schedule_check check (
+  not is_festival
+  or (
+    not is_sports
+    and setup_start is not null and setup_end is not null
+    and shift_1_start is not null and shift_1_end is not null
+    and shift_2_start is not null and shift_2_end is not null
+    and takedown_start is not null and takedown_end is not null
+    and setup_start < setup_end
+    and setup_end <= shift_1_start and shift_1_start < shift_1_end
+    and shift_1_end <= shift_2_start and shift_2_start < shift_2_end
+    and shift_2_end <= takedown_start and takedown_start < takedown_end
+  )
+);
 
 create table if not exists public.signups (
   id uuid primary key default gen_random_uuid(),
@@ -54,6 +78,9 @@ alter table public.signups add column if not exists signup_role text;
 alter table public.signups add column if not exists attendance_type text not null default 'whole';
 alter table public.signups add column if not exists attendance_start timestamptz;
 alter table public.signups add column if not exists attendance_end timestamptz;
+alter table public.signups drop constraint if exists signups_attendance_type_check;
+alter table public.signups add constraint signups_attendance_type_check
+check (attendance_type in ('whole', 'game_1', 'game_2', 'setup', 'shift_1', 'shift_2', 'takedown', 'custom'));
 drop index if exists public.signups_event_signup_role_idx;
 alter table public.signups drop constraint if exists signups_role_attendance_no_overlap;
 alter table public.signups add constraint signups_role_attendance_no_overlap

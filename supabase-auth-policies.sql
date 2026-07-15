@@ -95,6 +95,56 @@ as $$
     )) = 'visitor';
 $$;
 
+create or replace function public.is_valid_event_signup(
+  p_event_id uuid,
+  p_signup_role text,
+  p_attendance_type text,
+  p_attendance_start timestamptz,
+  p_attendance_end timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.events event
+    where event.id = p_event_id
+      and (p_attendance_start at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
+      and (p_attendance_end at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
+      and (
+        (
+          event.is_festival
+          and case p_attendance_type
+            when 'setup' then p_signup_role is null
+              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.setup_start
+              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.setup_end
+            when 'shift_1' then p_signup_role is not null
+              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.shift_1_start
+              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.shift_1_end
+            when 'shift_2' then p_signup_role is not null
+              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.shift_2_start
+              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.shift_2_end
+            when 'takedown' then p_signup_role is null
+              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.takedown_start
+              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.takedown_end
+            when 'custom' then p_signup_role is not null
+              and (p_attendance_start at time zone 'Europe/Berlin')::time >= event.setup_start
+              and (p_attendance_end at time zone 'Europe/Berlin')::time <= event.takedown_end
+            else false
+          end
+        )
+        or (
+          not event.is_festival
+          and p_signup_role is not null
+          and p_attendance_type in ('whole', 'game_1', 'game_2', 'custom')
+        )
+      )
+  );
+$$;
+
 create or replace function public.can_create_equipment_reservation(
   p_equipment_id uuid,
   p_member_id uuid,
@@ -128,7 +178,7 @@ as $$
         from public.events event
         join public.equipment item on item.id = p_equipment_id
         where item.category in ('Camera', 'Recording Cameras')
-          and event.category in ('Livestream', 'Event')
+          and (event.category in ('Livestream', 'Event') or event.is_festival)
           and tstzrange(
                 event.date,
                 coalesce(event.ends_at, (date_trunc('day', event.date at time zone 'Europe/Berlin') + interval '1 day') at time zone 'Europe/Berlin'),
@@ -192,6 +242,7 @@ with check (
   and attendance_start is not null
   and attendance_end is not null
   and attendance_end > attendance_start
+  and public.is_valid_event_signup(event_id, signup_role, attendance_type, attendance_start, attendance_end)
   and (
     public.is_crew_operations_user()
     or exists (
