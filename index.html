@@ -690,6 +690,44 @@
   }
   .modal-close:hover { background: var(--bg4); color: var(--text); }
   .modal-close svg { width: 14px; height: 14px; }
+  .event-form-section {
+    padding: 16px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+  }
+  .event-form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    color: var(--text);
+    font-family: var(--font-head);
+    font-size: 16px;
+    letter-spacing: 0.8px;
+  }
+  .event-form-section-title span {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .event-schedule-option {
+    padding: 12px;
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg2);
+  }
+  .event-schedule-option > .checkbox-label { margin-bottom: 0; }
+  .event-schedule-option:has(.checkbox-label.checked) { border-color: rgba(234,122,244,0.35); background: var(--accent-dim2); }
 
   /* ── TOAST ── */
   .toast-container {
@@ -1401,31 +1439,36 @@
 
 <!-- Add Event Modal -->
 <div class="modal-backdrop" id="event-modal">
-  <div class="modal" style="position:relative;">
+  <div class="modal" style="position:relative;max-width:620px;">
     <button class="modal-close" onclick="closeModal('event-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     <div class="modal-title">New event</div>
-    <div class="modal-sub">Add an upcoming event for all members to see.</div>
-    <div class="form-group"><label class="form-label">Event title *</label><input class="form-input" id="ev-title" placeholder="Short film workshop" /></div>
-    <div class="form-row2">
-      <div class="form-group"><label class="form-label">Date *</label><input class="form-input" id="ev-date" type="date" /></div>
-      <div class="form-group"><label class="form-label">Time</label><input class="form-input" id="ev-time" type="time" /></div>
-    </div>
-    <div class="form-row2">
-      <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="ev-loc" placeholder="Room B12" /></div>
-      <div class="form-group">
-        <label class="form-label">Category</label>
-        <select class="form-select" id="ev-cat" onchange="updateLivestreamSetupField()">
-          <option>Livestream</option><option>Recording (live cut)</option><option selected>Event</option><option>Other</option>
-        </select>
+    <div class="modal-sub">Create the event first, then members can choose an available signup window and production role.</div>
+    <section class="event-form-section">
+      <div class="event-form-section-title"><span>1</span> Event details</div>
+      <div class="form-group"><label class="form-label">Event title *</label><input class="form-input" id="ev-title" placeholder="Short film workshop" /></div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Date *</label><input class="form-input" id="ev-date" type="date" /></div>
+        <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="ev-time" type="time" /></div>
       </div>
-    </div>
-    <div class="form-group" id="ev-livestream-setup-group">
-      <label class="form-label">Setup date (optional — setup starts at 15:15)</label>
-      <input class="form-input" id="ev-livestream-setup-date" type="date" />
-      <div class="text-muted" style="margin-top:6px;">If left blank, the Livestream will be published without a setup message.</div>
-    </div>
-    <div id="ev-sports-group" style="display:none;">
-      <label class="checkbox-label mb12" id="ev-sports-label"><input type="checkbox" id="ev-sports" onchange="updateSportsFields()"> Sports Livestream</label>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="ev-loc" placeholder="Room B12" /></div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="ev-cat" onchange="updateLivestreamSetupField()">
+            <option>Livestream</option><option>Recording (live cut)</option><option selected>Event</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+    </section>
+    <section class="event-form-section">
+      <div class="event-form-section-title"><span>2</span> Schedule options</div>
+      <div class="form-group" id="ev-livestream-setup-group">
+        <label class="form-label">Previous-day Livestream setup (optional)</label>
+        <input class="form-input" id="ev-livestream-setup-date" type="date" />
+        <div class="text-muted" style="margin-top:6px;">Adds a setup notice at 15:15 on the selected date.</div>
+      </div>
+      <div class="event-schedule-option" id="ev-sports-group" style="display:none;">
+        <label class="checkbox-label" id="ev-sports-label"><input type="checkbox" id="ev-sports" onchange="updateSportsFields()"> Sports Livestream — two game windows</label>
       <div id="ev-game-times" style="display:none;">
         <div class="form-label mb8">Game 1</div>
         <div class="form-row2">
@@ -1438,9 +1481,9 @@
           <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="ev-game2-end" type="time" /></div>
         </div>
       </div>
-    </div>
-    <div id="ev-festival-group">
-      <label class="checkbox-label mb12" id="ev-festival-label"><input type="checkbox" id="ev-festival" onchange="updateFestivalFields()"> Apple/World Fest schedule</label>
+      </div>
+      <div class="event-schedule-option" id="ev-festival-group">
+        <label class="checkbox-label" id="ev-festival-label"><input type="checkbox" id="ev-festival" onchange="updateFestivalFields()"> Apple/World Fest — setup, shifts, and takedown</label>
       <div id="ev-festival-times" style="display:none;">
         <div class="text-muted mb12">All four windows happen on the event date. Setup and Takedown signups do not use production roles.</div>
         <div class="form-label mb8">Setup</div>
@@ -1464,12 +1507,12 @@
           <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="ev-takedown-end" type="time" /></div>
         </div>
       </div>
-    </div>
-    <div class="form-row2">
-      <div class="form-group"><label class="form-label">Max slots</label><input class="form-input" id="ev-slots" type="number" placeholder="20" min="1" /></div>
-      <div class="form-group"><label class="form-label">Deadline to sign up</label><input class="form-input" id="ev-deadline" type="date" /></div>
-    </div>
-    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ev-desc" placeholder="What will happen at this event?"></textarea></div>
+      </div>
+    </section>
+    <section class="event-form-section">
+      <div class="event-form-section-title"><span>3</span> Description</div>
+      <div class="form-group" style="margin-bottom:0;"><label class="form-label">Event notes</label><textarea class="form-textarea" id="ev-desc" placeholder="What will happen, where should the crew meet, and what should they bring?"></textarea></div>
+    </section>
     <button class="btn btn-accent" style="width:100%;" onclick="addEvent()">Create event</button>
   </div>
 </div>
@@ -2443,7 +2486,7 @@ async function addEvent() {
   state.events.push(ev);
   state.events.sort((a, b) => a.date.localeCompare(b.date));
   closeModal('event-modal');
-  ['ev-title','ev-date','ev-time','ev-loc','ev-slots','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end','ev-setup-start','ev-setup-end','ev-shift1-start','ev-shift1-end','ev-shift2-start','ev-shift2-end','ev-takedown-start','ev-takedown-end'].forEach(id => document.getElementById(id).value = '');
+  ['ev-title','ev-date','ev-time','ev-loc','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end','ev-setup-start','ev-setup-end','ev-shift1-start','ev-shift1-end','ev-shift2-start','ev-shift2-end','ev-takedown-start','ev-takedown-end'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('ev-sports').checked = false;
   document.getElementById('ev-festival').checked = false;
   document.getElementById('ev-cat').value = 'Event';
