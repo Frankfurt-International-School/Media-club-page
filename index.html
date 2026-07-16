@@ -627,7 +627,7 @@
   }
   .catalog-section-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; }
   .catalog-section-count { margin-left: auto; }
-  .catalog-equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .catalog-equipment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .catalog-event-list { display: grid; gap: 10px; }
 
   /* ── ADMIN PANEL ── */
@@ -848,7 +848,7 @@
     width: 6px; height: 6px;
     background: var(--coral);
     border-radius: 50%;
-    display: inline-block;
+    display: none;
     margin-left: 4px;
     vertical-align: middle;
   }
@@ -909,6 +909,7 @@
     .clock-time { font-size: 15px; }
     .page { padding: 16px; }
     .form-row2 { grid-template-columns: 1fr; }
+    .catalog-equipment-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 420px) {
     .clock-dot, .clock-city { display: none; }
@@ -1410,8 +1411,6 @@
             <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Videography"> Videography</label>
             <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Podcasting"> Podcasting</label>
             <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Editing"> Editing</label>
-            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Social Media"> Social Media</label>
-            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Graphic Design"> Graphic Design</label>
             <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Writing"> Writing</label>
           </div>
         </div>
@@ -2003,6 +2002,7 @@ async function loadCrewCenterData() {
     if (!applicationsRes.error && canAccessAdminPanel()) {
       state.applications = applicationsRes.data.map(normalizeApplication);
     }
+    updateAdminPendingIndicator();
     window.applyCrewCenterAdminControls?.();
     renderGalleryAuthorField();
     window.CREW_CENTER_DATA_LOADED = true;
@@ -3242,20 +3242,26 @@ async function submitJoin() {
   }
   document.getElementById('join-form-card').style.display = 'none';
   document.getElementById('join-success').style.display = 'block';
-  const adminDot = document.querySelector('.nav-item[onclick*=admin] .notif-dot');
-  if (adminDot && canAccessAdminPanel()) adminDot.style.display = 'inline-block';
   showToast('Application submitted!');
 }
 
 // ══════════════════════════════
 // ADMIN
 // ══════════════════════════════
+function updateAdminPendingIndicator() {
+  const pendingCount = state.applications.filter(application => application.status === 'pending').length;
+  const adminDot = document.querySelector('.nav-item[onclick*=admin] .notif-dot');
+  if (adminDot) adminDot.style.display = canAccessAdminPanel() && pendingCount > 0 ? 'inline-block' : 'none';
+  const pendingBadge = document.getElementById('pending-count');
+  if (pendingBadge) pendingBadge.textContent = pendingCount;
+}
+
 function renderAdmin() {
   if (!canAccessAdminPanel()) {
     navigate('home');
     return;
   }
-  document.getElementById('pending-count').textContent = state.applications.filter(a => a.status === 'pending').length;
+  updateAdminPendingIndicator();
   renderPending();
   renderManageEvents();
   renderAdminAnn();
