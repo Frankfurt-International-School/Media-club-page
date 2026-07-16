@@ -541,9 +541,20 @@
   .sheet-table tr.empty-row td { color: var(--text3); font-style: italic; }
   .sheet-table tr:hover td { background: var(--bg3); }
   .row-num { color: var(--text3); font-size: 12px; font-family: var(--font-head); }
-  .role-select-shell { position: relative; }
-  .role-select-shell .form-select { padding-right: 38px; border-color: rgba(234,122,244,0.28); background: var(--accent-dim2); }
-  .role-select-shell::after {
+  .signup-entry-card { padding: 20px; }
+  .signup-entry-head { margin-bottom: 16px; }
+  .signup-entry-title { color: var(--text); font-family: var(--font-head); font-size: 18px; letter-spacing: 0.7px; }
+  .signup-entry-sub { color: var(--text3); font-size: 11px; margin-top: 2px; }
+  .signup-entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .signup-entry-grid.role-free { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .signup-field { min-width: 0; margin: 0; }
+  .signup-field .form-label { margin-bottom: 7px; }
+  .signup-field .form-input, .signup-field .form-select { min-height: 44px; }
+  .signup-locked-name:disabled { color: var(--text); opacity: 1; cursor: default; background: var(--bg3); }
+  .signup-select-shell { position: relative; }
+  .signup-select-shell .form-select { padding-right: 38px; }
+  #signup-role-group .form-select { border-color: rgba(234,122,244,0.28); background: var(--accent-dim2); }
+  .signup-select-shell::after {
     content: "▾";
     position: absolute;
     right: 13px;
@@ -553,7 +564,8 @@
     font-size: 14px;
     pointer-events: none;
   }
-  .role-select-hint { margin-top: 5px; color: var(--text3); font-size: 10px; }
+  .signup-entry-actions { display: flex; justify-content: flex-end; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--border); }
+  .signup-entry-actions .btn { min-width: 120px; justify-content: center; }
 
   /* ── GALLERY ── */
   .gallery-grid {
@@ -925,6 +937,8 @@
     .form-row2 { grid-template-columns: 1fr; }
     .catalog-equipment-grid { grid-template-columns: 1fr; }
     .member-section-grid { grid-template-columns: 1fr; }
+    .signup-entry-grid, .signup-entry-grid.role-free { grid-template-columns: 1fr; }
+    .signup-entry-actions .btn { width: 100%; }
   }
   @media (max-width: 420px) {
     .clock-dot, .clock-city { display: none; }
@@ -932,6 +946,7 @@
   }
   @media (min-width: 769px) and (max-width: 1150px) {
     .member-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .signup-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 
   /* ── MISC ── */
@@ -1215,30 +1230,34 @@
       <div class="progress-bar mb12"><div class="progress-fill" id="sheet-progress" style="width:0%"></div></div>
       <table class="sheet-table" id="sheet-table"></table>
     </div>
-    <div class="card card-sm">
-      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Add your name</div>
-      <div class="form-row2 mb12">
-        <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" autocomplete="off" placeholder="Your full name" /><datalist id="signup-member-list"></datalist></div>
-        <div class="form-group" id="signup-role-group" style="margin:0">
+    <div class="card signup-entry-card">
+      <div class="signup-entry-head">
+        <div class="signup-entry-title">Join this event</div>
+        <div class="signup-entry-sub">Choose the member, production role, and attendance window.</div>
+      </div>
+      <div class="signup-entry-grid" id="signup-entry-grid">
+        <div class="form-group signup-field" id="signup-member-field">
+          <label class="form-label" for="signup-name">Member</label>
+          <input class="form-input signup-locked-name" id="signup-name" autocomplete="off" placeholder="Your full name" disabled />
+          <div class="signup-select-shell" id="signup-member-select-shell" style="display:none;"><select class="form-select" id="signup-member-select"></select></div>
+        </div>
+        <div class="form-group signup-field" id="signup-role-group">
           <label class="form-label" for="signup-role">Production role</label>
-          <div class="role-select-shell"><select class="form-select" id="signup-role"></select></div>
-          <div class="role-select-hint">Open the list to choose an available role.</div>
+          <div class="signup-select-shell"><select class="form-select" id="signup-role"></select></div>
+        </div>
+        <div class="form-group signup-field attendance-choice" id="signup-attendance-choice">
+          <label class="form-label" for="signup-attendance">Staying for</label>
+          <div class="signup-select-shell"><select class="form-select" id="signup-attendance" onchange="updateSignupAttendanceFields()"></select></div>
         </div>
       </div>
-      <div class="mb12">
-        <div class="form-group attendance-choice" id="signup-attendance-choice" style="margin:0">
-          <label class="form-label">Staying for</label>
-          <select class="form-select" id="signup-attendance" onchange="updateSignupAttendanceFields()"></select>
-        </div>
-      </div>
-      <div class="form-row2 mb12" id="signup-custom-time-fields" style="display:none;">
+      <div class="form-row2" id="signup-custom-time-fields" style="display:none;margin-top:14px;">
         <div class="form-group" style="margin:0"><label class="form-label">Arrival time</label><input class="form-input" id="signup-start-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
         <div class="form-group" style="margin:0"><label class="form-label">Leaving time</label><input class="form-input" id="signup-end-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
       </div>
-      <button class="btn btn-accent" onclick="addSignupRow()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Sign up
-      </button>
+      <div class="signup-entry-actions"><button class="btn btn-accent" onclick="addSignupRow()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Sign up
+        </button></div>
     </div>
   </div>
 
@@ -1809,6 +1828,7 @@ function renderSignupRoleOptions(ev) {
   const attendanceType = document.getElementById('signup-attendance')?.value;
   const roleFreeAttendance = ev?.isFestival && ['setup', 'takedown'].includes(attendanceType);
   document.getElementById('signup-role-group')?.style.setProperty('display', roleFreeAttendance ? 'none' : '');
+  document.getElementById('signup-entry-grid')?.classList.toggle('role-free', Boolean(roleFreeAttendance));
   if (roleFreeAttendance) {
     select.innerHTML = '<option value="">No role required</option>';
     return;
@@ -1844,18 +1864,16 @@ function renderSignupRoleOptionsForCurrentEvent() {
 
 function renderSignupNameField() {
   const input = document.getElementById('signup-name');
-  if (!input) return;
+  const select = document.getElementById('signup-member-select');
+  const selectShell = document.getElementById('signup-member-select-shell');
+  if (!input || !select || !selectShell) return;
   const canChooseMember = canManageCrewOperations();
-  if (canChooseMember) input.setAttribute('list', 'signup-member-list');
-  else input.removeAttribute('list');
-  document.getElementById('signup-member-list').innerHTML = canChooseMember
-    ? state.members.map(member => `<option value="${member.name}"></option>`).join('')
-    : '';
-  input.disabled = !canChooseMember;
-  input.placeholder = canChooseMember ? 'Member full name' : 'Your name';
-  if (!canChooseMember) {
-    input.value = currentMemberRecord()?.name || state.currentUser.name || '';
-  }
+  input.style.display = canChooseMember ? 'none' : '';
+  selectShell.style.display = canChooseMember ? '' : 'none';
+  input.value = currentMemberRecord()?.name || state.currentUser.name || '';
+  const previous = select.value;
+  select.innerHTML = '<option value="">Choose a member</option>' + state.members.map(member => `<option value="${member.id}">${member.name}</option>`).join('');
+  if ([...select.options].some(option => option.value === previous)) select.value = previous;
 }
 
 function showLoadError(targetId, message = "Couldn't load data.") {
@@ -2670,8 +2688,16 @@ async function addSignupRow() {
   }
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
-  const name = document.getElementById('signup-name').value.trim();
-  if (!name) { showToast('Please enter your name.', 'error'); return; }
+  const canChooseMember = canManageCrewOperations();
+  const selectedMemberId = document.getElementById('signup-member-select').value;
+  const selectedMember = canChooseMember ? state.members.find(member => member.id === selectedMemberId) : currentMemberRecord();
+  const name = canChooseMember
+    ? selectedMember?.name || ''
+    : document.getElementById('signup-name').value.trim();
+  if (!name) {
+    showToast(canChooseMember ? 'Choose a member from the existing member list.' : "Couldn't find your member record.", 'error');
+    return;
+  }
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
   const role = document.getElementById('signup-role').value;
   const attendance = selectedAttendanceWindow(ev);
@@ -2696,9 +2722,8 @@ async function addSignupRow() {
   const signedInMember = authEmail
     ? state.members.find(m => (m.email || '').toLowerCase() === authEmail)
     : currentMemberRecord();
-  const canChooseMember = canManageCrewOperations();
   const member = canChooseMember
-    ? state.members.find(m => m.name.toLowerCase() === name.toLowerCase())
+    ? selectedMember
     : signedInMember;
   if (!member) {
     showToast(canChooseMember ? 'Choose a member from the existing member list.' : "Couldn't find your member record.", 'error');
@@ -2735,7 +2760,7 @@ async function addSignupRow() {
     attendanceEnd: signup.attendance_end,
     ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
   });
-  document.getElementById('signup-name').value = '';
+  if (canChooseMember) document.getElementById('signup-member-select').value = '';
   showToast(`${member.name} signed up for ${ev.title}!`);
   renderSignupSheet();
 }
