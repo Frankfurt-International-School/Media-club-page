@@ -517,6 +517,7 @@
   .member-section-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; }
   .member-section-count { font-size: 11px; color: var(--text3); }
   .member-section-line { height: 1px; flex: 1; background: linear-gradient(90deg, var(--border2), transparent); }
+  .member-section-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 
   /* ── SIGNUP SHEET ── */
   .sheet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -540,6 +541,19 @@
   .sheet-table tr.empty-row td { color: var(--text3); font-style: italic; }
   .sheet-table tr:hover td { background: var(--bg3); }
   .row-num { color: var(--text3); font-size: 12px; font-family: var(--font-head); }
+  .role-select-shell { position: relative; }
+  .role-select-shell .form-select { padding-right: 38px; border-color: rgba(234,122,244,0.28); background: var(--accent-dim2); }
+  .role-select-shell::after {
+    content: "▾";
+    position: absolute;
+    right: 13px;
+    top: 50%;
+    transform: translateY(-52%);
+    color: var(--accent);
+    font-size: 14px;
+    pointer-events: none;
+  }
+  .role-select-hint { margin-top: 5px; color: var(--text3); font-size: 10px; }
 
   /* ── GALLERY ── */
   .gallery-grid {
@@ -910,10 +924,14 @@
     .page { padding: 16px; }
     .form-row2 { grid-template-columns: 1fr; }
     .catalog-equipment-grid { grid-template-columns: 1fr; }
+    .member-section-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 420px) {
     .clock-dot, .clock-city { display: none; }
     .berlin-clock { gap: 0; }
+  }
+  @media (min-width: 769px) and (max-width: 1150px) {
+    .member-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 
   /* ── MISC ── */
@@ -1200,8 +1218,12 @@
     <div class="card card-sm">
       <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Add your name</div>
       <div class="form-row2 mb12">
-        <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" list="signup-member-list" placeholder="Your full name" /><datalist id="signup-member-list"></datalist></div>
-        <div class="form-group" id="signup-role-group" style="margin:0"><select class="form-select" id="signup-role"></select></div>
+        <div class="form-group" style="margin:0"><input class="form-input" id="signup-name" autocomplete="off" placeholder="Your full name" /><datalist id="signup-member-list"></datalist></div>
+        <div class="form-group" id="signup-role-group" style="margin:0">
+          <label class="form-label" for="signup-role">Production role</label>
+          <div class="role-select-shell"><select class="form-select" id="signup-role"></select></div>
+          <div class="role-select-hint">Open the list to choose an available role.</div>
+        </div>
       </div>
       <div class="mb12">
         <div class="form-group attendance-choice" id="signup-attendance-choice" style="margin:0">
@@ -1286,7 +1308,7 @@
   <!-- ── PROFILE ── -->
   <div id="page-role-guide" class="page">
     <div class="role-guide-hero">
-      <div class="role-guide-credit"><span>♥</span> Made with love by Lennox · Grade 11</div>
+      <div class="role-guide-credit"><span>●</span> Crew playbook · FIS Media Club</div>
       <h1>Media Role Guide</h1>
       <p>Every great production is a team effort. Explore the responsibilities, expectations, and equipment behind each role before choosing your place on the crew.</p>
     </div>
@@ -1824,6 +1846,8 @@ function renderSignupNameField() {
   const input = document.getElementById('signup-name');
   if (!input) return;
   const canChooseMember = canManageCrewOperations();
+  if (canChooseMember) input.setAttribute('list', 'signup-member-list');
+  else input.removeAttribute('list');
   document.getElementById('signup-member-list').innerHTML = canChooseMember
     ? state.members.map(member => `<option value="${member.name}"></option>`).join('')
     : '';
@@ -2791,7 +2815,7 @@ function renderMembers() {
     });
     return `<section class="member-role-section">
       <div class="member-section-head"><span class="member-section-title">${role}</span><span class="badge badge-${memberRoleColor(role)}">${members.length}</span><span class="member-section-line"></span></div>
-      <div class="grid2">${orderedMembers.map(memberCard).join('')}</div>
+      <div class="member-section-grid">${orderedMembers.map(memberCard).join('')}</div>
     </section>`;
   }).join('');
   document.getElementById('members-count').textContent = `Showing ${list.length} of ${state.members.length} members`;
@@ -3129,10 +3153,18 @@ function openEquipmentReservation(id) {
   if (state.currentUser.isVisitor) { showToast('Visitors cannot reserve equipment.', 'error'); return; }
   const item = state.equipment.find(equipment => equipment.id === id);
   if (!item || item.status !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
+  const member = currentMemberRecord();
+  const outsideEventAllowed = canReserveOutsideEvent(item, member);
+  if (!outsideEventAllowed && !state.events.length) {
+    showToast('Grade 10 and below can reserve cameras only during an event.', 'error', 6000);
+    return;
+  }
   reservingEquipmentId = id;
   document.getElementById('reserve-equipment-name').textContent = `${item.name} · ${item.category}`;
   document.getElementById('reserve-event').innerHTML = state.events.map(event => `<option value="${event.id}">${event.title} — ${fmtDate(event.date)}</option>`).join('');
-  document.getElementById('reserve-type').value = state.events.length ? 'event' : 'non_event';
+  const reservationType = document.getElementById('reserve-type');
+  reservationType.innerHTML = `${state.events.length ? '<option value="event">During an event</option>' : ''}${outsideEventAllowed ? '<option value="non_event">Not during an event</option>' : ''}`;
+  reservationType.value = state.events.length ? 'event' : 'non_event';
   updateReservationFields();
   openModal('equip-reserve-modal');
 }
@@ -3163,12 +3195,27 @@ function reservationOverlaps(start, end, otherStart, otherEnd) {
   return start < new Date(otherEnd).getTime() && end > new Date(otherStart).getTime();
 }
 
+function memberGradeNumber(member) {
+  const match = String(member?.gradeLevel || '').match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function canReserveOutsideEvent(item, member) {
+  const grade = memberGradeNumber(member);
+  const isCamera = ['Camera', 'Recording Cameras'].includes(item?.category);
+  return !isCamera || grade === null || grade > 10;
+}
+
 async function reserveEquipment() {
   const item = state.equipment.find(equipment => equipment.id === reservingEquipmentId);
   const member = currentMemberRecord();
   if (!item || !member) { showToast("Couldn't match your account to an equipment or member record.", 'error'); return; }
   if (item.status !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
   const type = document.getElementById('reserve-type').value;
+  if (type === 'non_event' && !canReserveOutsideEvent(item, member)) {
+    showToast('Grade 10 and below can reserve cameras only during an event.', 'error', 6000);
+    return;
+  }
   const event = type === 'event' ? state.events.find(item => item.id === document.getElementById('reserve-event').value) : null;
   const date = event?.date || document.getElementById('reserve-date').value;
   const startTime = document.getElementById('reserve-start').value;

@@ -171,6 +171,19 @@ as $$
       select 1 from public.equipment item
       where item.id = p_equipment_id and item.status = 'available'
     )
+    and not exists (
+      select 1
+      from public.members member
+      join public.equipment item on item.id = p_equipment_id
+      where member.id = p_member_id
+        and p_reservation_type = 'non_event'
+        and item.category in ('Camera', 'Recording Cameras')
+        and case
+          when coalesce(member.grade_level, '') ~ '[0-9]+'
+            then substring(member.grade_level from '[0-9]+')::integer <= 10
+          else false
+        end
+    )
     and (
       public.is_admin_panel_user()
       or not exists (
