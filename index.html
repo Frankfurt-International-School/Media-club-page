@@ -1201,7 +1201,6 @@
       <button class="filter-chip active" onclick="filterEvents('all', this)">All</button>
       <button class="filter-chip" onclick="filterEvents('Livestream', this)">Livestream</button>
       <button class="filter-chip" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
-      <button class="filter-chip" onclick="filterEvents('World Fest', this)">World Fest</button>
       <button class="filter-chip" onclick="filterEvents('Event', this)">Event</button>
       <button class="filter-chip" onclick="filterEvents('Other', this)">Other</button>
     </div>
@@ -1531,7 +1530,7 @@
         <div class="form-group">
           <label class="form-label">Category</label>
           <select class="form-select" id="ev-cat" onchange="updateLivestreamSetupField()">
-            <option>Livestream</option><option>Recording (live cut)</option><option>World Fest</option><option selected>Event</option><option>Other</option>
+            <option>Livestream</option><option>Recording (live cut)</option><option selected>Event</option><option>Other</option>
           </select>
         </div>
       </div>
@@ -2233,7 +2232,7 @@ function fmtDate(d) {
 function fmtMonth(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' }); }
 function fmtDay(d) { return new Date(d + 'T12:00:00').getDate(); }
 function catColor(cat) {
-  return { Livestream: 'coral', 'Recording (live cut)': 'teal', 'World Fest': 'purple', Event: 'green', Other: 'gray' }[cat] || 'gray';
+  return { Livestream: 'coral', 'Recording (live cut)': 'teal', Event: 'green', Other: 'gray' }[cat] || 'gray';
 }
 
 function formatEventDate(date) {
@@ -2473,7 +2472,7 @@ function renderEvents(filter) {
     el.innerHTML = list.map(eventCard).join('');
     return;
   }
-  const eventCategoryOrder = ['Livestream', 'Recording (live cut)', 'World Fest', 'Event', 'Other'];
+  const eventCategoryOrder = ['Livestream', 'Recording (live cut)', 'Event', 'Other'];
   const categories = [...new Set(list.map(event => event.cat))].sort((a, b) => {
     const indexA = eventCategoryOrder.indexOf(a);
     const indexB = eventCategoryOrder.indexOf(b);
@@ -2507,12 +2506,12 @@ function updateLivestreamSetupField() {
   const setupDate = document.getElementById('ev-livestream-setup-date');
   group.style.display = category === 'Livestream' ? '' : 'none';
   document.getElementById('ev-sports-group').style.display = category === 'Livestream' ? '' : 'none';
-  document.getElementById('ev-festival-group').style.display = category === 'World Fest' ? '' : 'none';
+  document.getElementById('ev-festival-group').style.display = category === 'Event' ? '' : 'none';
   if (category !== 'Livestream') {
     document.getElementById('ev-sports').checked = false;
     document.getElementById('ev-isst').checked = false;
   }
-  if (category !== 'World Fest') document.getElementById('ev-festival').checked = false;
+  if (category !== 'Event') document.getElementById('ev-festival').checked = false;
   updateSportsFields();
   updateIsstFields();
   updateFestivalFields();

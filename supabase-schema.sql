@@ -19,7 +19,7 @@ create table if not exists public.events (
   description text,
   date timestamptz not null,
   location text,
-  category text not null default 'Event' check (category in ('Livestream', 'Recording (live cut)', 'World Fest', 'Event', 'Other')),
+  category text not null default 'Event' check (category in ('Livestream', 'Recording (live cut)', 'Event', 'Other')),
   livestream_setup_date date,
   is_sports boolean not null default false,
   game_1_start time,
@@ -35,9 +35,10 @@ create table if not exists public.events (
 );
 
 alter table public.events add column if not exists category text not null default 'Event';
+update public.events set category = 'Event' where category = 'World Fest';
 alter table public.events drop constraint if exists events_category_check;
 alter table public.events add constraint events_category_check
-check (category in ('Livestream', 'Recording (live cut)', 'World Fest', 'Event', 'Other'));
+check (category in ('Livestream', 'Recording (live cut)', 'Event', 'Other'));
 alter table public.events add column if not exists livestream_setup_date date;
 alter table public.events add column if not exists is_sports boolean not null default false;
 alter table public.events add column if not exists game_1_start time;
@@ -59,7 +60,7 @@ alter table public.events add column if not exists shift_2_start time;
 alter table public.events add column if not exists shift_2_end time;
 alter table public.events add column if not exists takedown_start time;
 alter table public.events add column if not exists takedown_end time;
-update public.events set category = 'World Fest' where is_festival;
+update public.events set category = 'Event' where is_festival;
 alter table public.events drop constraint if exists events_isst_schedule_check;
 alter table public.events add constraint events_isst_schedule_check check (
   not is_isst
@@ -83,7 +84,7 @@ alter table public.events drop constraint if exists events_festival_schedule_che
 alter table public.events add constraint events_festival_schedule_check check (
   not is_festival
   or (
-    category = 'World Fest'
+    category = 'Event'
     and not is_sports
     and not is_isst
     and setup_start is not null and setup_end is not null
