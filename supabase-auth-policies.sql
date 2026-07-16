@@ -139,7 +139,22 @@ as $$
         or (
           not event.is_festival
           and p_signup_role is not null
-          and p_attendance_type in ('whole', 'game_1', 'game_2', 'custom')
+          and (
+            p_attendance_type in ('whole', 'game_1', 'game_2', 'custom')
+            or (
+              p_attendance_type = 'game_3'
+              and event.is_isst
+              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.game_3_start
+              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.game_3_end
+            )
+            or (
+              p_attendance_type = 'game_4'
+              and event.is_isst
+              and event.game_4_start is not null
+              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.game_4_start
+              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.game_4_end
+            )
+          )
         )
       )
   );

@@ -1201,6 +1201,7 @@
       <button class="filter-chip active" onclick="filterEvents('all', this)">All</button>
       <button class="filter-chip" onclick="filterEvents('Livestream', this)">Livestream</button>
       <button class="filter-chip" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
+      <button class="filter-chip" onclick="filterEvents('World Fest', this)">World Fest</button>
       <button class="filter-chip" onclick="filterEvents('Event', this)">Event</button>
       <button class="filter-chip" onclick="filterEvents('Other', this)">Other</button>
     </div>
@@ -1530,7 +1531,7 @@
         <div class="form-group">
           <label class="form-label">Category</label>
           <select class="form-select" id="ev-cat" onchange="updateLivestreamSetupField()">
-            <option>Livestream</option><option>Recording (live cut)</option><option selected>Event</option><option>Other</option>
+            <option>Livestream</option><option>Recording (live cut)</option><option>World Fest</option><option selected>Event</option><option>Other</option>
           </select>
         </div>
       </div>
@@ -1544,6 +1545,7 @@
       </div>
       <div class="event-schedule-option" id="ev-sports-group" style="display:none;">
         <label class="checkbox-label" id="ev-sports-label"><input type="checkbox" id="ev-sports" onchange="updateSportsFields()"> Sports Livestream — two game windows</label>
+        <label class="checkbox-label" id="ev-isst-label" style="margin-top:10px;"><input type="checkbox" id="ev-isst" onchange="updateIsstFields()"> ISST mode — three or four game windows</label>
       <div id="ev-game-times" style="display:none;">
         <div class="form-label mb8">Game 1</div>
         <div class="form-row2">
@@ -1555,10 +1557,22 @@
           <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="ev-game2-start" type="time" /></div>
           <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="ev-game2-end" type="time" /></div>
         </div>
+        <div id="ev-isst-extra-games" style="display:none;">
+          <div class="form-label mb8">Game 3</div>
+          <div class="form-row2">
+            <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="ev-game3-start" type="time" /></div>
+            <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="ev-game3-end" type="time" /></div>
+          </div>
+          <div class="form-label mb8">Game 4 <span class="text-muted">(optional)</span></div>
+          <div class="form-row2">
+            <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="ev-game4-start" type="time" /></div>
+            <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="ev-game4-end" type="time" /></div>
+          </div>
+        </div>
       </div>
       </div>
-      <div class="event-schedule-option" id="ev-festival-group">
-        <label class="checkbox-label" id="ev-festival-label"><input type="checkbox" id="ev-festival" onchange="updateFestivalFields()"> Apple/World Fest — setup, shifts, and takedown</label>
+      <div class="event-schedule-option" id="ev-festival-group" style="display:none;">
+        <label class="checkbox-label" id="ev-festival-label"><input type="checkbox" id="ev-festival" onchange="updateFestivalFields()"> World Fest — setup, shifts, and takedown</label>
       <div id="ev-festival-times" style="display:none;">
         <div class="text-muted mb12">All four windows happen on the event date. Setup and Takedown signups do not use production roles.</div>
         <div class="form-label mb8">Setup</div>
@@ -1804,11 +1818,13 @@ function selectedAttendanceWindow(ev) {
   const ranges = {
     game_1: [ev.game1Start, ev.game1End],
     game_2: [ev.game2Start, ev.game2End],
+    game_3: [ev.game3Start, ev.game3End],
+    game_4: [ev.game4Start, ev.game4End],
     setup: [ev.setupStart, ev.setupEnd],
     shift_1: [ev.shift1Start, ev.shift1End],
     shift_2: [ev.shift2Start, ev.shift2End],
     takedown: [ev.takedownStart, ev.takedownEnd],
-    whole: [ev.game1Start || ev.time, ev.game2End || ev.game1End || '23:59'],
+    whole: [ev.game1Start || ev.time, ev.game4End || ev.game3End || ev.game2End || ev.game1End || '23:59'],
     custom: [document.getElementById('signup-start-time')?.value, document.getElementById('signup-end-time')?.value],
   };
   const [startTime, endTime] = ranges[type] || [];
@@ -1919,6 +1935,11 @@ function normalizeEvent(event) {
     game1End: event.game_1_end?.slice(0, 5) || '',
     game2Start: event.game_2_start?.slice(0, 5) || '',
     game2End: event.game_2_end?.slice(0, 5) || '',
+    isIsst: Boolean(event.is_isst),
+    game3Start: event.game_3_start?.slice(0, 5) || '',
+    game3End: event.game_3_end?.slice(0, 5) || '',
+    game4Start: event.game_4_start?.slice(0, 5) || '',
+    game4End: event.game_4_end?.slice(0, 5) || '',
     isFestival: Boolean(event.is_festival),
     setupStart: event.setup_start?.slice(0, 5) || '',
     setupEnd: event.setup_end?.slice(0, 5) || '',
@@ -2212,7 +2233,7 @@ function fmtDate(d) {
 function fmtMonth(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' }); }
 function fmtDay(d) { return new Date(d + 'T12:00:00').getDate(); }
 function catColor(cat) {
-  return { Livestream: 'coral', 'Recording (live cut)': 'teal', Event: 'green', Other: 'gray' }[cat] || 'gray';
+  return { Livestream: 'coral', 'Recording (live cut)': 'teal', 'World Fest': 'purple', Event: 'green', Other: 'gray' }[cat] || 'gray';
 }
 
 function formatEventDate(date) {
@@ -2229,6 +2250,16 @@ function livestreamSetupCaption(ev) {
 function sportsScheduleCaption(ev) {
   if (!ev.isSports) return '';
   return `Game 1: ${ev.game1Start}–${ev.game1End} · Game 2: ${ev.game2Start}–${ev.game2End}`;
+}
+function isstScheduleCaption(ev) {
+  if (!ev.isIsst) return '';
+  const games = [
+    `Game 1: ${ev.game1Start}–${ev.game1End}`,
+    `Game 2: ${ev.game2Start}–${ev.game2End}`,
+    `Game 3: ${ev.game3Start}–${ev.game3End}`,
+  ];
+  if (ev.game4Start && ev.game4End) games.push(`Game 4: ${ev.game4Start}–${ev.game4End}`);
+  return games.join(' · ');
 }
 function festivalScheduleCaption(ev) {
   if (!ev.isFestival) return '';
@@ -2379,6 +2410,7 @@ function renderDashboard() {
         </div>
         <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>
         ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${livestreamSetupCaption(ev)}</div>` : ''}
+        ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${isstScheduleCaption(ev)}</div>` : ''}
         ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${festivalScheduleCaption(ev)}</div>` : ''}
       </div>
     </div>`).join('') : '<div class="empty-state"><p>No upcoming events.</p></div>';
@@ -2424,6 +2456,7 @@ function renderEvents(filter) {
           </div>
           ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ev.desc}</div>` : ''}
           ${sportsScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${sportsScheduleCaption(ev)}</div>` : ''}
+          ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${isstScheduleCaption(ev)}</div>` : ''}
           ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${festivalScheduleCaption(ev)}</div>` : ''}
           ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${livestreamSetupCaption(ev)}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
@@ -2440,7 +2473,7 @@ function renderEvents(filter) {
     el.innerHTML = list.map(eventCard).join('');
     return;
   }
-  const eventCategoryOrder = ['Livestream', 'Recording (live cut)', 'Event', 'Other'];
+  const eventCategoryOrder = ['Livestream', 'Recording (live cut)', 'World Fest', 'Event', 'Other'];
   const categories = [...new Set(list.map(event => event.cat))].sort((a, b) => {
     const indexA = eventCategoryOrder.indexOf(a);
     const indexB = eventCategoryOrder.indexOf(b);
@@ -2474,8 +2507,15 @@ function updateLivestreamSetupField() {
   const setupDate = document.getElementById('ev-livestream-setup-date');
   group.style.display = category === 'Livestream' ? '' : 'none';
   document.getElementById('ev-sports-group').style.display = category === 'Livestream' ? '' : 'none';
-  if (category !== 'Livestream') document.getElementById('ev-sports').checked = false;
+  document.getElementById('ev-festival-group').style.display = category === 'World Fest' ? '' : 'none';
+  if (category !== 'Livestream') {
+    document.getElementById('ev-sports').checked = false;
+    document.getElementById('ev-isst').checked = false;
+  }
+  if (category !== 'World Fest') document.getElementById('ev-festival').checked = false;
   updateSportsFields();
+  updateIsstFields();
+  updateFestivalFields();
   if (category === 'Livestream' && !setupDate.value) {
     setupDate.value = dateBefore(document.getElementById('ev-date').value);
   }
@@ -2484,19 +2524,38 @@ function updateLivestreamSetupField() {
 function updateSportsFields() {
   const selected = document.getElementById('ev-sports').checked;
   if (selected) {
+    document.getElementById('ev-isst').checked = false;
     document.getElementById('ev-festival').checked = false;
-    updateFestivalFields();
   }
   document.getElementById('ev-game-times').style.display = selected ? '' : 'none';
+  document.getElementById('ev-isst-extra-games').style.display = 'none';
   document.getElementById('ev-sports-label').classList.toggle('sports-selected', selected);
+  document.getElementById('ev-isst-label').classList.remove('sports-selected');
+  updateFestivalFields();
+}
+
+function updateIsstFields() {
+  const selected = document.getElementById('ev-isst').checked;
+  if (selected) {
+    document.getElementById('ev-sports').checked = false;
+    document.getElementById('ev-festival').checked = false;
+  }
+  document.getElementById('ev-game-times').style.display = selected || document.getElementById('ev-sports').checked ? '' : 'none';
+  document.getElementById('ev-isst-extra-games').style.display = selected ? '' : 'none';
+  document.getElementById('ev-isst-label').classList.toggle('sports-selected', selected);
+  if (selected) document.getElementById('ev-sports-label').classList.remove('sports-selected');
+  updateFestivalFields();
 }
 
 function updateFestivalFields() {
   const selected = document.getElementById('ev-festival').checked;
   if (selected) {
     document.getElementById('ev-sports').checked = false;
+    document.getElementById('ev-isst').checked = false;
     document.getElementById('ev-game-times').style.display = 'none';
+    document.getElementById('ev-isst-extra-games').style.display = 'none';
     document.getElementById('ev-sports-label').classList.remove('sports-selected');
+    document.getElementById('ev-isst-label').classList.remove('sports-selected');
   }
   document.getElementById('ev-festival-times').style.display = selected ? '' : 'none';
   document.getElementById('ev-festival-label').classList.toggle('sports-selected', selected);
@@ -2507,7 +2566,9 @@ async function addEvent() {
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
   const isSports = document.getElementById('ev-cat').value === 'Livestream' && document.getElementById('ev-sports').checked;
+  const isIsst = document.getElementById('ev-cat').value === 'Livestream' && document.getElementById('ev-isst').checked;
   const gameTimes = ['ev-game1-start', 'ev-game1-end', 'ev-game2-start', 'ev-game2-end'].map(id => document.getElementById(id).value);
+  const isstTimes = ['ev-game3-start', 'ev-game3-end', 'ev-game4-start', 'ev-game4-end'].map(id => document.getElementById(id).value);
   const isFestival = document.getElementById('ev-festival').checked;
   const festivalTimes = ['ev-setup-start', 'ev-setup-end', 'ev-shift1-start', 'ev-shift1-end', 'ev-shift2-start', 'ev-shift2-end', 'ev-takedown-start', 'ev-takedown-end'].map(id => document.getElementById(id).value);
   if (isSports && gameTimes.some(value => !value)) {
@@ -2516,6 +2577,22 @@ async function addEvent() {
   }
   if (isSports && !(gameTimes[0] < gameTimes[1] && gameTimes[1] <= gameTimes[2] && gameTimes[2] < gameTimes[3])) {
     showToast('Game times must be in order and cannot overlap.', 'error');
+    return;
+  }
+  if (isIsst && [...gameTimes, ...isstTimes.slice(0, 2)].some(value => !value)) {
+    showToast('Please enter the start and end times for Games 1, 2, and 3.', 'error');
+    return;
+  }
+  if (isIsst && Boolean(isstTimes[2]) !== Boolean(isstTimes[3])) {
+    showToast('Enter both times for optional Game 4, or leave both blank.', 'error');
+    return;
+  }
+  const isstSchedule = [...gameTimes, ...isstTimes.slice(0, 2), ...(isstTimes[2] ? isstTimes.slice(2) : [])];
+  const isstTimesInOrder = isstSchedule.every((value, index) => index === 0 || isstSchedule[index - 1] <= value);
+  const isstWindowsValid = Array.from({ length: isstSchedule.length / 2 }, (_, index) => index * 2)
+    .every(index => isstSchedule[index] < isstSchedule[index + 1]);
+  if (isIsst && (!isstTimesInOrder || !isstWindowsValid)) {
+    showToast('ISST game times must be in order and cannot overlap.', 'error');
     return;
   }
   if (isFestival && festivalTimes.some(value => !value)) {
@@ -2528,9 +2605,16 @@ async function addEvent() {
     showToast('Festival schedule times must be in order and cannot overlap.', 'error');
     return;
   }
-  const eventStartTime = isFestival ? festivalTimes[0] : isSports ? gameTimes[0] : document.getElementById('ev-time').value || '12:00';
+  const eventStartTime = isFestival ? festivalTimes[0] : (isSports || isIsst) ? gameTimes[0] : document.getElementById('ev-time').value || '12:00';
   const eventDate = new Date(`${date}T${eventStartTime}`);
-  const eventEnd = new Date(`${date}T${isFestival ? festivalTimes[7] : isSports ? gameTimes[3] : '23:59'}`);
+  const eventEndTime = isFestival
+    ? festivalTimes[7]
+    : isIsst
+      ? isstTimes[3] || isstTimes[1]
+      : isSports
+        ? gameTimes[3]
+        : '23:59';
+  const eventEnd = new Date(`${date}T${eventEndTime}`);
   const { data, error } = await supabaseClient
     .from('events')
     .insert({
@@ -2543,10 +2627,15 @@ async function addEvent() {
         ? document.getElementById('ev-livestream-setup-date').value || null
         : null,
       is_sports: isSports,
-      game_1_start: isSports ? gameTimes[0] : null,
-      game_1_end: isSports ? gameTimes[1] : null,
-      game_2_start: isSports ? gameTimes[2] : null,
-      game_2_end: isSports ? gameTimes[3] : null,
+      is_isst: isIsst,
+      game_1_start: isSports || isIsst ? gameTimes[0] : null,
+      game_1_end: isSports || isIsst ? gameTimes[1] : null,
+      game_2_start: isSports || isIsst ? gameTimes[2] : null,
+      game_2_end: isSports || isIsst ? gameTimes[3] : null,
+      game_3_start: isIsst ? isstTimes[0] : null,
+      game_3_end: isIsst ? isstTimes[1] : null,
+      game_4_start: isIsst ? isstTimes[2] || null : null,
+      game_4_end: isIsst ? isstTimes[3] || null : null,
       is_festival: isFestival,
       setup_start: isFestival ? festivalTimes[0] : null,
       setup_end: isFestival ? festivalTimes[1] : null,
@@ -2565,8 +2654,9 @@ async function addEvent() {
   state.events.push(ev);
   state.events.sort((a, b) => a.date.localeCompare(b.date));
   closeModal('event-modal');
-  ['ev-title','ev-date','ev-time','ev-loc','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end','ev-setup-start','ev-setup-end','ev-shift1-start','ev-shift1-end','ev-shift2-start','ev-shift2-end','ev-takedown-start','ev-takedown-end'].forEach(id => document.getElementById(id).value = '');
+  ['ev-title','ev-date','ev-time','ev-loc','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end','ev-game3-start','ev-game3-end','ev-game4-start','ev-game4-end','ev-setup-start','ev-setup-end','ev-shift1-start','ev-shift1-end','ev-shift2-start','ev-shift2-end','ev-takedown-start','ev-takedown-end'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('ev-sports').checked = false;
+  document.getElementById('ev-isst').checked = false;
   document.getElementById('ev-festival').checked = false;
   document.getElementById('ev-cat').value = 'Event';
   updateLivestreamSetupField();
@@ -2598,7 +2688,9 @@ function renderSignupAttendanceOptions(ev) {
   const previous = select.value;
   select.innerHTML = ev?.isFestival
     ? '<option value="setup">Setup (no role)</option><option value="shift_1">Shift 1</option><option value="shift_2">Shift 2</option><option value="takedown">Takedown (no role)</option><option value="custom">Custom time</option>'
-    : ev?.isSports
+    : ev?.isIsst
+      ? `<option value="whole">Whole time (${ev.game4Start ? '4' : '3'} games)</option><option value="game_1">Game 1</option><option value="game_2">Game 2</option><option value="game_3">Game 3</option>${ev.game4Start ? '<option value="game_4">Game 4</option>' : ''}<option value="custom">Part time (choose arrival and leaving time)</option>`
+      : ev?.isSports
       ? '<option value="whole">Whole time (2 games)</option><option value="game_1">Half-the-time (Game 1)</option><option value="game_2">Half-the-time (Game 2)</option><option value="custom">Part time (choose arrival and leaving time)</option>'
       : '<option value="whole">Whole time</option><option value="custom">Part time (choose arrival and leaving time)</option>';
   if ([...select.options].some(option => option.value === previous)) select.value = previous;
@@ -2615,7 +2707,7 @@ function attendanceLabel(signup) {
   if (!signup.attendanceStart || !signup.attendanceEnd) return 'Whole time';
   const start = new Date(signup.attendanceStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const end = new Date(signup.attendanceEnd).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  const labels = { whole: 'Whole time', game_1: 'Game 1', game_2: 'Game 2', setup: 'Setup', shift_1: 'Shift 1', shift_2: 'Shift 2', takedown: 'Takedown', custom: 'Custom' };
+  const labels = { whole: 'Whole time', game_1: 'Game 1', game_2: 'Game 2', game_3: 'Game 3', game_4: 'Game 4', setup: 'Setup', shift_1: 'Shift 1', shift_2: 'Shift 2', takedown: 'Takedown', custom: 'Custom' };
   return `${labels[signup.attendanceType] || 'Custom'} · ${start}–${end}`;
 }
 
@@ -2633,7 +2725,7 @@ function renderSignupSheet() {
   renderSignupRoleOptions(ev);
   renderSignupNameField();
   document.getElementById('sheet-event-title').textContent = ev.title;
-  document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}${festivalScheduleCaption(ev) ? ' · ' + festivalScheduleCaption(ev) : ''}`;
+  document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}${isstScheduleCaption(ev) ? ' · ' + isstScheduleCaption(ev) : ''}${festivalScheduleCaption(ev) ? ' · ' + festivalScheduleCaption(ev) : ''}`;
   const cap = ev.slots || '∞';
   document.getElementById('sheet-event-cap').textContent = `${ev.signups.length} signed up${ev.slots ? ' · ' + ev.slots + ' max' : ''}`;
   const pct = ev.slots ? Math.min(100, Math.round(ev.signups.length / ev.slots * 100)) : 0;
@@ -2707,7 +2799,7 @@ async function addSignupRow() {
   const roleFreeAttendance = ev.isFestival && ['setup', 'takedown'].includes(attendance.type);
   if (!roleFreeAttendance && !role) { showToast('Please choose an available role.', 'error'); return; }
   const eventStart = timeValue(ev.date, ev.setupStart || ev.game1Start || ev.time);
-  const eventEnd = timeValue(ev.date, ev.takedownEnd || ev.game2End || ev.game1End || '23:59');
+  const eventEnd = timeValue(ev.date, ev.takedownEnd || ev.game4End || ev.game3End || ev.game2End || ev.game1End || '23:59');
   if (attendance.type === 'custom' && (attendance.start < eventStart || attendance.end > eventEnd)) {
     showToast('Custom attendance must be within the event times.', 'error');
     return;
@@ -3215,7 +3307,7 @@ function prefillEventReservationTimes() {
   const photographerSignup = event.signups.find(signup => signup.memberId === member?.id && signup.role === 'Photographer');
   const useSignupWindow = item && ['Camera', 'Recording Cameras'].includes(item.category) && !canAccessAdminPanel() && photographerSignup;
   document.getElementById('reserve-start').value = useSignupWindow ? localTimeFromIso(photographerSignup.attendanceStart) : event.game1Start || event.time;
-  document.getElementById('reserve-end').value = useSignupWindow ? localTimeFromIso(photographerSignup.attendanceEnd) : event.game2End || localTimeFromIso(event.endsAt) || '23:59';
+  document.getElementById('reserve-end').value = useSignupWindow ? localTimeFromIso(photographerSignup.attendanceEnd) : event.game4End || event.game3End || event.game2End || localTimeFromIso(event.endsAt) || '23:59';
 }
 
 function reservationOverlaps(start, end, otherStart, otherEnd) {
