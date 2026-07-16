@@ -548,9 +548,10 @@
   .signup-entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
   .signup-entry-grid.role-free { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .signup-field { min-width: 0; margin: 0; }
+  .signup-entry-grid .attendance-choice { margin: 0; padding: 0; }
+  .signup-entry-grid .attendance-choice.part-time-selected { padding: 0; margin: 0; outline: 3px solid rgba(78,240,196,0.06); }
   .signup-field .form-label { margin-bottom: 7px; }
   .signup-field .form-input, .signup-field .form-select { min-height: 44px; }
-  .signup-locked-name:disabled { color: var(--text); opacity: 1; cursor: default; background: var(--bg3); }
   .signup-select-shell { position: relative; }
   .signup-select-shell .form-select { padding-right: 38px; }
   #signup-role-group .form-select { border-color: rgba(234,122,244,0.28); background: var(--accent-dim2); }
@@ -1238,8 +1239,7 @@
       <div class="signup-entry-grid" id="signup-entry-grid">
         <div class="form-group signup-field" id="signup-member-field">
           <label class="form-label" for="signup-name">Member</label>
-          <input class="form-input signup-locked-name" id="signup-name" autocomplete="off" placeholder="Your full name" disabled />
-          <div class="signup-select-shell" id="signup-member-select-shell" style="display:none;"><select class="form-select" id="signup-member-select"></select></div>
+          <input class="form-input" id="signup-name" autocomplete="off" placeholder="Write the FULL name" />
         </div>
         <div class="form-group signup-field" id="signup-role-group">
           <label class="form-label" for="signup-role">Production role</label>
@@ -1864,16 +1864,9 @@ function renderSignupRoleOptionsForCurrentEvent() {
 
 function renderSignupNameField() {
   const input = document.getElementById('signup-name');
-  const select = document.getElementById('signup-member-select');
-  const selectShell = document.getElementById('signup-member-select-shell');
-  if (!input || !select || !selectShell) return;
-  const canChooseMember = canManageCrewOperations();
-  input.style.display = canChooseMember ? 'none' : '';
-  selectShell.style.display = canChooseMember ? '' : 'none';
-  input.value = currentMemberRecord()?.name || state.currentUser.name || '';
-  const previous = select.value;
-  select.innerHTML = '<option value="">Choose a member</option>' + state.members.map(member => `<option value="${member.id}">${member.name}</option>`).join('');
-  if ([...select.options].some(option => option.value === previous)) select.value = previous;
+  if (!input) return;
+  input.value = '';
+  input.placeholder = 'Write the FULL name';
 }
 
 function showLoadError(targetId, message = "Couldn't load data.") {
@@ -2689,13 +2682,19 @@ async function addSignupRow() {
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
   const canChooseMember = canManageCrewOperations();
-  const selectedMemberId = document.getElementById('signup-member-select').value;
-  const selectedMember = canChooseMember ? state.members.find(member => member.id === selectedMemberId) : currentMemberRecord();
-  const name = canChooseMember
-    ? selectedMember?.name || ''
-    : document.getElementById('signup-name').value.trim();
+  const name = document.getElementById('signup-name').value.trim().replace(/\s+/g, ' ');
   if (!name) {
-    showToast(canChooseMember ? 'Choose a member from the existing member list.' : "Couldn't find your member record.", 'error');
+    showToast('Write the member’s full name.', 'error');
+    return;
+  }
+  const normalizedName = name.toLocaleLowerCase();
+  const matchingMembers = state.members.filter(member => member.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase() === normalizedName);
+  if (matchingMembers.length === 0) {
+    showToast('This full name was not found in the members list.', 'error');
+    return;
+  }
+  if (matchingMembers.length > 1) {
+    showToast('More than one member has this name. Ask an administrator to make the member records unique.', 'error');
     return;
   }
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
@@ -2722,11 +2721,14 @@ async function addSignupRow() {
   const signedInMember = authEmail
     ? state.members.find(m => (m.email || '').toLowerCase() === authEmail)
     : currentMemberRecord();
-  const member = canChooseMember
-    ? selectedMember
-    : signedInMember;
+  const matchedMember = matchingMembers[0];
+  const member = canChooseMember ? matchedMember : signedInMember;
   if (!member) {
-    showToast(canChooseMember ? 'Choose a member from the existing member list.' : "Couldn't find your member record.", 'error');
+    showToast("Couldn't match your account to a member record.", 'error');
+    return;
+  }
+  if (!canChooseMember && member.id !== matchedMember.id) {
+    showToast('You can only sign up using your own full name.', 'error');
     return;
   }
   const { data: signup, error } = await supabaseClient
@@ -2760,7 +2762,7 @@ async function addSignupRow() {
     attendanceEnd: signup.attendance_end,
     ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
   });
-  if (canChooseMember) document.getElementById('signup-member-select').value = '';
+  document.getElementById('signup-name').value = '';
   showToast(`${member.name} signed up for ${ev.title}!`);
   renderSignupSheet();
 }
