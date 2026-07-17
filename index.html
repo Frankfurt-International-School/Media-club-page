@@ -39,7 +39,8 @@
     --font-head: 'Bebas Neue', sans-serif;
     --font-body: 'Space Grotesk', sans-serif;
     
-    --sidebar: 220px;
+    --sidebar: 232px;
+    --sidebar-compact: 76px;
     --topbar: 56px;
   }
 
@@ -74,20 +75,26 @@
   /* ── SIDEBAR ── */
   .sidebar {
     width: var(--sidebar);
-    background: var(--bg2);
-    border-right: 1px solid var(--border);
+    background:
+      radial-gradient(circle at 20% 0%, rgba(200,255,87,0.07), transparent 28%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg2) 94%, white 6%), var(--bg2));
+    border-right: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 14px 0 40px rgba(0,0,0,0.22), inset -1px 0 rgba(255,255,255,0.025);
     position: fixed;
     top: 0; left: 0; bottom: 0;
     display: flex;
     flex-direction: column;
     z-index: 100;
-    transition: transform 0.3s ease;
+    transition: width 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
   }
-  body.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+  body.sidebar-collapsed .sidebar { width: var(--sidebar-compact); }
   .sidebar-scrim { display: none; }
   .sidebar-logo {
     padding: 20px 18px 16px;
     border-bottom: 1px solid var(--border);
+  }
+  .logo-copy, .nav-label, .sidebar-user-copy, .nav-section-label {
+    transition: opacity 0.18s ease, width 0.25s ease, transform 0.25s ease;
   }
   .sidebar-logo .logo-mark {
     font-family: var(--font-head);
@@ -133,16 +140,18 @@
     color: var(--text2);
     font-size: 13.5px;
     font-weight: 400;
-    transition: all 0.15s;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    position: relative;
     margin-bottom: 1px;
     border: 1px solid transparent;
   }
-  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item:hover { background: rgba(255,255,255,0.055); color: var(--text); transform: translateX(3px); }
   .nav-item.active {
     background: var(--accent-dim);
     color: var(--accent);
     border-color: rgba(200,255,87,0.2);
     font-weight: 500;
+    box-shadow: inset 3px 0 var(--accent), 0 7px 18px rgba(0,0,0,0.16);
   }
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.8; }
   .admin-only { display: none; }
@@ -194,7 +203,46 @@
     flex-direction: column;
     transition: margin-left 0.3s ease;
   }
-  body.sidebar-collapsed .main { margin-left: 0; }
+  body.sidebar-collapsed .main { margin-left: var(--sidebar-compact); }
+  body.sidebar-collapsed .sidebar-logo { padding-inline: 17px; }
+  body.sidebar-collapsed .logo-copy,
+  body.sidebar-collapsed .nav-label,
+  body.sidebar-collapsed .sidebar-user-copy,
+  body.sidebar-collapsed .nav-section-label,
+  body.sidebar-collapsed .nav-badge,
+  body.sidebar-collapsed .notif-dot {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  body.sidebar-collapsed .sidebar-nav { padding-inline: 11px; }
+  body.sidebar-collapsed .nav-item { justify-content: center; gap: 0; padding: 11px; }
+  body.sidebar-collapsed .nav-item:hover { transform: translateY(-2px); }
+  body.sidebar-collapsed .nav-item svg { width: 19px; height: 19px; }
+  body.sidebar-collapsed .sidebar-footer { padding-inline: 11px; }
+  body.sidebar-collapsed .sidebar-user { justify-content: center; padding-inline: 0; }
+  body.sidebar-collapsed .nav-item::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 13px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    padding: 6px 9px;
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    background: var(--bg3);
+    color: var(--text);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 120;
+  }
+  body.sidebar-collapsed .nav-item:hover::after { opacity: 1; transform: translateY(-50%) translateX(0); }
   .topbar {
     height: var(--topbar);
     background: var(--bg2);
@@ -1060,56 +1108,56 @@
 <!-- ── SIDEBAR ── -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-mark"><img class="logo-image" src="assets/media-club-logo.svg" alt="Media Club logo"> Media Club</div>
-    <div class="logo-sub">FIS Student Media club</div>
+    <div class="logo-mark"><img class="logo-image" src="assets/media-club-logo.svg" alt="Media Club logo"><span class="logo-copy">Media Club</span></div>
+    <div class="logo-sub logo-copy">FIS Student Media club</div>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section-label">Main</div>
-    <div class="nav-item active" onclick="navigate('home', this)">
+    <div class="nav-item active" data-label="Dashboard" onclick="navigate('home', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Dashboard
+      <span class="nav-label">Dashboard</span>
     </div>
-    <div class="nav-item" onclick="navigate('events', this)">
+    <div class="nav-item" data-label="Events" onclick="navigate('events', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Events
+      <span class="nav-label">Events</span>
       <span class="nav-badge" style="display:none;"></span>
     </div>
-    <div class="nav-item" onclick="navigate('signup', this)">
+    <div class="nav-item" data-label="Sign-up Sheets" onclick="navigate('signup', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Sign-up Sheets
+      <span class="nav-label">Sign-up Sheets</span>
     </div>
-    <div class="nav-item" onclick="navigate('members', this)">
+    <div class="nav-item" data-label="Members" onclick="navigate('members', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-      Members
+      <span class="nav-label">Members</span>
     </div>
     <div class="nav-section-label">Content</div>
-    <div class="nav-item" onclick="navigate('gallery', this)">
+    <div class="nav-item" data-label="Project Gallery" onclick="navigate('gallery', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      Project Gallery
+      <span class="nav-label">Project Gallery</span>
     </div>
-    <div class="nav-item" onclick="navigate('equipment', this)">
+    <div class="nav-item" data-label="Equipment" onclick="navigate('equipment', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-      Equipment
+      <span class="nav-label">Equipment</span>
     </div>
-    <div class="nav-item" onclick="navigate('role-guide', this)">
+    <div class="nav-item" data-label="Media Role Guide" onclick="navigate('role-guide', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><line x1="9" y1="7" x2="16" y2="7"/><line x1="9" y1="11" x2="16" y2="11"/></svg>
-      Media Role Guide
+      <span class="nav-label">Media Role Guide</span>
     </div>
     <div class="nav-section-label">Club</div>
-    <div class="nav-item" onclick="navigate('join', this)">
+    <div class="nav-item" data-label="Join the Club" onclick="navigate('join', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-      Join the Club
+      <span class="nav-label">Join the Club</span>
     </div>
-    <div class="nav-item admin-only" onclick="navigate('admin', this)">
+    <div class="nav-item admin-only" data-label="Admin Panel" onclick="navigate('admin', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-      Admin Panel
+      <span class="nav-label">Admin Panel</span>
       <span class="notif-dot"></span>
     </div>
   </nav>
   <div class="sidebar-footer">
     <div class="sidebar-user" onclick="navigate('profile')">
       <div class="user-avatar" id="sidebar-user-avatar">JS</div>
-      <div>
+      <div class="sidebar-user-copy">
         <div class="user-name" id="sidebar-user-name">Jana Stein</div>
         <div class="user-role" id="sidebar-user-role">President</div>
       </div>
@@ -1124,7 +1172,7 @@
     <button class="mob-menu-btn" id="mobile-menu-button" onclick="toggleSidebar()" aria-label="Open navigation" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
-    <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" aria-label="Hide sidebar" title="Hide sidebar">
+    <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" aria-label="Condense sidebar" title="Condense sidebar">
       <svg id="sidebar-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="topbar-title" id="topbar-title">Dashboard</div>
@@ -1788,6 +1836,12 @@ function canAccessAdminPanel() {
   return role === 'faculty';
 }
 
+function canAddMembers() {
+  return Boolean(window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin);
+}
+
+window.canAddCrewCenterMembers = canAddMembers;
+
 window.canAccessCrewCenterAdminPanel = canAccessAdminPanel;
 
 function canManageCrewOperations() {
@@ -2190,9 +2244,18 @@ function toggleSidebarCollapse() {
   const collapsed = document.body.classList.toggle('sidebar-collapsed');
   const btn = document.getElementById('sidebar-toggle-btn');
   const icon = document.getElementById('sidebar-toggle-icon');
-  btn.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
-  btn.setAttribute('title', collapsed ? 'Show sidebar' : 'Hide sidebar');
+  btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Condense sidebar');
+  btn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Condense sidebar');
   icon.innerHTML = collapsed ? '<polyline points="9 18 15 12 9 6"/>' : '<polyline points="15 18 9 12 15 6"/>';
+  localStorage.setItem('crew-center-sidebar-compact', String(collapsed));
+}
+
+if (localStorage.getItem('crew-center-sidebar-compact') === 'true' && window.innerWidth > 900) {
+  document.body.classList.add('sidebar-collapsed');
+  const sidebarToggle = document.getElementById('sidebar-toggle-btn');
+  sidebarToggle.setAttribute('aria-label', 'Expand sidebar');
+  sidebarToggle.setAttribute('title', 'Expand sidebar');
+  document.getElementById('sidebar-toggle-icon').innerHTML = '<polyline points="9 18 15 12 9 6"/>';
 }
 
 // ══════════════════════════════
@@ -2940,6 +3003,7 @@ function renderMembers() {
 }
 
 async function addMember() {
+  if (!canAddMembers()) { showToast('Only an Auth Admin can add members.', 'error'); return; }
   const fname = document.getElementById('mem-fname').value.trim();
   const lname = document.getElementById('mem-lname').value.trim();
   if (!fname || !lname) { showToast('Please fill in first and last name.', 'error'); return; }

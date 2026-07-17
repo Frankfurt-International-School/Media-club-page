@@ -318,14 +318,13 @@ function applyAdminControls() {
   const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
   const hasCrewOperationsAccess = Boolean(hasAdminPanelAccess || window.canManageCrewOperations?.());
   const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
+  const canAddMembers = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAddCrewCenterMembers?.());
   document.querySelectorAll('.admin-only').forEach(el => {
     el.style.display = hasAdminPanelAccess && !isVisitor ? "flex" : "none";
   });
   const adminSelectors = [
     '.nav-item[onclick*="admin"]',
-    'button[onclick*="member-modal"]',
     'button[onclick*="removeMember"]',
-    'button[onclick*="addMember"]',
     'button[onclick*="renderManageEvents"]',
   ];
   const crewOperationsSelectors = [
@@ -346,6 +345,10 @@ function applyAdminControls() {
         el.style.display = hasAdminPanelAccess ? "" : "none";
       }
     });
+  });
+
+  document.querySelectorAll('button[onclick*="member-modal"], button[onclick*="addMember"]').forEach(el => {
+    el.style.display = canAddMembers && !isVisitor ? "" : "none";
   });
 
   crewOperationsSelectors.forEach(selector => {
@@ -388,12 +391,12 @@ function showNotAuthorized(action = "do that") {
 
 function installAdminFunctionGuards() {
   const adminGuarded = {
-    addMember: "add members",
     removeMember: "remove members",
     postAnnouncement: "post announcements",
     deleteAnn: "delete announcements",
     renderAdmin: "open the admin panel",
   };
+  const authAdminGuarded = { addMember: "add members" };
   const crewOperationsGuarded = {
     addEvent: "add events",
     addEquipment: "add equipment",
@@ -408,6 +411,19 @@ function installAdminFunctionGuards() {
     window[name] = function(...args) {
       const allowed = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
       if (!allowed) {
+        showNotAuthorized(action);
+        return undefined;
+      }
+      return original.apply(this, args);
+    };
+    window[name].__adminGuarded = true;
+  });
+
+  Object.entries(authAdminGuarded).forEach(([name, action]) => {
+    if (typeof window[name] !== "function" || window[name].__adminGuarded) return;
+    const original = window[name];
+    window[name] = function(...args) {
+      if (!window.CREW_CENTER_IS_ADMIN) {
         showNotAuthorized(action);
         return undefined;
       }

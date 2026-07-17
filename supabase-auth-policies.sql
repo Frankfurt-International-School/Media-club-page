@@ -9,6 +9,10 @@ alter table public.join_applications enable row level security;
 
 drop policy if exists "Authenticated users can read members" on public.members;
 drop policy if exists "Authenticated users can add members" on public.members;
+drop policy if exists "Admins can manage members" on public.members;
+drop policy if exists "Auth Admins can add members" on public.members;
+drop policy if exists "Admins can update members" on public.members;
+drop policy if exists "Admins can delete members" on public.members;
 drop policy if exists "Authenticated users can update members" on public.members;
 drop policy if exists "Authenticated users can delete members" on public.members;
 drop policy if exists "Signed-in users can read members" on public.members;
@@ -64,6 +68,14 @@ as $$
       where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
         and replace(lower(member.role), ' ', '-') = 'faculty'
     );
+$$;
+
+create or replace function public.is_auth_admin()
+returns boolean
+language sql
+stable
+as $$
+  select lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin';
 $$;
 
 create or replace function public.is_crew_operations_user()
@@ -230,11 +242,21 @@ on public.members for select
 to authenticated
 using (true);
 
-create policy "Admins can manage members"
-on public.members for all
+create policy "Auth Admins can add members"
+on public.members for insert
+to authenticated
+with check (public.is_auth_admin());
+
+create policy "Admins can update members"
+on public.members for update
 to authenticated
 using (public.is_admin_panel_user())
 with check (public.is_admin_panel_user());
+
+create policy "Admins can delete members"
+on public.members for delete
+to authenticated
+using (public.is_admin_panel_user());
 
 create policy "Signed-in users can read events"
 on public.events for select
