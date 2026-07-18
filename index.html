@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="assets/media-club-logo.svg">
 <title>Media Club</title>
 <style>
  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;600&display=swap');
@@ -40,7 +41,7 @@
     --font-body: 'Space Grotesk', sans-serif;
     
     --sidebar: 232px;
-    --sidebar-compact: 76px;
+    --sidebar-compact: 72px;
     --topbar: 56px;
   }
 
@@ -75,15 +76,14 @@
   /* ── SIDEBAR ── */
   .sidebar {
     width: var(--sidebar);
-    background:
-      radial-gradient(circle at 20% 0%, rgba(200,255,87,0.07), transparent 28%),
-      linear-gradient(180deg, color-mix(in srgb, var(--bg2) 94%, white 6%), var(--bg2));
-    border-right: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 14px 0 40px rgba(0,0,0,0.22), inset -1px 0 rgba(255,255,255,0.025);
+    background: linear-gradient(180deg, #fbfbfc 0%, var(--bg2) 100%);
+    border-right: 1px solid var(--border);
+    box-shadow: 8px 0 28px rgba(33,37,41,0.07);
     position: fixed;
     top: 0; left: 0; bottom: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     z-index: 100;
     transition: width 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
   }
@@ -204,11 +204,18 @@
     transition: margin-left 0.3s ease;
   }
   body.sidebar-collapsed .main { margin-left: var(--sidebar-compact); }
-  body.sidebar-collapsed .sidebar-logo { padding-inline: 17px; }
+  body.sidebar-collapsed .sidebar-logo {
+    min-height: var(--topbar);
+    padding: 13px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  body.sidebar-collapsed .sidebar-logo .logo-mark { justify-content: center; gap: 0; }
+  body.sidebar-collapsed .logo-image { width: 34px; height: 34px; }
   body.sidebar-collapsed .logo-copy,
   body.sidebar-collapsed .nav-label,
   body.sidebar-collapsed .sidebar-user-copy,
-  body.sidebar-collapsed .nav-section-label,
   body.sidebar-collapsed .nav-badge,
   body.sidebar-collapsed .notif-dot {
     opacity: 0;
@@ -217,32 +224,34 @@
     pointer-events: none;
     white-space: nowrap;
   }
-  body.sidebar-collapsed .sidebar-nav { padding-inline: 11px; }
-  body.sidebar-collapsed .nav-item { justify-content: center; gap: 0; padding: 11px; }
-  body.sidebar-collapsed .nav-item:hover { transform: translateY(-2px); }
-  body.sidebar-collapsed .nav-item svg { width: 19px; height: 19px; }
-  body.sidebar-collapsed .sidebar-footer { padding-inline: 11px; }
-  body.sidebar-collapsed .sidebar-user { justify-content: center; padding-inline: 0; }
-  body.sidebar-collapsed .nav-item::after {
-    content: attr(data-label);
-    position: absolute;
-    left: calc(100% + 13px);
-    top: 50%;
-    transform: translateY(-50%) translateX(-4px);
-    padding: 6px 9px;
-    border: 1px solid var(--border2);
-    border-radius: 7px;
-    background: var(--bg3);
-    color: var(--text);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.28);
-    font-size: 12px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s ease, transform 0.15s ease;
-    z-index: 120;
+  body.sidebar-collapsed .nav-section-label { display: none; }
+  body.sidebar-collapsed .sidebar-nav {
+    padding: 18px 10px;
+    overflow-x: hidden;
   }
-  body.sidebar-collapsed .nav-item:hover::after { opacity: 1; transform: translateY(-50%) translateX(0); }
+  body.sidebar-collapsed .nav-item {
+    width: 48px;
+    height: 48px;
+    justify-content: center;
+    gap: 0;
+    margin: 0 auto 8px;
+    padding: 0;
+    border-radius: 14px;
+  }
+  body.sidebar-collapsed .nav-item:hover { transform: translateY(-2px); background: var(--bg3); }
+  body.sidebar-collapsed .nav-item.active {
+    border-color: rgba(234,122,244,0.22);
+    box-shadow: 0 9px 22px rgba(33,37,41,0.11);
+  }
+  body.sidebar-collapsed .nav-item svg { width: 21px; height: 21px; }
+  body.sidebar-collapsed .sidebar-footer { padding: 14px 10px; }
+  body.sidebar-collapsed .sidebar-user {
+    width: 48px;
+    height: 48px;
+    justify-content: center;
+    margin: 0 auto;
+    padding: 0;
+  }
   .topbar {
     height: var(--topbar);
     background: var(--bg2);
