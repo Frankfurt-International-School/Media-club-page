@@ -370,8 +370,7 @@ on public.gallery for insert
 to authenticated
 with check (
   not public.is_visitor_session()
-  and image_url is not null
-  and btrim(image_url) <> ''
+  and coalesce(nullif(btrim(image_url), ''), nullif(btrim(project_url), ''), '') <> ''
   and exists (
     select 1
     from public.members member

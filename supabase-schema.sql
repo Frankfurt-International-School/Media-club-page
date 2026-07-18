@@ -164,11 +164,16 @@ create table if not exists public.gallery (
   member_id uuid references public.members(id) on delete set null,
   description text,
   image_url text,
+  project_url text,
+  storage_path text,
   created_at timestamptz not null default now()
 );
 
 alter table public.gallery add column if not exists project_type text not null default 'Photo';
 alter table public.gallery add column if not exists member_id uuid references public.members(id) on delete set null;
+alter table public.gallery add column if not exists project_url text;
+alter table public.gallery add column if not exists storage_path text;
+update public.gallery set project_url = image_url where project_url is null and image_url is not null;
 
 create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
