@@ -499,6 +499,7 @@ function applySignedInUser(user) {
   window.CREW_CENTER_IS_ADMIN = (appMetadata.role || "").toLowerCase() === "admin";
   window.CREW_CENTER_IS_VISITOR = isVisitor;
   const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
+  const avatarUrl = metadata.avatar_url || "";
   const palette = {
     green: ["rgba(234,122,244,0.15)", "#EA7AF4"],
     purple: ["rgba(180,157,255,0.12)", "#b49dff"],
@@ -528,7 +529,8 @@ function applySignedInUser(user) {
   ["sidebar-user-avatar", "profile-preview-avatar"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.style.background = avatarBg;
+    el.textContent = avatarUrl ? "" : initials;
+    el.style.background = avatarUrl ? `url("${avatarUrl}") center/cover` : avatarBg;
     el.style.color = avatarFg;
   });
   document.getElementById("auth-visitor-exit")?.classList.toggle("visible", window.CREW_CENTER_IS_VISITOR);
@@ -690,10 +692,6 @@ function hideProfileAccountDetails() {
   const accountCard = [...cards].find(card => card.textContent.includes("Account details"));
   if (accountCard && accountCard.style.display !== "none") accountCard.style.display = "none";
 
-  const profileSub = profilePage.querySelector(".page-sub");
-  if (profileSub && profileSub.textContent !== "Your signed-in profile is shown in the bottom-left sidebar.") {
-    profileSub.textContent = "Your signed-in profile is shown in the bottom-left sidebar.";
-  }
 }
 
 function updateEventsBadge() {

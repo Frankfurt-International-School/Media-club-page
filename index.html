@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="assets/media-club-logo.svg">
 <title>Media Club</title>
+<script>document.documentElement.dataset.theme = localStorage.getItem('crew-center-theme') || 'light';</script>
 <style>
  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;600&display=swap');
 
@@ -43,7 +44,18 @@
     --sidebar: 232px;
     --sidebar-compact: 72px;
     --topbar: 56px;
+    color-scheme: light;
   }
+  :root[data-theme="dark"] {
+    --bg: #101116; --bg2: #17181f; --bg3: #20212a; --bg4: #292b35;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.16);
+    --text: #f2f3f5; --text2: #b9bdc7; --text3: #858a97;
+    --accent-dim: rgba(234,122,244,0.17); --accent-dim2: rgba(234,122,244,0.09);
+    color-scheme: dark;
+  }
+  :root[data-theme="dark"] .sidebar { background: linear-gradient(180deg, #181920, #14151b); box-shadow: 8px 0 28px rgba(0,0,0,0.28); }
+  :root[data-theme="dark"] .topbar { background: rgba(23,24,31,0.96); }
+  :root[data-theme="dark"] .logo-image { background: #f8f9fa; }
 
   *, *::before, *::after { 
     box-sizing: border-box; 
@@ -190,6 +202,8 @@
     font-weight: 600;
     color: var(--accent);
     font-family: var(--font-head);
+    background-size: cover !important;
+    background-position: center !important;
   }
   .user-name { font-size: 13px; font-weight: 500; color: var(--text); }
   .user-role { font-size: 11px; color: var(--text3); }
@@ -966,6 +980,38 @@
     border-radius: var(--radius-sm);
     padding: 14px 16px;
   }
+  .profile-shell { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap: 18px; max-width: 980px; }
+  .profile-panel { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg2); overflow: hidden; }
+  .profile-panel-head { padding: 20px 22px; border-bottom: 1px solid var(--border); }
+  .profile-panel-head p { color: var(--text3); font-size: 12px; margin-top: 3px; }
+  .profile-panel-body { padding: 22px; }
+  .profile-photo-layout { display: grid; grid-template-columns: 280px minmax(220px, 1fr); gap: 22px; align-items: start; }
+  .profile-crop-frame { width: 280px; height: 280px; position: relative; overflow: hidden; border-radius: 22px; background: linear-gradient(145deg, var(--bg3), var(--bg4)); border: 1px solid var(--border); touch-action: none; cursor: grab; }
+  .profile-crop-frame.dragging { cursor: grabbing; }
+  .profile-crop-frame::after { content: ""; position: absolute; inset: 0; border: 1px solid rgba(255,255,255,.25); border-radius: inherit; pointer-events: none; }
+  .profile-crop-image { position: absolute; left: 50%; top: 50%; max-width: none; transform-origin: center; user-select: none; pointer-events: none; display: none; }
+  .profile-crop-empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 30px; color: var(--text3); }
+  .profile-crop-empty svg { width: 36px; height: 36px; margin-bottom: 8px; color: var(--accent); }
+  .profile-photo-actions { display: flex; flex-direction: column; gap: 12px; }
+  .profile-upload-button { position: relative; overflow: hidden; }
+  .profile-upload-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .profile-file-note { color: var(--text3); font-size: 11px; line-height: 1.5; }
+  .profile-zoom { display: none; }
+  .profile-zoom.visible { display: block; }
+  .profile-zoom input { width: 100%; accent-color: var(--accent); }
+  .profile-status-card { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); background: var(--bg3); border-radius: 12px; }
+  .profile-status-card .user-avatar { width: 52px; height: 52px; flex-shrink: 0; }
+  .theme-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .theme-choice { padding: 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--bg3); cursor: pointer; transition: border-color .2s, transform .2s, background .2s; text-align: left; font-family: var(--font-body); }
+  .theme-choice:hover { transform: translateY(-2px); border-color: var(--border2); }
+  .theme-choice.active { border-color: rgba(234,122,244,.55); background: var(--accent-dim2); box-shadow: 0 0 0 3px rgba(234,122,244,.07); }
+  .theme-swatch { height: 64px; border-radius: 9px; margin-bottom: 9px; border: 1px solid var(--border); overflow: hidden; display: flex; }
+  .theme-swatch span:first-child { width: 28%; }
+  .theme-swatch span:last-child { flex: 1; }
+  .theme-swatch.light span:first-child { background: #f1f3f5; } .theme-swatch.light span:last-child { background: #fff; }
+  .theme-swatch.dark span:first-child { background: #17181f; } .theme-swatch.dark span:last-child { background: #101116; }
+  .theme-choice strong { font-size: 12px; color: var(--text); }
+  @media (max-width: 900px) { .profile-shell, .profile-photo-layout { grid-template-columns: 1fr; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } }
 
   /* ── FILTER CHIPS ── */
   .filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
@@ -1510,29 +1556,32 @@
   <!-- ── PROFILE ── -->
   <div id="page-profile" class="page">
     <div class="page-title mb8">Profile Settings</div>
-    <div class="page-sub mb24">Update the account shown in the Media Club dashboard.</div>
-    <div class="grid2">
-      <div class="card">
-        <h3 class="section-head">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-          Preferences
-        </h3>
-        <div class="checkbox-group mb16">
-          <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" id="profile-email-updates"> Email updates</label>
-          <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" id="profile-event-reminders"> Event reminders</label>
-          <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" id="profile-project-alerts"> Project alerts</label>
-        </div>
-        <div class="profile-preview">
-          <div class="flex-center gap10">
-            <div class="user-avatar" id="profile-preview-avatar">JS</div>
-            <div>
-              <div class="user-name" id="profile-preview-name">Jana Stein</div>
-              <div class="user-role" id="profile-preview-role">President</div>
-            </div>
+    <div class="page-sub mb24">Personalize how your Crew Center looks.</div>
+    <div class="profile-shell">
+      <section class="profile-panel">
+        <div class="profile-panel-head"><h3>Profile picture</h3><p>Choose an image, drag to reposition it, and adjust the crop.</p></div>
+        <div class="profile-panel-body profile-photo-layout">
+          <div class="profile-crop-frame" id="profile-crop-frame">
+            <img class="profile-crop-image" id="profile-crop-image" alt="Profile crop preview" draggable="false">
+            <div class="profile-crop-empty" id="profile-crop-empty"><div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div>Select a photo to start</div></div></div>
           </div>
-          <div class="text-muted" style="margin-top:12px;" id="profile-preview-email">j.stein@school.de</div>
+          <div class="profile-photo-actions">
+            <div class="profile-status-card"><div class="user-avatar" id="profile-preview-avatar">MC</div><div><div class="user-name" id="profile-preview-name">Media Club member</div><div class="user-role" id="profile-preview-role">Member</div><div class="text-muted" id="profile-preview-email"></div></div></div>
+            <label class="btn btn-ghost profile-upload-button">Choose photo<input id="profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" onchange="loadProfilePhoto(event)"></label>
+            <div class="profile-file-note">JPG, PNG, or WebP. Maximum 5 MB. The crop is saved as an optimized square WebP.</div>
+            <div class="profile-zoom" id="profile-zoom"><label class="form-label" for="profile-zoom-range">Zoom</label><input id="profile-zoom-range" type="range" min="1" max="3" step="0.01" value="1" oninput="setProfileCropZoom(this.value)"></div>
+            <button class="btn btn-accent" id="profile-photo-save" onclick="saveProfilePhoto()" disabled>Save profile picture</button>
+            <button class="btn btn-ghost" id="profile-photo-remove" onclick="removeProfilePhoto()">Remove current picture</button>
+          </div>
         </div>
-      </div>
+      </section>
+      <section class="profile-panel">
+        <div class="profile-panel-head"><h3>Appearance</h3><p>Your theme is remembered on this browser.</p></div>
+        <div class="profile-panel-body"><div class="theme-options">
+          <button class="theme-choice" id="theme-light" onclick="setCrewCenterTheme('light')"><span class="theme-swatch light"><span></span><span></span></span><strong>Light</strong></button>
+          <button class="theme-choice" id="theme-dark" onclick="setCrewCenterTheme('dark')"><span class="theme-swatch dark"><span></span><span></span></span><strong>Dark</strong></button>
+        </div></div>
+      </section>
     </div>
   </div>
 
@@ -2431,15 +2480,17 @@ function applyCheckedState(input, checked) {
 function updateUserSurfaces() {
   const user = state.currentUser;
   const [bg, fg] = memberColor(user.color);
+  const avatarUrl = user.avatarUrl || '';
   document.getElementById('sidebar-user-name').textContent = user.name;
   document.getElementById('sidebar-user-role').textContent = user.role;
-  document.getElementById('sidebar-user-avatar').textContent = user.initials;
-  document.getElementById('sidebar-user-avatar').style.background = bg;
-  document.getElementById('sidebar-user-avatar').style.color = fg;
+  const sidebarAvatar = document.getElementById('sidebar-user-avatar');
+  sidebarAvatar.textContent = avatarUrl ? '' : user.initials;
+  sidebarAvatar.style.background = avatarUrl ? `url("${avatarUrl}") center/cover` : bg;
+  sidebarAvatar.style.color = fg;
   const previewAvatar = document.getElementById('profile-preview-avatar');
   if (previewAvatar) {
-    previewAvatar.textContent = user.initials;
-    previewAvatar.style.background = bg;
+    previewAvatar.textContent = avatarUrl ? '' : user.initials;
+    previewAvatar.style.background = avatarUrl ? `url("${avatarUrl}") center/cover` : bg;
     previewAvatar.style.color = fg;
     document.getElementById('profile-preview-name').textContent = user.name;
     document.getElementById('profile-preview-role').textContent = user.role;
@@ -2457,54 +2508,134 @@ window.applyCrewCenterAuthUser = function(user) {
   state.currentUser.isAdmin = (appMetadata.role || '').toLowerCase() === 'admin';
   state.currentUser.isVisitor = isVisitor;
   state.currentUser.initials = metadata.initials || state.currentUser.name.split(/\s+/).map(part => part[0]).join('').slice(0, 3).toUpperCase() || 'MC';
+  state.currentUser.avatarUrl = metadata.avatar_url || '';
+  state.currentUser.avatarPath = metadata.avatar_path || '';
   updateUserSurfaces();
   renderSignupRoleOptions(state.events.find(event => event.id === document.getElementById('sheet-event-select')?.value));
   renderSignupNameField();
 };
 
 function renderProfile() {
-  const user = state.currentUser;
-  document.getElementById('profile-name').value = user.name;
-  document.getElementById('profile-initials').value = user.initials;
-  document.getElementById('profile-email').value = user.email;
-  document.getElementById('profile-role').value = user.role;
-  document.getElementById('profile-color').value = user.color;
-  applyCheckedState(document.getElementById('profile-email-updates'), user.preferences.emailUpdates);
-  applyCheckedState(document.getElementById('profile-event-reminders'), user.preferences.eventReminders);
-  applyCheckedState(document.getElementById('profile-project-alerts'), user.preferences.projectAlerts);
   updateUserSurfaces();
+  updateThemeChoices();
+  document.getElementById('profile-photo-remove').style.display = state.currentUser.avatarUrl ? '' : 'none';
 }
 
-function resetProfileForm() {
-  renderProfile();
-  showToast('Profile form reset.');
+function setCrewCenterTheme(theme) {
+  const nextTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = nextTheme;
+  localStorage.setItem('crew-center-theme', nextTheme);
+  updateThemeChoices();
 }
 
-function saveProfileSettings() {
-  const name = document.getElementById('profile-name').value.trim();
-  const email = document.getElementById('profile-email').value.trim();
-  const role = document.getElementById('profile-role').value.trim();
-  const initialsValue = document.getElementById('profile-initials').value.trim().toUpperCase();
-  if (!name || !email || !role || !initialsValue) {
-    showToast('Please fill in all profile details.', 'error');
-    return;
-  }
-  state.currentUser = {
-    ...state.currentUser,
-    name,
-    email,
-    role,
-    initials: initialsValue,
-    color: document.getElementById('profile-color').value,
-    preferences: {
-      emailUpdates: document.getElementById('profile-email-updates').checked,
-      eventReminders: document.getElementById('profile-event-reminders').checked,
-      projectAlerts: document.getElementById('profile-project-alerts').checked,
-    },
+function updateThemeChoices() {
+  const theme = document.documentElement.dataset.theme || 'light';
+  document.getElementById('theme-light')?.classList.toggle('active', theme === 'light');
+  document.getElementById('theme-dark')?.classList.toggle('active', theme === 'dark');
+}
+
+const PROFILE_MAX_FILE_SIZE = 5 * 1024 * 1024;
+const PROFILE_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const profileCrop = { image: null, url: '', zoom: 1, x: 0, y: 0, dragging: false, lastX: 0, lastY: 0 };
+
+function profileCropScale() {
+  if (!profileCrop.image) return 1;
+  return Math.max(280 / profileCrop.image.naturalWidth, 280 / profileCrop.image.naturalHeight) * profileCrop.zoom;
+}
+function constrainProfileCrop() {
+  if (!profileCrop.image) return;
+  const scale = profileCropScale();
+  const maxX = Math.max(0, (profileCrop.image.naturalWidth * scale - 280) / 2);
+  const maxY = Math.max(0, (profileCrop.image.naturalHeight * scale - 280) / 2);
+  profileCrop.x = Math.max(-maxX, Math.min(maxX, profileCrop.x));
+  profileCrop.y = Math.max(-maxY, Math.min(maxY, profileCrop.y));
+}
+function renderProfileCrop() {
+  if (!profileCrop.image) return;
+  constrainProfileCrop();
+  const scale = profileCropScale();
+  profileCrop.image.style.width = `${profileCrop.image.naturalWidth * scale}px`;
+  profileCrop.image.style.height = `${profileCrop.image.naturalHeight * scale}px`;
+  profileCrop.image.style.transform = `translate(calc(-50% + ${profileCrop.x}px), calc(-50% + ${profileCrop.y}px))`;
+}
+function loadProfilePhoto(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!PROFILE_ALLOWED_TYPES.has(file.type)) { event.target.value = ''; showToast('Choose a JPG, PNG, or WebP image.', 'error'); return; }
+  if (file.size > PROFILE_MAX_FILE_SIZE) { event.target.value = ''; showToast('Profile pictures must be smaller than 5 MB.', 'error'); return; }
+  if (profileCrop.url) URL.revokeObjectURL(profileCrop.url);
+  profileCrop.url = URL.createObjectURL(file);
+  const image = document.getElementById('profile-crop-image');
+  image.onload = () => {
+    profileCrop.image = image; profileCrop.zoom = 1; profileCrop.x = 0; profileCrop.y = 0;
+    document.getElementById('profile-zoom-range').value = '1';
+    image.style.display = 'block';
+    document.getElementById('profile-crop-empty').style.display = 'none';
+    document.getElementById('profile-zoom').classList.add('visible');
+    document.getElementById('profile-photo-save').disabled = false;
+    renderProfileCrop();
   };
-  updateUserSurfaces();
-  showToast('Profile settings saved.');
+  image.src = profileCrop.url;
 }
+function setProfileCropZoom(value) { profileCrop.zoom = Number(value); renderProfileCrop(); }
+function initializeProfileCropDrag() {
+  const frame = document.getElementById('profile-crop-frame');
+  if (!frame || frame.dataset.dragReady) return;
+  frame.dataset.dragReady = 'true';
+  frame.addEventListener('pointerdown', event => {
+    if (!profileCrop.image) return;
+    profileCrop.dragging = true; profileCrop.lastX = event.clientX; profileCrop.lastY = event.clientY;
+    frame.classList.add('dragging'); frame.setPointerCapture(event.pointerId);
+  });
+  frame.addEventListener('pointermove', event => {
+    if (!profileCrop.dragging) return;
+    profileCrop.x += event.clientX - profileCrop.lastX; profileCrop.y += event.clientY - profileCrop.lastY;
+    profileCrop.lastX = event.clientX; profileCrop.lastY = event.clientY; renderProfileCrop();
+  });
+  const stop = () => { profileCrop.dragging = false; frame.classList.remove('dragging'); };
+  frame.addEventListener('pointerup', stop); frame.addEventListener('pointercancel', stop);
+}
+async function croppedProfileBlob() {
+  const image = profileCrop.image;
+  const scale = profileCropScale();
+  const sourceSize = 280 / scale;
+  const sx = (image.naturalWidth - sourceSize) / 2 - profileCrop.x / scale;
+  const sy = (image.naturalHeight - sourceSize) / 2 - profileCrop.y / scale;
+  const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 640;
+  canvas.getContext('2d').drawImage(image, sx, sy, sourceSize, sourceSize, 0, 0, 640, 640);
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .88));
+}
+async function saveProfilePhoto() {
+  if (!profileCrop.image) return;
+  const button = document.getElementById('profile-photo-save'); button.disabled = true; button.textContent = 'Saving...';
+  const blob = await croppedProfileBlob();
+  const { data: authData } = await supabaseClient.auth.getUser();
+  const user = authData?.user;
+  if (!user || !blob) { button.disabled = false; button.textContent = 'Save profile picture'; showToast('Could not prepare the profile picture.', 'error'); return; }
+  const path = `${user.id}/avatar.webp`;
+  const { error: uploadError } = await supabaseClient.storage.from('profile-pictures').upload(path, blob, { contentType: 'image/webp', cacheControl: '3600', upsert: true });
+  if (uploadError) { button.disabled = false; button.textContent = 'Save profile picture'; showToast("Couldn't upload the profile picture. Check the Storage setup.", 'error'); return; }
+  const publicUrl = supabaseClient.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl;
+  const versionedUrl = `${publicUrl}?v=${Date.now()}`;
+  const { error: metadataError } = await supabaseClient.auth.updateUser({ data: { avatar_url: versionedUrl, avatar_path: path } });
+  button.disabled = false; button.textContent = 'Save profile picture';
+  if (metadataError) { showToast("Picture uploaded, but the profile couldn't be updated.", 'error'); return; }
+  state.currentUser.avatarUrl = versionedUrl; state.currentUser.avatarPath = path; updateUserSurfaces();
+  document.getElementById('profile-photo-remove').style.display = ''; showToast('Profile picture saved.');
+}
+async function removeProfilePhoto() {
+  const path = state.currentUser.avatarPath;
+  if (path) {
+    const { error: removeError } = await supabaseClient.storage.from('profile-pictures').remove([path]);
+    if (removeError) { showToast("Couldn't remove the profile picture.", 'error'); return; }
+  }
+  const { error } = await supabaseClient.auth.updateUser({ data: { avatar_url: null, avatar_path: null } });
+  if (error) { showToast("Couldn't update the profile.", 'error'); return; }
+  state.currentUser.avatarUrl = ''; state.currentUser.avatarPath = ''; updateUserSurfaces();
+  document.getElementById('profile-photo-remove').style.display = 'none'; showToast('Profile picture removed.');
+}
+initializeProfileCropDrag();
+updateThemeChoices();
 
 // ══════════════════════════════
 // DASHBOARD
