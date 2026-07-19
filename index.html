@@ -644,6 +644,9 @@
   }
   .signup-entry-actions { display: flex; justify-content: flex-end; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--border); }
   .signup-entry-actions .btn { min-width: 120px; justify-content: center; }
+  .signup-name-help { margin-top: 6px; color: var(--text3); font-size: 11px; line-height: 1.4; }
+  .signup-name-help.error { color: var(--coral); }
+  .signup-name-help.valid { color: #20a77a; }
   .signup-reserve-fields { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; padding: 14px; border: 1px solid rgba(234,122,244,0.22); border-radius: 12px; background: linear-gradient(120deg, var(--accent-dim2), transparent); }
   .signup-reserve-fields.visible { display: grid; }
   .signup-reserve-note { grid-column: 1 / -1; color: var(--text3); font-size: 11px; }
@@ -1405,11 +1408,13 @@
       <div class="signup-entry-grid" id="signup-entry-grid">
         <div class="form-group signup-field" id="signup-member-field">
           <label class="form-label" for="signup-name">Member</label>
-          <input class="form-input" id="signup-name" autocomplete="off" placeholder="Write the FULL name" />
+          <input class="form-input" id="signup-name" list="signup-member-names" autocomplete="off" placeholder="Name as shown on the Members page" oninput="clearSignupNameValidation()" onblur="validateSignupNameInput(true)" />
+          <datalist id="signup-member-names"></datalist>
+          <div class="signup-name-help" id="signup-name-help">Enter the full name exactly as displayed on the Members page. Capitalization does not matter.</div>
         </div>
         <div class="form-group signup-field" id="signup-role-group">
           <label class="form-label" for="signup-role">Production role</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-role" onchange="updateReserveRoleFields()"></select></div>
+          <div class="signup-select-shell"><select class="form-select" id="signup-role" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
         </div>
         <div class="form-group signup-field attendance-choice" id="signup-attendance-choice">
           <label class="form-label" for="signup-attendance">Staying for</label>
@@ -2110,8 +2115,58 @@ function renderSignupRoleOptionsForCurrentEvent() {
 function renderSignupNameField() {
   const input = document.getElementById('signup-name');
   if (!input) return;
-  input.value = '';
-  input.placeholder = 'Write the FULL name';
+  input.placeholder = 'Name as shown on the Members page';
+  const list = document.getElementById('signup-member-names');
+  if (list) {
+    list.replaceChildren(...state.members.map(member => {
+      const option = document.createElement('option');
+      option.value = member.name;
+      return option;
+    }));
+  }
+}
+
+function normalizedSignupName(value = '') {
+  return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
+function matchingSignupMembers(value) {
+  const normalized = normalizedSignupName(value);
+  if (!normalized) return [];
+  return state.members.filter(member => normalizedSignupName(member.name) === normalized);
+}
+
+function setSignupNameHelp(message, status = '') {
+  const help = document.getElementById('signup-name-help');
+  if (!help) return;
+  help.textContent = message;
+  help.classList.toggle('error', status === 'error');
+  help.classList.toggle('valid', status === 'valid');
+}
+
+function clearSignupNameValidation() {
+  setSignupNameHelp('Enter the full name exactly as displayed on the Members page. Capitalization does not matter.');
+}
+
+function validateSignupNameInput(canonicalize = false) {
+  const input = document.getElementById('signup-name');
+  const value = input?.value || '';
+  if (!value.trim()) {
+    setSignupNameHelp('Enter the full name exactly as displayed on the Members page. Capitalization does not matter.');
+    return [];
+  }
+  const matches = matchingSignupMembers(value);
+  if (!matches.length) {
+    setSignupNameHelp('Name not found. Check the spelling or copy the name from the Members page.', 'error');
+    return [];
+  }
+  if (matches.length > 1) {
+    setSignupNameHelp('More than one member has this name. Ask an administrator for help.', 'error');
+    return matches;
+  }
+  if (canonicalize) input.value = matches[0].name;
+  setSignupNameHelp(`Matched to ${matches[0].name}.`, 'valid');
+  return matches;
 }
 
 function showLoadError(targetId, message = "Couldn't load data.") {
@@ -3151,15 +3206,16 @@ async function addSignupRow() {
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
   const canChooseMember = canManageCrewOperations();
-  const name = document.getElementById('signup-name').value.trim().replace(/\s+/g, ' ');
+  const nameInput = document.getElementById('signup-name');
+  const name = nameInput.value.trim().replace(/\s+/g, ' ');
   if (!name) {
-    showToast('Write the member’s full name.', 'error');
+    setSignupNameHelp('Write your full name as displayed on the Members page.', 'error');
+    showToast('Write your full name as displayed on the Members page.', 'error');
     return;
   }
-  const normalizedName = name.toLocaleLowerCase();
-  const matchingMembers = state.members.filter(member => member.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase() === normalizedName);
+  const matchingMembers = validateSignupNameInput(true);
   if (matchingMembers.length === 0) {
-    showToast('This full name was not found in the members list.', 'error');
+    showToast('Name not found. Check the spelling or copy it from the Members page.', 'error');
     return;
   }
   if (matchingMembers.length > 1) {
@@ -3198,6 +3254,7 @@ async function addSignupRow() {
     ? state.members.find(m => (m.email || '').toLowerCase() === authEmail)
     : currentMemberRecord();
   const matchedMember = matchingMembers[0];
+  nameInput.value = matchedMember.name;
   const member = canChooseMember ? matchedMember : signedInMember;
   if (!member) {
     showToast("Couldn't match your account to a member record.", 'error');
@@ -3244,6 +3301,7 @@ async function addSignupRow() {
     signedUpAt: signup.signed_up_at || '',
   });
   document.getElementById('signup-name').value = '';
+  clearSignupNameValidation();
   showToast(`${member.name} signed up for ${ev.title}!`);
   renderSignupSheet();
 }
