@@ -103,6 +103,8 @@ create table if not exists public.signups (
   event_id uuid not null references public.events(id) on delete cascade,
   member_id uuid not null references public.members(id) on delete cascade,
   signup_role text,
+  reserve_role_1 text,
+  reserve_role_2 text,
   attendance_type text not null default 'whole' check (attendance_type in ('whole', 'game_1', 'game_2', 'game_3', 'game_4', 'custom')),
   attendance_start timestamptz,
   attendance_end timestamptz,
@@ -111,12 +113,24 @@ create table if not exists public.signups (
 );
 
 alter table public.signups add column if not exists signup_role text;
+alter table public.signups add column if not exists reserve_role_1 text;
+alter table public.signups add column if not exists reserve_role_2 text;
 alter table public.signups add column if not exists attendance_type text not null default 'whole';
 alter table public.signups add column if not exists attendance_start timestamptz;
 alter table public.signups add column if not exists attendance_end timestamptz;
 alter table public.signups drop constraint if exists signups_attendance_type_check;
 alter table public.signups add constraint signups_attendance_type_check
 check (attendance_type in ('whole', 'game_1', 'game_2', 'game_3', 'game_4', 'setup', 'shift_1', 'shift_2', 'takedown', 'custom'));
+alter table public.signups drop constraint if exists signups_student_supervisor_reserves_check;
+alter table public.signups add constraint signups_student_supervisor_reserves_check check (
+  (
+    signup_role = 'Student Supervisor'
+    and reserve_role_1 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer')
+    and reserve_role_2 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer')
+    and reserve_role_1 <> reserve_role_2
+  )
+  or (reserve_role_1 is null and reserve_role_2 is null)
+);
 drop index if exists public.signups_event_signup_role_idx;
 alter table public.signups drop constraint if exists signups_role_attendance_no_overlap;
 alter table public.signups add constraint signups_role_attendance_no_overlap
@@ -125,7 +139,7 @@ exclude using gist (
   signup_role with =,
   tstzrange(attendance_start, attendance_end, '[)') with &&
 )
-where (signup_role is not null and attendance_start is not null and attendance_end is not null);
+where (signup_role is not null and signup_role <> 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
 
 create table if not exists public.equipment (
   id uuid primary key default gen_random_uuid(),

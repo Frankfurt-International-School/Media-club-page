@@ -294,6 +294,12 @@ with check (
   and attendance_end is not null
   and attendance_end > attendance_start
   and public.is_valid_event_signup(event_id, signup_role, attendance_type, attendance_start, attendance_end)
+  and (signup_role <> 'Student Supervisor' or public.is_crew_operations_user())
+  and (
+    (signup_role = 'Student Supervisor' and reserve_role_1 is not null and reserve_role_2 is not null and reserve_role_1 <> reserve_role_2)
+    or (signup_role <> 'Student Supervisor' and reserve_role_1 is null and reserve_role_2 is null)
+    or (signup_role is null and reserve_role_1 is null and reserve_role_2 is null)
+  )
   and (
     public.is_crew_operations_user()
     or exists (

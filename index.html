@@ -644,6 +644,11 @@
   }
   .signup-entry-actions { display: flex; justify-content: flex-end; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--border); }
   .signup-entry-actions .btn { min-width: 120px; justify-content: center; }
+  .signup-reserve-fields { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; padding: 14px; border: 1px solid rgba(234,122,244,0.22); border-radius: 12px; background: linear-gradient(120deg, var(--accent-dim2), transparent); }
+  .signup-reserve-fields.visible { display: grid; }
+  .signup-reserve-note { grid-column: 1 / -1; color: var(--text3); font-size: 11px; }
+  .reserve-role-badge { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 2px 7px; border-radius: 999px; background: var(--accent-dim); color: var(--accent); font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .reserve-priority-note { display: block; margin-top: 3px; color: var(--text3); font-size: 10px; }
 
   /* ── GALLERY ── */
   .gallery-hero {
@@ -1404,7 +1409,7 @@
         </div>
         <div class="form-group signup-field" id="signup-role-group">
           <label class="form-label" for="signup-role">Production role</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-role"></select></div>
+          <div class="signup-select-shell"><select class="form-select" id="signup-role" onchange="updateReserveRoleFields()"></select></div>
         </div>
         <div class="form-group signup-field attendance-choice" id="signup-attendance-choice">
           <label class="form-label" for="signup-attendance">Staying for</label>
@@ -1414,6 +1419,11 @@
       <div class="form-row2" id="signup-custom-time-fields" style="display:none;margin-top:14px;">
         <div class="form-group" style="margin:0"><label class="form-label">Arrival time</label><input class="form-input" id="signup-start-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
         <div class="form-group" style="margin:0"><label class="form-label">Leaving time</label><input class="form-input" id="signup-end-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
+      </div>
+      <div class="signup-reserve-fields" id="signup-reserve-fields">
+        <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-1">Reserve priority 1</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-1" onchange="syncReserveRoleOptions()"></select></div></div>
+        <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-2">Reserve priority 2</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-2" onchange="syncReserveRoleOptions()"></select></div></div>
+        <div class="signup-reserve-note">At 10 minutes before the overall event start, the first vacant role is activated for the supervisor's attendance window. A real signup always takes precedence.</div>
       </div>
       <div class="signup-entry-actions"><button class="btn btn-accent" onclick="addSignupRow()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -2040,7 +2050,7 @@ function renderSignupRoleOptions(ev) {
     const label = signupRoleLabels[key];
     const sameRole = (ev?.signups || []).filter(signup => signup.role === label);
     const overlapping = sameRole.filter(signup => signupOverlaps(signup, attendance));
-    const occupied = overlapping.length > 0;
+    const occupied = key === 'student_supervisor' ? false : overlapping.length > 0;
     const latestEnd = sameRole.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
     const occupiedUntil = overlapping.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
     const disabled = occupied ? ' disabled' : '';
@@ -2056,6 +2066,40 @@ function renderSignupRoleOptions(ev) {
   if ([...select.options].some(option => option.value === selected && !option.disabled)) {
     select.value = selected;
   }
+  updateReserveRoleFields();
+}
+
+function availableReserveRoleLabels() {
+  return currentUserSignupRoleKeys()
+    .filter(key => !['adult_supervisor', 'student_supervisor'].includes(key))
+    .map(key => signupRoleLabels[key]);
+}
+
+function updateReserveRoleFields() {
+  const fields = document.getElementById('signup-reserve-fields');
+  const isSupervisor = document.getElementById('signup-role')?.value === signupRoleLabels.student_supervisor;
+  fields?.classList.toggle('visible', isSupervisor);
+  if (!isSupervisor) return;
+  const first = document.getElementById('signup-reserve-role-1');
+  const second = document.getElementById('signup-reserve-role-2');
+  const roles = availableReserveRoleLabels();
+  const previousFirst = first.value;
+  const previousSecond = second.value;
+  first.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+  if (roles.includes(previousFirst)) first.value = previousFirst;
+  second.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+  if (roles.includes(previousSecond) && previousSecond !== first.value) second.value = previousSecond;
+  if (second.value === first.value) second.value = roles.find(role => role !== first.value) || '';
+  syncReserveRoleOptions();
+}
+
+function syncReserveRoleOptions() {
+  const first = document.getElementById('signup-reserve-role-1');
+  const second = document.getElementById('signup-reserve-role-2');
+  if (!first || !second) return;
+  [...first.options].forEach(option => { option.disabled = option.value === second.value; });
+  [...second.options].forEach(option => { option.disabled = option.value === first.value; });
+  if (first.value === second.value) second.value = [...second.options].find(option => !option.disabled)?.value || '';
 }
 
 function renderSignupRoleOptionsForCurrentEvent() {
@@ -2142,10 +2186,13 @@ function normalizeEvent(event) {
       memberId: signup.member_id,
       name: signup.members?.name || 'Unknown member',
       role: signup.signup_role || '',
+      reserveRole1: signup.reserve_role_1 || '',
+      reserveRole2: signup.reserve_role_2 || '',
       attendanceType: signup.attendance_type || 'whole',
       attendanceStart: signup.attendance_start || '',
       attendanceEnd: signup.attendance_end || '',
       ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
+      signedUpAt: signup.signed_up_at || '',
     })),
   };
 }
@@ -2224,7 +2271,7 @@ async function loadCrewCenterData() {
   try {
     const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
-      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))').order('date', { ascending: true }),
+      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, starts_at, ends_at, members(name), events(title))').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
@@ -2924,7 +2971,7 @@ async function addEvent() {
       takedown_end: isFestival ? festivalTimes[7] : null,
       ends_at: eventEnd.toISOString(),
     })
-    .select('*, signups(id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))')
+    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))')
     .single();
   if (error) { showToast("Couldn't create event.", 'error'); return; }
   const ev = normalizeEvent(data);
@@ -2988,6 +3035,52 @@ function attendanceLabel(signup) {
   return `${labels[signup.attendanceType] || 'Custom'} · ${start}–${end}`;
 }
 
+let reserveActivationTimer = null;
+
+function reserveActivationAt(ev) {
+  const start = timeValue(ev.date, ev.time);
+  return start ? start - 10 * 60 * 1000 : null;
+}
+
+function signupWindowsOverlap(a, b) {
+  if (!a.attendanceStart || !a.attendanceEnd || !b.attendanceStart || !b.attendanceEnd) return true;
+  return new Date(a.attendanceStart).getTime() < new Date(b.attendanceEnd).getTime()
+    && new Date(a.attendanceEnd).getTime() > new Date(b.attendanceStart).getTime();
+}
+
+function activeSupervisorReserves(ev, now = Date.now()) {
+  const assignments = new Map();
+  const activationAt = reserveActivationAt(ev);
+  if (!activationAt || now < activationAt) return assignments;
+  const supervisors = ev.signups
+    .filter(signup => signup.role === signupRoleLabels.student_supervisor)
+    .sort((a, b) => (a.signedUpAt || '').localeCompare(b.signedUpAt || '') || a.id.localeCompare(b.id));
+  const claimed = [];
+  supervisors.forEach(supervisor => {
+    const choices = [supervisor.reserveRole1, supervisor.reserveRole2].filter(Boolean);
+    const selected = choices.find(role => {
+      const realSignupExists = ev.signups.some(signup => signup.role === role && signupWindowsOverlap(signup, supervisor));
+      const reserveAlreadyAssigned = claimed.some(signup => signup.role === role && signupWindowsOverlap(signup, supervisor));
+      return !realSignupExists && !reserveAlreadyAssigned;
+    });
+    if (selected) {
+      assignments.set(supervisor.id, selected);
+      claimed.push({ role: selected, attendanceStart: supervisor.attendanceStart, attendanceEnd: supervisor.attendanceEnd });
+    }
+  });
+  return assignments;
+}
+
+function scheduleReserveActivation(ev) {
+  if (reserveActivationTimer) clearTimeout(reserveActivationTimer);
+  const activationAt = reserveActivationAt(ev);
+  const delay = activationAt ? activationAt - Date.now() : 0;
+  if (delay <= 0) return;
+  reserveActivationTimer = setTimeout(() => {
+    if (document.getElementById('sheet-event-select')?.value === ev.id) renderSignupSheet();
+  }, Math.min(delay + 50, 2147483647));
+}
+
 function renderSignupSheet() {
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
@@ -3001,6 +3094,7 @@ function renderSignupSheet() {
   updateSignupAttendanceFields();
   renderSignupRoleOptions(ev);
   renderSignupNameField();
+  scheduleReserveActivation(ev);
   document.getElementById('sheet-event-title').textContent = ev.title;
   document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}${isstScheduleCaption(ev) ? ' · ' + isstScheduleCaption(ev) : ''}${festivalScheduleCaption(ev) ? ' · ' + festivalScheduleCaption(ev) : ''}`;
   const cap = ev.slots || '∞';
@@ -3016,21 +3110,24 @@ function renderSignupSheet() {
   const canRemoveSignup = signup => Boolean(state.currentUser.isAdmin || (currentMemberId && signup.memberId === currentMemberId));
   const showRemoveColumn = ev.signups.some(canRemoveSignup);
   const removeHeader = showRemoveColumn ? '<th></th>' : '';
+  const reserveAssignments = activeSupervisorReserves(ev);
+  const activationAt = reserveActivationAt(ev);
+  const reserveIsActive = Boolean(activationAt && Date.now() >= activationAt);
   const orderedSignups = ev.signups
-    .map((signup, originalIndex) => ({ signup, originalIndex }))
+    .map((signup, originalIndex) => ({ signup, originalIndex, displayRole: reserveAssignments.get(signup.id) || signup.role }))
     .sort((a, b) => {
-      const roleA = signupRoleDisplayOrder.indexOf(a.signup.role);
-      const roleB = signupRoleDisplayOrder.indexOf(b.signup.role);
+      const roleA = signupRoleDisplayOrder.indexOf(a.displayRole);
+      const roleB = signupRoleDisplayOrder.indexOf(b.displayRole);
       const roleOrder = (roleA < 0 ? signupRoleDisplayOrder.length : roleA) - (roleB < 0 ? signupRoleDisplayOrder.length : roleB);
       if (roleOrder) return roleOrder;
       const timeOrder = (a.signup.attendanceStart || '').localeCompare(b.signup.attendanceStart || '');
       return timeOrder || a.signup.name.localeCompare(b.signup.name);
     });
-  let rows = orderedSignups.map(({ signup: s, originalIndex }, i) => `
+  let rows = orderedSignups.map(({ signup: s, originalIndex, displayRole }, i) => `
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${s.name}</td>
-      <td>${s.role || '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${displayRole || '<span style="color:var(--text3)">—</span>'}${reserveAssignments.has(s.id) ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${s.role === signupRoleLabels.student_supervisor && !reserveAssignments.has(s.id) && s.reserveRole1 ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${s.reserveRole1} → ${s.reserveRole2}</span>` : ''}</td>
       <td style="color:var(--text2);font-size:12px;">${attendanceLabel(s)}</td>
       <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
       ${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button>` : ''}</td>` : ''}
@@ -3071,6 +3168,9 @@ async function addSignupRow() {
   }
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
   const role = document.getElementById('signup-role').value;
+  const isStudentSupervisor = role === signupRoleLabels.student_supervisor;
+  const reserveRole1 = isStudentSupervisor ? document.getElementById('signup-reserve-role-1').value : null;
+  const reserveRole2 = isStudentSupervisor ? document.getElementById('signup-reserve-role-2').value : null;
   const attendance = selectedAttendanceWindow(ev);
   if (!attendance) {
     showToast('Please choose valid arrival and leaving times.', 'error');
@@ -3078,13 +3178,17 @@ async function addSignupRow() {
   }
   const roleFreeAttendance = ev.isFestival && ['setup', 'takedown'].includes(attendance.type);
   if (!roleFreeAttendance && !role) { showToast('Please choose an available role.', 'error'); return; }
+  if (isStudentSupervisor && (!reserveRole1 || !reserveRole2 || reserveRole1 === reserveRole2)) {
+    showToast('Choose two different reserve roles in priority order.', 'error');
+    return;
+  }
   const eventStart = timeValue(ev.date, ev.setupStart || ev.game1Start || ev.time);
   const eventEnd = timeValue(ev.date, ev.takedownEnd || ev.game4End || ev.game3End || ev.game2End || ev.game1End || '23:59');
   if (attendance.type === 'custom' && (attendance.start < eventStart || attendance.end > eventEnd)) {
     showToast('Custom attendance must be within the event times.', 'error');
     return;
   }
-  if (!roleFreeAttendance && ev.signups.some(signup => signup.role === role && signupOverlaps(signup, attendance))) {
+  if (!roleFreeAttendance && !isStudentSupervisor && ev.signups.some(signup => signup.role === role && signupOverlaps(signup, attendance))) {
     showToast(`Slot occupied: ${role} is already assigned during that time.`, 'error');
     renderSignupSheet();
     return;
@@ -3109,11 +3213,13 @@ async function addSignupRow() {
       event_id: ev.id,
       member_id: member.id,
       signup_role: roleFreeAttendance ? null : role,
+      reserve_role_1: isStudentSupervisor ? reserveRole1 : null,
+      reserve_role_2: isStudentSupervisor ? reserveRole2 : null,
       attendance_type: attendance.type,
       attendance_start: new Date(attendance.start).toISOString(),
       attendance_end: new Date(attendance.end).toISOString(),
     })
-    .select('id, member_id, signup_role, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role)')
+    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role)')
     .single();
   if (error) {
     if (error.code === '23505' || error.code === '23P01') {
@@ -3129,10 +3235,13 @@ async function addSignupRow() {
     memberId: signup.member_id,
     name: signup.members?.name || member.name,
     role: signup.signup_role || '',
+    reserveRole1: signup.reserve_role_1 || '',
+    reserveRole2: signup.reserve_role_2 || '',
     attendanceType: signup.attendance_type || attendance.type,
     attendanceStart: signup.attendance_start,
     attendanceEnd: signup.attendance_end,
     ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
+    signedUpAt: signup.signed_up_at || '',
   });
   document.getElementById('signup-name').value = '';
   showToast(`${member.name} signed up for ${ev.title}!`);
