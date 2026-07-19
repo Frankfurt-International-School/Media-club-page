@@ -1408,8 +1408,7 @@
       <div class="signup-entry-grid" id="signup-entry-grid">
         <div class="form-group signup-field" id="signup-member-field">
           <label class="form-label" for="signup-name">Member</label>
-          <input class="form-input" id="signup-name" list="signup-member-names" autocomplete="off" placeholder="Name as shown on the Members page" oninput="clearSignupNameValidation()" onblur="validateSignupNameInput(true)" />
-          <datalist id="signup-member-names"></datalist>
+          <input class="form-input" id="signup-name" autocomplete="off" placeholder="Name as shown on the Members page" oninput="clearSignupNameValidation()" onblur="validateSignupNameInput(true)" />
           <div class="signup-name-help" id="signup-name-help">Enter the full name exactly as displayed on the Members page. Capitalization does not matter.</div>
         </div>
         <div class="form-group signup-field" id="signup-role-group">
@@ -2116,14 +2115,6 @@ function renderSignupNameField() {
   const input = document.getElementById('signup-name');
   if (!input) return;
   input.placeholder = 'Name as shown on the Members page';
-  const list = document.getElementById('signup-member-names');
-  if (list) {
-    list.replaceChildren(...state.members.map(member => {
-      const option = document.createElement('option');
-      option.value = member.name;
-      return option;
-    }));
-  }
 }
 
 function normalizedSignupName(value = '') {
