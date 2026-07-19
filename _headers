@@ -1,2 +1,4 @@
 /signup
   Cache-Control: no-store, max-age=0
+/signups
+  Cache-Control: no-store, max-age=0

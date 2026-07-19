@@ -540,12 +540,13 @@ function applySignedInUser(user) {
   const metadata = user.user_metadata || {};
   const appMetadata = user.app_metadata || {};
   const isVisitor = Boolean(user.is_anonymous) || (appMetadata.role || metadata.role || "").toLowerCase() === "visitor";
-  const name = metadata.full_name || metadata.name || metadata.display_name || user.email?.split("@")[0] || (isVisitor ? "Visitor" : "Media Club member");
-  const role = isVisitor ? "Visitor" : appMetadata.role || metadata.role || "Member";
+  const memberRecord = window.currentMemberRecord?.();
+  const name = memberRecord?.name || metadata.full_name || metadata.name || metadata.display_name || user.email?.split("@")[0] || (isVisitor ? "Visitor" : "Media Club member");
   window.CREW_CENTER_IS_ADMIN = (appMetadata.role || "").toLowerCase() === "admin";
   window.CREW_CENTER_IS_VISITOR = isVisitor;
+  const role = isVisitor ? "Visitor" : window.CREW_CENTER_IS_ADMIN ? "Admin" : "Member";
   const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
-  const avatarUrl = metadata.avatar_url || "";
+  const avatarUrl = memberRecord ? memberRecord.avatarUrl : metadata.avatar_url || "";
   const palette = {
     green: ["rgba(234,122,244,0.15)", "#EA7AF4"],
     purple: ["rgba(180,157,255,0.12)", "#b49dff"],
@@ -564,7 +565,7 @@ function applySignedInUser(user) {
     ["sidebar-user-avatar", initials],
     ["profile-preview-name", name],
     ["profile-preview-role", role],
-    ["profile-preview-email", user.email || ""],
+    ["profile-preview-email", ""],
     ["profile-preview-avatar", initials],
   ];
 

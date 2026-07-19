@@ -2194,6 +2194,8 @@ function normalizeMember(member, index = 0) {
     gradeLevel: member.grade_level || '',
     role: member.role || 'Member',
     spec: member.status || 'active',
+    avatarUrl: member.avatar_url || '',
+    avatarPath: member.avatar_path || '',
     color: colors[index % colors.length],
     joined_date: member.joined_date,
   };
@@ -2339,6 +2341,7 @@ async function loadCrewCenterData() {
     if (failed) throw failed.error;
 
     state.members = membersRes.data.map(normalizeMember);
+    syncCurrentUserWithMemberRecord();
     state.events = eventsRes.data.map(normalizeEvent);
     state.gallery = galleryRes.data.map(normalizeGallery);
     state.equipment = equipmentRes.data.map(normalizeEquipment);
@@ -2397,7 +2400,7 @@ const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheet
 const pageRoutes = {
   home: '/dashboard',
   events: '/events',
-  signup: '/signup',
+  signup: '/signups',
   members: '/members',
   gallery: '/gallery',
   equipment: '/equipment',
@@ -2411,6 +2414,7 @@ const routePages = {
   '/dashboard': 'home',
   '/events': 'events',
   '/signup': 'signup',
+  '/signups': 'signup',
   '/members': 'members',
   '/gallery': 'gallery',
   '/equipment': 'equipment',
@@ -2586,8 +2590,9 @@ function updateUserSurfaces() {
   const user = state.currentUser;
   const [bg, fg] = memberColor(user.color);
   const avatarUrl = user.avatarUrl || '';
+  const accountRole = user.isVisitor ? 'Visitor' : user.isAdmin ? 'Admin' : 'Member';
   document.getElementById('sidebar-user-name').textContent = user.name;
-  document.getElementById('sidebar-user-role').textContent = user.role;
+  document.getElementById('sidebar-user-role').textContent = accountRole;
   const sidebarAvatar = document.getElementById('sidebar-user-avatar');
   sidebarAvatar.textContent = avatarUrl ? '' : user.initials;
   sidebarAvatar.style.background = avatarUrl ? `url("${avatarUrl}") center/cover` : bg;
@@ -2598,9 +2603,20 @@ function updateUserSurfaces() {
     previewAvatar.style.background = avatarUrl ? `url("${avatarUrl}") center/cover` : bg;
     previewAvatar.style.color = fg;
     document.getElementById('profile-preview-name').textContent = user.name;
-    document.getElementById('profile-preview-role').textContent = user.role;
-    document.getElementById('profile-preview-email').textContent = user.email;
+    document.getElementById('profile-preview-role').textContent = accountRole;
+    document.getElementById('profile-preview-email').textContent = '';
   }
+}
+
+function syncCurrentUserWithMemberRecord() {
+  if (state.currentUser.isVisitor) return;
+  const member = currentMemberRecord();
+  if (!member) return;
+  state.currentUser.name = member.name;
+  state.currentUser.initials = initials(member.fname, member.lname);
+  state.currentUser.avatarUrl = member.avatarUrl || '';
+  state.currentUser.avatarPath = member.avatarPath || '';
+  updateUserSurfaces();
 }
 
 window.applyCrewCenterAuthUser = function(user) {
@@ -2722,22 +2738,47 @@ async function saveProfilePhoto() {
   if (uploadError) { button.disabled = false; button.textContent = 'Save profile picture'; showToast("Couldn't upload the profile picture. Check the Storage setup.", 'error'); return; }
   const publicUrl = supabaseClient.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl;
   const versionedUrl = `${publicUrl}?v=${Date.now()}`;
+  const { data: memberAvatarUpdated, error: memberError } = await supabaseClient.rpc('update_own_member_avatar', {
+    p_avatar_url: versionedUrl,
+    p_avatar_path: path,
+  });
+  if (memberError || !memberAvatarUpdated) {
+    button.disabled = false; button.textContent = 'Save profile picture';
+    showToast("Picture uploaded, but the Members profile couldn't be updated. Run the latest schema and policy SQL.", 'error');
+    return;
+  }
   const { error: metadataError } = await supabaseClient.auth.updateUser({ data: { avatar_url: versionedUrl, avatar_path: path } });
   button.disabled = false; button.textContent = 'Save profile picture';
-  if (metadataError) { showToast("Picture uploaded, but the profile couldn't be updated.", 'error'); return; }
-  state.currentUser.avatarUrl = versionedUrl; state.currentUser.avatarPath = path; updateUserSurfaces();
-  document.getElementById('profile-photo-remove').style.display = ''; showToast('Profile picture saved.');
+  state.currentUser.avatarUrl = versionedUrl; state.currentUser.avatarPath = path;
+  const member = currentMemberRecord();
+  if (member) { member.avatarUrl = versionedUrl; member.avatarPath = path; }
+  updateUserSurfaces(); renderMembers();
+  document.getElementById('profile-photo-remove').style.display = '';
+  if (metadataError) showToast('Picture saved to your Members profile, but Auth metadata could not be updated.', 'error');
+  else showToast('Profile picture saved.');
 }
 async function removeProfilePhoto() {
   const path = state.currentUser.avatarPath;
+  const { data: memberAvatarUpdated, error: memberError } = await supabaseClient.rpc('update_own_member_avatar', {
+    p_avatar_url: null,
+    p_avatar_path: null,
+  });
+  if (memberError || !memberAvatarUpdated) {
+    showToast("Couldn't update the Members profile. Run the latest schema and policy SQL.", 'error');
+    return;
+  }
   if (path) {
     const { error: removeError } = await supabaseClient.storage.from('profile-pictures').remove([path]);
-    if (removeError) { showToast("Couldn't remove the profile picture.", 'error'); return; }
+    if (removeError) showToast("Profile was cleared, but the old picture file couldn't be deleted.", 'error');
   }
   const { error } = await supabaseClient.auth.updateUser({ data: { avatar_url: null, avatar_path: null } });
-  if (error) { showToast("Couldn't update the profile.", 'error'); return; }
-  state.currentUser.avatarUrl = ''; state.currentUser.avatarPath = ''; updateUserSurfaces();
-  document.getElementById('profile-photo-remove').style.display = 'none'; showToast('Profile picture removed.');
+  state.currentUser.avatarUrl = ''; state.currentUser.avatarPath = '';
+  const member = currentMemberRecord();
+  if (member) { member.avatarUrl = ''; member.avatarPath = ''; }
+  updateUserSurfaces(); renderMembers();
+  document.getElementById('profile-photo-remove').style.display = 'none';
+  if (error) showToast('Picture removed from the Members profile, but Auth metadata could not be updated.', 'error');
+  else showToast('Profile picture removed.');
 }
 initializeProfileCropDrag();
 updateThemeChoices();
@@ -3357,9 +3398,12 @@ function renderMembers() {
   const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
     const tags = m.spec.split(',').map(s => `<span class="badge badge-gray">${s.trim()}</span>`).join('');
+    const avatarStyle = m.avatarUrl
+      ? `background:url(&quot;${m.avatarUrl}&quot;) center/cover;color:transparent;`
+      : `background:${bg};color:${fg};`;
     return `
       <div class="member-card">
-        <div class="member-avatar" style="background:${bg};color:${fg};">${initials(m.fname, m.lname)}</div>
+        <div class="member-avatar" style="${avatarStyle}">${m.avatarUrl ? '' : initials(m.fname, m.lname)}</div>
         <div style="flex:1;">
           <div class="member-name">${m.fname} ${m.lname}</div>
           <div class="member-role">${m.email}${m.gradeLevel ? ` · ${m.gradeLevel}` : ''}</div>

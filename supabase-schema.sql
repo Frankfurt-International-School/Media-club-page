@@ -12,6 +12,8 @@ create table if not exists public.members (
 );
 
 alter table public.members add column if not exists grade_level text;
+alter table public.members add column if not exists avatar_url text;
+alter table public.members add column if not exists avatar_path text;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),

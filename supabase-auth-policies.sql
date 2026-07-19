@@ -108,6 +108,40 @@ as $$
     )) = 'visitor';
 $$;
 
+create or replace function public.update_own_member_avatar(
+  p_avatar_url text,
+  p_avatar_path text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or public.is_visitor_session() then
+    raise exception 'A signed-in member account is required.';
+  end if;
+
+  if p_avatar_url is not null and (
+    p_avatar_path is distinct from (auth.uid()::text || '/avatar.webp')
+    or p_avatar_url !~ '^https://[A-Za-z0-9.-]+/storage/v1/object/public/profile-pictures/'
+    or p_avatar_url ~ '["''<>()[:space:]]'
+  ) then
+    raise exception 'Invalid profile picture location.';
+  end if;
+
+  update public.members
+  set avatar_url = nullif(trim(p_avatar_url), ''),
+      avatar_path = nullif(trim(p_avatar_path), '')
+  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''));
+
+  return found;
+end;
+$$;
+
+revoke all on function public.update_own_member_avatar(text, text) from public;
+grant execute on function public.update_own_member_avatar(text, text) to authenticated;
+
 create or replace function public.is_valid_event_signup(
   p_event_id uuid,
   p_signup_role text,
