@@ -2114,7 +2114,18 @@ function renderSignupRoleOptionsForCurrentEvent() {
 function renderSignupNameField() {
   const input = document.getElementById('signup-name');
   if (!input) return;
+  const help = document.getElementById('signup-name-help');
+  const canChooseMember = canManageCrewOperations();
   input.placeholder = 'Name as shown on the Members page';
+  input.readOnly = !canChooseMember;
+  if (help) help.hidden = !canChooseMember;
+  if (!canChooseMember) {
+    const member = currentMemberRecord();
+    input.value = member?.name || state.currentUser.name || '';
+    input.setAttribute('aria-label', 'Your member name');
+  } else {
+    input.removeAttribute('aria-label');
+  }
 }
 
 function normalizedSignupName(value = '') {
