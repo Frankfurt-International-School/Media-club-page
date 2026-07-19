@@ -99,6 +99,24 @@ authStyle.textContent = `
     margin-bottom: 16px;
   }
 
+  .auth-remember {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: -2px 0 16px;
+    color: #495057;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .auth-remember input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #EA7AF4;
+  }
+
   .auth-gate-input {
     width: 100%;
     background: #f1f3f5;
@@ -263,6 +281,10 @@ document.body.insertAdjacentHTML("afterbegin", `
           <label class="auth-gate-label" for="auth-gate-password">Password</label>
           <input class="auth-gate-input" id="auth-gate-password" type="password" autocomplete="current-password" placeholder="Password" required>
         </div>
+        <label class="auth-remember" for="auth-remember-browser">
+          <input id="auth-remember-browser" type="checkbox" checked>
+          <span>Remember me on this browser</span>
+        </label>
         <button class="auth-gate-button" id="auth-gate-submit" type="submit">Sign in</button>
       </form>
       <div id="auth-visitor-option">
@@ -294,13 +316,37 @@ const authError = document.getElementById("auth-gate-error");
 const authForm = document.getElementById("auth-gate-form");
 const authSubmit = document.getElementById("auth-gate-submit");
 const authPassword = document.getElementById("auth-gate-password");
+const authRemember = document.getElementById("auth-remember-browser");
 const visitorSubmit = document.getElementById("auth-visitor-submit");
 const passwordSetupForm = document.getElementById("auth-password-setup-form");
 const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite";
+const rememberPreferenceKey = "crew-center-remember-session";
+const shouldRememberSession = () => localStorage.getItem(rememberPreferenceKey) !== "false";
+const authStorage = {
+  getItem(key) {
+    return sessionStorage.getItem(key) || (shouldRememberSession() ? localStorage.getItem(key) : null);
+  },
+  setItem(key, value) {
+    const preferredStorage = shouldRememberSession() ? localStorage : sessionStorage;
+    const otherStorage = shouldRememberSession() ? sessionStorage : localStorage;
+    preferredStorage.setItem(key, value);
+    otherStorage.removeItem(key);
+  },
+  removeItem(key) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  },
+};
+
+authRemember.checked = shouldRememberSession();
+authRemember.addEventListener("change", () => {
+  localStorage.setItem(rememberPreferenceKey, String(authRemember.checked));
+});
 
 window.crewCenterSupabase = window.supabase?.createClient(
   window.CREW_CENTER_SUPABASE.url,
-  window.CREW_CENTER_SUPABASE.anonKey
+  window.CREW_CENTER_SUPABASE.anonKey,
+  { auth: { persistSession: true, storage: authStorage } }
 );
 
 function setAuthError(message = "") {
