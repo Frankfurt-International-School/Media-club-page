@@ -31,6 +31,7 @@ drop policy if exists "Authenticated users can delete signups" on public.signups
 drop policy if exists "Signed-in users can read signups" on public.signups;
 drop policy if exists "Signed-in users can add signups" on public.signups;
 drop policy if exists "Admins can delete signups" on public.signups;
+drop policy if exists "Users can delete own signups and Auth Admins any" on public.signups;
 drop policy if exists "Authenticated users can read equipment" on public.equipment;
 drop policy if exists "Authenticated users can manage equipment" on public.equipment;
 drop policy if exists "Signed-in users can read equipment" on public.equipment;
@@ -304,10 +305,18 @@ with check (
   )
 );
 
-create policy "Admins can delete signups"
+create policy "Users can delete own signups and Auth Admins any"
 on public.signups for delete
 to authenticated
-using (public.is_admin_panel_user());
+using (
+  public.is_auth_admin()
+  or exists (
+    select 1
+    from public.members member
+    where member.id = signups.member_id
+      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  )
+);
 
 create policy "Signed-in users can read equipment"
 on public.equipment for select
