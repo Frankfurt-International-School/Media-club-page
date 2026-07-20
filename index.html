@@ -1359,7 +1359,7 @@
     <div class="flex-between mb24">
       <div>
         <div class="page-title">Events</div>
-        <div class="page-sub">All upcoming and past Media Club activities.</div>
+        <div class="page-sub">Upcoming Media Club activities. Past events are available on request.</div>
       </div>
       <button class="btn btn-accent" onclick="openModal('event-modal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1372,6 +1372,7 @@
       <button class="filter-chip" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
       <button class="filter-chip" onclick="filterEvents('Event', this)">Event</button>
       <button class="filter-chip" onclick="filterEvents('Other', this)">Other</button>
+      <button class="filter-chip" id="past-events-toggle" onclick="togglePastEvents()">Show past events</button>
     </div>
     <div id="events-list"></div>
   </div>
@@ -1400,7 +1401,7 @@
       <div class="progress-bar mb12"><div class="progress-fill" id="sheet-progress" style="width:0%"></div></div>
       <table class="sheet-table" id="sheet-table"></table>
     </div>
-    <div class="card signup-entry-card">
+    <div class="card signup-entry-card" id="signup-entry-card">
       <div class="signup-entry-head">
         <div class="signup-entry-title">Join this event</div>
         <div class="signup-entry-sub">Choose the member, production role, and attendance window.</div>
@@ -1939,6 +1940,7 @@ const state = {
   ],
   applications: [],
   eventFilter: "all",
+  showPastEvents: false,
   galleryFilter: "all",
 };
 
@@ -2009,6 +2011,35 @@ function currentUserSignupRoleKeys() {
 
 function timeValue(date, time) {
   return date && time ? new Date(`${date}T${time}`).getTime() : null;
+}
+
+function eventEndTimestamp(event) {
+  const explicitEnd = Date.parse(event?.endsAt || '');
+  if (Number.isFinite(explicitEnd)) return explicitEnd;
+  const fallbackEnd = event?.takedownEnd || event?.game4End || event?.game3End || event?.game2End || event?.game1End || event?.time || '23:59';
+  return timeValue(event?.date, fallbackEnd);
+}
+
+function isPastEvent(event, now = Date.now()) {
+  const end = eventEndTimestamp(event);
+  return end !== null && end <= now;
+}
+
+let eventVisibilityTimer = null;
+function scheduleEventVisibilityRefresh() {
+  if (eventVisibilityTimer) clearTimeout(eventVisibilityTimer);
+  const now = Date.now();
+  const nextEnd = state.events
+    .map(eventEndTimestamp)
+    .filter(end => end !== null && end > now)
+    .sort((a, b) => a - b)[0];
+  if (!nextEnd) return;
+  eventVisibilityTimer = setTimeout(() => {
+    const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+    if (activePage === 'events') renderEvents();
+    if (activePage === 'signup') initSignupSheet();
+    scheduleEventVisibilityRefresh();
+  }, Math.min(nextEnd - now + 250, 2147483647));
 }
 
 function selectedAttendanceWindow(ev) {
@@ -2359,6 +2390,7 @@ async function loadCrewCenterData() {
       navigate(canAccessAdminPanel() ? 'admin' : 'home', navItemForPage(canAccessAdminPanel() ? 'admin' : 'home'), { skipUrl: canAccessAdminPanel() });
     }
     renderCurrentPage();
+    scheduleEventVisibilityRefresh();
     window.updateCrewCenterEventsBadge?.();
   } catch (error) {
     console.error(error);
@@ -2860,11 +2892,18 @@ function renderDashboard() {
 function renderEvents(filter) {
   if (filter !== undefined) state.eventFilter = filter;
   const f = state.eventFilter;
-  const list = f === 'all' ? state.events : state.events.filter(e => e.cat === f);
+  const visibleByDate = state.showPastEvents ? state.events : state.events.filter(event => !isPastEvent(event));
+  const list = f === 'all' ? visibleByDate : visibleByDate.filter(e => e.cat === f);
+  const pastToggle = document.getElementById('past-events-toggle');
+  if (pastToggle) {
+    pastToggle.textContent = state.showPastEvents ? 'Hide past events' : 'Show past events';
+    pastToggle.classList.toggle('active', state.showPastEvents);
+  }
   const el = document.getElementById('events-list');
-  if (!list.length) { el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>No events in this category.</p></div>'; return; }
+  if (!list.length) { el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>${state.showPastEvents ? 'No events in this category.' : 'No upcoming events in this category.'}</p></div>`; return; }
   const eventCard = ev => {
     const pct = ev.slots ? Math.round((ev.signups.length / ev.slots) * 100) : 0;
+    const past = isPastEvent(ev);
     return `
       <div class="event-card">
         <div class="event-date-box">
@@ -2874,7 +2913,7 @@ function renderEvents(filter) {
         <div style="flex:1;">
           <div class="flex-between mb8">
             <div class="event-title">${ev.title}</div>
-            <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>
+            <div style="display:flex;gap:6px;"><span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>${past ? '<span class="badge badge-gray">Past</span>' : ''}</div>
           </div>
           <div class="event-meta">
             <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time || 'TBC'}</span>
@@ -2888,7 +2927,9 @@ function renderEvents(filter) {
           ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${livestreamSetupCaption(ev)}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:8px;">
-            ${state.currentUser.isVisitor
+            ${past
+              ? '<span class="text-muted">This event has ended.</span>'
+              : state.currentUser.isVisitor
               ? '<span class="text-muted">Visitors can view events only.</span>'
               : `<button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>`}
             ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>` : ''}
@@ -2919,6 +2960,11 @@ function filterEvents(f, el) {
   document.querySelectorAll('#event-filters .filter-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   renderEvents(f);
+}
+
+function togglePastEvents() {
+  state.showPastEvents = !state.showPastEvents;
+  renderEvents();
 }
 
 function dateBefore(date) {
@@ -3106,7 +3152,10 @@ async function deleteEvent(id) {
 // ══════════════════════════════
 function initSignupSheet() {
   const sel = document.getElementById('sheet-event-select');
-  sel.innerHTML = state.events.map(e => `<option value="${e.id}">${e.title} — ${fmtDate(e.date)}</option>`).join('');
+  const previousEventId = sel.value;
+  const upcomingEvents = state.events.filter(event => !isPastEvent(event));
+  sel.innerHTML = upcomingEvents.map(e => `<option value="${e.id}">${e.title} — ${fmtDate(e.date)}</option>`).join('');
+  if (upcomingEvents.some(event => event.id === previousEventId)) sel.value = previousEventId;
   renderSignupSheet();
 }
 
@@ -3188,11 +3237,17 @@ function renderSignupSheet() {
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
   if (!ev) {
-    document.getElementById('sheet-table').innerHTML = '<tbody><tr><td>No events available.</td></tr></tbody>';
+    document.getElementById('sheet-table').innerHTML = '<tbody><tr><td>No upcoming events available.</td></tr></tbody>';
+    document.getElementById('sheet-event-title').textContent = 'No upcoming events';
     document.getElementById('sheet-event-time').textContent = '—';
+    document.getElementById('sheet-event-cap').textContent = '— slots';
+    document.getElementById('sheet-cap-badge').innerHTML = '';
+    document.getElementById('sheet-progress').style.width = '0%';
+    document.getElementById('signup-entry-card').style.display = 'none';
     renderSignupRoleOptions(null);
     return;
   }
+  document.getElementById('signup-entry-card').style.display = '';
   renderSignupAttendanceOptions(ev);
   updateSignupAttendanceFields();
   renderSignupRoleOptions(ev);
