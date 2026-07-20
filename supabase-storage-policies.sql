@@ -45,7 +45,7 @@ using (
 
 -- Profile pictures are publicly readable, while writes stay inside the owner's Auth UID folder.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('profile-pictures', 'profile-pictures', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+values ('profile-pictures', 'profile-pictures', true, 15728640, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,

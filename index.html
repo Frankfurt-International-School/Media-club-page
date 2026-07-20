@@ -1583,7 +1583,7 @@
           <div class="profile-photo-actions">
             <div class="profile-status-card"><div class="user-avatar" id="profile-preview-avatar">MC</div><div><div class="user-name" id="profile-preview-name">Media Club member</div><div class="user-role" id="profile-preview-role">Member</div><div class="text-muted" id="profile-preview-email"></div></div></div>
             <label class="btn btn-ghost profile-upload-button">Choose photo<input id="profile-photo-input" type="file" accept="image/jpeg,image/png,image/webp" onchange="loadProfilePhoto(event)"></label>
-            <div class="profile-file-note">JPG, PNG, or WebP. Maximum 5 MB. The crop is saved as an optimized square WebP.</div>
+            <div class="profile-file-note">JPG, PNG, or WebP. Maximum 15 MB. The crop is saved as an optimized square WebP.</div>
             <div class="profile-zoom" id="profile-zoom"><label class="form-label" for="profile-zoom-range">Zoom</label><input id="profile-zoom-range" type="range" min="1" max="3" step="0.01" value="1" oninput="setProfileCropZoom(this.value)"></div>
             <button class="btn btn-accent" id="profile-photo-save" onclick="saveProfilePhoto()" disabled>Save profile picture</button>
             <button class="btn btn-ghost" id="profile-photo-remove" onclick="removeProfilePhoto()">Remove current picture</button>
@@ -2655,7 +2655,7 @@ function updateThemeChoices() {
   document.getElementById('theme-dark')?.classList.toggle('active', theme === 'dark');
 }
 
-const PROFILE_MAX_FILE_SIZE = 5 * 1024 * 1024;
+const PROFILE_MAX_FILE_SIZE = 15 * 1024 * 1024;
 const PROFILE_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const profileCrop = { image: null, url: '', zoom: 1, x: 0, y: 0, dragging: false, lastX: 0, lastY: 0 };
 
@@ -2683,7 +2683,7 @@ function loadProfilePhoto(event) {
   const file = event.target.files?.[0];
   if (!file) return;
   if (!PROFILE_ALLOWED_TYPES.has(file.type)) { event.target.value = ''; showToast('Choose a JPG, PNG, or WebP image.', 'error'); return; }
-  if (file.size > PROFILE_MAX_FILE_SIZE) { event.target.value = ''; showToast('Profile pictures must be smaller than 5 MB.', 'error'); return; }
+  if (file.size > PROFILE_MAX_FILE_SIZE) { event.target.value = ''; showToast('Profile pictures must be 15 MB or smaller.', 'error'); return; }
   if (profileCrop.url) URL.revokeObjectURL(profileCrop.url);
   profileCrop.url = URL.createObjectURL(file);
   const image = document.getElementById('profile-crop-image');
