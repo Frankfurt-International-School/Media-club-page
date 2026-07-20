@@ -1,6 +1,15 @@
 create extension if not exists pgcrypto;
 create extension if not exists btree_gist;
 
+create or replace function public.is_fis_alias_email(candidate_email text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select lower(btrim(coalesce(candidate_email, ''))) ~ '^[a-z]{2}[0-9]{4,}@fis[.]edu$';
+$$;
+
 create table if not exists public.members (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -14,6 +23,17 @@ create table if not exists public.members (
 alter table public.members add column if not exists grade_level text;
 alter table public.members add column if not exists avatar_url text;
 alter table public.members add column if not exists avatar_path text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'members_fis_alias_email_check'
+  ) then
+    alter table public.members
+      add constraint members_fis_alias_email_check
+      check (public.is_fis_alias_email(email)) not valid;
+  end if;
+end $$;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
@@ -217,6 +237,17 @@ create table if not exists public.join_applications (
 alter table public.join_applications add column if not exists rejection_reason text;
 alter table public.join_applications add column if not exists reviewed_at timestamptz;
 alter table public.join_applications add column if not exists reviewed_by uuid references auth.users(id) on delete set null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'join_applications_fis_alias_email_check'
+  ) then
+    alter table public.join_applications
+      add constraint join_applications_fis_alias_email_check
+      check (public.is_fis_alias_email(email)) not valid;
+  end if;
+end $$;
 
 create index if not exists events_date_idx on public.events (date);
 create index if not exists signups_event_id_idx on public.signups (event_id);

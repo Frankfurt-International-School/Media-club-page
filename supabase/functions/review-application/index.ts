@@ -10,6 +10,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
+const isFisAliasEmail = (email: unknown) => /^[a-z]{2}\d{4,}@fis\.edu$/i.test(String(email || "").trim());
+
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -59,6 +61,10 @@ Deno.serve(async request => {
 
   if (decision === "approve") {
     const normalizedEmail = String(application.email).trim().toLowerCase();
+    if (!isFisAliasEmail(normalizedEmail)) {
+      await releaseApplication();
+      return json({ error: "This application does not use a valid FIS alias email (2 letters followed by at least 4 numbers, ending in @fis.edu)." }, 400);
+    }
     const { data: existingMember, error: existingMemberError } = await adminClient
       .from("members")
       .select("id, name")

@@ -461,7 +461,7 @@ with check (public.is_admin_panel_user());
 create policy "Signed-in users can submit join applications"
 on public.join_applications for insert
 to authenticated
-with check (true);
+with check (public.is_fis_alias_email(email));
 
 create policy "Admins can read join applications"
 on public.join_applications for select

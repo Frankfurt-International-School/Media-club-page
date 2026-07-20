@@ -5,6 +5,11 @@ window.CREW_CENTER_SUPABASE = {
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByc3d1cXp6Z29yZHl3b3did3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDU0ODIsImV4cCI6MjA5ODkyMTQ4Mn0.N7eRfvik6PsAj4IDa6jA_gGbUV3bqee8oRBz7shWIsM",
 };
 
+const fisAliasEmailPattern = /^[a-z]{2}\d{4,}@fis\.edu$/i;
+const fisAliasEmailMessage = "Use your school alias email: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu (for example, XX12345@fis.edu).";
+window.isFisAliasEmail = email => fisAliasEmailPattern.test(String(email || "").trim());
+window.FIS_ALIAS_EMAIL_MESSAGE = fisAliasEmailMessage;
+
 document.body.classList.add("auth-locked");
 
 const authStyle = document.createElement("style");
@@ -275,7 +280,7 @@ document.body.insertAdjacentHTML("afterbegin", `
       <form id="auth-gate-form">
         <div class="auth-gate-field">
           <label class="auth-gate-label" for="auth-gate-email">Email</label>
-          <input class="auth-gate-input" id="auth-gate-email" type="email" autocomplete="email" placeholder="name@school.edu" required>
+          <input class="auth-gate-input" id="auth-gate-email" type="email" autocomplete="email" inputmode="email" pattern="[A-Za-z]{2}[0-9]{4,}@fis[.]edu" title="2 letters followed by at least 4 numbers, ending in @fis.edu" placeholder="XX12345@fis.edu" required>
         </div>
         <div class="auth-gate-field">
           <label class="auth-gate-label" for="auth-gate-password">Password</label>
@@ -602,6 +607,14 @@ async function revealDashboard(user) {
   setTimeout(startLiveUpdates, 0);
 }
 
+async function allowCrewCenterUser(user) {
+  if (user?.is_anonymous || window.isFisAliasEmail(user?.email)) return true;
+  await window.crewCenterSupabase.auth.signOut();
+  showSignIn();
+  setAuthError(fisAliasEmailMessage);
+  return false;
+}
+
 function showSignIn() {
   window.CREW_CENTER_AUTH_USER = null;
   window.CREW_CENTER_IS_ADMIN = false;
@@ -654,7 +667,12 @@ authForm.addEventListener("submit", async event => {
   }
   setAuthBusy(true);
 
-  const email = document.getElementById("auth-gate-email").value.trim();
+  const email = document.getElementById("auth-gate-email").value.trim().toLowerCase();
+  if (!window.isFisAliasEmail(email)) {
+    setAuthBusy(false);
+    setAuthError(fisAliasEmailMessage);
+    return;
+  }
   const password = authPassword.value;
   const { data, error } = await window.crewCenterSupabase.auth.signInWithPassword({ email, password });
 
@@ -705,8 +723,12 @@ if (window.crewCenterSupabase) {
   window.crewCenterSupabase.auth.getSession().then(({ data }) => {
     const user = data.session?.user;
     if (user) {
-      if (inviteFlow) showPasswordSetup();
-      else revealDashboard(user);
+      if (user.is_anonymous || window.isFisAliasEmail(user.email)) {
+        if (inviteFlow) showPasswordSetup();
+        else revealDashboard(user);
+      } else {
+        allowCrewCenterUser(user);
+      }
     } else {
       showSignIn();
     }

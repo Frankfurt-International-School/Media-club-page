@@ -1610,7 +1610,7 @@
           <div class="form-group"><label class="form-label">First name *</label><input class="form-input" id="join-fname" placeholder="Anna" /></div>
           <div class="form-group"><label class="form-label">Last name *</label><input class="form-input" id="join-lname" placeholder="Müller" /></div>
         </div>
-        <div class="form-group"><label class="form-label">School email *</label><input class="form-input" id="join-email" type="email" placeholder="a.mueller@school.de" /></div>
+        <div class="form-group"><label class="form-label">School alias email *</label><input class="form-input" id="join-email" type="email" inputmode="email" pattern="[A-Za-z]{2}[0-9]{4,}@fis[.]edu" title="2 letters followed by at least 4 numbers, ending in @fis.edu" placeholder="XX12345@fis.edu" /><div class="text-muted" style="font-size:11px;margin-top:6px;">Use your GDPR-safe alias: 2 letters followed by at least 4 numbers.</div></div>
         <div class="form-row2">
           <div class="form-group">
             <label class="form-label">Year group</label>
@@ -1796,7 +1796,7 @@
       <div class="form-group"><label class="form-label">Last name *</label><input class="form-input" id="mem-lname" placeholder="Krüger" /></div>
     </div>
     <div class="form-row2">
-      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="mem-email" placeholder="m.krueger@school.de" /></div>
+      <div class="form-group"><label class="form-label">Alias email</label><input class="form-input" id="mem-email" type="email" inputmode="email" pattern="[A-Za-z]{2}[0-9]{4,}@fis[.]edu" title="2 letters followed by at least 4 numbers, ending in @fis.edu" placeholder="XX12345@fis.edu" /></div>
       <div class="form-group"><label class="form-label">Grade level</label><select class="form-select" id="mem-grade"><option value="">Not applicable</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option></select></div>
     </div>
     <div class="form-row2">
@@ -3443,12 +3443,14 @@ async function addMember() {
   if (!canAddMembers()) { showToast('Only an Auth Admin can add members.', 'error'); return; }
   const fname = document.getElementById('mem-fname').value.trim();
   const lname = document.getElementById('mem-lname').value.trim();
+  const email = document.getElementById('mem-email').value.trim().toLowerCase();
   if (!fname || !lname) { showToast('Please fill in first and last name.', 'error'); return; }
+  if (!window.isFisAliasEmail(email)) { showToast(window.FIS_ALIAS_EMAIL_MESSAGE, 'error', 7000); return; }
   const { data, error } = await supabaseClient
     .from('members')
     .insert({
       name: `${fname} ${lname}`,
-      email: document.getElementById('mem-email').value.trim(),
+      email,
       grade_level: document.getElementById('mem-grade').value || null,
       role: document.getElementById('mem-role').value,
       status: document.getElementById('mem-spec').value || 'active',
@@ -3967,6 +3969,7 @@ async function submitJoin() {
   const email = document.getElementById('join-email').value.trim().toLowerCase();
   const why = document.getElementById('join-why').value.trim();
   if (!fname || !lname || !email || !why) { showToast('Please fill in all required fields.', 'error'); return; }
+  if (!window.isFisAliasEmail(email)) { showToast(window.FIS_ALIAS_EMAIL_MESSAGE, 'error', 7000); return; }
   const interests = [...document.querySelectorAll('#interest-group .checked input')].map(i => i.value);
   const { error } = await supabaseClient
     .from('join_applications')
