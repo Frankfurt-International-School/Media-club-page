@@ -2085,7 +2085,7 @@ function renderSignupRoleOptions(ev) {
     const label = signupRoleLabels[key];
     const sameRole = (ev?.signups || []).filter(signup => signup.role === label);
     const overlapping = sameRole.filter(signup => signupOverlaps(signup, attendance));
-    const occupied = key === 'student_supervisor' ? false : overlapping.length > 0;
+    const occupied = overlapping.length > 0;
     const latestEnd = sameRole.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
     const occupiedUntil = overlapping.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
     const disabled = occupied ? ' disabled' : '';
@@ -3347,7 +3347,7 @@ async function addSignupRow() {
     showToast('Custom attendance must be within the event times.', 'error');
     return;
   }
-  if (!roleFreeAttendance && !isStudentSupervisor && ev.signups.some(signup => signup.role === role && signupOverlaps(signup, attendance))) {
+  if (!roleFreeAttendance && ev.signups.some(signup => signup.role === role && signupOverlaps(signup, attendance))) {
     showToast(`Slot occupied: ${role} is already assigned during that time.`, 'error');
     renderSignupSheet();
     return;

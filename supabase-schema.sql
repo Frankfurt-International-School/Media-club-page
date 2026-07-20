@@ -163,6 +163,15 @@ exclude using gist (
 )
 where (signup_role is not null and signup_role <> 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
 
+alter table public.signups drop constraint if exists signups_student_supervisor_attendance_no_overlap;
+alter table public.signups add constraint signups_student_supervisor_attendance_no_overlap
+exclude using gist (
+  event_id with =,
+  signup_role with =,
+  tstzrange(attendance_start, attendance_end, '[)') with &&
+)
+where (signup_role = 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
+
 create table if not exists public.equipment (
   id uuid primary key default gen_random_uuid(),
   name text not null,
