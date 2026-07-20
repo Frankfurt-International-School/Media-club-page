@@ -52,6 +52,7 @@ on conflict (id) do update set
   allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "Users can upload their profile picture" on storage.objects;
+drop policy if exists "Users can read their profile picture metadata" on storage.objects;
 drop policy if exists "Users can replace their profile picture" on storage.objects;
 drop policy if exists "Users can delete their profile picture" on storage.objects;
 
@@ -63,6 +64,15 @@ with check (
   and not public.is_visitor_session()
   and (storage.foldername(name))[1] = auth.uid()::text
   and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
+);
+
+create policy "Users can read their profile picture metadata"
+on storage.objects for select
+to authenticated
+using (
+  bucket_id = 'profile-pictures'
+  and not public.is_visitor_session()
+  and (storage.foldername(name))[1] = auth.uid()::text
 );
 
 create policy "Users can replace their profile picture"

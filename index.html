@@ -2735,7 +2735,12 @@ async function saveProfilePhoto() {
   if (!user || !blob) { button.disabled = false; button.textContent = 'Save profile picture'; showToast('Could not prepare the profile picture.', 'error'); return; }
   const path = `${user.id}/avatar.webp`;
   const { error: uploadError } = await supabaseClient.storage.from('profile-pictures').upload(path, blob, { contentType: 'image/webp', cacheControl: '3600', upsert: true });
-  if (uploadError) { button.disabled = false; button.textContent = 'Save profile picture'; showToast("Couldn't upload the profile picture. Check the Storage setup.", 'error'); return; }
+  if (uploadError) {
+    console.error('Profile picture upload failed:', uploadError);
+    button.disabled = false; button.textContent = 'Save profile picture';
+    showToast(`Couldn't upload the profile picture: ${uploadError.message || 'Storage rejected the upload.'}`, 'error', 8000);
+    return;
+  }
   const publicUrl = supabaseClient.storage.from('profile-pictures').getPublicUrl(path).data.publicUrl;
   const versionedUrl = `${publicUrl}?v=${Date.now()}`;
   const { data: memberAvatarUpdated, error: memberError } = await supabaseClient.rpc('update_own_member_avatar', {
