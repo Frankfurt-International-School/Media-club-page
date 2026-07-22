@@ -130,6 +130,10 @@ create table if not exists public.signups (
   attendance_type text not null default 'whole' check (attendance_type in ('whole', 'game_1', 'game_2', 'game_3', 'game_4', 'custom')),
   attendance_start timestamptz,
   attendance_end timestamptz,
+  attendance_status text not null default 'not_taken',
+  attendance_marked_at timestamptz,
+  attendance_marked_by uuid references auth.users(id) on delete set null,
+  attendance_marked_by_name text,
   signed_up_at timestamptz not null default now(),
   unique (event_id, member_id)
 );
@@ -140,6 +144,13 @@ alter table public.signups add column if not exists reserve_role_2 text;
 alter table public.signups add column if not exists attendance_type text not null default 'whole';
 alter table public.signups add column if not exists attendance_start timestamptz;
 alter table public.signups add column if not exists attendance_end timestamptz;
+alter table public.signups add column if not exists attendance_status text not null default 'not_taken';
+alter table public.signups add column if not exists attendance_marked_at timestamptz;
+alter table public.signups add column if not exists attendance_marked_by uuid references auth.users(id) on delete set null;
+alter table public.signups add column if not exists attendance_marked_by_name text;
+alter table public.signups drop constraint if exists signups_attendance_status_check;
+alter table public.signups add constraint signups_attendance_status_check
+check (attendance_status in ('not_taken', 'present', 'late', 'absent', 'excused'));
 alter table public.signups drop constraint if exists signups_attendance_type_check;
 alter table public.signups add constraint signups_attendance_type_check
 check (attendance_type in ('whole', 'game_1', 'game_2', 'game_3', 'game_4', 'setup', 'shift_1', 'shift_2', 'takedown', 'custom'));
@@ -171,6 +182,14 @@ exclude using gist (
   tstzrange(attendance_start, attendance_end, '[)') with &&
 )
 where (signup_role = 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
+
+alter table public.signups drop constraint if exists signups_member_cross_event_no_overlap;
+alter table public.signups add constraint signups_member_cross_event_no_overlap
+exclude using gist (
+  member_id with =,
+  tstzrange(attendance_start, attendance_end, '[)') with &&
+)
+where (signup_role is distinct from 'Adult Supervisor' and attendance_start is not null and attendance_end is not null);
 
 create table if not exists public.equipment (
   id uuid primary key default gen_random_uuid(),

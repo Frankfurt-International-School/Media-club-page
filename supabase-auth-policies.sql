@@ -326,6 +326,58 @@ $$;
 revoke all on function public.mark_equipment_reservation_returned(uuid) from public;
 grant execute on function public.mark_equipment_reservation_returned(uuid) to authenticated;
 
+create or replace function public.mark_signup_attendance(
+  p_signup_id uuid,
+  p_attendance_status text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  event_starts_at timestamptz;
+  marker_name text;
+begin
+  if not public.is_crew_operations_user() then
+    raise exception 'Moderator-or-above access is required.';
+  end if;
+  if p_attendance_status not in ('not_taken', 'present', 'late', 'absent', 'excused') then
+    raise exception 'Invalid attendance status.';
+  end if;
+
+  select event.date into event_starts_at
+  from public.signups signup
+  join public.events event on event.id = signup.event_id
+  where signup.id = p_signup_id;
+
+  if event_starts_at is null then
+    return false;
+  end if;
+  if now() < event_starts_at - interval '10 minutes' then
+    raise exception 'Attendance opens 10 minutes before the event starts.';
+  end if;
+
+  select member.name into marker_name
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+  marker_name := coalesce(marker_name, auth.jwt() ->> 'email', 'Auth Admin');
+
+  update public.signups
+  set attendance_status = p_attendance_status,
+      attendance_marked_at = case when p_attendance_status = 'not_taken' then null else now() end,
+      attendance_marked_by = case when p_attendance_status = 'not_taken' then null else auth.uid() end,
+      attendance_marked_by_name = case when p_attendance_status = 'not_taken' then null else marker_name end
+  where id = p_signup_id;
+
+  return found;
+end;
+$$;
+
+revoke all on function public.mark_signup_attendance(uuid, text) from public;
+grant execute on function public.mark_signup_attendance(uuid, text) to authenticated;
+
 create policy "Signed-in users can read members"
 on public.members for select
 to authenticated
@@ -381,6 +433,10 @@ with check (
   and attendance_start is not null
   and attendance_end is not null
   and attendance_end > attendance_start
+  and attendance_status = 'not_taken'
+  and attendance_marked_at is null
+  and attendance_marked_by is null
+  and attendance_marked_by_name is null
   and public.is_valid_event_signup(event_id, signup_role, attendance_type, attendance_start, attendance_end)
   and (signup_role <> 'Student Supervisor' or public.is_crew_operations_user())
   and (

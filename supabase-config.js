@@ -508,8 +508,8 @@ function installAdminFunctionGuards() {
       if (id === "admin" && !hasAdminPanelAccess) {
         return originalNavigate.call(this, "home");
       }
-      if (id === "equipment-status" && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.())) {
-        showNotAuthorized("open Equipment Status");
+      if (["equipment-status", "crew-deployment"].includes(id) && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.())) {
+        showNotAuthorized(`open ${id === "crew-deployment" ? "Crew Deployment" : "Equipment Status"}`);
         return originalNavigate.call(this, "home");
       }
       if (window.CREW_CENTER_IS_VISITOR && !visitorAllowedPages.has(id)) {

@@ -1071,6 +1071,39 @@
   .equipment-holder { margin-top: 13px; padding: 11px 12px; border-radius: 11px; background: var(--accent-dim2); border: 1px solid rgba(234,122,244,.16); }
   .equipment-register-card { border-radius: 16px; }
 
+  /* ── CREW DEPLOYMENT ── */
+  .deployment-hero { padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: linear-gradient(135deg, var(--bg2), var(--bg3)); box-shadow: 0 18px 46px rgba(33,37,41,.09); }
+  .deployment-hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+  .deployment-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; margin-bottom: 7px; }
+  .deployment-date-control { min-width: min(260px, 100%); }
+  .deployment-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .deployment-stat { display: inline-flex; gap: 7px; align-items: center; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text2); font-size: 11px; }
+  .deployment-stat strong { color: var(--text); font-size: 13px; }
+  .deployment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .deployment-location { border: 1px solid var(--border); border-radius: 16px; background: var(--bg2); overflow: hidden; box-shadow: 0 10px 28px rgba(33,37,41,.07); }
+  .deployment-location-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 17px; background: linear-gradient(135deg, var(--accent-dim2), transparent); border-bottom: 1px solid var(--border); }
+  .deployment-location-title { font-family: var(--font-head); font-size: 17px; color: var(--text); }
+  .deployment-event { padding: 16px 17px; border-bottom: 1px solid var(--border); }
+  .deployment-event:last-child { border-bottom: 0; }
+  .deployment-event-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .deployment-event-title { color: var(--text); font-weight: 600; font-size: 14px; }
+  .deployment-attendance-state { font-size: 10px; border-radius: 999px; padding: 4px 8px; white-space: nowrap; border: 1px solid var(--border); color: var(--text3); }
+  .deployment-attendance-state.open { color: var(--teal); background: var(--teal-dim); border-color: rgba(78,240,196,.2); }
+  .deployment-game { padding: 11px 0; border-top: 1px dashed var(--border); }
+  .deployment-game:first-of-type { border-top: 0; padding-top: 0; }
+  .deployment-game-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: var(--text2); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .deployment-person { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 9px; border-radius: 10px; background: var(--bg3); margin-top: 6px; }
+  .deployment-person-name { color: var(--text); font-size: 12px; font-weight: 600; }
+  .deployment-person-role { color: var(--text3); font-size: 10px; margin-top: 2px; }
+  .deployment-next { display: inline-flex; margin-left: 6px; color: var(--accent); font-size: 10px; font-weight: 500; }
+  .deployment-attendance-select { min-width: 112px; padding: 6px 8px; font-size: 10px; }
+  .deployment-attendance-select.status-present { border-color: rgba(78,240,196,.42); background: var(--teal-dim); }
+  .deployment-attendance-select.status-late { border-color: rgba(255,181,71,.42); background: var(--amber-dim); }
+  .deployment-attendance-select.status-absent { border-color: rgba(255,123,94,.42); background: var(--coral-dim); }
+  .deployment-attendance-select.status-excused { border-color: rgba(94,170,255,.42); background: var(--blue-dim); }
+  .deployment-empty-role { color: var(--coral); font-size: 10px; padding: 7px 9px; border: 1px dashed rgba(255,123,94,.3); border-radius: 9px; background: var(--coral-dim); }
+  @media (max-width: 900px) { .deployment-grid { grid-template-columns: 1fr; } }
+
   /* ── NOTIFICATION DOT ── */
   .notif-dot {
     width: 6px; height: 6px;
@@ -1297,6 +1330,10 @@
       <span class="nav-label">Media Role Guide</span>
     </div>
     <div class="nav-section-label">Club</div>
+    <div class="nav-item crew-operations-only" data-label="Crew Deployment" onclick="navigate('crew-deployment', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 12h2M19 12h2"/></svg>
+      <span class="nav-label">Crew Deployment</span>
+    </div>
     <div class="nav-item crew-operations-only" data-label="Equipment Status" onclick="navigate('equipment-status', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
       <span class="nav-label">Equipment Status</span>
@@ -1560,6 +1597,18 @@
       <div class="flex-between mb16"><div><div class="section-head" style="margin:0;">Checkout register</div><div class="text-muted">Reservations, purposes, returns, and automatic releases.</div></div></div>
       <table class="sheet-table" id="equipment-register-table"></table>
     </div>
+  </div>
+
+  <!-- ── CREW DEPLOYMENT ── -->
+  <div id="page-crew-deployment" class="page">
+    <div class="deployment-hero mb24">
+      <div class="deployment-hero-row">
+        <div><div class="deployment-kicker">Daily production map</div><div class="page-title">Crew Deployment</div><div class="page-sub">See who is covering each location, follow handoffs, and take attendance.</div></div>
+        <div class="deployment-date-control"><label class="form-label" for="crew-deployment-date">Production date</label><select class="form-select" id="crew-deployment-date" onchange="renderCrewDeployment()"></select></div>
+      </div>
+      <div class="deployment-summary" id="crew-deployment-summary"></div>
+    </div>
+    <div class="deployment-grid" id="crew-deployment-grid"></div>
   </div>
 
   <!-- ── PROFILE ── -->
@@ -2342,6 +2391,10 @@ function normalizeEvent(event) {
       attendanceType: signup.attendance_type || 'whole',
       attendanceStart: signup.attendance_start || '',
       attendanceEnd: signup.attendance_end || '',
+      attendanceStatus: signup.attendance_status || 'not_taken',
+      attendanceMarkedAt: signup.attendance_marked_at || '',
+      attendanceMarkedBy: signup.attendance_marked_by || '',
+      attendanceMarkedByName: signup.attendance_marked_by_name || '',
       ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
       signedUpAt: signup.signed_up_at || '',
     })),
@@ -2429,7 +2482,7 @@ async function loadCrewCenterData() {
   try {
     const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
-      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))').order('date', { ascending: true }),
+      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
@@ -2458,6 +2511,8 @@ async function loadCrewCenterData() {
       navigate(canAccessAdminPanel() ? 'admin' : 'home', navItemForPage(canAccessAdminPanel() ? 'admin' : 'home'), { skipUrl: canAccessAdminPanel() });
     } else if (pageFromPath() === 'equipment-status') {
       navigate(canManageCrewOperations() ? 'equipment-status' : 'home', navItemForPage(canManageCrewOperations() ? 'equipment-status' : 'home'), { skipUrl: canManageCrewOperations() });
+    } else if (pageFromPath() === 'crew-deployment') {
+      navigate(canManageCrewOperations() ? 'crew-deployment' : 'home', navItemForPage(canManageCrewOperations() ? 'crew-deployment' : 'home'), { skipUrl: canManageCrewOperations() });
     }
     renderCurrentPage();
     scheduleEventVisibilityRefresh();
@@ -2494,12 +2549,13 @@ function renderCurrentPage() {
   if (activePage === 'gallery') renderGallery();
   if (activePage === 'equipment') renderEquipment();
   if (activePage === 'equipment-status') renderEquipmentStatus();
+  if (activePage === 'crew-deployment') initCrewDeployment();
 }
 
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Deployment", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   home: '/dashboard',
   events: '/events',
@@ -2508,6 +2564,7 @@ const pageRoutes = {
   gallery: '/gallery',
   equipment: '/equipment',
   'equipment-status': '/equipment-status',
+  'crew-deployment': '/crew-deployment',
   'role-guide': '/role-guide',
   profile: '/profile',
   join: '/join',
@@ -2523,6 +2580,7 @@ const routePages = {
   '/gallery': 'gallery',
   '/equipment': 'equipment',
   '/equipment-status': 'equipment-status',
+  '/crew-deployment': 'crew-deployment',
   '/role-guide': 'role-guide',
   '/profile': 'profile',
   '/join': 'join',
@@ -2543,7 +2601,7 @@ function navigate(id, el, options = {}) {
   if (page === 'admin' && !canAccessAdminPanel()) {
     page = 'home';
   }
-  if (page === 'equipment-status' && !canManageCrewOperations()) {
+  if (['equipment-status', 'crew-deployment'].includes(page) && !canManageCrewOperations()) {
     page = 'home';
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2566,6 +2624,7 @@ function navigate(id, el, options = {}) {
   if (page === 'gallery') renderGallery();
   if (page === 'equipment') renderEquipment();
   if (page === 'equipment-status') renderEquipmentStatus();
+  if (page === 'crew-deployment') initCrewDeployment();
   if (page === 'profile') renderProfile();
   if (page === 'admin') renderAdmin();
   closeMobileSidebar();
@@ -2901,7 +2960,7 @@ updateThemeChoices();
 // DASHBOARD
 // ══════════════════════════════
 function renderDashboard() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -3197,7 +3256,7 @@ async function addEvent() {
       takedown_end: isFestival ? festivalTimes[7] : null,
       ends_at: eventEnd.toISOString(),
     })
-    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))')
+    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, signed_up_at, members(name, role))')
     .single();
   if (error) { showToast("Couldn't create event.", 'error'); return; }
   const ev = normalizeEvent(data);
@@ -3444,6 +3503,14 @@ async function addSignupRow() {
     showToast('You can only sign up using your own full name.', 'error');
     return;
   }
+  if (role !== signupRoleLabels.adult_supervisor) {
+    const conflict = state.events.flatMap(candidate => candidate.signups.map(signup => ({ event: candidate, signup })))
+      .find(candidate => candidate.event.id !== ev.id && candidate.signup.memberId === member.id && signupOverlaps(candidate.signup, attendance));
+    if (conflict) {
+      showToast(`${member.name} is already assigned to ${conflict.event.title} during that time.`, 'error', 6000);
+      return;
+    }
+  }
   const { data: signup, error } = await supabaseClient
     .from('signups')
     .insert({
@@ -3456,11 +3523,12 @@ async function addSignupRow() {
       attendance_start: new Date(attendance.start).toISOString(),
       attendance_end: new Date(attendance.end).toISOString(),
     })
-    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role)')
+    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, signed_up_at, members(name, role)')
     .single();
   if (error) {
     if (error.code === '23505' || error.code === '23P01') {
-      showToast(error.code === '23P01' ? 'Slot occupied during that time.' : 'You are already signed up for this event.', 'error');
+      const crossEventConflict = error.message?.includes('signups_member_cross_event_no_overlap');
+      showToast(error.code === '23P01' ? crossEventConflict ? 'You already have another event assignment during that time.' : 'Slot occupied during that time.' : 'You are already signed up for this event.', 'error');
       await loadCrewCenterData();
       return;
     }
@@ -3477,6 +3545,10 @@ async function addSignupRow() {
     attendanceType: signup.attendance_type || attendance.type,
     attendanceStart: signup.attendance_start,
     attendanceEnd: signup.attendance_end,
+    attendanceStatus: signup.attendance_status || 'not_taken',
+    attendanceMarkedAt: signup.attendance_marked_at || '',
+    attendanceMarkedBy: signup.attendance_marked_by || '',
+    attendanceMarkedByName: signup.attendance_marked_by_name || '',
     ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
     signedUpAt: signup.signed_up_at || '',
   });
@@ -3501,6 +3573,130 @@ async function removeSignup(evId, idx) {
   ev.signups.splice(idx, 1);
   showToast(`Removed ${name}.`, 'error');
   renderSignupSheet();
+}
+
+// ══════════════════════════════
+// CREW DEPLOYMENT
+// ══════════════════════════════
+let crewDeploymentRefreshTimer = null;
+
+function deploymentLocation(event) {
+  const location = String(event.loc || 'TBC').trim();
+  const normalized = location.toLowerCase().replace(/\s+/g, ' ');
+  if (/court\s*[123]/.test(normalized)) return { key: 'indoor-courts', label: 'Indoor Courts', order: 0 };
+  if (normalized.includes('lower field')) return { key: 'lower-field', label: 'Lower Field', order: 1 };
+  if (normalized.includes('upper field')) return { key: 'upper-field', label: 'Upper Field', order: 2 };
+  if (normalized.includes('auditorium')) return { key: 'auditorium', label: 'Auditorium', order: 3 };
+  if (normalized.includes('stroth')) return { key: 'stroth-center', label: 'Stroth Center', order: 4 };
+  return { key: normalized || 'tbc', label: location || 'TBC', order: 10 };
+}
+
+function deploymentGameBlocks(event) {
+  const games = [
+    ['game_1', 'Game 1', event.game1Start, event.game1End],
+    ['game_2', 'Game 2', event.game2Start, event.game2End],
+    ['game_3', 'Game 3', event.game3Start, event.game3End],
+    ['game_4', 'Game 4', event.game4Start, event.game4End],
+  ].filter(([, , start, end]) => start && end);
+  if ((event.isSports || event.isIsst) && games.length) {
+    return games.map(([key, label, start, end]) => ({ key, label, start, end, startMs: timeValue(event.date, start), endMs: timeValue(event.date, end) }));
+  }
+  const start = event.time || '00:00';
+  const endMs = eventEndTimestamp(event) || timeValue(event.date, '23:59');
+  return [{ key: 'event', label: 'Event crew', start, end: new Date(endMs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), startMs: timeValue(event.date, start), endMs }];
+}
+
+function signupCoversDeploymentBlock(signup, block) {
+  if (!signup.attendanceStart || !signup.attendanceEnd) return true;
+  return new Date(signup.attendanceStart).getTime() < block.endMs && new Date(signup.attendanceEnd).getTime() > block.startMs;
+}
+
+function nextCrewAssignment(events, event, signup) {
+  const currentStart = new Date(signup.attendanceStart || event.date).getTime();
+  return events.flatMap(candidate => candidate.signups.map(candidateSignup => ({ event: candidate, signup: candidateSignup })))
+    .filter(candidate => candidate.signup.id !== signup.id && candidate.signup.memberId === signup.memberId && new Date(candidate.signup.attendanceStart || candidate.event.date).getTime() > currentStart)
+    .sort((a, b) => new Date(a.signup.attendanceStart || a.event.date) - new Date(b.signup.attendanceStart || b.event.date))[0] || null;
+}
+
+function attendanceOption(status, value, label) {
+  return `<option value="${value}"${status === value ? ' selected' : ''}>${label}</option>`;
+}
+
+function initCrewDeployment() {
+  if (!canManageCrewOperations()) return;
+  const select = document.getElementById('crew-deployment-date');
+  if (!select) return;
+  const previous = select.value;
+  const dates = [...new Set(state.events.map(event => event.date))].sort();
+  select.innerHTML = dates.map(date => `<option value="${date}">${new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</option>`).join('');
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  if (dates.includes(previous)) select.value = previous;
+  else select.value = dates.find(date => date >= today) || dates.at(-1) || '';
+  renderCrewDeployment();
+}
+
+function renderCrewDeployment() {
+  if (!canManageCrewOperations()) return;
+  if (crewDeploymentRefreshTimer) clearTimeout(crewDeploymentRefreshTimer);
+  crewDeploymentRefreshTimer = setTimeout(() => {
+    if (document.querySelector('.page.active')?.id === 'page-crew-deployment') renderCrewDeployment();
+  }, 30000);
+  const date = document.getElementById('crew-deployment-date')?.value;
+  const events = state.events.filter(event => event.date === date).sort((a, b) => timeValue(a.date, a.game1Start || a.time || '00:00') - timeValue(b.date, b.game1Start || b.time || '00:00'));
+  const grid = document.getElementById('crew-deployment-grid');
+  const summary = document.getElementById('crew-deployment-summary');
+  if (!grid || !summary) return;
+  const locations = new Map();
+  events.forEach(event => {
+    const group = deploymentLocation(event);
+    if (!locations.has(group.key)) locations.set(group.key, { ...group, events: [] });
+    locations.get(group.key).events.push(event);
+  });
+  const uniqueCrew = new Set(events.flatMap(event => event.signups.map(signup => signup.memberId))).size;
+  const openAttendance = events.filter(event => Date.now() >= new Date(event.date + 'T' + (event.game1Start || event.time || '00:00')).getTime() - 10 * 60 * 1000);
+  const attendanceOutstanding = openAttendance.reduce((total, event) => total + event.signups.filter(signup => signup.attendanceStatus === 'not_taken').length, 0);
+  summary.innerHTML = `<span class="deployment-stat"><strong>${events.length}</strong> events</span><span class="deployment-stat"><strong>${locations.size}</strong> locations</span><span class="deployment-stat"><strong>${uniqueCrew}</strong> crew</span><span class="deployment-stat"><strong>${attendanceOutstanding}</strong> attendance pending</span>`;
+  if (!events.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>No events are scheduled for this date.</p></div>';
+    return;
+  }
+
+  grid.innerHTML = [...locations.values()].sort((a, b) => a.order - b.order || a.label.localeCompare(b.label)).map(location => `
+    <section class="deployment-location">
+      <div class="deployment-location-head"><div class="deployment-location-title">${location.label}</div><span class="badge badge-gray">${location.events.length} ${location.events.length === 1 ? 'event' : 'events'}</span></div>
+      ${location.events.map(event => {
+        const eventStart = timeValue(event.date, event.game1Start || event.time || '00:00');
+        const attendanceOpen = Date.now() >= eventStart - 10 * 60 * 1000;
+        const attendanceTaken = event.signups.filter(signup => signup.attendanceStatus !== 'not_taken').length;
+        const blocks = deploymentGameBlocks(event);
+        return `<article class="deployment-event">
+          <div class="deployment-event-head"><div><div class="deployment-event-title">${event.title}</div><div class="text-muted">${event.loc} · ${event.time || 'TBC'}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}">${attendanceOpen ? `Attendance ${attendanceTaken}/${event.signups.length}` : `Opens ${new Date(eventStart - 10 * 60 * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</span></div>
+          ${blocks.map(block => {
+            const crew = event.signups.filter(signup => signupCoversDeploymentBlock(signup, block));
+            return `<div class="deployment-game"><div class="deployment-game-head"><span>${block.label}</span><span>${block.start}–${block.end}</span></div>${crew.length ? crew.map(signup => {
+              const firstCoveredBlock = blocks.find(candidate => signupCoversDeploymentBlock(signup, candidate));
+              const next = firstCoveredBlock?.key === block.key ? nextCrewAssignment(events, event, signup) : null;
+              const nextLabel = next ? `${next.event.loc || deploymentLocation(next.event).label} · ${new Date(next.signup.attendanceStart || next.event.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : '';
+              return `<div class="deployment-person"><div><div class="deployment-person-name">${signup.name}${nextLabel ? `<span class="deployment-next">Next: ${nextLabel}</span>` : ''}</div><div class="deployment-person-role">${signup.role || 'No production role'} · ${attendanceLabel(signup)}</div></div><select class="form-select deployment-attendance-select status-${signup.attendanceStatus}" ${attendanceOpen ? '' : 'disabled'} onchange="markCrewAttendance('${event.id}', '${signup.id}', this.value)">${attendanceOption(signup.attendanceStatus, 'not_taken', 'Not taken')}${attendanceOption(signup.attendanceStatus, 'present', 'Present')}${attendanceOption(signup.attendanceStatus, 'late', 'Late')}${attendanceOption(signup.attendanceStatus, 'absent', 'Absent')}${attendanceOption(signup.attendanceStatus, 'excused', 'Excused')}</select></div>`;
+            }).join('') : '<div class="deployment-empty-role">No crew assigned for this game.</div>'}</div>`;
+          }).join('')}
+        </article>`;
+      }).join('')}
+    </section>`).join('');
+}
+
+async function markCrewAttendance(eventId, signupId, status) {
+  if (!canManageCrewOperations()) return;
+  const { data: updated, error } = await supabaseClient.rpc('mark_signup_attendance', { p_signup_id: signupId, p_attendance_status: status });
+  if (error || !updated) { showToast(error?.message || "Couldn't update attendance.", 'error', 6000); renderCrewDeployment(); return; }
+  const event = state.events.find(item => item.id === eventId);
+  const signup = event?.signups.find(item => item.id === signupId);
+  if (signup) {
+    signup.attendanceStatus = status;
+    signup.attendanceMarkedAt = status === 'not_taken' ? '' : new Date().toISOString();
+    signup.attendanceMarkedByName = status === 'not_taken' ? '' : currentMemberRecord()?.name || state.currentUser.name || '';
+  }
+  renderCrewDeployment();
 }
 
 // ══════════════════════════════
