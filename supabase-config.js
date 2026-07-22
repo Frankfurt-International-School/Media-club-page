@@ -407,6 +407,9 @@ function applyAdminControls() {
       el.style.display = hasCrewOperationsAccess && !isVisitor ? "" : "none";
     });
   });
+  document.querySelectorAll('.crew-operations-only').forEach(el => {
+    el.style.display = hasCrewOperationsAccess && !isVisitor ? "flex" : "none";
+  });
 
   const visitorHiddenSelectors = [
     '.nav-item[onclick*="signup"]',
@@ -503,6 +506,10 @@ function installAdminFunctionGuards() {
     window.navigate = function(id, ...args) {
       const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
       if (id === "admin" && !hasAdminPanelAccess) {
+        return originalNavigate.call(this, "home");
+      }
+      if (id === "equipment-status" && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.())) {
+        showNotAuthorized("open Equipment Status");
         return originalNavigate.call(this, "home");
       }
       if (window.CREW_CENTER_IS_VISITOR && !visitorAllowedPages.has(id)) {

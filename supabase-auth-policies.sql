@@ -242,8 +242,8 @@ as $$
         and item.category in ('Camera', 'Recording Cameras')
         and case
           when coalesce(member.grade_level, '') ~ '[0-9]+'
-            then substring(member.grade_level from '[0-9]+')::integer <= 10
-          else false
+            then substring(member.grade_level from '[0-9]+')::integer not in (11, 12)
+          else true
         end
     )
     and (
@@ -271,6 +271,60 @@ as $$
       )
     );
 $$;
+
+create or replace function public.mark_equipment_reservation_returned(p_reservation_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  affected_equipment_id uuid;
+  returning_member_name text;
+begin
+  if not public.is_crew_operations_user() then
+    raise exception 'Moderator-or-above access is required.';
+  end if;
+
+  select member.name into returning_member_name
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+  returning_member_name := coalesce(returning_member_name, auth.jwt() ->> 'email', 'Auth Admin');
+
+  update public.equipment_reservations
+  set reservation_status = 'returned',
+      returned_at = now(),
+      returned_by = auth.uid(),
+      returned_by_name = returning_member_name
+  where id = p_reservation_id
+    and (
+      reservation_status = 'checked_out'
+      or reservation_status = 'auto_released'
+      or (reservation_status = 'scheduled' and starts_at <= now())
+    )
+  returning equipment_id into affected_equipment_id;
+
+  if affected_equipment_id is null then
+    return false;
+  end if;
+
+  update public.equipment
+  set status = 'available'
+  where id = affected_equipment_id
+    and status = 'checked_out'
+    and not exists (
+      select 1 from public.equipment_reservations reservation
+      where reservation.equipment_id = affected_equipment_id
+        and reservation.reservation_status = 'checked_out'
+    );
+
+  return true;
+end;
+$$;
+
+revoke all on function public.mark_equipment_reservation_returned(uuid) from public;
+grant execute on function public.mark_equipment_reservation_returned(uuid) to authenticated;
 
 create policy "Signed-in users can read members"
 on public.members for select
@@ -393,19 +447,32 @@ using (true);
 create policy "Signed-in members can reserve equipment"
 on public.equipment_reservations for insert
 to authenticated
-with check (public.can_create_equipment_reservation(
-  equipment_id, member_id, event_id, reservation_type, starts_at, ends_at
-));
+with check (
+  public.can_create_equipment_reservation(
+    equipment_id, member_id, event_id, reservation_type, starts_at, ends_at
+  )
+  and (reservation_type <> 'non_event' or nullif(btrim(purpose), '') is not null)
+  and reservation_status = 'scheduled'
+  and checked_out_at is null
+  and returned_at is null
+  and returned_by is null
+  and returned_by_name is null
+  and auto_released_at is null
+);
 
 create policy "Users can cancel equipment reservations"
 on public.equipment_reservations for delete
 to authenticated
 using (
-  public.is_admin_panel_user()
-  or exists (
-    select 1 from public.members member
-    where member.id = equipment_reservations.member_id
-      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  reservation_status = 'scheduled'
+  and starts_at > now()
+  and (
+    public.is_admin_panel_user()
+    or exists (
+      select 1 from public.members member
+      where member.id = equipment_reservations.member_id
+        and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    )
   )
 );
 

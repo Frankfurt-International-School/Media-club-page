@@ -189,11 +189,40 @@ create table if not exists public.equipment_reservations (
   member_id uuid not null references public.members(id) on delete cascade,
   event_id uuid references public.events(id) on delete cascade,
   reservation_type text not null check (reservation_type in ('event', 'non_event')),
+  purpose text,
   starts_at timestamptz not null,
   ends_at timestamptz not null,
+  reservation_status text not null default 'scheduled',
+  checked_out_at timestamptz,
+  returned_at timestamptz,
+  returned_by uuid references auth.users(id) on delete set null,
+  returned_by_name text,
+  auto_released_at timestamptz,
   created_at timestamptz not null default now(),
   check (ends_at > starts_at)
 );
+
+alter table public.equipment_reservations add column if not exists purpose text;
+alter table public.equipment_reservations add column if not exists reservation_status text not null default 'scheduled';
+alter table public.equipment_reservations add column if not exists checked_out_at timestamptz;
+alter table public.equipment_reservations add column if not exists returned_at timestamptz;
+alter table public.equipment_reservations add column if not exists returned_by uuid references auth.users(id) on delete set null;
+alter table public.equipment_reservations add column if not exists returned_by_name text;
+alter table public.equipment_reservations add column if not exists auto_released_at timestamptz;
+alter table public.equipment_reservations drop constraint if exists equipment_reservations_status_check;
+alter table public.equipment_reservations add constraint equipment_reservations_status_check
+check (reservation_status in ('scheduled', 'checked_out', 'returned', 'auto_released'));
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'equipment_reservations_non_event_purpose_check'
+  ) then
+    alter table public.equipment_reservations
+      add constraint equipment_reservations_non_event_purpose_check
+      check (reservation_type <> 'non_event' or nullif(btrim(purpose), '') is not null) not valid;
+  end if;
+end $$;
 
 alter table public.equipment_reservations drop constraint if exists equipment_reservations_no_overlap;
 alter table public.equipment_reservations add constraint equipment_reservations_no_overlap
@@ -201,6 +230,49 @@ exclude using gist (
   equipment_id with =,
   tstzrange(starts_at, ends_at, '[)') with &&
 );
+
+create or replace function public.refresh_equipment_checkout_statuses()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.equipment_reservations
+  set reservation_status = 'auto_released',
+      checked_out_at = coalesce(checked_out_at, starts_at),
+      auto_released_at = coalesce(auto_released_at, ends_at + interval '15 minutes')
+  where reservation_status in ('scheduled', 'checked_out')
+    and returned_at is null
+    and now() >= ends_at + interval '15 minutes';
+
+  update public.equipment_reservations
+  set reservation_status = 'checked_out',
+      checked_out_at = coalesce(checked_out_at, starts_at)
+  where reservation_status = 'scheduled'
+    and now() >= starts_at
+    and now() < ends_at + interval '15 minutes';
+
+  update public.equipment item
+  set status = 'checked_out'
+  where exists (
+    select 1 from public.equipment_reservations reservation
+    where reservation.equipment_id = item.id
+      and reservation.reservation_status = 'checked_out'
+  );
+
+  update public.equipment item
+  set status = 'available'
+  where item.status = 'checked_out'
+    and not exists (
+      select 1 from public.equipment_reservations reservation
+      where reservation.equipment_id = item.id
+        and reservation.reservation_status = 'checked_out'
+    );
+end;
+$$;
+
+revoke all on function public.refresh_equipment_checkout_statuses() from public;
 
 create table if not exists public.gallery (
   id uuid primary key default gen_random_uuid(),

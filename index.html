@@ -167,7 +167,7 @@
     box-shadow: inset 3px 0 var(--accent), 0 7px 18px rgba(0,0,0,0.16);
   }
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.8; }
-  .admin-only { display: none; }
+  .admin-only, .crew-operations-only { display: none; }
   .nav-badge {
     margin-left: auto;
     background: var(--accent-dim);
@@ -1265,6 +1265,10 @@
       <span class="nav-label">Media Role Guide</span>
     </div>
     <div class="nav-section-label">Club</div>
+    <div class="nav-item crew-operations-only" data-label="Equipment Status" onclick="navigate('equipment-status', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span class="nav-label">Equipment Status</span>
+    </div>
     <div class="nav-item" data-label="Join the Club" onclick="navigate('join', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
       <span class="nav-label">Join the Club</span>
@@ -1499,7 +1503,29 @@
         Add equipment
       </button>
     </div>
+    <div class="filter-row" id="equipment-filters">
+      <input class="form-input" id="equipment-search" style="max-width:260px;" placeholder="Search equipment" oninput="renderEquipment()" />
+      <select class="form-select" id="equipment-category-filter" style="max-width:220px;" onchange="renderEquipment()">
+        <option value="all">All categories</option><option>Recording Cameras</option><option>Camera</option><option>Tripod</option><option>Microphone</option><option>Accessories</option><option>Other</option>
+      </select>
+      <select class="form-select" id="equipment-status-filter" style="max-width:190px;" onchange="renderEquipment()">
+        <option value="all">All statuses</option><option value="available">Available</option><option value="checked_out">Checked out</option><option value="unavailable">Unavailable</option>
+      </select>
+    </div>
     <div class="grid3" id="equipment-grid"></div>
+  </div>
+
+  <!-- ── EQUIPMENT STATUS ── -->
+  <div id="page-equipment-status" class="page">
+    <div class="mb20">
+      <div class="page-title">Equipment Status</div>
+      <div class="page-sub">Live check-out status and return register for Moderator-or-above members.</div>
+    </div>
+    <div class="grid3 mb24" id="equipment-status-grid"></div>
+    <div class="card" style="overflow-x:auto;">
+      <div class="flex-between mb16"><div><div class="section-head" style="margin:0;">Checkout register</div><div class="text-muted">Reservations, purposes, returns, and automatic releases.</div></div></div>
+      <table class="sheet-table" id="equipment-register-table"></table>
+    </div>
   </div>
 
   <!-- ── PROFILE ── -->
@@ -1605,7 +1631,7 @@
   <div id="page-join" class="page">
     <div style="max-width:560px;">
       <div class="page-title mb8">Join Media Club</div>
-      <div class="page-sub mb24">Fill in the form below and a committee member will review your application.</div>
+      <div class="page-sub mb24">Fill in the form below and a faculty member will review your application.</div>
       <div class="card" id="join-form-card">
         <div class="form-row2">
           <div class="form-group"><label class="form-label">First name *</label><input class="form-input" id="join-fname" placeholder="Anna" /></div>
@@ -1883,6 +1909,7 @@
     <div class="form-group"><label class="form-label">Use</label><select class="form-select" id="reserve-type" onchange="updateReservationFields()"><option value="event">During an event</option><option value="non_event">Not during an event</option></select></div>
     <div class="form-group" id="reserve-event-group"><label class="form-label">Event</label><select class="form-select" id="reserve-event" onchange="prefillEventReservationTimes()"></select></div>
     <div class="form-group" id="reserve-date-group" style="display:none;"><label class="form-label">Date</label><input class="form-input" id="reserve-date" type="date" /></div>
+    <div class="form-group" id="reserve-purpose-group" style="display:none;"><label class="form-label">Purpose *</label><textarea class="form-textarea" id="reserve-purpose" placeholder="Explain what the equipment will be used for"></textarea></div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="reserve-start" type="time" /></div>
       <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="reserve-end" type="time" /></div>
@@ -2317,8 +2344,15 @@ function normalizeEquipment(item) {
       eventId: reservation.event_id,
       eventTitle: reservation.events?.title || '',
       type: reservation.reservation_type,
+      purpose: reservation.purpose || '',
       startsAt: reservation.starts_at,
       endsAt: reservation.ends_at,
+      status: reservation.reservation_status || 'scheduled',
+      checkedOutAt: reservation.checked_out_at || '',
+      returnedAt: reservation.returned_at || '',
+      returnedBy: reservation.returned_by || '',
+      returnedByName: reservation.returned_by_name || '',
+      autoReleasedAt: reservation.auto_released_at || '',
     })),
   };
 }
@@ -2363,7 +2397,7 @@ async function loadCrewCenterData() {
       supabaseClient.from('members').select('*').order('name'),
       supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
-      supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, starts_at, ends_at, members(name), events(title))').order('name'),
+      supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
       supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
     ]);
@@ -2388,6 +2422,8 @@ async function loadCrewCenterData() {
     window.CREW_CENTER_DATA_LOADED = true;
     if (pageFromPath() === 'admin') {
       navigate(canAccessAdminPanel() ? 'admin' : 'home', navItemForPage(canAccessAdminPanel() ? 'admin' : 'home'), { skipUrl: canAccessAdminPanel() });
+    } else if (pageFromPath() === 'equipment-status') {
+      navigate(canManageCrewOperations() ? 'equipment-status' : 'home', navItemForPage(canManageCrewOperations() ? 'equipment-status' : 'home'), { skipUrl: canManageCrewOperations() });
     }
     renderCurrentPage();
     scheduleEventVisibilityRefresh();
@@ -2423,12 +2459,13 @@ function renderCurrentPage() {
   if (activePage === 'members') renderMembers();
   if (activePage === 'gallery') renderGallery();
   if (activePage === 'equipment') renderEquipment();
+  if (activePage === 'equipment-status') renderEquipmentStatus();
 }
 
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   home: '/dashboard',
   events: '/events',
@@ -2436,6 +2473,7 @@ const pageRoutes = {
   members: '/members',
   gallery: '/gallery',
   equipment: '/equipment',
+  'equipment-status': '/equipment-status',
   'role-guide': '/role-guide',
   profile: '/profile',
   join: '/join',
@@ -2450,6 +2488,7 @@ const routePages = {
   '/members': 'members',
   '/gallery': 'gallery',
   '/equipment': 'equipment',
+  '/equipment-status': 'equipment-status',
   '/role-guide': 'role-guide',
   '/profile': 'profile',
   '/join': 'join',
@@ -2468,6 +2507,9 @@ function navItemForPage(id) {
 function navigate(id, el, options = {}) {
   let page = document.getElementById('page-' + id) ? id : 'home';
   if (page === 'admin' && !canAccessAdminPanel()) {
+    page = 'home';
+  }
+  if (page === 'equipment-status' && !canManageCrewOperations()) {
     page = 'home';
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2489,6 +2531,7 @@ function navigate(id, el, options = {}) {
   if (page === 'members') renderMembers();
   if (page === 'gallery') renderGallery();
   if (page === 'equipment') renderEquipment();
+  if (page === 'equipment-status') renderEquipmentStatus();
   if (page === 'profile') renderProfile();
   if (page === 'admin') renderAdmin();
   closeMobileSidebar();
@@ -3794,21 +3837,74 @@ async function submitProject() {
 // ══════════════════════════════
 // EQUIPMENT
 // ══════════════════════════════
+function reservationLifecycleStatus(reservation, now = Date.now()) {
+  if (reservation.returnedAt || reservation.status === 'returned') return 'returned';
+  if (reservation.autoReleasedAt || reservation.status === 'auto_released' || now >= new Date(reservation.endsAt).getTime() + 15 * 60 * 1000) return 'auto_released';
+  if (now >= new Date(reservation.startsAt).getTime()) return 'checked_out';
+  return 'scheduled';
+}
+
+function activeEquipmentReservation(item, now = Date.now()) {
+  return item.reservations
+    .filter(reservation => reservationLifecycleStatus(reservation, now) === 'checked_out')
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0] || null;
+}
+
+function equipmentDisplayStatus(item, now = Date.now()) {
+  if (activeEquipmentReservation(item, now)) return 'checked_out';
+  return item.status === 'checked_out' ? 'available' : item.status;
+}
+
+function equipmentStatusLabel(status) {
+  return { available: 'Available', checked_out: 'Checked out', unavailable: 'Unavailable' }[status] || status;
+}
+
+function equipmentStatusColor(status) {
+  return status === 'available' ? 'green' : status === 'checked_out' ? 'coral' : 'amber';
+}
+
+let equipmentStatusRefreshTimer = null;
+function scheduleEquipmentStatusRefresh() {
+  if (equipmentStatusRefreshTimer) clearTimeout(equipmentStatusRefreshTimer);
+  equipmentStatusRefreshTimer = setTimeout(() => {
+    const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+    if (activePage === 'equipment') renderEquipment();
+    if (activePage === 'equipment-status') renderEquipmentStatus();
+  }, 30000);
+}
+
 function renderEquipment() {
-  const equip = state.equipment;
+  scheduleEquipmentStatusRefresh();
+  const search = document.getElementById('equipment-search')?.value.trim().toLowerCase() || '';
+  const categorySelect = document.getElementById('equipment-category-filter');
+  const currentCategory = categorySelect?.value || 'all';
+  if (categorySelect) {
+    const categories = [...new Set(state.equipment.map(item => item.category))].sort();
+    categorySelect.innerHTML = '<option value="all">All categories</option>' + categories.map(category => `<option value="${category}">${category}</option>`).join('');
+    categorySelect.value = categories.includes(currentCategory) ? currentCategory : 'all';
+  }
+  const category = categorySelect?.value || 'all';
+  const status = document.getElementById('equipment-status-filter')?.value || 'all';
+  const equip = state.equipment.filter(item =>
+    (!search || `${item.name} ${item.category} ${item.detail}`.toLowerCase().includes(search))
+    && (category === 'all' || item.category === category)
+    && (status === 'all' || equipmentDisplayStatus(item) === status)
+  );
   const grid = document.getElementById('equipment-grid');
   if (!equip.length) {
     grid.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-        <p>No equipment has been added yet.</p>
-        ${canManageCrewOperations() ? "<button class=\"btn btn-accent btn-sm\" style=\"margin-top:14px;\" onclick=\"openModal('equip-add-modal')\">Add equipment</button>" : '<div class="text-muted" style="margin-top:10px;">Equipment can be added by production staff.</div>'}
+        <p>${state.equipment.length ? 'No equipment matches these filters.' : 'No equipment has been added yet.'}</p>
+        ${!state.equipment.length && canManageCrewOperations() ? "<button class=\"btn btn-accent btn-sm\" style=\"margin-top:14px;\" onclick=\"openModal('equip-add-modal')\">Add equipment</button>" : !state.equipment.length ? '<div class="text-muted" style="margin-top:10px;">Equipment can be added by production staff.</div>' : ''}
       </div>`;
     return;
   }
   const equipmentCard = e => {
+    const liveStatus = equipmentDisplayStatus(e);
+    const activeReservation = activeEquipmentReservation(e);
     const reservations = e.reservations
-      .filter(reservation => new Date(reservation.endsAt) > new Date())
+      .filter(reservation => reservationLifecycleStatus(reservation) === 'scheduled')
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     return `
       <div class="equipment-card">
@@ -3820,13 +3916,14 @@ function renderEquipment() {
         <div class="equip-name">${e.name}</div>
         <div class="equip-detail">${e.category} · ${e.detail}</div>
         <div class="equip-status">
-          <span class="badge badge-${e.status === 'available' ? 'green' : 'amber'}">${e.status}</span>
+          <span class="badge badge-${equipmentStatusColor(liveStatus)}">${equipmentStatusLabel(liveStatus)}</span>
           <span class="text-muted">${reservations.length} upcoming</span>
         </div>
+        ${activeReservation ? `<div class="text-muted" style="margin-top:6px;"><strong>With ${activeReservation.memberName}</strong> · until ${new Date(activeReservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${activeReservation.eventTitle ? ` · ${activeReservation.eventTitle}` : activeReservation.purpose ? ` · ${activeReservation.purpose}` : ''}</div>` : ''}
         ${reservations.slice(0, 2).map(reservation => `<div class="text-muted" style="margin-top:6px;">${reservation.memberName} · ${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${reservation.eventTitle ? ` · ${reservation.eventTitle}` : ''}</div>`).join('')}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
-          <button class="btn btn-accent btn-sm" ${e.status !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>
-          ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="toggleEquipmentAvailability('${e.id}')">Mark ${e.status === 'available' ? 'unavailable' : 'available'}</button><button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>` : ''}
+          <button class="btn btn-accent btn-sm" ${liveStatus !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>
+          ${canManageCrewOperations() ? `${liveStatus === 'checked_out' ? '<span class="text-muted">Return through Equipment Status</span>' : `<button class="btn btn-ghost btn-sm" onclick="toggleEquipmentAvailability('${e.id}')">Mark ${liveStatus === 'available' ? 'unavailable' : 'available'}</button>`}<button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>` : ''}
         </div>
       </div>`;
   };
@@ -3843,6 +3940,68 @@ function renderEquipment() {
       <div class="catalog-equipment-grid">${items.map(equipmentCard).join('')}</div>
     </section>`;
   }).join('');
+}
+
+function renderEquipmentStatus() {
+  if (!canManageCrewOperations()) return;
+  scheduleEquipmentStatusRefresh();
+  const grid = document.getElementById('equipment-status-grid');
+  const register = document.getElementById('equipment-register-table');
+  if (!grid || !register) return;
+  grid.innerHTML = state.equipment.length ? state.equipment.map(item => {
+    const liveStatus = equipmentDisplayStatus(item);
+    const active = activeEquipmentReservation(item);
+    return `<div class="equipment-card">
+      <div class="flex-between mb8"><div class="equip-name">${item.name}</div><span class="badge badge-${equipmentStatusColor(liveStatus)}">${equipmentStatusLabel(liveStatus)}</span></div>
+      <div class="equip-detail">${item.category} · ${item.detail}</div>
+      ${active ? `<div style="margin-top:10px;"><strong>With:</strong> ${active.memberName}</div><div class="text-muted">${active.eventTitle || active.purpose || 'No purpose recorded'} · ${new Date(active.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(active.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div><button class="btn btn-accent btn-sm" style="margin-top:12px;" onclick="markEquipmentReturned('${active.id}')">Mark returned</button>` : `<div class="text-muted" style="margin-top:10px;">Not currently checked out.</div><select class="form-select" style="margin-top:12px;" onchange="setEquipmentStatus('${item.id}', this.value)"><option value="available"${liveStatus === 'available' ? ' selected' : ''}>Available</option><option value="unavailable"${liveStatus === 'unavailable' ? ' selected' : ''}>Unavailable</option></select>`}
+    </div>`;
+  }).join('') : '<div class="empty-state" style="grid-column:1/-1"><p>No equipment has been added yet.</p></div>';
+
+  const rows = state.equipment.flatMap(item => item.reservations.map(reservation => ({ item, reservation })))
+    .sort((a, b) => b.reservation.startsAt.localeCompare(a.reservation.startsAt));
+  register.innerHTML = `<thead><tr><th>Equipment</th><th>Person</th><th>Session / purpose</th><th>Time</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.length ? rows.map(({ item, reservation }) => {
+    const status = reservationLifecycleStatus(reservation);
+    const lifecycleTime = value => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+    const statusLabel = status === 'returned'
+      ? `Returned${reservation.returnedByName ? ` by ${reservation.returnedByName}` : ''}${reservation.returnedAt ? ` · ${lifecycleTime(reservation.returnedAt)}` : ''}`
+      : status === 'checked_out'
+        ? `Checked out · ${lifecycleTime(reservation.checkedOutAt || reservation.startsAt)}`
+        : status === 'auto_released'
+          ? `Auto-released · return unconfirmed · ${lifecycleTime(reservation.autoReleasedAt || new Date(new Date(reservation.endsAt).getTime() + 15 * 60 * 1000).toISOString())}`
+          : 'Scheduled';
+    const action = ['checked_out', 'auto_released'].includes(status) ? `<button class="btn btn-accent btn-sm" onclick="markEquipmentReturned('${reservation.id}')">${status === 'auto_released' ? 'Confirm returned' : 'Returned'}</button>` : '';
+    return `<tr><td>${item.name}</td><td>${reservation.memberName}</td><td>${reservation.eventTitle || reservation.purpose || '—'}</td><td>${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</td><td>${statusLabel}</td><td>${action}</td></tr>`;
+  }).join('') : '<tr><td colspan="6">No reservations recorded.</td></tr>'}</tbody>`;
+}
+
+async function setEquipmentStatus(id, status) {
+  if (!canManageCrewOperations() || !['available', 'unavailable'].includes(status)) return;
+  const item = state.equipment.find(equipment => equipment.id === id);
+  if (!item || activeEquipmentReservation(item)) { showToast('Return checked-out equipment before changing its status.', 'error'); renderEquipmentStatus(); return; }
+  const { error } = await supabaseClient.from('equipment').update({ status }).eq('id', id);
+  if (error) { showToast("Couldn't update equipment status.", 'error'); renderEquipmentStatus(); return; }
+  item.status = status;
+  renderEquipmentStatus();
+  showToast(`${item.name} marked ${equipmentStatusLabel(status).toLowerCase()}.`);
+}
+
+async function markEquipmentReturned(reservationId) {
+  if (!canManageCrewOperations()) return;
+  const { data: updated, error } = await supabaseClient.rpc('mark_equipment_reservation_returned', { p_reservation_id: reservationId });
+  if (error || !updated) { showToast(error?.message || "Couldn't register the return.", 'error', 6000); return; }
+  state.equipment.forEach(item => {
+    const reservation = item.reservations.find(entry => entry.id === reservationId);
+    if (!reservation) return;
+    const wasActivelyCheckedOut = reservationLifecycleStatus(reservation) === 'checked_out';
+    reservation.status = 'returned';
+    reservation.returnedAt = new Date().toISOString();
+    reservation.returnedByName = currentMemberRecord()?.name || state.currentUser.name || '';
+    if (wasActivelyCheckedOut) item.status = 'available';
+  });
+  renderEquipmentStatus();
+  renderDashboard();
+  showToast('Equipment return registered.');
 }
 
 function updateEquipmentOtherCategory() {
@@ -3886,6 +4045,7 @@ async function addEquipment() {
 async function toggleEquipmentAvailability(id) {
   if (!canManageCrewOperations()) return;
   const item = state.equipment.find(equipment => equipment.id === id);
+  if (activeEquipmentReservation(item)) { showToast('Return checked-out equipment through Equipment Status.', 'error'); return; }
   const status = item.status === 'available' ? 'unavailable' : 'available';
   const { error } = await supabaseClient.from('equipment').update({ status }).eq('id', id);
   if (error) { showToast("Couldn't update equipment availability.", 'error'); return; }
@@ -3911,19 +4071,21 @@ let reservingEquipmentId = null;
 function openEquipmentReservation(id) {
   if (state.currentUser.isVisitor) { showToast('Visitors cannot reserve equipment.', 'error'); return; }
   const item = state.equipment.find(equipment => equipment.id === id);
-  if (!item || item.status !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
+  if (!item || equipmentDisplayStatus(item) !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
   const member = currentMemberRecord();
   const outsideEventAllowed = canReserveOutsideEvent(item, member);
-  if (!outsideEventAllowed && !state.events.length) {
-    showToast('Grade 10 and below can reserve cameras only during an event.', 'error', 6000);
+  const reservableEvents = state.events.filter(event => !isPastEvent(event));
+  if (!outsideEventAllowed && !reservableEvents.length) {
+    showToast('Only Grade 11 and Grade 12 members can borrow cameras outside an event.', 'error', 6000);
     return;
   }
   reservingEquipmentId = id;
   document.getElementById('reserve-equipment-name').textContent = `${item.name} · ${item.category}`;
-  document.getElementById('reserve-event').innerHTML = state.events.map(event => `<option value="${event.id}">${event.title} — ${fmtDate(event.date)}</option>`).join('');
+  document.getElementById('reserve-event').innerHTML = reservableEvents.map(event => `<option value="${event.id}">${event.title} — ${fmtDate(event.date)}</option>`).join('');
   const reservationType = document.getElementById('reserve-type');
-  reservationType.innerHTML = `${state.events.length ? '<option value="event">During an event</option>' : ''}${outsideEventAllowed ? '<option value="non_event">Not during an event</option>' : ''}`;
-  reservationType.value = state.events.length ? 'event' : 'non_event';
+  reservationType.innerHTML = `${reservableEvents.length ? '<option value="event">During an event</option>' : ''}${outsideEventAllowed ? '<option value="non_event">Not during an event</option>' : ''}`;
+  reservationType.value = reservableEvents.length ? 'event' : 'non_event';
+  document.getElementById('reserve-purpose').value = '';
   updateReservationFields();
   openModal('equip-reserve-modal');
 }
@@ -3932,6 +4094,7 @@ function updateReservationFields() {
   const duringEvent = document.getElementById('reserve-type').value === 'event';
   document.getElementById('reserve-event-group').style.display = duringEvent ? '' : 'none';
   document.getElementById('reserve-date-group').style.display = duringEvent ? 'none' : '';
+  document.getElementById('reserve-purpose-group').style.display = duringEvent ? 'none' : '';
   if (duringEvent) prefillEventReservationTimes();
 }
 
@@ -3962,19 +4125,21 @@ function memberGradeNumber(member) {
 function canReserveOutsideEvent(item, member) {
   const grade = memberGradeNumber(member);
   const isCamera = ['Camera', 'Recording Cameras'].includes(item?.category);
-  return !isCamera || grade === null || grade > 10;
+  return !isCamera || [11, 12].includes(grade);
 }
 
 async function reserveEquipment() {
   const item = state.equipment.find(equipment => equipment.id === reservingEquipmentId);
   const member = currentMemberRecord();
   if (!item || !member) { showToast("Couldn't match your account to an equipment or member record.", 'error'); return; }
-  if (item.status !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
+  if (equipmentDisplayStatus(item) !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
   const type = document.getElementById('reserve-type').value;
   if (type === 'non_event' && !canReserveOutsideEvent(item, member)) {
-    showToast('Grade 10 and below can reserve cameras only during an event.', 'error', 6000);
+    showToast('Only Grade 11 and Grade 12 members can borrow cameras outside an event.', 'error', 6000);
     return;
   }
+  const purpose = type === 'non_event' ? document.getElementById('reserve-purpose').value.trim() : '';
+  if (type === 'non_event' && !purpose) { showToast('Please explain the purpose of this non-event reservation.', 'error'); return; }
   const event = type === 'event' ? state.events.find(item => item.id === document.getElementById('reserve-event').value) : null;
   const date = event?.date || document.getElementById('reserve-date').value;
   const startTime = document.getElementById('reserve-start').value;
@@ -4007,14 +4172,15 @@ async function reserveEquipment() {
     member_id: member.id,
     event_id: event?.id || null,
     reservation_type: type,
+    purpose: purpose || null,
     starts_at: new Date(start).toISOString(),
     ends_at: new Date(end).toISOString(),
-  }).select('id, member_id, event_id, reservation_type, starts_at, ends_at, members(name), events(title)').single();
+  }).select('id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, members(name), events(title)').single();
   if (error) {
     showToast(error.code === '23P01' ? 'This equipment is already reserved during that time.' : "Couldn't reserve equipment. Check your event signup and requested time.", 'error', 6000);
     return;
   }
-  item.reservations.push({ id: data.id, memberId: data.member_id, memberName: data.members?.name || member.name, eventId: data.event_id, eventTitle: data.events?.title || '', type: data.reservation_type, startsAt: data.starts_at, endsAt: data.ends_at });
+  item.reservations.push({ id: data.id, memberId: data.member_id, memberName: data.members?.name || member.name, eventId: data.event_id, eventTitle: data.events?.title || '', type: data.reservation_type, purpose: data.purpose || '', startsAt: data.starts_at, endsAt: data.ends_at, status: data.reservation_status || 'scheduled', checkedOutAt: data.checked_out_at || '', returnedAt: data.returned_at || '', returnedBy: data.returned_by || '', returnedByName: data.returned_by_name || '', autoReleasedAt: data.auto_released_at || '' });
   closeModal('equip-reserve-modal');
   renderEquipment();
   showToast(`${item.name} reserved.`);
