@@ -171,7 +171,7 @@
     box-shadow: inset 3px 0 var(--sidebar-accent), 0 7px 18px rgba(164,1,52,0.12);
   }
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.8; }
-  .admin-only, .crew-operations-only { display: none; }
+  .admin-only, .crew-operations-only, .crew-schedule-only { display: none; }
   .nav-item.sidebar-custom-hidden, .nav-section-label.sidebar-category-hidden { display: none !important; }
   .nav-badge {
     margin-left: auto;
@@ -367,6 +367,23 @@
     font-weight: 700;
     line-height: 1;
   }
+  .notification-button { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg3); color: var(--text2); cursor: pointer; }
+  .notification-button:hover, .notification-button.active { color: var(--accent); border-color: rgba(164,1,52,.2); background: var(--accent-dim2); }
+  .notification-button svg { width: 18px; height: 18px; }
+  .notification-count { display: none; position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border: 2px solid var(--bg2); border-radius: 999px; background: var(--accent); color: #fff; font-size: 9px; font-weight: 700; line-height: 14px; }
+  .notification-count.visible { display: block; }
+  .notification-panel { display: none; position: fixed; top: calc(var(--topbar) + 10px); right: 18px; z-index: 190; width: min(390px, calc(100vw - 24px)); max-height: min(650px, calc(100vh - var(--topbar) - 24px)); overflow: auto; padding: 14px; border: 1px solid var(--border2); border-radius: 16px; background: var(--bg2); box-shadow: 0 22px 60px rgba(20,20,24,.22); }
+  .notification-panel.open { display: block; animation: slideUp .16s ease; }
+  .notification-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .notification-list { display: grid; gap: 8px; }
+  .notification-item { padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); cursor: pointer; }
+  .notification-item:hover { border-color: rgba(164,1,52,.2); }
+  .notification-item.unread { border-left: 3px solid var(--accent); background: var(--accent-dim2); }
+  .notification-item.action { border-color: rgba(255,181,71,.25); background: var(--amber-dim); cursor: default; }
+  .notification-item-title { color: var(--text); font-size: 12px; font-weight: 600; }
+  .notification-item-copy { margin-top: 3px; color: var(--text2); font-size: 11px; line-height: 1.45; }
+  .notification-item-meta { margin-top: 6px; color: var(--text3); font-size: 9px; }
+  .notification-actions { display: flex; gap: 7px; margin-top: 10px; }
   .mob-menu-btn {
     display: none;
     background: none;
@@ -1025,12 +1042,15 @@
     transition: all 0.15s;
     font-family: var(--font-head);
   }
+  .tab-indicator { position: absolute; top: 5px; bottom: 5px; left: 0; z-index: 0; border: 1px solid rgba(164,1,52,.16); border-radius: 10px; background: rgba(164,1,52,.085); box-shadow: 0 3px 10px rgba(164,1,52,.07); transition: transform .3s cubic-bezier(.22,1,.36,1), width .3s cubic-bezier(.22,1,.36,1); pointer-events: none; }
+  .tab-row { position: relative; }
+  .tab { position: relative; z-index: 1; }
   .tab:hover { color: var(--accent); background: rgba(164,1,52,.055); }
   .tab.active {
     color: var(--accent);
-    border-color: rgba(164,1,52,.16);
-    background: rgba(164,1,52,.085);
-    box-shadow: 0 3px 10px rgba(164,1,52,.07);
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
   }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
@@ -1083,6 +1103,16 @@
     padding: 14px 16px;
   }
   .profile-shell { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap: 18px; max-width: 980px; }
+  .settings-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 20px; max-width: 980px; align-items: start; }
+  .settings-nav { position: sticky; top: calc(var(--topbar) + 18px); display: grid; gap: 5px; padding: 6px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg2); }
+  .settings-nav button { padding: 10px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--text3); cursor: pointer; font-family: var(--font-body); text-align: left; }
+  .settings-nav button:hover { color: var(--accent); background: var(--accent-dim2); }
+  .settings-nav button.active { color: var(--accent); background: var(--accent-dim); font-weight: 600; }
+  .settings-content .profile-panel { display: none; }
+  .settings-content .profile-panel.active { display: block; }
+  .notification-choice-list { display: grid; gap: 9px; }
+  .notification-choice { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg3); }
+  .notification-choice input { width: 18px; height: 18px; accent-color: var(--accent); }
   .profile-panel { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg2); overflow: hidden; }
   .profile-panel-head { padding: 20px 22px; border-bottom: 1px solid var(--border); }
   .profile-panel-head p { color: var(--text3); font-size: 12px; margin-top: 3px; }
@@ -1125,7 +1155,7 @@
   .sidebar-choice input { accent-color: var(--accent); }
   .sidebar-preference-actions { display: none; align-items: center; gap: 10px; margin-top: 16px; }
   .sidebar-preference-actions.visible { display: flex; }
-  @media (max-width: 900px) { .profile-shell, .profile-photo-layout { grid-template-columns: 1fr; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } .all-pages-popover { left: 12px; right: 12px; bottom: 12px; width: auto; } }
+  @media (max-width: 900px) { .profile-shell, .profile-photo-layout, .settings-layout { grid-template-columns: 1fr; } .settings-nav { position: static; display: flex; overflow-x: auto; } .settings-nav button { white-space: nowrap; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } .all-pages-popover { left: 12px; right: 12px; bottom: 12px; width: auto; } }
   @media (max-width: 520px) { .sidebar-choice-grid { grid-template-columns: 1fr; } }
 
   /* ── FILTER CHIPS ── */
@@ -1450,7 +1480,7 @@
       <span class="nav-label">Media Role Guide</span>
     </div>
     <div class="nav-section-label" data-nav-category="club">Club</div>
-    <div class="nav-item crew-operations-only" data-page="crew-deployment" data-category="club" data-label="Crew Schedule" onclick="navigate('crew-deployment', this)">
+    <div class="nav-item crew-schedule-only" data-page="crew-deployment" data-category="club" data-label="Crew Schedule" onclick="navigate('crew-deployment', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 12h2M19 12h2"/></svg>
       <span class="nav-label">Crew Schedule</span>
     </div>
@@ -1501,6 +1531,7 @@
     </button>
     <div class="topbar-title" id="topbar-title">Dashboard</div>
     <div class="topbar-motto">Vox Populi, Vox Media</div>
+    <button class="notification-button" id="notification-button" onclick="toggleNotificationPanel(event)" aria-label="Open notifications" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 00-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="notification-count" id="notification-count">0</span></button>
     <div class="berlin-clock" aria-live="polite">
       <div class="clock-dot"></div>
       <div>
@@ -1509,6 +1540,7 @@
       </div>
     </div>
   </div>
+  <div class="notification-panel" id="notification-panel" role="dialog" aria-label="Notifications"><div class="notification-panel-head"><div><div class="all-pages-title">Notifications</div><div class="text-muted">Updates and actions that need your attention.</div></div><button class="btn btn-ghost btn-sm" onclick="markNotificationsRead()">Mark read</button></div><div class="notification-list" id="notification-list"></div></div>
 
   <!-- ── DASHBOARD ── -->
   <div id="page-home" class="page active">
@@ -1624,6 +1656,7 @@
           <div class="signup-select-shell"><select class="form-select" id="signup-attendance" onchange="updateSignupAttendanceFields()"></select></div>
         </div>
       </div>
+      <div class="sidebar-customize-toggle" style="margin-top:14px;"><span><strong>Can you definitely attend?</strong><span class="text-muted" id="signup-confirmation-help" style="display:block;">Choose Maybe if you still need to confirm. You must confirm two hours before the event starts.</span></span><select class="form-select" id="signup-confirmation" style="width:150px;"><option value="confirmed">Yes, confirmed</option><option value="maybe">Maybe</option></select></div>
       <div class="form-row2" id="signup-custom-time-fields" style="display:none;margin-top:14px;">
         <div class="form-group" style="margin:0"><label class="form-label">Arrival time</label><input class="form-input" id="signup-start-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
         <div class="form-group" style="margin:0"><label class="form-label">Leaving time</label><input class="form-input" id="signup-end-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
@@ -1810,10 +1843,12 @@
 
   <!-- ── PROFILE ── -->
   <div id="page-profile" class="page">
-    <div class="page-title mb8">Profile Settings</div>
-    <div class="page-sub mb24">Personalize how your Crew Center looks.</div>
-    <div class="profile-shell">
-      <section class="profile-panel">
+    <div class="page-title mb8">Settings</div>
+    <div class="page-sub mb24">Manage your account, appearance, navigation, and notifications.</div>
+    <div class="settings-layout">
+      <nav class="settings-nav" aria-label="Settings sections"><button class="active" onclick="showSettingsSection('profile', this)">Profile</button><button onclick="showSettingsSection('appearance', this)">Appearance</button><button onclick="showSettingsSection('sidebar', this)">Sidebar</button><button onclick="showSettingsSection('notifications', this)">Notifications</button></nav>
+      <div class="settings-content">
+      <section class="profile-panel active" data-settings-section="profile">
         <div class="profile-panel-head"><h3>Profile picture</h3><p>Choose an image, drag to reposition it, and adjust the crop.</p></div>
         <div class="profile-panel-body profile-photo-layout">
           <div class="profile-crop-frame" id="profile-crop-frame">
@@ -1830,14 +1865,14 @@
           </div>
         </div>
       </section>
-      <section class="profile-panel">
+      <section class="profile-panel" data-settings-section="appearance">
         <div class="profile-panel-head"><h3>Appearance</h3><p>Your theme is remembered on this browser.</p></div>
         <div class="profile-panel-body"><div class="theme-options">
           <button class="theme-choice" id="theme-light" onclick="setCrewCenterTheme('light')"><span class="theme-swatch light"><span></span><span></span></span><strong>Light</strong></button>
           <button class="theme-choice" id="theme-dark" onclick="setCrewCenterTheme('dark')"><span class="theme-swatch dark"><span></span><span></span></span><strong>Dark</strong></button>
         </div></div>
       </section>
-      <section class="profile-panel" id="sidebar-preferences-panel">
+      <section class="profile-panel" id="sidebar-preferences-panel" data-settings-section="sidebar">
         <div class="profile-panel-head"><h3>Sidebar</h3><p>Choose the pages you use most. Your selection follows your account across devices.</p></div>
         <div class="profile-panel-body">
           <label class="sidebar-customize-toggle"><span><strong>Customize sidebar</strong><span class="text-muted" style="display:block;">Keep at least one page from each category.</span></span><input id="sidebar-customize-enabled" type="checkbox" onchange="toggleSidebarCustomization(this.checked)"></label>
@@ -1845,6 +1880,15 @@
           <div class="sidebar-preference-actions" id="sidebar-preference-actions"><button class="btn btn-accent" id="sidebar-preference-save" onclick="saveSidebarPreferences()">Save sidebar</button><span class="text-muted">Hidden pages remain available from All pages.</span></div>
         </div>
       </section>
+      <section class="profile-panel" id="notification-preferences-panel" data-settings-section="notifications">
+        <div class="profile-panel-head"><h3>Notifications</h3><p>Choose which in-app updates you want to receive.</p></div>
+        <div class="profile-panel-body"><div class="notification-choice-list">
+          <label class="notification-choice"><span><strong>New events and signups</strong><span class="text-muted" style="display:block;">Notify me when a new event is created and opens for signup.</span></span><input id="notify-event-created" type="checkbox"></label>
+          <label class="notification-choice"><span><strong>Upcoming event reminders</strong><span class="text-muted" style="display:block;">Remind me about my confirmed events during the final 24 hours.</span></span><input id="notify-event-reminders" type="checkbox"></label>
+          <label class="notification-choice"><span><strong>Maybe confirmation reminders</strong><span class="text-muted" style="display:block;">Show countdowns for signups that still need confirmation.</span></span><input id="notify-maybe-reminders" type="checkbox"></label>
+        </div><button class="btn btn-accent" id="notification-preference-save" style="margin-top:16px;" onclick="saveNotificationPreferences()">Save notifications</button></div>
+      </section>
+      </div>
     </div>
   </div>
 
@@ -2187,6 +2231,7 @@ const state = {
     { id: 3, title: "Photography competition now open", body: "The theme this term is 'Urban life'. Entries close May 20. Any member can enter.", date: "Apr 20" },
   ],
   applications: [],
+  notifications: [],
   eventFilter: "all",
   showPastEvents: false,
   galleryFilter: "all",
@@ -2247,6 +2292,14 @@ function canManageCrewOperations() {
 }
 
 window.canManageCrewOperations = canManageCrewOperations;
+
+function canAccessCrewSchedule() {
+  if (canAccessAdminPanel()) return true;
+  const role = normalizeRoleName(currentMemberRecord()?.role || state.currentUser.role || '');
+  return ['leader', 'co-leader'].includes(role);
+}
+
+window.canAccessCrewSchedule = canAccessCrewSchedule;
 
 function currentUserSignupRoleKeys() {
   if (state.currentUser.isVisitor) return [];
@@ -2477,8 +2530,36 @@ function normalizeMember(member, index = 0) {
     avatarPath: member.avatar_path || '',
     sidebarCustomized: Boolean(member.sidebar_customized),
     sidebarItems: Array.isArray(member.sidebar_items) ? member.sidebar_items : [],
+    notificationPreferences: {
+      event_created: member.notification_preferences?.event_created !== false,
+      event_reminders: member.notification_preferences?.event_reminders !== false,
+      maybe_reminders: member.notification_preferences?.maybe_reminders !== false,
+    },
     color: colors[index % colors.length],
     joined_date: member.joined_date,
+  };
+}
+
+function normalizeSignup(signup) {
+  return {
+    id: signup.id,
+    memberId: signup.member_id,
+    name: signup.members?.name || 'Unknown member',
+    role: signup.signup_role || '',
+    reserveRole1: signup.reserve_role_1 || '',
+    reserveRole2: signup.reserve_role_2 || '',
+    attendanceType: signup.attendance_type || 'whole',
+    attendanceStart: signup.attendance_start || '',
+    attendanceEnd: signup.attendance_end || '',
+    attendanceStatus: signup.attendance_status || 'not_taken',
+    attendanceMarkedAt: signup.attendance_marked_at || '',
+    attendanceMarkedBy: signup.attendance_marked_by || '',
+    attendanceMarkedByName: signup.attendance_marked_by_name || '',
+    confirmationStatus: signup.confirmation_status || 'confirmed',
+    confirmationDeadline: signup.confirmation_deadline || '',
+    confirmedAt: signup.confirmed_at || '',
+    ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
+    signedUpAt: signup.signed_up_at || '',
   };
 }
 
@@ -2521,23 +2602,8 @@ function normalizeEvent(event) {
     endsAt: event.ends_at || '',
     slots: 0,
     desc: event.description || '',
-    signups: (event.signups || []).map(signup => ({
-      id: signup.id,
-      memberId: signup.member_id,
-      name: signup.members?.name || 'Unknown member',
-      role: signup.signup_role || '',
-      reserveRole1: signup.reserve_role_1 || '',
-      reserveRole2: signup.reserve_role_2 || '',
-      attendanceType: signup.attendance_type || 'whole',
-      attendanceStart: signup.attendance_start || '',
-      attendanceEnd: signup.attendance_end || '',
-      attendanceStatus: signup.attendance_status || 'not_taken',
-      attendanceMarkedAt: signup.attendance_marked_at || '',
-      attendanceMarkedBy: signup.attendance_marked_by || '',
-      attendanceMarkedByName: signup.attendance_marked_by_name || '',
-      ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
-      signedUpAt: signup.signed_up_at || '',
-    })),
+    signups: (event.signups || []).filter(signup => signup.confirmation_status !== 'expired').map(normalizeSignup),
+    expiredSignups: (event.signups || []).filter(signup => signup.confirmation_status === 'expired').map(normalizeSignup),
   };
 }
 
@@ -2620,13 +2686,14 @@ async function loadCrewCenterData() {
   }
 
   try {
-    const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes] = await Promise.all([
+    const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes, notificationsRes] = await Promise.all([
       supabaseClient.from('members').select('*').order('name'),
-      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, signed_up_at, members(name, role))').order('date', { ascending: true }),
+      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
       supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
       supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
       supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
+      supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
     ]);
 
     const failed = [membersRes, eventsRes, galleryRes, equipmentRes].find(result => result.error);
@@ -2643,9 +2710,11 @@ async function loadCrewCenterData() {
     if (!applicationsRes.error && canAccessAdminPanel()) {
       state.applications = applicationsRes.data.map(normalizeApplication);
     }
+    state.notifications = notificationsRes.error ? [] : notificationsRes.data;
     updateAdminPendingIndicator();
     window.applyCrewCenterAdminControls?.();
     applySidebarPreferences();
+    renderNotificationCenter();
     renderGalleryAuthorField();
     window.CREW_CENTER_DATA_LOADED = true;
     if (pageFromPath() === 'admin') {
@@ -2653,7 +2722,7 @@ async function loadCrewCenterData() {
     } else if (pageFromPath() === 'equipment-status') {
       navigate(canManageCrewOperations() ? 'equipment-status' : 'home', navItemForPage(canManageCrewOperations() ? 'equipment-status' : 'home'), { skipUrl: canManageCrewOperations() });
     } else if (pageFromPath() === 'crew-deployment') {
-      navigate(canManageCrewOperations() ? 'crew-deployment' : 'home', navItemForPage(canManageCrewOperations() ? 'crew-deployment' : 'home'), { skipUrl: canManageCrewOperations() });
+      navigate(canAccessCrewSchedule() ? 'crew-deployment' : 'home', navItemForPage(canAccessCrewSchedule() ? 'crew-deployment' : 'home'), { skipUrl: canAccessCrewSchedule() });
     }
     renderCurrentPage();
     scheduleEventVisibilityRefresh();
@@ -2678,6 +2747,7 @@ function subscribeToCrewCenterChanges() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment_reservations' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, loadCrewCenterData)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'join_applications' }, loadCrewCenterData)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, loadCrewCenterData)
     .subscribe();
 }
 
@@ -2701,7 +2771,8 @@ const sidebarCategories = {
 
 function sidebarPageAvailable(page) {
   if (page === 'admin') return canAccessAdminPanel();
-  if (['crew-deployment', 'equipment-status'].includes(page)) return canManageCrewOperations();
+  if (page === 'crew-deployment') return canAccessCrewSchedule();
+  if (page === 'equipment-status') return canManageCrewOperations();
   return true;
 }
 
@@ -2829,14 +2900,16 @@ function openAllPagesPage(page) {
 document.addEventListener('click', event => {
   const popover = document.getElementById('all-pages-popover');
   if (popover?.classList.contains('open') && !popover.contains(event.target) && !document.getElementById('sidebar-all-pages-button')?.contains(event.target)) closeAllPages();
+  const notificationPanel = document.getElementById('notification-panel');
+  if (notificationPanel?.classList.contains('open') && !notificationPanel.contains(event.target) && !document.getElementById('notification-button')?.contains(event.target)) closeNotificationPanel();
 });
 
-document.addEventListener('keydown', event => { if (event.key === 'Escape') closeAllPages(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeAllPages(); closeNotificationPanel(); } });
 
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   home: '/dashboard',
   events: '/events',
@@ -2882,7 +2955,10 @@ function navigate(id, el, options = {}) {
   if (page === 'admin' && !canAccessAdminPanel()) {
     page = 'home';
   }
-  if (['equipment-status', 'crew-deployment'].includes(page) && !canManageCrewOperations()) {
+  if (page === 'equipment-status' && !canManageCrewOperations()) {
+    page = 'home';
+  }
+  if (page === 'crew-deployment' && !canAccessCrewSchedule()) {
     page = 'home';
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2891,6 +2967,7 @@ function navigate(id, el, options = {}) {
   const activeNav = el || navItemForPage(page);
   if (activeNav) activeNav.classList.add('active');
   document.getElementById('topbar-title').textContent = pageTitles[page] || page;
+  requestAnimationFrame(() => updateSlidingTab(document.querySelector(`#page-${page} .tab-row`)));
   document.getElementById('auth-signout')?.classList.toggle('visible', page === 'profile');
   if (!options.skipUrl) {
     const route = pageRoutes[page] || pageRoutes.home;
@@ -3091,7 +3168,113 @@ function renderProfile() {
   const sidebarPanel = document.getElementById('sidebar-preferences-panel');
   if (sidebarPanel) sidebarPanel.style.display = state.currentUser.isVisitor || !currentMemberRecord() ? 'none' : '';
   renderSidebarSettings();
+  renderNotificationSettings();
   document.getElementById('profile-photo-remove').style.display = state.currentUser.avatarUrl ? '' : 'none';
+}
+
+function showSettingsSection(section, button) {
+  document.querySelectorAll('.settings-content [data-settings-section]').forEach(panel => panel.classList.toggle('active', panel.dataset.settingsSection === section));
+  document.querySelectorAll('.settings-nav button').forEach(item => item.classList.toggle('active', item === button));
+}
+
+function currentNotificationPreferences() {
+  return currentMemberRecord()?.notificationPreferences || { event_created: true, event_reminders: true, maybe_reminders: true };
+}
+
+function renderNotificationSettings() {
+  const preferences = currentNotificationPreferences();
+  const mapping = { 'notify-event-created': 'event_created', 'notify-event-reminders': 'event_reminders', 'notify-maybe-reminders': 'maybe_reminders' };
+  Object.entries(mapping).forEach(([id, key]) => { const input = document.getElementById(id); if (input) input.checked = preferences[key]; });
+  const panel = document.getElementById('notification-preferences-panel');
+  if (panel) panel.style.display = state.currentUser.isVisitor || !currentMemberRecord() ? 'none' : '';
+}
+
+async function saveNotificationPreferences() {
+  const preferences = {
+    event_created: Boolean(document.getElementById('notify-event-created')?.checked),
+    event_reminders: Boolean(document.getElementById('notify-event-reminders')?.checked),
+    maybe_reminders: Boolean(document.getElementById('notify-maybe-reminders')?.checked),
+  };
+  const button = document.getElementById('notification-preference-save');
+  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+  const { data, error } = await supabaseClient.rpc('update_own_notification_preferences', { p_preferences: preferences });
+  if (button) { button.disabled = false; button.textContent = 'Save notifications'; }
+  if (error || !data) { showToast("Couldn't save notification settings. Run the latest Supabase SQL files first.", 'error'); return; }
+  const member = currentMemberRecord();
+  if (member) member.notificationPreferences = preferences;
+  renderNotificationCenter();
+  showToast('Notification settings saved.');
+}
+
+function ownUpcomingSignups() {
+  const memberId = currentMemberRecord()?.id;
+  if (!memberId) return [];
+  return state.events.flatMap(event => event.signups.filter(signup => signup.memberId === memberId).map(signup => ({ event, signup })));
+}
+
+function renderNotificationCenter() {
+  const list = document.getElementById('notification-list');
+  const badge = document.getElementById('notification-count');
+  if (!list || !badge) return;
+  if (state.currentUser.isVisitor || !currentMemberRecord()) {
+    list.innerHTML = '<div class="empty-state" style="padding:24px 12px;"><p>Member notifications are unavailable in visitor mode.</p></div>';
+    badge.classList.remove('visible');
+    return;
+  }
+  const preferences = currentNotificationPreferences();
+  const now = Date.now();
+  const ownSignups = ownUpcomingSignups();
+  const maybeItems = preferences.maybe_reminders ? ownSignups.filter(({ signup }) => signup.confirmationStatus === 'maybe' && new Date(signup.confirmationDeadline).getTime() > now) : [];
+  const upcomingItems = preferences.event_reminders ? ownSignups.filter(({ event, signup }) => {
+    const startsAt = timeValue(event.date, event.setupStart || event.game1Start || event.time || '00:00');
+    return signup.confirmationStatus === 'confirmed' && startsAt > now && startsAt - now <= 24 * 60 * 60 * 1000;
+  }) : [];
+  const storedItems = preferences.event_created ? state.notifications : [];
+  const unread = storedItems.filter(item => !item.read_at).length + maybeItems.length + upcomingItems.length;
+  badge.textContent = unread > 99 ? '99+' : unread;
+  badge.classList.toggle('visible', unread > 0);
+  const actionHtml = maybeItems.map(({ event, signup }) => `<div class="notification-item action"><div class="notification-item-title">Confirm ${event.title}</div><div class="notification-item-copy">Your ${signup.role || 'event'} signup is marked Maybe. Confirm within ${confirmationCountdown(signup.confirmationDeadline)} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="removeSignupById('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
+  const upcomingHtml = upcomingItems.map(({ event }) => `<div class="notification-item action" onclick="navigate('signup',navItemForPage('signup'))"><div class="notification-item-title">${event.title} is coming up</div><div class="notification-item-copy">You are confirmed for ${fmtDate(event.date)} at ${event.time || 'TBC'}.</div><div class="notification-item-meta">Upcoming event</div></div>`).join('');
+  const storedHtml = storedItems.map(item => `<div class="notification-item${item.read_at ? '' : ' unread'}" onclick="openStoredNotification('${item.page || 'events'}','${item.related_event_id || ''}')"><div class="notification-item-title">${item.title}</div><div class="notification-item-copy">${item.message}</div><div class="notification-item-meta">${new Date(item.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</div></div>`).join('');
+  list.innerHTML = actionHtml + upcomingHtml + storedHtml || '<div class="empty-state" style="padding:28px 12px;"><p>You’re all caught up.</p></div>';
+}
+
+function toggleNotificationPanel(event) {
+  event?.stopPropagation();
+  const panel = document.getElementById('notification-panel');
+  const open = panel.classList.toggle('open');
+  document.getElementById('notification-button')?.classList.toggle('active', open);
+  document.getElementById('notification-button')?.setAttribute('aria-expanded', String(open));
+  if (open) renderNotificationCenter();
+}
+
+function closeNotificationPanel() {
+  document.getElementById('notification-panel')?.classList.remove('open');
+  document.getElementById('notification-button')?.classList.remove('active');
+  document.getElementById('notification-button')?.setAttribute('aria-expanded', 'false');
+}
+
+async function markNotificationsRead() {
+  const { error } = await supabaseClient.rpc('mark_own_notifications_read');
+  if (error) { showToast("Couldn't mark notifications as read.", 'error'); return; }
+  state.notifications.forEach(item => { item.read_at = item.read_at || new Date().toISOString(); });
+  renderNotificationCenter();
+}
+
+function openStoredNotification(page, eventId = '') {
+  closeNotificationPanel();
+  navigate(page, navItemForPage(page));
+  if (page === 'signup' && eventId) {
+    const select = document.getElementById('sheet-event-select');
+    if ([...select.options].some(option => option.value === eventId)) { select.value = eventId; renderSignupSheet(); }
+  }
+}
+
+async function removeSignupById(eventId, signupId) {
+  const event = state.events.find(item => item.id === eventId);
+  const index = event?.signups.findIndex(signup => signup.id === signupId) ?? -1;
+  if (index >= 0) await removeSignup(eventId, index);
+  renderNotificationCenter();
 }
 
 function setCrewCenterTheme(theme) {
@@ -3540,7 +3723,7 @@ async function addEvent() {
       takedown_end: isFestival ? festivalTimes[7] : null,
       ends_at: eventEnd.toISOString(),
     })
-    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, signed_up_at, members(name, role))')
+    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))')
     .single();
   if (error) { showToast("Couldn't create event.", 'error'); return; }
   const ev = normalizeEvent(data);
@@ -3673,6 +3856,13 @@ function renderSignupSheet() {
   renderSignupRoleOptions(ev);
   renderSignupNameField();
   scheduleReserveActivation(ev);
+  const maybeOption = document.querySelector('#signup-confirmation option[value="maybe"]');
+  const confirmationHelp = document.getElementById('signup-confirmation-help');
+  const maybeDeadline = timeValue(ev.date, ev.setupStart || ev.game1Start || ev.time) - 2 * 60 * 60 * 1000;
+  const maybeClosed = maybeDeadline <= Date.now();
+  if (maybeOption) maybeOption.disabled = maybeClosed;
+  if (maybeClosed && document.getElementById('signup-confirmation')?.value === 'maybe') document.getElementById('signup-confirmation').value = 'confirmed';
+  if (confirmationHelp) confirmationHelp.textContent = maybeClosed ? 'The Maybe deadline has passed; new signups must be confirmed.' : `Maybe signups must be confirmed by ${new Date(maybeDeadline).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}.`;
   document.getElementById('sheet-event-title').textContent = ev.title;
   document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${ev.time || 'TBC'} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}${isstScheduleCaption(ev) ? ' · ' + isstScheduleCaption(ev) : ''}${festivalScheduleCaption(ev) ? ' · ' + festivalScheduleCaption(ev) : ''}`;
   const cap = ev.slots || '∞';
@@ -3686,7 +3876,8 @@ function renderSignupSheet() {
 
   const currentMemberId = currentMemberRecord()?.id;
   const canRemoveSignup = signup => Boolean(state.currentUser.isAdmin || (currentMemberId && signup.memberId === currentMemberId));
-  const showRemoveColumn = ev.signups.some(canRemoveSignup);
+  const expiredSignups = ev.expiredSignups || [];
+  const showRemoveColumn = ev.signups.some(canRemoveSignup) || expiredSignups.some(canRemoveSignup);
   const removeHeader = showRemoveColumn ? '<th></th>' : '';
   const reserveAssignments = activeSupervisorReserves(ev);
   const activationAt = reserveActivationAt(ev);
@@ -3705,10 +3896,10 @@ function renderSignupSheet() {
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${s.name}</td>
-      <td>${displayRole || '<span style="color:var(--text3)">—</span>'}${reserveAssignments.has(s.id) ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${s.role === signupRoleLabels.student_supervisor && !reserveAssignments.has(s.id) && s.reserveRole1 ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${s.reserveRole1} → ${s.reserveRole2}</span>` : ''}</td>
+      <td>${displayRole || '<span style="color:var(--text3)">—</span>'}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${confirmationCountdown(s.confirmationDeadline)}</span>` : ''}${reserveAssignments.has(s.id) ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${s.role === signupRoleLabels.student_supervisor && !reserveAssignments.has(s.id) && s.reserveRole1 ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${s.reserveRole1} → ${s.reserveRole2}</span>` : ''}</td>
       <td style="color:var(--text2);font-size:12px;">${attendanceLabel(s)}</td>
       <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
-      ${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button>` : ''}</td>` : ''}
+      ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button>` : ''}</div></td>` : ''}
     </tr>`).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
@@ -3716,9 +3907,28 @@ function renderSignupSheet() {
       rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${showRemoveColumn ? '<td></td>' : ''}</tr>`;
     }
   }
+  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${s.name}</td><td>${s.role || '—'} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${attendanceLabel(s)}</td><td>${s.ts}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeExpiredSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
   document.getElementById('sheet-table').innerHTML = `
     <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Staying for</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
+}
+
+function confirmationCountdown(deadline) {
+  const remaining = new Date(deadline).getTime() - Date.now();
+  if (remaining <= 0) return 'expired';
+  const hours = Math.floor(remaining / 3600000);
+  const minutes = Math.ceil((remaining % 3600000) / 60000);
+  return hours ? `${hours}h ${minutes}m left` : `${minutes}m left`;
+}
+
+async function confirmMaybeSignup(eventId, signupId) {
+  const { data, error } = await supabaseClient.rpc('confirm_own_maybe_signup', { p_signup_id: signupId });
+  if (error || !data) { showToast(error?.message || 'This confirmation deadline has passed.', 'error', 6000); await loadCrewCenterData(); return; }
+  const signup = state.events.find(event => event.id === eventId)?.signups.find(item => item.id === signupId);
+  if (signup) { signup.confirmationStatus = 'confirmed'; signup.confirmedAt = new Date().toISOString(); }
+  showToast('Your attendance is confirmed.');
+  renderSignupSheet();
+  renderNotificationCenter();
 }
 
 async function addSignupRow() {
@@ -3767,6 +3977,11 @@ async function addSignupRow() {
     showToast('Custom attendance must be within the event times.', 'error');
     return;
   }
+  const confirmationStatus = document.getElementById('signup-confirmation')?.value === 'maybe' ? 'maybe' : 'confirmed';
+  if (confirmationStatus === 'maybe' && eventStart - Date.now() <= 2 * 60 * 60 * 1000) {
+    showToast('Maybe signups close two hours before the event starts. Please confirm now or leave the role open.', 'error', 6000);
+    return;
+  }
   if (!roleFreeAttendance && ev.signups.some(signup => signup.role === role && signupOverlaps(signup, attendance))) {
     showToast(`Slot occupied: ${role} is already assigned during that time.`, 'error');
     renderSignupSheet();
@@ -3806,8 +4021,9 @@ async function addSignupRow() {
       attendance_type: attendance.type,
       attendance_start: new Date(attendance.start).toISOString(),
       attendance_end: new Date(attendance.end).toISOString(),
+      confirmation_status: confirmationStatus,
     })
-    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, signed_up_at, members(name, role)')
+    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role)')
     .single();
   if (error) {
     if (error.code === '23505' || error.code === '23P01') {
@@ -3833,12 +4049,16 @@ async function addSignupRow() {
     attendanceMarkedAt: signup.attendance_marked_at || '',
     attendanceMarkedBy: signup.attendance_marked_by || '',
     attendanceMarkedByName: signup.attendance_marked_by_name || '',
+    confirmationStatus: signup.confirmation_status || 'confirmed',
+    confirmationDeadline: signup.confirmation_deadline || '',
+    confirmedAt: signup.confirmed_at || '',
     ts: new Date(signup.signed_up_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
     signedUpAt: signup.signed_up_at || '',
   });
   document.getElementById('signup-name').value = '';
   clearSignupNameValidation();
-  showToast(`${member.name} signed up for ${ev.title}!`);
+  document.getElementById('signup-confirmation').value = 'confirmed';
+  showToast(confirmationStatus === 'maybe' ? `${member.name} is tentatively signed up. Confirm before the deadline.` : `${member.name} signed up for ${ev.title}!`);
   renderSignupSheet();
 }
 
@@ -3856,6 +4076,18 @@ async function removeSignup(evId, idx) {
   if (error) { showToast("Couldn't remove signup.", 'error'); return; }
   ev.signups.splice(idx, 1);
   showToast(`Removed ${name}.`, 'error');
+  renderSignupSheet();
+}
+
+async function removeExpiredSignup(eventId, signupId) {
+  const event = state.events.find(item => item.id === eventId);
+  const signup = event?.expiredSignups?.find(item => item.id === signupId);
+  const currentMemberId = currentMemberRecord()?.id;
+  if (!signup || (!state.currentUser.isAdmin && signup.memberId !== currentMemberId)) { showToast('You can only remove your own signup.', 'error'); return; }
+  const { error } = await supabaseClient.from('signups').delete().eq('id', signupId);
+  if (error) { showToast("Couldn't remove signup.", 'error'); return; }
+  event.expiredSignups = event.expiredSignups.filter(item => item.id !== signupId);
+  showToast('Expired signup removed.');
   renderSignupSheet();
 }
 
@@ -3907,7 +4139,7 @@ function attendanceOption(status, value, label) {
 }
 
 function initCrewDeployment() {
-  if (!canManageCrewOperations()) return;
+  if (!canAccessCrewSchedule()) return;
   const select = document.getElementById('crew-deployment-date');
   if (!select) return;
   const previous = select.value;
@@ -3920,7 +4152,7 @@ function initCrewDeployment() {
 }
 
 function renderCrewDeployment() {
-  if (!canManageCrewOperations()) return;
+  if (!canAccessCrewSchedule()) return;
   if (crewDeploymentRefreshTimer) clearTimeout(crewDeploymentRefreshTimer);
   crewDeploymentRefreshTimer = setTimeout(() => {
     if (document.querySelector('.page.active')?.id === 'page-crew-deployment') renderCrewDeployment();
@@ -3970,7 +4202,7 @@ function renderCrewDeployment() {
 }
 
 async function markCrewAttendance(eventId, signupId, status) {
-  if (!canManageCrewOperations()) return;
+  if (!canAccessCrewSchedule()) return;
   const { data: updated, error } = await supabaseClient.rpc('mark_signup_attendance', { p_signup_id: signupId, p_attendance_status: status });
   if (error || !updated) { showToast(error?.message || "Couldn't update attendance.", 'error', 6000); renderCrewDeployment(); return; }
   const event = state.events.find(item => item.id === eventId);
@@ -4155,9 +4387,22 @@ function renderGallery(filter) {
   }).join('');
 }
 
+function updateSlidingTab(row) {
+  if (!row) return;
+  let indicator = row.querySelector('.tab-indicator');
+  if (!indicator) { indicator = document.createElement('span'); indicator.className = 'tab-indicator'; row.prepend(indicator); }
+  const active = row.querySelector('.tab.active');
+  if (!active) return;
+  indicator.style.width = `${active.offsetWidth}px`;
+  indicator.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+
+function initSlidingTabs() { document.querySelectorAll('.tab-row').forEach(updateSlidingTab); }
+
 function switchGalleryTab(f, el) {
   document.querySelectorAll('#page-gallery .tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  updateSlidingTab(el.closest('.tab-row'));
   renderGallery(f);
 }
 
@@ -4901,6 +5146,7 @@ function switchAdminTab(name, el) {
   document.querySelectorAll('#page-admin .tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('#page-admin .tab-content').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  updateSlidingTab(el.closest('.tab-row'));
   document.getElementById('admin-tab-' + name).classList.add('active');
 }
 
@@ -4958,8 +5204,11 @@ function startWaveAnimation() {
 // ══════════════════════════════
 updateUserSurfaces();
 openPageFromUrl();
+requestAnimationFrame(initSlidingTabs);
+window.addEventListener('resize', initSlidingTabs);
 startWaveAnimation();
 startBerlinClock();
+setInterval(renderNotificationCenter, 60000);
 document.getElementById('ev-date').addEventListener('change', () => {
   if (document.getElementById('ev-cat').value === 'Livestream') {
     document.getElementById('ev-livestream-setup-date').value = dateBefore(document.getElementById('ev-date').value);

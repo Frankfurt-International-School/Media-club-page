@@ -6,6 +6,7 @@ alter table public.equipment_reservations enable row level security;
 alter table public.gallery enable row level security;
 alter table public.announcements enable row level security;
 alter table public.join_applications enable row level security;
+alter table public.notifications enable row level security;
 
 drop policy if exists "Authenticated users can read members" on public.members;
 drop policy if exists "Authenticated users can add members" on public.members;
@@ -54,6 +55,7 @@ drop policy if exists "Admins can manage announcements" on public.announcements;
 drop policy if exists "Signed-in users can submit join applications" on public.join_applications;
 drop policy if exists "Admins can read join applications" on public.join_applications;
 drop policy if exists "Admins can manage join applications" on public.join_applications;
+drop policy if exists "Members can read own notifications" on public.notifications;
 
 create or replace function public.is_admin_panel_user()
 returns boolean
@@ -92,6 +94,21 @@ as $$
       from public.members member
       where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
         and replace(lower(member.role), ' ', '-') in ('leader', 'co-leader', 'moderator')
+    );
+$$;
+
+create or replace function public.is_crew_schedule_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin_panel_user()
+    or exists (
+      select 1 from public.members member
+      where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        and replace(lower(member.role), ' ', '-') in ('leader', 'co-leader')
     );
 $$;
 
@@ -186,6 +203,76 @@ $$;
 
 revoke all on function public.update_own_sidebar_preferences(boolean, text[]) from public;
 grant execute on function public.update_own_sidebar_preferences(boolean, text[]) to authenticated;
+
+create or replace function public.update_own_notification_preferences(p_preferences jsonb)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_preferences jsonb;
+begin
+  if auth.uid() is null or public.is_visitor_session() then raise exception 'A signed-in member account is required.'; end if;
+  clean_preferences := jsonb_build_object(
+    'event_created', coalesce((p_preferences ->> 'event_created')::boolean, true),
+    'event_reminders', coalesce((p_preferences ->> 'event_reminders')::boolean, true),
+    'maybe_reminders', coalesce((p_preferences ->> 'maybe_reminders')::boolean, true)
+  );
+  update public.members set notification_preferences = clean_preferences
+  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''));
+  return found;
+end;
+$$;
+
+revoke all on function public.update_own_notification_preferences(jsonb) from public;
+grant execute on function public.update_own_notification_preferences(jsonb) to authenticated;
+
+create or replace function public.confirm_own_maybe_signup(p_signup_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.signups signup
+  set confirmation_status = 'confirmed', confirmed_at = now()
+  where signup.id = p_signup_id
+    and signup.confirmation_status = 'maybe'
+    and signup.confirmation_deadline > now()
+    and exists (
+      select 1 from public.members member
+      where member.id = signup.member_id
+        and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    );
+  return found;
+end;
+$$;
+
+revoke all on function public.confirm_own_maybe_signup(uuid) from public;
+grant execute on function public.confirm_own_maybe_signup(uuid) to authenticated;
+
+create or replace function public.mark_own_notifications_read()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare updated_count integer;
+begin
+  update public.notifications notification set read_at = now()
+  where notification.read_at is null and exists (
+    select 1 from public.members member
+    where member.id = notification.member_id
+      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  );
+  get diagnostics updated_count = row_count;
+  return updated_count;
+end;
+$$;
+
+revoke all on function public.mark_own_notifications_read() from public;
+grant execute on function public.mark_own_notifications_read() to authenticated;
 
 create or replace function public.is_valid_event_signup(
   p_event_id uuid,
@@ -384,8 +471,8 @@ declare
   event_starts_at timestamptz;
   marker_name text;
 begin
-  if not public.is_crew_operations_user() then
-    raise exception 'Moderator-or-above access is required.';
+  if not public.is_crew_schedule_user() then
+    raise exception 'Co-Leader-or-above access is required.';
   end if;
   if p_attendance_status not in ('not_taken', 'present', 'late', 'absent', 'excused') then
     raise exception 'Invalid attendance status.';
@@ -482,6 +569,7 @@ with check (
   and attendance_marked_at is null
   and attendance_marked_by is null
   and attendance_marked_by_name is null
+  and confirmation_status in ('confirmed', 'maybe')
   and public.is_valid_event_signup(event_id, signup_role, attendance_type, attendance_start, attendance_end)
   and (signup_role <> 'Student Supervisor' or public.is_crew_operations_user())
   and (
@@ -509,6 +597,17 @@ using (
     select 1
     from public.members member
     where member.id = signups.member_id
+      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  )
+);
+
+create policy "Members can read own notifications"
+on public.notifications for select
+to authenticated
+using (
+  exists (
+    select 1 from public.members member
+    where member.id = notifications.member_id
       and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   )
 );

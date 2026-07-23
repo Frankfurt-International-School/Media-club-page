@@ -25,6 +25,7 @@ alter table public.members add column if not exists avatar_url text;
 alter table public.members add column if not exists avatar_path text;
 alter table public.members add column if not exists sidebar_customized boolean not null default false;
 alter table public.members add column if not exists sidebar_items text[] not null default array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[];
+alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true}'::jsonb;
 
 do $$
 begin
@@ -150,6 +151,12 @@ alter table public.signups add column if not exists attendance_status text not n
 alter table public.signups add column if not exists attendance_marked_at timestamptz;
 alter table public.signups add column if not exists attendance_marked_by uuid references auth.users(id) on delete set null;
 alter table public.signups add column if not exists attendance_marked_by_name text;
+alter table public.signups add column if not exists confirmation_status text not null default 'confirmed';
+alter table public.signups add column if not exists confirmation_deadline timestamptz;
+alter table public.signups add column if not exists confirmed_at timestamptz;
+alter table public.signups drop constraint if exists signups_confirmation_status_check;
+alter table public.signups add constraint signups_confirmation_status_check check (confirmation_status in ('confirmed', 'maybe', 'expired'));
+update public.signups set confirmed_at = coalesce(confirmed_at, signed_up_at) where confirmation_status = 'confirmed';
 alter table public.signups drop constraint if exists signups_attendance_status_check;
 alter table public.signups add constraint signups_attendance_status_check
 check (attendance_status in ('not_taken', 'present', 'late', 'absent', 'excused'));
@@ -174,7 +181,7 @@ exclude using gist (
   signup_role with =,
   tstzrange(attendance_start, attendance_end, '[)') with &&
 )
-where (signup_role is not null and signup_role <> 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
+where (confirmation_status <> 'expired' and signup_role is not null and signup_role <> 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
 
 alter table public.signups drop constraint if exists signups_student_supervisor_attendance_no_overlap;
 alter table public.signups add constraint signups_student_supervisor_attendance_no_overlap
@@ -183,7 +190,7 @@ exclude using gist (
   signup_role with =,
   tstzrange(attendance_start, attendance_end, '[)') with &&
 )
-where (signup_role = 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
+where (confirmation_status <> 'expired' and signup_role = 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
 
 alter table public.signups drop constraint if exists signups_member_cross_event_no_overlap;
 alter table public.signups add constraint signups_member_cross_event_no_overlap
@@ -191,7 +198,98 @@ exclude using gist (
   member_id with =,
   tstzrange(attendance_start, attendance_end, '[)') with &&
 )
-where (signup_role is distinct from 'Adult Supervisor' and attendance_start is not null and attendance_end is not null);
+where (confirmation_status <> 'expired' and signup_role is distinct from 'Adult Supervisor' and attendance_start is not null and attendance_end is not null);
+
+alter table public.signups drop constraint if exists signups_event_id_member_id_key;
+create unique index if not exists signups_active_event_member_idx on public.signups (event_id, member_id) where confirmation_status <> 'expired';
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references public.members(id) on delete cascade,
+  notification_type text not null check (notification_type in ('event_created')),
+  title text not null,
+  message text not null,
+  page text not null default 'events',
+  related_event_id uuid references public.events(id) on delete cascade,
+  read_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (member_id, notification_type, related_event_id)
+);
+
+create index if not exists notifications_member_created_idx on public.notifications (member_id, created_at desc);
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications') then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end $$;
+
+create or replace function public.notify_members_of_new_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications (member_id, notification_type, title, message, page, related_event_id)
+  select member.id, 'event_created', 'New event available', new.title || ' is open for signups.', 'signup', new.id
+  from public.members member
+  where lower(coalesce(member.status, 'active')) <> 'inactive'
+    and coalesce((member.notification_preferences ->> 'event_created')::boolean, true)
+  on conflict (member_id, notification_type, related_event_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists events_notify_members_after_insert on public.events;
+create trigger events_notify_members_after_insert after insert on public.events for each row execute function public.notify_members_of_new_event();
+
+create or replace function public.expire_unconfirmed_signups()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  expired_count integer;
+begin
+  update public.signups
+  set confirmation_status = 'expired'
+  where confirmation_status = 'maybe'
+    and confirmation_deadline is not null
+    and confirmation_deadline <= now();
+  get diagnostics expired_count = row_count;
+  return expired_count;
+end;
+$$;
+
+revoke all on function public.expire_unconfirmed_signups() from public;
+
+create or replace function public.prepare_signup_confirmation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare event_start timestamptz;
+begin
+  select event.date into event_start from public.events event where event.id = new.event_id;
+  if new.confirmation_status = 'maybe' then
+    new.confirmation_deadline := event_start - interval '2 hours';
+    new.confirmed_at := null;
+    if new.confirmation_deadline <= now() then raise exception 'Maybe signups close two hours before the event starts.'; end if;
+  else
+    new.confirmation_status := 'confirmed';
+    new.confirmation_deadline := null;
+    new.confirmed_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists signups_prepare_confirmation_before_insert on public.signups;
+create trigger signups_prepare_confirmation_before_insert before insert on public.signups for each row execute function public.prepare_signup_confirmation();
 
 create table if not exists public.equipment (
   id uuid primary key default gen_random_uuid(),

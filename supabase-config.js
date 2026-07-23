@@ -410,6 +410,10 @@ function applyAdminControls() {
   document.querySelectorAll('.crew-operations-only').forEach(el => {
     el.style.display = hasCrewOperationsAccess && !isVisitor ? "flex" : "none";
   });
+  const hasCrewScheduleAccess = Boolean(hasAdminPanelAccess || window.canAccessCrewSchedule?.());
+  document.querySelectorAll('.crew-schedule-only').forEach(el => {
+    el.style.display = hasCrewScheduleAccess && !isVisitor ? "flex" : "none";
+  });
 
   const visitorHiddenSelectors = [
     '.nav-item[onclick*="signup"]',
@@ -508,8 +512,12 @@ function installAdminFunctionGuards() {
       if (id === "admin" && !hasAdminPanelAccess) {
         return originalNavigate.call(this, "home");
       }
-      if (["equipment-status", "crew-deployment"].includes(id) && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.())) {
-        showNotAuthorized(`open ${id === "crew-deployment" ? "Crew Deployment" : "Equipment Status"}`);
+      if (id === "equipment-status" && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.())) {
+        showNotAuthorized("open Equipment Status");
+        return originalNavigate.call(this, "home");
+      }
+      if (id === "crew-deployment" && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewSchedule?.())) {
+        showNotAuthorized("open Crew Schedule");
         return originalNavigate.call(this, "home");
       }
       if (window.CREW_CENTER_IS_VISITOR && !visitorAllowedPages.has(id)) {
