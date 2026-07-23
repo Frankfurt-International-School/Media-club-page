@@ -142,6 +142,51 @@ $$;
 revoke all on function public.update_own_member_avatar(text, text) from public;
 grant execute on function public.update_own_member_avatar(text, text) to authenticated;
 
+create or replace function public.update_own_sidebar_preferences(
+  p_customized boolean,
+  p_items text[]
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_items text[];
+begin
+  if auth.uid() is null or public.is_visitor_session() then
+    raise exception 'A signed-in member account is required.';
+  end if;
+
+  select coalesce(array_agg(item order by position), array[]::text[])
+  into clean_items
+  from (
+    select item, min(position) as position
+    from unnest(coalesce(p_items, array[]::text[])) with ordinality as chosen(item, position)
+    where item = any(array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[])
+    group by item
+  ) normalized;
+
+  if coalesce(p_customized, false) and (
+    not (clean_items && array['home','events','signup','members']::text[])
+    or not (clean_items && array['gallery','equipment','role-guide']::text[])
+    or not (clean_items && array['crew-deployment','equipment-status','join','admin']::text[])
+  ) then
+    raise exception 'Choose at least one sidebar page from Main, Content, and Club.';
+  end if;
+
+  update public.members
+  set sidebar_customized = coalesce(p_customized, false),
+      sidebar_items = clean_items
+  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''));
+
+  return found;
+end;
+$$;
+
+revoke all on function public.update_own_sidebar_preferences(boolean, text[]) from public;
+grant execute on function public.update_own_sidebar_preferences(boolean, text[]) to authenticated;
+
 create or replace function public.is_valid_event_signup(
   p_event_id uuid,
   p_signup_role text,

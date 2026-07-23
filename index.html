@@ -172,6 +172,7 @@
   }
   .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.8; }
   .admin-only, .crew-operations-only { display: none; }
+  .nav-item.sidebar-custom-hidden, .nav-section-label.sidebar-category-hidden { display: none !important; }
   .nav-badge {
     margin-left: auto;
     background: var(--accent-dim);
@@ -196,6 +197,35 @@
   }
   .sidebar-user:hover { background: var(--sidebar-accent-hover); }
   .sidebar-user:active { background: var(--sidebar-accent-dim); transform: scale(0.985); }
+  .sidebar-all-pages { display: none; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .sidebar-all-pages.visible { display: flex; }
+  .sidebar-all-pages-count { margin-left: auto; min-width: 22px; text-align: center; }
+  .all-pages-popover {
+    display: none;
+    position: fixed;
+    left: calc(var(--sidebar) + 12px);
+    bottom: 18px;
+    z-index: 180;
+    width: min(360px, calc(100vw - var(--sidebar) - 42px));
+    max-height: min(620px, calc(100vh - 36px));
+    padding: 14px;
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    background: var(--bg2);
+    box-shadow: 0 22px 60px rgba(20,20,24,.22);
+    overflow: auto;
+  }
+  .all-pages-popover.open { display: block; animation: slideUp .16s ease; }
+  body.sidebar-collapsed .all-pages-popover { left: calc(var(--sidebar-compact) + 12px); }
+  .all-pages-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .all-pages-title { font-family: var(--font-head); font-size: 20px; line-height: 1; }
+  .all-pages-search { margin-bottom: 12px; }
+  .all-pages-group + .all-pages-group { margin-top: 13px; }
+  .all-pages-group-title { margin: 0 4px 6px; color: var(--text3); font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .all-pages-link { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--text2); cursor: pointer; font-family: var(--font-body); text-align: left; }
+  .all-pages-link:hover { color: var(--accent); background: var(--accent-dim2); }
+  .all-pages-link svg { width: 16px; height: 16px; flex: 0 0 auto; }
+  .all-pages-hidden-label { margin-left: auto; color: var(--text3); font-size: 9px; }
   .user-avatar {
     width: 32px; height: 32px;
     border-radius: 50%;
@@ -1095,7 +1125,20 @@
   .theme-swatch.light span:first-child { background: #f1f3f5; } .theme-swatch.light span:last-child { background: #fff; }
   .theme-swatch.dark span:first-child { background: #17181f; } .theme-swatch.dark span:last-child { background: #101116; }
   .theme-choice strong { font-size: 12px; color: var(--text); }
-  @media (max-width: 900px) { .profile-shell, .profile-photo-layout { grid-template-columns: 1fr; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } }
+  .sidebar-customize-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg3); }
+  .sidebar-customize-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .sidebar-choice-groups { display: none; margin-top: 16px; }
+  .sidebar-choice-groups.visible { display: block; }
+  .sidebar-choice-group + .sidebar-choice-group { margin-top: 15px; }
+  .sidebar-choice-title { margin-bottom: 7px; color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .sidebar-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .sidebar-choice { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); color: var(--text2); cursor: pointer; font-size: 12px; }
+  .sidebar-choice:has(input:checked) { color: var(--accent); border-color: rgba(164,1,52,.25); background: var(--accent-dim2); }
+  .sidebar-choice input { accent-color: var(--accent); }
+  .sidebar-preference-actions { display: none; align-items: center; gap: 10px; margin-top: 16px; }
+  .sidebar-preference-actions.visible { display: flex; }
+  @media (max-width: 900px) { .profile-shell, .profile-photo-layout { grid-template-columns: 1fr; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } .all-pages-popover { left: 12px; right: 12px; bottom: 12px; width: auto; } }
+  @media (max-width: 520px) { .sidebar-choice-grid { grid-template-columns: 1fr; } }
 
   /* ── FILTER CHIPS ── */
   .filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
@@ -1387,54 +1430,59 @@
     <div class="logo-sub logo-copy">FIS Student Media club</div>
   </div>
   <nav class="sidebar-nav">
-    <div class="nav-section-label">Main</div>
-    <div class="nav-item active" data-label="Dashboard" onclick="navigate('home', this)">
+    <div class="nav-section-label" data-nav-category="main">Main</div>
+    <div class="nav-item active" data-page="home" data-category="main" data-label="Dashboard" onclick="navigate('home', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span class="nav-label">Dashboard</span>
     </div>
-    <div class="nav-item" data-label="Events" onclick="navigate('events', this)">
+    <div class="nav-item" data-page="events" data-category="main" data-label="Events" onclick="navigate('events', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <span class="nav-label">Events</span>
       <span class="nav-badge" style="display:none;"></span>
     </div>
-    <div class="nav-item" data-label="Sign-up Sheets" onclick="navigate('signup', this)">
+    <div class="nav-item" data-page="signup" data-category="main" data-label="Sign-up Sheets" onclick="navigate('signup', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       <span class="nav-label">Sign-up Sheets</span>
     </div>
-    <div class="nav-item" data-label="Members" onclick="navigate('members', this)">
+    <div class="nav-item" data-page="members" data-category="main" data-label="Members" onclick="navigate('members', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
       <span class="nav-label">Members</span>
     </div>
-    <div class="nav-section-label">Content</div>
-    <div class="nav-item" data-label="Project Gallery" onclick="navigate('gallery', this)">
+    <div class="nav-section-label" data-nav-category="content">Content</div>
+    <div class="nav-item" data-page="gallery" data-category="content" data-label="Project Gallery" onclick="navigate('gallery', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
       <span class="nav-label">Project Gallery</span>
     </div>
-    <div class="nav-item" data-label="Equipment" onclick="navigate('equipment', this)">
+    <div class="nav-item" data-page="equipment" data-category="content" data-label="Equipment" onclick="navigate('equipment', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
       <span class="nav-label">Equipment</span>
     </div>
-    <div class="nav-item" data-label="Media Role Guide" onclick="navigate('role-guide', this)">
+    <div class="nav-item" data-page="role-guide" data-category="content" data-label="Media Role Guide" onclick="navigate('role-guide', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><line x1="9" y1="7" x2="16" y2="7"/><line x1="9" y1="11" x2="16" y2="11"/></svg>
       <span class="nav-label">Media Role Guide</span>
     </div>
-    <div class="nav-section-label">Club</div>
-    <div class="nav-item crew-operations-only" data-label="Crew Deployment" onclick="navigate('crew-deployment', this)">
+    <div class="nav-section-label" data-nav-category="club">Club</div>
+    <div class="nav-item crew-operations-only" data-page="crew-deployment" data-category="club" data-label="Crew Schedule" onclick="navigate('crew-deployment', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 12h2M19 12h2"/></svg>
-      <span class="nav-label">Crew Deployment</span>
+      <span class="nav-label">Crew Schedule</span>
     </div>
-    <div class="nav-item crew-operations-only" data-label="Equipment Status" onclick="navigate('equipment-status', this)">
+    <div class="nav-item crew-operations-only" data-page="equipment-status" data-category="club" data-label="Equipment Status" onclick="navigate('equipment-status', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
       <span class="nav-label">Equipment Status</span>
     </div>
-    <div class="nav-item" data-label="Join the Club" onclick="navigate('join', this)">
+    <div class="nav-item" data-page="join" data-category="club" data-label="Join the Club" onclick="navigate('join', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
       <span class="nav-label">Join the Club</span>
     </div>
-    <div class="nav-item admin-only" data-label="Admin Panel" onclick="navigate('admin', this)">
+    <div class="nav-item admin-only" data-page="admin" data-category="club" data-label="Admin Panel" onclick="navigate('admin', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
       <span class="nav-label">Admin Panel</span>
       <span class="notif-dot"></span>
+    </div>
+    <div class="nav-item sidebar-all-pages" id="sidebar-all-pages-button" data-label="All pages" onclick="toggleAllPages(event)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="nav-label">All pages</span>
+      <span class="nav-badge sidebar-all-pages-count" id="sidebar-hidden-count">0</span>
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -1447,6 +1495,11 @@
     </div>
   </div>
 </aside>
+<div class="all-pages-popover" id="all-pages-popover" role="dialog" aria-label="All pages">
+  <div class="all-pages-head"><div><div class="all-pages-title">All pages</div><div class="text-muted">Open any page available to you.</div></div><button class="modal-close" onclick="closeAllPages()" aria-label="Close all pages menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <input class="form-input all-pages-search" id="all-pages-search" type="search" placeholder="Search pages…" oninput="renderAllPagesMenu(this.value)">
+  <div id="all-pages-list"></div>
+</div>
 <div class="sidebar-scrim" id="sidebar-scrim" onclick="closeMobileSidebar()" aria-hidden="true"></div>
 
 <!-- ── MAIN ── -->
@@ -1688,11 +1741,11 @@
     </div>
   </div>
 
-  <!-- ── CREW DEPLOYMENT ── -->
+  <!-- ── CREW SCHEDULE ── -->
   <div id="page-crew-deployment" class="page">
     <div class="deployment-hero mb24">
       <div class="deployment-hero-row">
-        <div><div class="deployment-kicker">Daily production map</div><div class="page-title">Crew Deployment</div><div class="page-sub">See who is covering each location, follow handoffs, and take attendance.</div></div>
+        <div><div class="deployment-kicker">Daily production map</div><div class="page-title">Crew Schedule</div><div class="page-sub">See who is covering each location, follow handoffs, and take attendance.</div></div>
         <div class="deployment-date-control"><label class="form-label" for="crew-deployment-date">Production date</label><select class="form-select" id="crew-deployment-date" onchange="renderCrewDeployment()"></select></div>
       </div>
       <div class="deployment-summary" id="crew-deployment-summary"></div>
@@ -1795,6 +1848,14 @@
           <button class="theme-choice" id="theme-light" onclick="setCrewCenterTheme('light')"><span class="theme-swatch light"><span></span><span></span></span><strong>Light</strong></button>
           <button class="theme-choice" id="theme-dark" onclick="setCrewCenterTheme('dark')"><span class="theme-swatch dark"><span></span><span></span></span><strong>Dark</strong></button>
         </div></div>
+      </section>
+      <section class="profile-panel" id="sidebar-preferences-panel">
+        <div class="profile-panel-head"><h3>Sidebar</h3><p>Choose the pages you use most. Your selection follows your account across devices.</p></div>
+        <div class="profile-panel-body">
+          <label class="sidebar-customize-toggle"><span><strong>Customize sidebar</strong><span class="text-muted" style="display:block;">Keep at least one page from each category.</span></span><input id="sidebar-customize-enabled" type="checkbox" onchange="toggleSidebarCustomization(this.checked)"></label>
+          <div class="sidebar-choice-groups" id="sidebar-choice-groups"></div>
+          <div class="sidebar-preference-actions" id="sidebar-preference-actions"><button class="btn btn-accent" id="sidebar-preference-save" onclick="saveSidebarPreferences()">Save sidebar</button><span class="text-muted">Hidden pages remain available from All pages.</span></div>
+        </div>
       </section>
     </div>
   </div>
@@ -2426,6 +2487,8 @@ function normalizeMember(member, index = 0) {
     spec: member.status || 'active',
     avatarUrl: member.avatar_url || '',
     avatarPath: member.avatar_path || '',
+    sidebarCustomized: Boolean(member.sidebar_customized),
+    sidebarItems: Array.isArray(member.sidebar_items) ? member.sidebar_items : [],
     color: colors[index % colors.length],
     joined_date: member.joined_date,
   };
@@ -2594,6 +2657,7 @@ async function loadCrewCenterData() {
     }
     updateAdminPendingIndicator();
     window.applyCrewCenterAdminControls?.();
+    applySidebarPreferences();
     renderGalleryAuthorField();
     window.CREW_CENTER_DATA_LOADED = true;
     if (pageFromPath() === 'admin') {
@@ -2641,10 +2705,150 @@ function renderCurrentPage() {
   if (activePage === 'crew-deployment') initCrewDeployment();
 }
 
+const sidebarCategories = {
+  main: { label: 'Main', pages: ['home', 'events', 'signup', 'members'] },
+  content: { label: 'Content', pages: ['gallery', 'equipment', 'role-guide'] },
+  club: { label: 'Club', pages: ['crew-deployment', 'equipment-status', 'join', 'admin'] },
+};
+
+function sidebarPageAvailable(page) {
+  if (page === 'admin') return canAccessAdminPanel();
+  if (['crew-deployment', 'equipment-status'].includes(page)) return canManageCrewOperations();
+  return true;
+}
+
+function availableSidebarPages() {
+  return Object.values(sidebarCategories).flatMap(category => category.pages).filter(sidebarPageAvailable);
+}
+
+function currentSidebarPreferences() {
+  const member = currentMemberRecord();
+  const available = availableSidebarPages();
+  const customized = Boolean(member?.sidebarCustomized);
+  const saved = member?.sidebarItems?.filter(page => available.includes(page)) || [];
+  if (customized) {
+    Object.values(sidebarCategories).forEach(category => {
+      const categoryPages = category.pages.filter(page => available.includes(page));
+      if (categoryPages.length && !categoryPages.some(page => saved.includes(page))) saved.push(categoryPages[0]);
+    });
+  }
+  return {
+    customized,
+    items: saved.length ? saved : available,
+  };
+}
+
+function applySidebarPreferences() {
+  const preferences = currentSidebarPreferences();
+  const visiblePages = preferences.customized ? new Set(preferences.items) : new Set(availableSidebarPages());
+  document.querySelectorAll('.sidebar-nav .nav-item[data-page]').forEach(item => {
+    item.classList.toggle('sidebar-custom-hidden', preferences.customized && !visiblePages.has(item.dataset.page));
+  });
+  Object.entries(sidebarCategories).forEach(([category, definition]) => {
+    const hasVisiblePage = definition.pages.some(page => sidebarPageAvailable(page) && visiblePages.has(page));
+    document.querySelector(`[data-nav-category="${category}"]`)?.classList.toggle('sidebar-category-hidden', !hasVisiblePage);
+  });
+  const hiddenCount = availableSidebarPages().filter(page => !visiblePages.has(page)).length;
+  document.getElementById('sidebar-all-pages-button')?.classList.toggle('visible', preferences.customized);
+  const count = document.getElementById('sidebar-hidden-count');
+  if (count) count.textContent = hiddenCount;
+  renderAllPagesMenu(document.getElementById('all-pages-search')?.value || '');
+}
+
+function renderSidebarSettings() {
+  const toggle = document.getElementById('sidebar-customize-enabled');
+  const groups = document.getElementById('sidebar-choice-groups');
+  if (!toggle || !groups) return;
+  const preferences = currentSidebarPreferences();
+  const selected = new Set(preferences.items);
+  toggle.checked = preferences.customized;
+  groups.innerHTML = Object.entries(sidebarCategories).map(([category, definition]) => {
+    const pages = definition.pages.filter(sidebarPageAvailable);
+    return `<div class="sidebar-choice-group"><div class="sidebar-choice-title">${definition.label}</div><div class="sidebar-choice-grid">${pages.map(page => `<label class="sidebar-choice"><input type="checkbox" value="${page}" data-sidebar-category="${category}" ${selected.has(page) ? 'checked' : ''}><span>${pageTitles[page]}</span></label>`).join('')}</div></div>`;
+  }).join('');
+  toggleSidebarCustomization(preferences.customized, false);
+}
+
+function toggleSidebarCustomization(enabled, initializeSelections = true) {
+  document.getElementById('sidebar-choice-groups')?.classList.toggle('visible', enabled);
+  document.getElementById('sidebar-preference-actions')?.classList.toggle('visible', true);
+  if (enabled && initializeSelections) {
+    const checked = document.querySelectorAll('#sidebar-choice-groups input:checked');
+    if (!checked.length) document.querySelectorAll('#sidebar-choice-groups input').forEach(input => { input.checked = true; });
+  }
+}
+
+async function saveSidebarPreferences() {
+  const customized = Boolean(document.getElementById('sidebar-customize-enabled')?.checked);
+  const selected = [...document.querySelectorAll('#sidebar-choice-groups input:checked')].map(input => input.value);
+  if (customized) {
+    const missingCategory = Object.keys(sidebarCategories).find(category => !selected.some(page => sidebarCategories[category].pages.includes(page)));
+    if (missingCategory) {
+      showToast(`Choose at least one page from ${sidebarCategories[missingCategory].label}.`, 'error');
+      return;
+    }
+  }
+  const button = document.getElementById('sidebar-preference-save');
+  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+  const { data, error } = await supabaseClient.rpc('update_own_sidebar_preferences', { p_customized: customized, p_items: selected });
+  if (button) { button.disabled = false; button.textContent = 'Save sidebar'; }
+  if (error || !data) {
+    console.error(error);
+    showToast("Couldn't save sidebar preferences. Run the latest Supabase SQL files first.", 'error');
+    return;
+  }
+  const member = currentMemberRecord();
+  if (member) { member.sidebarCustomized = customized; member.sidebarItems = selected; }
+  applySidebarPreferences();
+  showToast('Sidebar preferences saved.');
+}
+
+function renderAllPagesMenu(query = '') {
+  const list = document.getElementById('all-pages-list');
+  if (!list) return;
+  const search = query.trim().toLowerCase();
+  const preferences = currentSidebarPreferences();
+  const visible = new Set(preferences.items);
+  list.innerHTML = Object.entries(sidebarCategories).map(([category, definition]) => {
+    const pages = definition.pages.filter(page => sidebarPageAvailable(page) && (!search || pageTitles[page].toLowerCase().includes(search)));
+    if (!pages.length) return '';
+    return `<div class="all-pages-group"><div class="all-pages-group-title">${definition.label}</div>${pages.map(page => {
+      const icon = document.querySelector(`.sidebar-nav .nav-item[data-page="${page}"] svg`)?.outerHTML || '';
+      return `<button class="all-pages-link" onclick="openAllPagesPage('${page}')">${icon}<span>${pageTitles[page]}</span>${visible.has(page) ? '' : '<span class="all-pages-hidden-label">Hidden</span>'}</button>`;
+    }).join('')}</div>`;
+  }).join('') || '<div class="empty-state" style="padding:24px 12px;"><p>No matching pages.</p></div>';
+}
+
+function toggleAllPages(event) {
+  event?.stopPropagation();
+  const popover = document.getElementById('all-pages-popover');
+  const open = popover.classList.toggle('open');
+  if (open) {
+    const search = document.getElementById('all-pages-search');
+    search.value = '';
+    renderAllPagesMenu();
+    setTimeout(() => search.focus(), 0);
+  }
+}
+
+function closeAllPages() { document.getElementById('all-pages-popover')?.classList.remove('open'); }
+
+function openAllPagesPage(page) {
+  closeAllPages();
+  navigate(page, navItemForPage(page));
+}
+
+document.addEventListener('click', event => {
+  const popover = document.getElementById('all-pages-popover');
+  if (popover?.classList.contains('open') && !popover.contains(event.target) && !document.getElementById('sidebar-all-pages-button')?.contains(event.target)) closeAllPages();
+});
+
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeAllPages(); });
+
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Deployment", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Profile Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   home: '/dashboard',
   events: '/events',
@@ -2896,6 +3100,9 @@ window.applyCrewCenterAuthUser = function(user) {
 function renderProfile() {
   updateUserSurfaces();
   updateThemeChoices();
+  const sidebarPanel = document.getElementById('sidebar-preferences-panel');
+  if (sidebarPanel) sidebarPanel.style.display = state.currentUser.isVisitor || !currentMemberRecord() ? 'none' : '';
+  renderSidebarSettings();
   document.getElementById('profile-photo-remove').style.display = state.currentUser.avatarUrl ? '' : 'none';
 }
 

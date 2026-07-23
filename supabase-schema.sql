@@ -23,6 +23,8 @@ create table if not exists public.members (
 alter table public.members add column if not exists grade_level text;
 alter table public.members add column if not exists avatar_url text;
 alter table public.members add column if not exists avatar_path text;
+alter table public.members add column if not exists sidebar_customized boolean not null default false;
+alter table public.members add column if not exists sidebar_items text[] not null default array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[];
 
 do $$
 begin
