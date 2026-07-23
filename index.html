@@ -980,6 +980,43 @@
   .tab.active { color: var(--accent); background: var(--accent-dim2); border-bottom-color: var(--accent); }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
+  #page-admin .tab-row {
+    width: fit-content;
+    max-width: 100%;
+    gap: 5px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg3);
+    box-shadow: 0 8px 24px rgba(33,37,41,0.06);
+    overflow-x: auto;
+  }
+  #page-admin .tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    margin: 0;
+    padding: 9px 17px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    white-space: nowrap;
+    letter-spacing: 0.035em;
+  }
+  #page-admin .tab:hover {
+    border-color: rgba(164,1,52,0.12);
+    background: rgba(164,1,52,0.07);
+  }
+  #page-admin .tab.active {
+    color: #fff;
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: 0 6px 16px rgba(164,1,52,0.2);
+  }
+  #page-admin .tab.active .nav-badge {
+    color: #fff;
+    background: rgba(255,255,255,0.2);
+  }
 
   /* ── ANNOUNCEMENT ── */
   .announcement {
