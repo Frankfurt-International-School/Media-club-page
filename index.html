@@ -4338,6 +4338,10 @@ async function addMember() {
 }
 
 async function removeMember(id) {
+  if (!canAccessAdminPanel()) { showToast('Only Auth Admin and Faculty accounts can remove members.', 'error'); return; }
+  const member = state.members.find(item => item.id === id);
+  if (!member) return;
+  if (!window.confirm(`Remove ${member.name} from the member directory? This cannot be undone.`)) return;
   const { error } = await supabaseClient.from('members').delete().eq('id', id);
   if (error) { showToast("Couldn't remove member.", 'error'); return; }
   state.members = state.members.filter(m => m.id !== id);
@@ -4712,7 +4716,7 @@ function renderEquipment() {
         ${reservations.slice(0, 2).map(reservation => `<div class="text-muted" style="margin-top:6px;">${reservation.memberName} · ${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${reservation.eventTitle ? ` · ${reservation.eventTitle}` : ''}</div>`).join('')}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
           <button class="btn btn-accent btn-sm" ${liveStatus !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>
-          ${canManageCrewOperations() ? `${liveStatus === 'checked_out' ? '<span class="text-muted">Return through Equipment Status</span>' : `<button class="btn btn-ghost btn-sm" onclick="toggleEquipmentAvailability('${e.id}')">Mark ${liveStatus === 'available' ? 'unavailable' : 'available'}</button>`}<button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>` : ''}
+          ${canManageCrewOperations() ? `${liveStatus === 'checked_out' ? '<span class="text-muted">Manage return through Equipment Status</span>' : ''}<button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>` : ''}
         </div>
       </div>`;
   };
@@ -4869,19 +4873,6 @@ async function addEquipment() {
   showToast(`${name} added to equipment.`);
   renderEquipment();
   renderDashboard();
-}
-
-async function toggleEquipmentAvailability(id) {
-  if (!canManageCrewOperations()) return;
-  const item = state.equipment.find(equipment => equipment.id === id);
-  if (activeEquipmentReservation(item)) { showToast('Return checked-out equipment through Equipment Status.', 'error'); return; }
-  const status = item.status === 'available' ? 'unavailable' : 'available';
-  const { error } = await supabaseClient.from('equipment').update({ status }).eq('id', id);
-  if (error) { showToast("Couldn't update equipment availability.", 'error'); return; }
-  item.status = status;
-  renderEquipment();
-  renderDashboard();
-  showToast(`${item.name} marked ${status}.`);
 }
 
 async function deleteEquipment(id) {
