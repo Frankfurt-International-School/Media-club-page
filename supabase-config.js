@@ -6,8 +6,10 @@ window.CREW_CENTER_SUPABASE = {
 };
 
 const fisAliasEmailPattern = /^[a-z]{2}\d{4,}@fis\.edu$/i;
+const fisSchoolEmailPattern = /^[^\s@]+@fis\.edu$/i;
 const fisAliasEmailMessage = "Use your school alias email: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu (for example, XX12345@fis.edu).";
 window.isFisAliasEmail = email => fisAliasEmailPattern.test(String(email || "").trim());
+window.isFisSchoolEmail = email => fisSchoolEmailPattern.test(String(email || "").trim());
 window.FIS_ALIAS_EMAIL_MESSAGE = fisAliasEmailMessage;
 
 document.body.classList.add("auth-locked");
@@ -280,7 +282,7 @@ document.body.insertAdjacentHTML("afterbegin", `
       <form id="auth-gate-form">
         <div class="auth-gate-field">
           <label class="auth-gate-label" for="auth-gate-email">Email</label>
-          <input class="auth-gate-input" id="auth-gate-email" type="email" autocomplete="email" inputmode="email" pattern="[A-Za-z]{2}[0-9]{4,}@fis[.]edu" title="2 letters followed by at least 4 numbers, ending in @fis.edu" placeholder="XX12345@fis.edu" required>
+          <input class="auth-gate-input" id="auth-gate-email" type="email" autocomplete="email" inputmode="email" placeholder="Your account email" required>
         </div>
         <div class="auth-gate-field">
           <label class="auth-gate-label" for="auth-gate-password">Password</label>
@@ -623,10 +625,21 @@ async function revealDashboard(user) {
 }
 
 async function allowCrewCenterUser(user) {
-  if (user?.is_anonymous || window.isFisAliasEmail(user?.email)) return true;
+  if (user?.is_anonymous) return true;
+  if (String(user?.app_metadata?.role || "").toLowerCase() === "admin") return true;
+  const normalizedEmail = String(user?.email || "").trim().toLowerCase();
+  if (normalizedEmail) {
+    const { data: approvedMember, error } = await window.crewCenterSupabase
+      .from("members")
+      .select("id")
+      .ilike("email", normalizedEmail)
+      .limit(1)
+      .maybeSingle();
+    if (!error && approvedMember) return true;
+  }
   await window.crewCenterSupabase.auth.signOut();
   showSignIn();
-  setAuthError(fisAliasEmailMessage);
+  setAuthError("This email is not linked to an approved Media Club account. New students must apply with their school alias email.");
   return false;
 }
 
@@ -683,11 +696,6 @@ authForm.addEventListener("submit", async event => {
   setAuthBusy(true);
 
   const email = document.getElementById("auth-gate-email").value.trim().toLowerCase();
-  if (!window.isFisAliasEmail(email)) {
-    setAuthBusy(false);
-    setAuthError(fisAliasEmailMessage);
-    return;
-  }
   const password = authPassword.value;
   const { data, error } = await window.crewCenterSupabase.auth.signInWithPassword({ email, password });
 
@@ -697,6 +705,7 @@ authForm.addEventListener("submit", async event => {
     return;
   }
 
+  if (!await allowCrewCenterUser(data.user)) return;
   await revealDashboard(data.user);
   setAuthBusy(false);
 });
@@ -735,14 +744,12 @@ document.getElementById("auth-visitor-exit").addEventListener("click", async () 
 });
 
 if (window.crewCenterSupabase) {
-  window.crewCenterSupabase.auth.getSession().then(({ data }) => {
+  window.crewCenterSupabase.auth.getSession().then(async ({ data }) => {
     const user = data.session?.user;
     if (user) {
-      if (user.is_anonymous || window.isFisAliasEmail(user.email)) {
+      if (await allowCrewCenterUser(user)) {
         if (inviteFlow) showPasswordSetup();
         else revealDashboard(user);
-      } else {
-        allowCrewCenterUser(user);
       }
     } else {
       showSignIn();
