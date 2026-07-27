@@ -1209,6 +1209,12 @@
   .equipment-category-tag { display: inline-flex; margin-top: 3px; padding: 3px 8px; border-radius: 999px; background: var(--bg3); border: 1px solid var(--border); color: var(--text3); font-size: 10px; }
   .equipment-holder { margin-top: 13px; padding: 11px 12px; border-radius: 11px; background: var(--accent-dim2); border: 1px solid rgba(164,1,52,.16); }
   .equipment-register-card { border-radius: 16px; }
+  .equipment-register-toggle { display: inline-flex; align-items: center; gap: 9px; padding: 8px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg3); color: var(--text2); cursor: pointer; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .equipment-register-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .my-equipment-reservations { margin-bottom: 18px; padding: 16px 18px; border: 1px solid rgba(164,1,52,.18); border-radius: 14px; background: linear-gradient(135deg, var(--accent-dim2), var(--bg2)); }
+  .my-equipment-reservation { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border); }
+  .my-equipment-reservation:first-child { padding-top: 0; margin-top: 0; border-top: 0; }
+  @media (max-width: 620px) { .my-equipment-reservation { align-items: flex-start; flex-direction: column; } }
 
   /* ── CREW DEPLOYMENT ── */
   .deployment-hero { padding: 24px; border: 1px solid rgba(164,1,52,.18); border-radius: 18px; background: linear-gradient(135deg, rgba(164,1,52,.1), var(--bg2) 52%, rgba(94,170,255,.07)); box-shadow: 0 18px 46px rgba(33,37,41,.09); }
@@ -1744,6 +1750,7 @@
         <option value="all">All statuses</option><option value="available">Available</option><option value="checked_out">Checked out</option><option value="unavailable">Unavailable</option>
       </select>
     </div>
+    <div class="my-equipment-reservations" id="my-equipment-reservations" style="display:none;"></div>
     <div class="grid3" id="equipment-grid"></div>
   </div>
 
@@ -1757,7 +1764,7 @@
     </div>
     <div class="grid3 mb24" id="equipment-status-grid"></div>
     <div class="card equipment-register-card" style="overflow-x:auto;">
-      <div class="flex-between mb16"><div><div class="section-head" style="margin:0;">Checkout register</div><div class="text-muted">Reservations, purposes, returns, and automatic releases.</div></div></div>
+      <div class="flex-between mb16"><div><div class="section-head" style="margin:0;">Checkout register</div><div class="text-muted">Scheduled loans and equipment awaiting a confirmed return.</div></div><label class="equipment-register-toggle"><input id="show-returned-equipment" type="checkbox" onchange="renderEquipmentStatus()">Show returned</label></div>
       <table class="sheet-table" id="equipment-register-table"></table>
     </div>
   </div>
@@ -4634,6 +4641,15 @@ function scheduleEquipmentStatusRefresh() {
 
 function renderEquipment() {
   scheduleEquipmentStatusRefresh();
+  const ownReservationsPanel = document.getElementById('my-equipment-reservations');
+  const currentMemberId = currentMemberRecord()?.id;
+  const ownReservations = state.equipment.flatMap(item => item.reservations.map(reservation => ({ item, reservation })))
+    .filter(({ reservation }) => reservation.memberId === currentMemberId && reservationLifecycleStatus(reservation) === 'scheduled' && new Date(reservation.startsAt).getTime() > Date.now())
+    .sort((a, b) => a.reservation.startsAt.localeCompare(b.reservation.startsAt));
+  if (ownReservationsPanel) {
+    ownReservationsPanel.style.display = ownReservations.length ? '' : 'none';
+    ownReservationsPanel.innerHTML = ownReservations.length ? `<div class="section-head" style="margin:0 0 12px;">My upcoming reservations</div>${ownReservations.map(({ item, reservation }) => `<div class="my-equipment-reservation"><div><strong>${item.name}</strong><div class="text-muted">${reservation.eventTitle || reservation.purpose || 'No purpose recorded'} · ${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div></div><button class="btn btn-danger btn-sm" onclick="cancelEquipmentReservation('${reservation.id}')">Cancel reservation</button></div>`).join('')}` : '';
+  }
   const search = document.getElementById('equipment-search')?.value.trim().toLowerCase() || '';
   const categorySelect = document.getElementById('equipment-category-filter');
   const currentCategory = categorySelect?.value || 'all';
@@ -4724,7 +4740,9 @@ function renderEquipmentStatus() {
     </div>`;
   }).join('') : '<div class="empty-state" style="grid-column:1/-1"><p>No equipment has been added yet.</p></div>';
 
+  const showReturned = Boolean(document.getElementById('show-returned-equipment')?.checked);
   const rows = state.equipment.flatMap(item => item.reservations.map(reservation => ({ item, reservation })))
+    .filter(({ reservation }) => showReturned || reservationLifecycleStatus(reservation) !== 'returned')
     .sort((a, b) => b.reservation.startsAt.localeCompare(a.reservation.startsAt));
   register.innerHTML = `<thead><tr><th>Equipment</th><th>Person</th><th>Session / purpose</th><th>Time</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.length ? rows.map(({ item, reservation }) => {
     const status = reservationLifecycleStatus(reservation);
@@ -4736,9 +4754,30 @@ function renderEquipmentStatus() {
         : status === 'auto_released'
           ? `Auto-released · return unconfirmed · ${lifecycleTime(reservation.autoReleasedAt || new Date(new Date(reservation.endsAt).getTime() + 15 * 60 * 1000).toISOString())}`
           : 'Scheduled';
-    const action = ['checked_out', 'auto_released'].includes(status) ? `<button class="btn btn-accent btn-sm" onclick="markEquipmentReturned('${reservation.id}')">${status === 'auto_released' ? 'Confirm returned' : 'Returned'}</button>` : '';
+    const canCancel = status === 'scheduled' && new Date(reservation.startsAt).getTime() > Date.now() && (reservation.memberId === currentMemberRecord()?.id || canAddMembers());
+    const action = ['checked_out', 'auto_released'].includes(status)
+      ? `<button class="btn btn-accent btn-sm" onclick="markEquipmentReturned('${reservation.id}')">${status === 'auto_released' ? 'Confirm returned' : 'Returned'}</button>`
+      : canCancel ? `<button class="btn btn-danger btn-sm" onclick="cancelEquipmentReservation('${reservation.id}')">Cancel</button>` : '';
     return `<tr><td>${item.name}</td><td>${reservation.memberName}</td><td>${reservation.eventTitle || reservation.purpose || '—'}</td><td>${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</td><td>${statusLabel}</td><td>${action}</td></tr>`;
-  }).join('') : '<tr><td colspan="6">No reservations recorded.</td></tr>'}</tbody>`;
+  }).join('') : `<tr><td colspan="6">${showReturned ? 'No reservations recorded.' : 'No active or upcoming reservations. Turn on Show returned to view completed loans.'}</td></tr>`}</tbody>`;
+}
+
+async function cancelEquipmentReservation(reservationId) {
+  const item = state.equipment.find(equipment => equipment.reservations.some(reservation => reservation.id === reservationId));
+  const reservation = item?.reservations.find(entry => entry.id === reservationId);
+  const ownsReservation = reservation?.memberId === currentMemberRecord()?.id;
+  if (!reservation || reservationLifecycleStatus(reservation) !== 'scheduled' || new Date(reservation.startsAt).getTime() <= Date.now() || (!ownsReservation && !canAddMembers())) {
+    showToast('You can only cancel your own upcoming reservation.', 'error');
+    return;
+  }
+  if (!window.confirm(`Cancel ${reservation.memberName}'s reservation for ${item.name}?`)) return;
+  const { error } = await supabaseClient.from('equipment_reservations').delete().eq('id', reservationId);
+  if (error) { showToast(error.message || "Couldn't cancel the reservation.", 'error', 6000); return; }
+  item.reservations = item.reservations.filter(entry => entry.id !== reservationId);
+  renderEquipment();
+  renderEquipmentStatus();
+  renderDashboard();
+  showToast('Equipment reservation cancelled.');
 }
 
 async function setEquipmentStatus(id, status) {

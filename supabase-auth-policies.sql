@@ -667,7 +667,7 @@ using (
   reservation_status = 'scheduled'
   and starts_at > now()
   and (
-    public.is_admin_panel_user()
+    public.is_auth_admin()
     or exists (
       select 1 from public.members member
       where member.id = equipment_reservations.member_id
