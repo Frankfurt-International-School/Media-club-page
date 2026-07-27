@@ -10,6 +10,15 @@ as $$
   select lower(btrim(coalesce(candidate_email, ''))) ~ '^[a-z]{2}[0-9]{4,}@fis[.]edu$';
 $$;
 
+create or replace function public.is_fis_school_email(candidate_email text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select lower(btrim(coalesce(candidate_email, ''))) ~ '^[^[:space:]@]+@fis[.]edu$';
+$$;
+
 create table if not exists public.members (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -27,16 +36,10 @@ alter table public.members add column if not exists sidebar_customized boolean n
 alter table public.members add column if not exists sidebar_items text[] not null default array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[];
 alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true}'::jsonb;
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'members_fis_alias_email_check'
-  ) then
-    alter table public.members
-      add constraint members_fis_alias_email_check
-      check (public.is_fis_alias_email(email)) not valid;
-  end if;
-end $$;
+-- New member email rules are enforced by the Auth Admin insert policy. Keeping
+-- this as a table CHECK would prevent approved legacy/test accounts from later
+-- updating their profile preferences or avatar.
+alter table public.members drop constraint if exists members_fis_alias_email_check;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
@@ -85,6 +88,20 @@ alter table public.events add column if not exists shift_2_start time;
 alter table public.events add column if not exists shift_2_end time;
 alter table public.events add column if not exists takedown_start time;
 alter table public.events add column if not exists takedown_end time;
+update public.events event
+set ends_at = (
+  (event.date at time zone 'Europe/Berlin')::date
+  + coalesce(
+      case
+        when event.is_festival then event.takedown_end
+        when event.is_isst then coalesce(event.game_4_end, event.game_3_end)
+        when event.is_sports then event.game_2_end
+        else null
+      end,
+      time '23:59'
+    )
+) at time zone 'Europe/Berlin'
+where event.ends_at is null;
 update public.events set category = 'Event' where is_festival;
 alter table public.events drop constraint if exists events_isst_schedule_check;
 alter table public.events add constraint events_isst_schedule_check check (

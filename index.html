@@ -2537,7 +2537,7 @@ function validateSignupNameInput(canonicalize = false) {
 function showLoadError(targetId, message = "Couldn't load data.") {
   const target = document.getElementById(targetId);
   if (target) {
-    target.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><p>${message}</p></div>`;
+    target.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><p>${escapeHtml(message)}</p></div>`;
   }
 }
 
@@ -2639,12 +2639,13 @@ function normalizeEvent(event) {
 }
 
 function normalizeGallery(item) {
+  const directoryMember = state.members.find(member => member.id === item.member_id);
   return {
     id: item.id,
     title: item.project_name,
     type: item.project_type || 'Photo',
     memberId: item.member_id || '',
-    author: item.members?.name || '',
+    author: item.members?.name || directoryMember?.name || 'Media Club member',
     desc: item.description || '',
     link: item.project_url || item.image_url || '#',
     image_url: item.image_url || '',
@@ -2717,14 +2718,15 @@ async function loadCrewCenterData() {
   }
 
   try {
+    const visitor = state.currentUser.isVisitor;
     const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes, notificationsRes] = await Promise.all([
-      supabaseClient.from('members').select('*').order('name'),
-      supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
-      supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
-      supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
+      visitor ? supabaseClient.rpc('get_public_member_directory') : supabaseClient.from('members').select('*').order('name'),
+      visitor ? supabaseClient.from('events').select('*').order('date', { ascending: true }) : supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
+      visitor ? supabaseClient.from('gallery').select('*').order('created_at', { ascending: false }) : supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
+      visitor ? supabaseClient.from('equipment').select('*').order('name') : supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
       supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
-      supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
-      supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
+      visitor ? Promise.resolve({ data: [], error: null }) : supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
+      visitor ? Promise.resolve({ data: [], error: null }) : supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
     ]);
 
     const failed = [membersRes, eventsRes, galleryRes, equipmentRes].find(result => result.error);
@@ -3078,7 +3080,10 @@ function showToast(msg, type = 'success', duration = 3500) {
   const icon = type === 'success'
     ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>`
     : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-  t.innerHTML = icon + msg;
+  t.innerHTML = icon;
+  const message = document.createElement('span');
+  message.textContent = String(msg ?? '');
+  t.appendChild(message);
   c.appendChild(t);
   setTimeout(() => t.remove(), duration);
 }
@@ -3086,6 +3091,21 @@ function showToast(msg, type = 'success', duration = 3500) {
 // ══════════════════════════════
 // HELPERS
 // ══════════════════════════════
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]);
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 function fmtDate(d) {
   const dt = new Date(d + 'T12:00:00');
   return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -3264,9 +3284,13 @@ function renderNotificationCenter() {
   const unread = storedItems.filter(item => !item.read_at).length + maybeItems.length + upcomingItems.length;
   badge.textContent = unread > 99 ? '99+' : unread;
   badge.classList.toggle('visible', unread > 0);
-  const actionHtml = maybeItems.map(({ event, signup }) => `<div class="notification-item action"><div class="notification-item-title">Confirm ${event.title}</div><div class="notification-item-copy">Your ${signup.role || 'event'} signup is marked Maybe. Confirm within ${confirmationCountdown(signup.confirmationDeadline)} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="removeSignupById('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
-  const upcomingHtml = upcomingItems.map(({ event }) => `<div class="notification-item action" onclick="navigate('signup',navItemForPage('signup'))"><div class="notification-item-title">${event.title} is coming up</div><div class="notification-item-copy">You are confirmed for ${fmtDate(event.date)} at ${event.time || 'TBC'}.</div><div class="notification-item-meta">Upcoming event</div></div>`).join('');
-  const storedHtml = storedItems.map(item => `<div class="notification-item${item.read_at ? '' : ' unread'}" onclick="openStoredNotification('${item.page || 'events'}','${item.related_event_id || ''}')"><div class="notification-item-title">${item.title}</div><div class="notification-item-copy">${item.message}</div><div class="notification-item-meta">${new Date(item.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</div></div>`).join('');
+  const actionHtml = maybeItems.map(({ event, signup }) => `<div class="notification-item action"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="removeSignupById('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
+  const upcomingHtml = upcomingItems.map(({ event }) => `<div class="notification-item action" onclick="navigate('signup',navItemForPage('signup'))"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(event.time || 'TBC')}.</div><div class="notification-item-meta">Upcoming event</div></div>`).join('');
+  const storedHtml = storedItems.map(item => {
+    const page = Object.values(sidebarCategories).some(category => category.pages.includes(item.page)) ? item.page : 'events';
+    const relatedEventId = state.events.some(event => event.id === item.related_event_id) ? item.related_event_id : '';
+    return `<div class="notification-item${item.read_at ? '' : ' unread'}" onclick="openStoredNotification('${page}','${relatedEventId}')"><div class="notification-item-title">${escapeHtml(item.title)}</div><div class="notification-item-copy">${escapeHtml(item.message)}</div><div class="notification-item-meta">${escapeHtml(new Date(item.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}</div></div>`;
+  }).join('');
   list.innerHTML = actionHtml + upcomingHtml + storedHtml || '<div class="empty-state" style="padding:28px 12px;"><p>You’re all caught up.</p></div>';
 }
 
@@ -3496,15 +3520,15 @@ function renderDashboard() {
         <div class="event-day">${fmtDay(ev.date)}</div>
       </div>
       <div style="flex:1;">
-        <div class="event-title">${ev.title}</div>
+        <div class="event-title">${escapeHtml(ev.title)}</div>
         <div class="event-meta">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time || 'TBC'}</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${ev.loc || 'TBC'}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${escapeHtml(ev.time || 'TBC')}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(ev.loc || 'TBC')}</span>
         </div>
-        <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>
-        ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${livestreamSetupCaption(ev)}</div>` : ''}
-        ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${isstScheduleCaption(ev)}</div>` : ''}
-        ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${festivalScheduleCaption(ev)}</div>` : ''}
+        <span class="badge badge-${catColor(ev.cat)}">${escapeHtml(ev.cat)}</span>
+        ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
+        ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${escapeHtml(isstScheduleCaption(ev))}</div>` : ''}
+        ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${escapeHtml(festivalScheduleCaption(ev))}</div>` : ''}
       </div>
     </div>`).join('') : '<div class="empty-state"><p>No upcoming events.</p></div>';
 
@@ -3513,9 +3537,9 @@ function renderDashboard() {
     <div class="announcement">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>
       <div>
-        <div class="announcement-title">${a.title}</div>
-        <div class="announcement-text">${a.body}</div>
-        <div class="announcement-date">${a.date}</div>
+        <div class="announcement-title">${escapeHtml(a.title)}</div>
+        <div class="announcement-text">${escapeHtml(a.body)}</div>
+        <div class="announcement-date">${escapeHtml(a.date)}</div>
       </div>
     </div>`).join('');
 }
@@ -3546,19 +3570,19 @@ function renderEvents(filter) {
         </div>
         <div style="flex:1;">
           <div class="flex-between mb8">
-            <div class="event-title">${ev.title}</div>
-            <div style="display:flex;gap:6px;"><span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span>${past ? '<span class="badge badge-gray">Past</span>' : ''}</div>
+            <div class="event-title">${escapeHtml(ev.title)}</div>
+            <div style="display:flex;gap:6px;"><span class="badge badge-${catColor(ev.cat)}">${escapeHtml(ev.cat)}</span>${past ? '<span class="badge badge-gray">Past</span>' : ''}</div>
           </div>
           <div class="event-meta">
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${ev.time || 'TBC'}</span>
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${ev.loc || 'TBC'}</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${escapeHtml(ev.time || 'TBC')}</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(ev.loc || 'TBC')}</span>
             ${ev.slots ? `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${ev.signups.length} / ${ev.slots} slots</span>` : ''}
           </div>
-          ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ev.desc}</div>` : ''}
-          ${sportsScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${sportsScheduleCaption(ev)}</div>` : ''}
-          ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${isstScheduleCaption(ev)}</div>` : ''}
-          ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${festivalScheduleCaption(ev)}</div>` : ''}
-          ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${livestreamSetupCaption(ev)}</div>` : ''}
+          ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${escapeHtml(ev.desc)}</div>` : ''}
+          ${sportsScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(sportsScheduleCaption(ev))}</div>` : ''}
+          ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(isstScheduleCaption(ev))}</div>` : ''}
+          ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(festivalScheduleCaption(ev))}</div>` : ''}
+          ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:8px;">
             ${past
@@ -3584,7 +3608,7 @@ function renderEvents(filter) {
   el.innerHTML = categories.map(category => {
     const events = list.filter(event => event.cat === category).sort((a, b) => a.date.localeCompare(b.date));
     return `<section class="catalog-section">
-      <div class="catalog-section-head"><span class="catalog-section-title">${category}</span><span class="badge badge-${catColor(category)} catalog-section-count">${events.length}</span></div>
+      <div class="catalog-section-head"><span class="catalog-section-title">${escapeHtml(category)}</span><span class="badge badge-${catColor(category)} catalog-section-count">${events.length}</span></div>
       <div class="catalog-event-list">${events.map(eventCard).join('')}</div>
     </section>`;
   }).join('');
@@ -3788,7 +3812,7 @@ function initSignupSheet() {
   const sel = document.getElementById('sheet-event-select');
   const previousEventId = sel.value;
   const upcomingEvents = state.events.filter(event => !isPastEvent(event));
-  sel.innerHTML = upcomingEvents.map(e => `<option value="${e.id}">${e.title} — ${fmtDate(e.date)}</option>`).join('');
+  sel.innerHTML = upcomingEvents.map(e => `<option value="${e.id}">${escapeHtml(e.title)} — ${escapeHtml(fmtDate(e.date))}</option>`).join('');
   if (upcomingEvents.some(event => event.id === previousEventId)) sel.value = previousEventId;
   renderSignupSheet();
 }
@@ -3926,10 +3950,10 @@ function renderSignupSheet() {
   let rows = orderedSignups.map(({ signup: s, originalIndex, displayRole }, i) => `
     <tr>
       <td class="row-num">${i + 1}</td>
-      <td>${s.name}</td>
-      <td>${displayRole || '<span style="color:var(--text3)">—</span>'}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${confirmationCountdown(s.confirmationDeadline)}</span>` : ''}${reserveAssignments.has(s.id) ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${s.role === signupRoleLabels.student_supervisor && !reserveAssignments.has(s.id) && s.reserveRole1 ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${s.reserveRole1} → ${s.reserveRole2}</span>` : ''}</td>
-      <td style="color:var(--text2);font-size:12px;">${attendanceLabel(s)}</td>
-      <td style="color:var(--text3);font-size:12px;">${s.ts}</td>
+      <td>${escapeHtml(s.name)}</td>
+      <td>${displayRole ? escapeHtml(displayRole) : '<span style="color:var(--text3)">—</span>'}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${reserveAssignments.has(s.id) ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${s.role === signupRoleLabels.student_supervisor && !reserveAssignments.has(s.id) && s.reserveRole1 ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${escapeHtml(s.reserveRole1)} → ${escapeHtml(s.reserveRole2)}</span>` : ''}</td>
+      <td style="color:var(--text2);font-size:12px;">${escapeHtml(attendanceLabel(s))}</td>
+      <td style="color:var(--text3);font-size:12px;">${escapeHtml(s.ts)}</td>
       ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button>` : ''}</div></td>` : ''}
     </tr>`).join('');
   if (ev.slots) {
@@ -3938,7 +3962,7 @@ function renderSignupSheet() {
       rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${showRemoveColumn ? '<td></td>' : ''}</tr>`;
     }
   }
-  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${s.name}</td><td>${s.role || '—'} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${attendanceLabel(s)}</td><td>${s.ts}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeExpiredSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
+  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeExpiredSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
   document.getElementById('sheet-table').innerHTML = `
     <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Staying for</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
@@ -4210,21 +4234,21 @@ function renderCrewDeployment() {
 
   grid.innerHTML = [...locations.values()].sort((a, b) => a.order - b.order || a.label.localeCompare(b.label)).map(location => `
     <section class="deployment-location">
-      <div class="deployment-location-head"><div class="deployment-location-title">${location.label}</div><span class="badge badge-gray">${location.events.length} ${location.events.length === 1 ? 'event' : 'events'}</span></div>
+      <div class="deployment-location-head"><div class="deployment-location-title">${escapeHtml(location.label)}</div><span class="badge badge-gray">${location.events.length} ${location.events.length === 1 ? 'event' : 'events'}</span></div>
       ${location.events.map(event => {
         const eventStart = timeValue(event.date, event.game1Start || event.time || '00:00');
         const attendanceOpen = Date.now() >= eventStart - 10 * 60 * 1000;
         const attendanceTaken = event.signups.filter(signup => signup.attendanceStatus !== 'not_taken').length;
         const blocks = deploymentGameBlocks(event);
         return `<article class="deployment-event">
-          <div class="deployment-event-head"><div><div class="deployment-event-title">${event.title}</div><div class="text-muted">${event.loc} · ${event.time || 'TBC'}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}">${attendanceOpen ? `Attendance ${attendanceTaken}/${event.signups.length}` : `Opens ${new Date(eventStart - 10 * 60 * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</span></div>
+          <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(event.time || 'TBC')}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}">${attendanceOpen ? `Attendance ${attendanceTaken}/${event.signups.length}` : `Opens ${escapeHtml(new Date(eventStart - 10 * 60 * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}`}</span></div>
           ${blocks.map(block => {
             const crew = event.signups.filter(signup => signupCoversDeploymentBlock(signup, block));
             return `<div class="deployment-game"><div class="deployment-game-head"><span>${block.label}</span><span>${block.start}–${block.end}</span></div>${crew.length ? crew.map(signup => {
               const firstCoveredBlock = blocks.find(candidate => signupCoversDeploymentBlock(signup, candidate));
               const next = firstCoveredBlock?.key === block.key ? nextCrewAssignment(events, event, signup) : null;
               const nextLabel = next ? `${next.event.loc || deploymentLocation(next.event).label} · ${new Date(next.signup.attendanceStart || next.event.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : '';
-              return `<div class="deployment-person"><div><div class="deployment-person-name">${signup.name}${nextLabel ? `<span class="deployment-next">Next: ${nextLabel}</span>` : ''}</div><div class="deployment-person-role">${signup.role || 'No production role'} · ${attendanceLabel(signup)}</div></div><select class="form-select deployment-attendance-select status-${signup.attendanceStatus}" ${attendanceOpen ? '' : 'disabled'} onchange="markCrewAttendance('${event.id}', '${signup.id}', this.value)">${attendanceOption(signup.attendanceStatus, 'not_taken', 'Not taken')}${attendanceOption(signup.attendanceStatus, 'present', 'Present')}${attendanceOption(signup.attendanceStatus, 'late', 'Late')}${attendanceOption(signup.attendanceStatus, 'absent', 'Absent')}${attendanceOption(signup.attendanceStatus, 'excused', 'Excused')}</select></div>`;
+              return `<div class="deployment-person"><div><div class="deployment-person-name">${escapeHtml(signup.name)}${nextLabel ? `<span class="deployment-next">Next: ${escapeHtml(nextLabel)}</span>` : ''}</div><div class="deployment-person-role">${escapeHtml(signup.role || 'No production role')} · ${escapeHtml(attendanceLabel(signup))}</div></div><select class="form-select deployment-attendance-select status-${signup.attendanceStatus}" ${attendanceOpen ? '' : 'disabled'} onchange="markCrewAttendance('${event.id}', '${signup.id}', this.value)">${attendanceOption(signup.attendanceStatus, 'not_taken', 'Not taken')}${attendanceOption(signup.attendanceStatus, 'present', 'Present')}${attendanceOption(signup.attendanceStatus, 'late', 'Late')}${attendanceOption(signup.attendanceStatus, 'absent', 'Absent')}${attendanceOption(signup.attendanceStatus, 'excused', 'Excused')}</select></div>`;
             }).join('') : '<div class="deployment-empty-role">No crew assigned for this game.</div>'}</div>`;
           }).join('')}
         </article>`;
@@ -4277,18 +4301,19 @@ function renderMembers() {
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
   const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
-    const tags = m.spec.split(',').map(s => `<span class="badge badge-gray">${s.trim()}</span>`).join('');
-    const avatarStyle = m.avatarUrl
-      ? `background:url(&quot;${m.avatarUrl}&quot;) center/cover;color:transparent;`
+    const tags = m.spec.split(',').map(s => `<span class="badge badge-gray">${escapeHtml(s.trim())}</span>`).join('');
+    const safeAvatarUrl = safeExternalUrl(m.avatarUrl);
+    const avatarStyle = safeAvatarUrl
+      ? `background:url(&quot;${escapeHtml(safeAvatarUrl)}&quot;) center/cover;color:transparent;`
       : `background:${bg};color:${fg};`;
     return `
       <div class="member-card">
-        <div class="member-avatar" style="${avatarStyle}">${m.avatarUrl ? '' : initials(m.fname, m.lname)}</div>
+        <div class="member-avatar" style="${avatarStyle}">${safeAvatarUrl ? '' : escapeHtml(initials(m.fname, m.lname))}</div>
         <div style="flex:1;">
-          <div class="member-name">${m.fname} ${m.lname}</div>
-          <div class="member-role">${m.email}${m.gradeLevel ? ` · ${m.gradeLevel}` : ''}</div>
+          <div class="member-name">${escapeHtml(m.fname)} ${escapeHtml(m.lname)}</div>
+          <div class="member-role">${escapeHtml(m.email)}${m.gradeLevel ? ` · ${escapeHtml(m.gradeLevel)}` : ''}</div>
           <div class="member-tags">
-            <span class="badge badge-${memberRoleColor(m.role)}">${m.role}</span>
+            <span class="badge badge-${memberRoleColor(m.role)}">${escapeHtml(m.role)}</span>
             ${tags}
           </div>
         </div>
@@ -4312,7 +4337,7 @@ function renderMembers() {
       return a.name.localeCompare(b.name);
     });
     return `<section class="member-role-section">
-      <div class="member-section-head"><span class="member-section-title">${role}</span><span class="badge badge-${memberRoleColor(role)}">${members.length}</span><span class="member-section-line"></span></div>
+      <div class="member-section-head"><span class="member-section-title">${escapeHtml(role)}</span><span class="badge badge-${memberRoleColor(role)}">${members.length}</span><span class="member-section-line"></span></div>
       <div class="member-section-grid">${orderedMembers.map(memberCard).join('')}</div>
     </section>`;
   }).join('');
@@ -4404,6 +4429,18 @@ function renderGalleryAuthorField() {
   input.value = currentMemberRecord()?.name || state.currentUser.name || '';
 }
 
+function openGalleryProject(card) {
+  const url = safeExternalUrl(card?.dataset?.projectUrl);
+  if (url) window.open(url, '_blank', 'noopener');
+}
+
+function applyGalleryBackgrounds(grid) {
+  grid.querySelectorAll('[data-image-url]').forEach(card => {
+    const url = safeExternalUrl(card.dataset.imageUrl);
+    if (url) card.style.backgroundImage = `url(${JSON.stringify(url)})`;
+  });
+}
+
 function renderGallery(filter) {
   if (filter !== undefined) state.galleryFilter = filter;
   const f = state.galleryFilter;
@@ -4422,15 +4459,18 @@ function renderGallery(filter) {
   const galleryCard = g => {
     const [gbg, gfg] = galleryColors[g.type] || ['#1a1a1d','#a09eb8'];
     const canDelete = state.currentUser.isAdmin || (currentMemberId && g.memberId === currentMemberId);
+    const imageUrl = safeExternalUrl(g.image_url);
+    const projectUrl = safeExternalUrl(g.link);
     return `
-      <div class="gallery-item${g.image_url ? ' has-img' : ''}" style="${g.image_url ? `background-image:url('${g.image_url}');` : `background:linear-gradient(145deg,${gbg},var(--bg3));`}" onclick="window.open('${g.link}','_blank','noopener')">
+      <div class="gallery-item${imageUrl ? ' has-img' : ''}" style="${imageUrl ? '' : `background:linear-gradient(145deg,${gbg},var(--bg3));`}" data-project-url="${escapeHtml(projectUrl)}"${imageUrl ? ` data-image-url="${escapeHtml(imageUrl)}"` : ''} onclick="openGalleryProject(this)">
         ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
-        ${g.image_url ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
-        <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${g.title}</div><div class="gallery-card-author">${g.author} · ${g.type}</div>${g.desc ? `<div class="gallery-overlay-title">${g.desc}</div>` : ''}</div></div>
+        ${imageUrl ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
+        <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
       </div>`;
   };
   if (f !== 'all') {
     grid.innerHTML = list.map(galleryCard).join('');
+    applyGalleryBackgrounds(grid);
     return;
   }
   const categoryOrder = ['Photo', 'Video', 'Podcast', 'Design'];
@@ -4442,10 +4482,11 @@ function renderGallery(filter) {
   grid.innerHTML = categories.map(category => {
     const projects = list.filter(project => project.type === category);
     return `<section class="gallery-category-section">
-      <div class="member-section-head"><span class="member-section-title">${category}</span><span class="badge" style="background:${(galleryColors[category] || ['#1a1a1d'])[0]};">${projects.length}</span><span class="member-section-line"></span></div>
+      <div class="member-section-head"><span class="member-section-title">${escapeHtml(category)}</span><span class="badge" style="background:${(galleryColors[category] || ['#1a1a1d'])[0]};">${projects.length}</span><span class="member-section-line"></span></div>
       <div class="gallery-category-items">${projects.map(galleryCard).join('')}</div>
     </section>`;
   }).join('');
+  applyGalleryBackgrounds(grid);
 }
 
 function updateSlidingTab(row) {
@@ -4702,14 +4743,14 @@ function renderEquipment() {
     .sort((a, b) => a.reservation.startsAt.localeCompare(b.reservation.startsAt));
   if (ownReservationsPanel) {
     ownReservationsPanel.style.display = ownReservations.length ? '' : 'none';
-    ownReservationsPanel.innerHTML = ownReservations.length ? `<div class="section-head" style="margin:0 0 12px;">My upcoming reservations</div>${ownReservations.map(({ item, reservation }) => `<div class="my-equipment-reservation"><div><strong>${item.name}</strong><div class="text-muted">${reservation.eventTitle || reservation.purpose || 'No purpose recorded'} · ${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div></div><button class="btn btn-danger btn-sm" onclick="cancelEquipmentReservation('${reservation.id}')">Cancel reservation</button></div>`).join('')}` : '';
+    ownReservationsPanel.innerHTML = ownReservations.length ? `<div class="section-head" style="margin:0 0 12px;">My upcoming reservations</div>${ownReservations.map(({ item, reservation }) => `<div class="my-equipment-reservation"><div><strong>${escapeHtml(item.name)}</strong><div class="text-muted">${escapeHtml(reservation.eventTitle || reservation.purpose || 'No purpose recorded')} · ${escapeHtml(new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}–${escapeHtml(new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}</div></div><button class="btn btn-danger btn-sm" onclick="cancelEquipmentReservation('${reservation.id}')">Cancel reservation</button></div>`).join('')}` : '';
   }
   const search = document.getElementById('equipment-search')?.value.trim().toLowerCase() || '';
   const categorySelect = document.getElementById('equipment-category-filter');
   const currentCategory = categorySelect?.value || 'all';
   if (categorySelect) {
     const categories = [...new Set(state.equipment.map(item => item.category))].sort();
-    categorySelect.innerHTML = '<option value="all">All categories</option>' + categories.map(category => `<option value="${category}">${category}</option>`).join('');
+    categorySelect.innerHTML = '<option value="all">All categories</option>' + categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join('');
     categorySelect.value = categories.includes(currentCategory) ? currentCategory : 'all';
   }
   const category = categorySelect?.value || 'all';
@@ -4742,14 +4783,14 @@ function renderEquipment() {
             <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
           </svg>
         </div>
-        <div class="equip-name">${e.name}</div>
-        <div class="equip-detail">${e.category} · ${e.detail}</div>
+        <div class="equip-name">${escapeHtml(e.name)}</div>
+        <div class="equip-detail">${escapeHtml(e.category)} · ${escapeHtml(e.detail)}</div>
         <div class="equip-status">
-          <span class="badge badge-${equipmentStatusColor(liveStatus)}">${equipmentStatusLabel(liveStatus)}</span>
+          <span class="badge badge-${equipmentStatusColor(liveStatus)}">${escapeHtml(equipmentStatusLabel(liveStatus))}</span>
           <span class="text-muted">${reservations.length} upcoming</span>
         </div>
-        ${activeReservation ? `<div class="text-muted" style="margin-top:6px;"><strong>With ${activeReservation.memberName}</strong> · until ${new Date(activeReservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${activeReservation.eventTitle ? ` · ${activeReservation.eventTitle}` : activeReservation.purpose ? ` · ${activeReservation.purpose}` : ''}</div>` : ''}
-        ${reservations.slice(0, 2).map(reservation => `<div class="text-muted" style="margin-top:6px;">${reservation.memberName} · ${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${reservation.eventTitle ? ` · ${reservation.eventTitle}` : ''}</div>`).join('')}
+        ${activeReservation ? `<div class="text-muted" style="margin-top:6px;"><strong>With ${escapeHtml(activeReservation.memberName)}</strong> · until ${escapeHtml(new Date(activeReservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}${activeReservation.eventTitle ? ` · ${escapeHtml(activeReservation.eventTitle)}` : activeReservation.purpose ? ` · ${escapeHtml(activeReservation.purpose)}` : ''}</div>` : ''}
+        ${reservations.slice(0, 2).map(reservation => `<div class="text-muted" style="margin-top:6px;">${escapeHtml(reservation.memberName)} · ${escapeHtml(new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}–${escapeHtml(new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}${reservation.eventTitle ? ` · ${escapeHtml(reservation.eventTitle)}` : ''}</div>`).join('')}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
           <button class="btn btn-accent btn-sm" ${liveStatus !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>
           ${canManageCrewOperations() ? `${liveStatus === 'checked_out' ? '<span class="text-muted">Manage return through Equipment Status</span>' : ''}<button class="btn btn-danger btn-sm" onclick="deleteEquipment('${e.id}')">Delete</button>` : ''}
@@ -4765,7 +4806,7 @@ function renderEquipment() {
   grid.innerHTML = categories.map(category => {
     const items = equip.filter(item => item.category === category).sort((a, b) => a.name.localeCompare(b.name));
     return `<section class="catalog-section">
-      <div class="catalog-section-head"><span class="catalog-section-title">${category}</span><span class="badge badge-gray catalog-section-count">${items.length}</span></div>
+      <div class="catalog-section-head"><span class="catalog-section-title">${escapeHtml(category)}</span><span class="badge badge-gray catalog-section-count">${items.length}</span></div>
       <div class="catalog-equipment-grid">${items.map(equipmentCard).join('')}</div>
     </section>`;
   }).join('');
@@ -4788,9 +4829,9 @@ function renderEquipmentStatus() {
     const liveStatus = equipmentDisplayStatus(item);
     const active = activeEquipmentReservation(item);
     return `<div class="equipment-card equipment-status-card status-${liveStatus}">
-      <div class="flex-between mb8"><div class="equip-name">${item.name}</div><span class="badge badge-${equipmentStatusColor(liveStatus)}">${equipmentStatusLabel(liveStatus)}</span></div>
-      <div class="equipment-status-detail">${item.detail || 'No equipment details added.'}</div>
-      ${active ? `<div class="equipment-holder"><strong>With ${active.memberName}</strong><div class="text-muted">${active.eventTitle || active.purpose || 'No purpose recorded'} · ${new Date(active.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(active.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div></div><div class="equipment-status-actions"><button class="btn btn-accent btn-sm" onclick="markEquipmentReturned('${active.id}')">Mark returned</button></div>` : `<div class="equipment-status-idle">${liveStatus === 'unavailable' ? 'Temporarily unavailable for reservations.' : 'Ready to reserve.'}</div><div class="equipment-status-actions"><button class="btn ${liveStatus === 'unavailable' ? 'btn-accent' : 'btn-ghost'} btn-sm" onclick="setEquipmentStatus('${item.id}', '${liveStatus === 'unavailable' ? 'available' : 'unavailable'}')">${liveStatus === 'unavailable' ? 'Make available' : 'Mark unavailable'}</button></div>`}
+      <div class="flex-between mb8"><div class="equip-name">${escapeHtml(item.name)}</div><span class="badge badge-${equipmentStatusColor(liveStatus)}">${escapeHtml(equipmentStatusLabel(liveStatus))}</span></div>
+      <div class="equipment-status-detail">${escapeHtml(item.detail || 'No equipment details added.')}</div>
+      ${active ? `<div class="equipment-holder"><strong>With ${escapeHtml(active.memberName)}</strong><div class="text-muted">${escapeHtml(active.eventTitle || active.purpose || 'No purpose recorded')} · ${escapeHtml(new Date(active.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}–${escapeHtml(new Date(active.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}</div></div><div class="equipment-status-actions"><button class="btn btn-accent btn-sm" onclick="markEquipmentReturned('${active.id}')">Mark returned</button></div>` : `<div class="equipment-status-idle">${liveStatus === 'unavailable' ? 'Temporarily unavailable for reservations.' : 'Ready to reserve.'}</div><div class="equipment-status-actions"><button class="btn ${liveStatus === 'unavailable' ? 'btn-accent' : 'btn-ghost'} btn-sm" onclick="setEquipmentStatus('${item.id}', '${liveStatus === 'unavailable' ? 'available' : 'unavailable'}')">${liveStatus === 'unavailable' ? 'Make available' : 'Mark unavailable'}</button></div>`}
     </div>`;
   };
   const equipmentCategoryOrder = ['Recording Cameras', 'Camera', 'Tripod', 'Microphone', 'Accessories', 'Other'];
@@ -4801,7 +4842,7 @@ function renderEquipmentStatus() {
   });
   grid.innerHTML = state.equipment.length ? statusCategories.map(category => {
     const items = state.equipment.filter(item => item.category === category).sort((a, b) => a.name.localeCompare(b.name));
-    return `<section class="equipment-status-section"><div class="catalog-section-head"><span class="catalog-section-title">${category}</span><span class="badge badge-gray catalog-section-count">${items.length}</span></div><div class="equipment-status-card-grid">${items.map(equipmentStatusCard).join('')}</div></section>`;
+    return `<section class="equipment-status-section"><div class="catalog-section-head"><span class="catalog-section-title">${escapeHtml(category)}</span><span class="badge badge-gray catalog-section-count">${items.length}</span></div><div class="equipment-status-card-grid">${items.map(equipmentStatusCard).join('')}</div></section>`;
   }).join('') : '<div class="empty-state"><p>No equipment has been added yet.</p></div>';
 
   const showReturned = Boolean(document.getElementById('show-returned-equipment')?.checked);
@@ -4822,7 +4863,7 @@ function renderEquipmentStatus() {
     const action = ['checked_out', 'auto_released'].includes(status)
       ? `<button class="btn btn-accent btn-sm" onclick="markEquipmentReturned('${reservation.id}')">${status === 'auto_released' ? 'Confirm returned' : 'Returned'}</button>`
       : canCancel ? `<button class="btn btn-danger btn-sm" onclick="cancelEquipmentReservation('${reservation.id}')">Cancel</button>` : '';
-    return `<tr><td>${item.name}</td><td>${reservation.memberName}</td><td>${reservation.eventTitle || reservation.purpose || '—'}</td><td>${new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}–${new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</td><td>${statusLabel}</td><td>${action}</td></tr>`;
+    return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(reservation.memberName)}</td><td>${escapeHtml(reservation.eventTitle || reservation.purpose || '—')}</td><td>${escapeHtml(new Date(reservation.startsAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}–${escapeHtml(new Date(reservation.endsAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}</td><td>${escapeHtml(statusLabel)}</td><td>${action}</td></tr>`;
   }).join('') : `<tr><td colspan="6">${showReturned ? 'No reservations recorded.' : 'No active or upcoming reservations. Turn on Show returned to view completed loans.'}</td></tr>`}</tbody>`;
 }
 
@@ -4937,7 +4978,7 @@ function openEquipmentReservation(id) {
   }
   reservingEquipmentId = id;
   document.getElementById('reserve-equipment-name').textContent = `${item.name} · ${item.category}`;
-  document.getElementById('reserve-event').innerHTML = reservableEvents.map(event => `<option value="${event.id}">${event.title} — ${fmtDate(event.date)}</option>`).join('');
+  document.getElementById('reserve-event').innerHTML = reservableEvents.map(event => `<option value="${event.id}">${escapeHtml(event.title)} — ${escapeHtml(fmtDate(event.date))}</option>`).join('');
   const reservationType = document.getElementById('reserve-type');
   reservationType.innerHTML = `${reservableEvents.length ? '<option value="event">During an event</option>' : ''}${outsideEventAllowed ? '<option value="non_event">Not during an event</option>' : ''}`;
   reservationType.value = reservableEvents.length ? 'event' : 'non_event';
@@ -5103,10 +5144,10 @@ function renderPending() {
   el.innerHTML = list.map(a => `
     <div class="admin-row">
       <div>
-        <div style="font-size:14px;font-weight:500;color:var(--text);">${a.fname} ${a.lname}</div>
-        <div style="font-size:12px;color:var(--text3);">${a.email} · ${a.year} · ${a.exp}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:4px;max-width:500px;">${a.why}</div>
-        ${a.interests.length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${a.interests.map(i => `<span class="badge badge-gray">${i}</span>`).join('')}</div>` : ''}
+        <div style="font-size:14px;font-weight:500;color:var(--text);">${escapeHtml(a.fname)} ${escapeHtml(a.lname)}</div>
+        <div style="font-size:12px;color:var(--text3);">${escapeHtml(a.email)} · ${escapeHtml(a.year)} · ${escapeHtml(a.exp)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;max-width:500px;">${escapeHtml(a.why)}</div>
+        ${a.interests.length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${a.interests.map(i => `<span class="badge badge-gray">${escapeHtml(i)}</span>`).join('')}</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="btn btn-accent btn-sm" id="approve-app-${a.id}" onclick="approveApp('${a.id}')">Approve</button>
@@ -5185,8 +5226,8 @@ function renderManageEvents() {
   document.getElementById('manage-events-list').innerHTML = state.events.map(ev => `
     <div class="admin-row">
       <div>
-        <div style="font-size:14px;font-weight:500;color:var(--text);">${ev.title}</div>
-        <div style="font-size:12px;color:var(--text3);">${fmtDate(ev.date)} · ${ev.loc} · <span class="badge badge-${catColor(ev.cat)}">${ev.cat}</span></div>
+        <div style="font-size:14px;font-weight:500;color:var(--text);">${escapeHtml(ev.title)}</div>
+        <div style="font-size:12px;color:var(--text3);">${escapeHtml(fmtDate(ev.date))} · ${escapeHtml(ev.loc)} · <span class="badge badge-${catColor(ev.cat)}">${escapeHtml(ev.cat)}</span></div>
         <div style="font-size:12px;color:var(--text2);margin-top:2px;">${ev.signups.length} signed up${ev.slots ? ' / ' + ev.slots : ''}</div>
       </div>
       <button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}');renderManageEvents();">Delete</button>
@@ -5197,9 +5238,9 @@ function renderAdminAnn() {
   document.getElementById('admin-ann-list').innerHTML = state.announcements.map(a => `
     <div class="admin-row">
       <div>
-        <div style="font-size:14px;font-weight:500;color:var(--text);">${a.title}</div>
-        <div style="font-size:12px;color:var(--text2);">${a.body}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${a.date}</div>
+        <div style="font-size:14px;font-weight:500;color:var(--text);">${escapeHtml(a.title)}</div>
+        <div style="font-size:12px;color:var(--text2);">${escapeHtml(a.body)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${escapeHtml(a.date)}</div>
       </div>
       <button class="btn btn-danger btn-sm" onclick="deleteAnn('${a.id}')">Delete</button>
     </div>`).join('');

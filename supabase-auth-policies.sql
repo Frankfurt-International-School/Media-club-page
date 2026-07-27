@@ -125,6 +125,40 @@ as $$
     )) = 'visitor';
 $$;
 
+create or replace function public.is_approved_member()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null
+    and not public.is_visitor_session()
+    and (
+      public.is_auth_admin()
+      or exists (
+        select 1 from public.members member
+        where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      )
+    );
+$$;
+
+create or replace function public.get_public_member_directory()
+returns table (id uuid, name text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select member.id, member.name
+  from public.members member
+  where lower(coalesce(member.status, 'active')) <> 'inactive'
+  order by member.name;
+$$;
+
+revoke all on function public.get_public_member_directory() from public;
+grant execute on function public.get_public_member_directory() to authenticated;
+
 create or replace function public.update_own_member_avatar(
   p_avatar_url text,
   p_avatar_path text
@@ -291,6 +325,7 @@ as $$
     select 1
     from public.events event
     where event.id = p_event_id
+      and p_attendance_end > p_attendance_start
       and (p_attendance_start at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
       and (p_attendance_end at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
       and (
@@ -319,19 +354,46 @@ as $$
           not event.is_festival
           and p_signup_role is not null
           and (
-            p_attendance_type in ('whole', 'game_1', 'game_2', 'custom')
+            (
+              p_attendance_type = 'whole'
+              and p_attendance_start = event.date
+              and p_attendance_end = coalesce(
+                event.ends_at,
+                (((event.date at time zone 'Europe/Berlin')::date + time '23:59') at time zone 'Europe/Berlin')
+              )
+            )
+            or (
+              p_attendance_type = 'game_1'
+              and (event.is_sports or event.is_isst)
+              and p_attendance_start = (((event.date at time zone 'Europe/Berlin')::date + event.game_1_start) at time zone 'Europe/Berlin')
+              and p_attendance_end = (((event.date at time zone 'Europe/Berlin')::date + event.game_1_end) at time zone 'Europe/Berlin')
+            )
+            or (
+              p_attendance_type = 'game_2'
+              and (event.is_sports or event.is_isst)
+              and p_attendance_start = (((event.date at time zone 'Europe/Berlin')::date + event.game_2_start) at time zone 'Europe/Berlin')
+              and p_attendance_end = (((event.date at time zone 'Europe/Berlin')::date + event.game_2_end) at time zone 'Europe/Berlin')
+            )
+            or (
+              p_attendance_type = 'custom'
+              and p_attendance_start >= event.date
+              and p_attendance_end <= coalesce(
+                event.ends_at,
+                (((event.date at time zone 'Europe/Berlin')::date + time '23:59') at time zone 'Europe/Berlin')
+              )
+            )
             or (
               p_attendance_type = 'game_3'
               and event.is_isst
-              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.game_3_start
-              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.game_3_end
+              and p_attendance_start = (((event.date at time zone 'Europe/Berlin')::date + event.game_3_start) at time zone 'Europe/Berlin')
+              and p_attendance_end = (((event.date at time zone 'Europe/Berlin')::date + event.game_3_end) at time zone 'Europe/Berlin')
             )
             or (
               p_attendance_type = 'game_4'
               and event.is_isst
               and event.game_4_start is not null
-              and (p_attendance_start at time zone 'Europe/Berlin')::time = event.game_4_start
-              and (p_attendance_end at time zone 'Europe/Berlin')::time = event.game_4_end
+              and p_attendance_start = (((event.date at time zone 'Europe/Berlin')::date + event.game_4_start) at time zone 'Europe/Berlin')
+              and p_attendance_end = (((event.date at time zone 'Europe/Berlin')::date + event.game_4_end) at time zone 'Europe/Berlin')
             )
           )
         )
@@ -513,12 +575,18 @@ grant execute on function public.mark_signup_attendance(uuid, text) to authentic
 create policy "Signed-in users can read members"
 on public.members for select
 to authenticated
-using (true);
+using (public.is_approved_member());
 
 create policy "Auth Admins can add members"
 on public.members for insert
 to authenticated
-with check (public.is_auth_admin());
+with check (
+  public.is_auth_admin()
+  and (
+    public.is_fis_alias_email(email)
+    or (replace(lower(role), ' ', '-') = 'faculty' and public.is_fis_school_email(email))
+  )
+);
 
 create policy "Admins can update members"
 on public.members for update
@@ -555,7 +623,7 @@ using (public.is_crew_operations_user());
 create policy "Signed-in users can read signups"
 on public.signups for select
 to authenticated
-using (true);
+using (public.is_approved_member());
 
 create policy "Signed-in users can add signups"
 on public.signups for insert
@@ -642,7 +710,7 @@ using (public.is_crew_operations_user());
 create policy "Signed-in users can read equipment reservations"
 on public.equipment_reservations for select
 to authenticated
-using (true);
+using (public.is_approved_member());
 
 create policy "Signed-in members can reserve equipment"
 on public.equipment_reservations for insert
