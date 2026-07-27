@@ -500,11 +500,11 @@
     transition: all 0.15s;
   }
   .attendance-choice.part-time-selected {
-    border-color: rgba(78,240,196,0.55);
-    background: rgba(78,240,196,0.1);
-    box-shadow: 0 0 0 3px rgba(78,240,196,0.06);
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
   }
-  .attendance-choice.part-time-selected .form-label { color: var(--teal); }
+  .attendance-choice.part-time-selected .form-label { color: var(--text3); }
 
   /* ── BUTTONS ── */
   .btn {
@@ -679,7 +679,8 @@
   .signup-entry-grid.role-free { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .signup-field { min-width: 0; margin: 0; }
   .signup-entry-grid .attendance-choice { margin: 0; padding: 0; }
-  .signup-entry-grid .attendance-choice.part-time-selected { padding: 0; margin: 0; outline: 3px solid rgba(78,240,196,0.06); }
+  .signup-entry-grid .attendance-choice.part-time-selected { padding: 0; margin: 0; outline: none; }
+  .signup-entry-grid .attendance-choice.part-time-selected .form-select { border-color: rgba(164,1,52,.42); background: var(--accent-dim2); box-shadow: 0 0 0 3px rgba(164,1,52,.06); }
   .signup-field .form-label { margin-bottom: 7px; }
   .signup-field .form-input, .signup-field .form-select { min-height: 44px; }
   .signup-select-shell { position: relative; }
