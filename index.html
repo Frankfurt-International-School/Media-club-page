@@ -2214,6 +2214,20 @@
   </div>
 </div>
 
+<!-- Remove Member Modal -->
+<div class="modal-backdrop" id="remove-member-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeRemoveMemberModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title">Remove member</div>
+    <div class="modal-sub" id="remove-member-name">Confirm removal from the member directory.</div>
+    <div style="padding:12px 14px;margin-bottom:18px;border:1px solid rgba(255,123,94,.24);border-radius:11px;background:var(--coral-dim);color:var(--text2);font-size:12px;line-height:1.5;">This permanently removes the member record and may also remove related records. Their Supabase Auth account is not deleted.</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-ghost" onclick="closeRemoveMemberModal()">Cancel</button>
+      <button class="btn btn-danger" id="remove-member-submit" onclick="submitMemberRemoval()">Remove member</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── TOAST CONTAINER ── -->
 <div class="toast-container" id="toast-container"></div>
 
@@ -4278,7 +4292,7 @@ function renderMembers() {
             ${tags}
           </div>
         </div>
-        ${canAccessAdminPanel() ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : ''}
+        ${canAccessAdminPanel() ? `<button class="btn btn-danger btn-sm" onclick="openRemoveMemberModal('${m.id}')">Remove</button>` : ''}
       </div>`;
   };
   const groups = new Map();
@@ -4337,17 +4351,39 @@ async function addMember() {
   renderDashboard();
 }
 
-async function removeMember(id) {
+let removingMemberId = null;
+
+function openRemoveMemberModal(id) {
   if (!canAccessAdminPanel()) { showToast('Only Auth Admin and Faculty accounts can remove members.', 'error'); return; }
   const member = state.members.find(item => item.id === id);
   if (!member) return;
-  if (!window.confirm(`Remove ${member.name} from the member directory? This cannot be undone.`)) return;
+  removingMemberId = id;
+  document.getElementById('remove-member-name').textContent = `Remove ${member.name} from the member directory?`;
+  openModal('remove-member-modal');
+}
+
+function closeRemoveMemberModal() {
+  removingMemberId = null;
+  closeModal('remove-member-modal');
+}
+
+async function submitMemberRemoval() {
+  if (!canAccessAdminPanel()) { closeRemoveMemberModal(); showToast('Only Auth Admin and Faculty accounts can remove members.', 'error'); return; }
+  const id = removingMemberId;
+  const member = state.members.find(item => item.id === id);
+  if (!member) { closeRemoveMemberModal(); return; }
+  const button = document.getElementById('remove-member-submit');
+  button.disabled = true;
+  button.textContent = 'Removing...';
   const { error } = await supabaseClient.from('members').delete().eq('id', id);
+  button.disabled = false;
+  button.textContent = 'Remove member';
   if (error) { showToast("Couldn't remove member.", 'error'); return; }
   state.members = state.members.filter(m => m.id !== id);
+  closeRemoveMemberModal();
   renderMembers();
   renderDashboard();
-  showToast('Member removed.', 'error');
+  showToast(`${member.name} removed from the member directory.`, 'error');
 }
 
 // ══════════════════════════════
