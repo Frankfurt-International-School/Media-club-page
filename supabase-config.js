@@ -263,6 +263,10 @@ authStyle.textContent = `
   body.auth-locked .auth-signout {
     display: none;
   }
+
+  .auth-lookup-actions { display: none; gap: 8px; margin: 10px 0 16px; }
+  .auth-lookup-actions.visible { display: flex; }
+  .auth-lookup-actions button { flex: 1; }
 `;
 document.head.appendChild(authStyle);
 
@@ -279,6 +283,10 @@ document.body.insertAdjacentHTML("afterbegin", `
       <h1 class="auth-gate-title" id="auth-gate-title">Sign in</h1>
       <p class="auth-gate-sub">Use the account created for you in Supabase to open the Media Club dashboard.</p>
       <div class="auth-gate-error" id="auth-gate-error"></div>
+      <div class="auth-lookup-actions" id="auth-lookup-actions">
+        <button class="auth-gate-button" id="auth-lookup-retry" type="button">Retry account check</button>
+        <button class="auth-visitor-button" id="auth-lookup-signout" type="button">Sign out</button>
+      </div>
       <form id="auth-gate-form">
         <div class="auth-gate-field">
           <label class="auth-gate-label" for="auth-gate-email">Email</label>
@@ -326,6 +334,9 @@ const authPassword = document.getElementById("auth-gate-password");
 const authRemember = document.getElementById("auth-remember-browser");
 const visitorSubmit = document.getElementById("auth-visitor-submit");
 const passwordSetupForm = document.getElementById("auth-password-setup-form");
+const authLookupActions = document.getElementById("auth-lookup-actions");
+const authLookupRetry = document.getElementById("auth-lookup-retry");
+let pendingApprovalCheckUser = null;
 const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite";
 const rememberPreferenceKey = "crew-center-remember-session";
 const shouldRememberSession = () => localStorage.getItem(rememberPreferenceKey) !== "false";
@@ -385,8 +396,10 @@ function applyAdminControls() {
     'button[onclick*="equip-add-modal"]',
     'button[onclick*="addEquipment"]',
     'button[onclick*="addEvent"]',
-    'button[onclick*="deleteEvent"]',
-    'button[onclick*="deleteEquipment"]',
+    'button[onclick*="requestArchiveEvent"]',
+    'button[onclick*="restoreArchivedEvent"]',
+    'button[onclick*="requestArchiveEquipment"]',
+    'button[onclick*="restoreArchivedEquipment"]',
     'button[onclick*="toggleEquipmentAvailability"]',
   ];
 
@@ -453,15 +466,22 @@ function installAdminFunctionGuards() {
   const adminGuarded = {
     removeMember: "remove members",
     postAnnouncement: "post announcements",
+    requestDeleteAnnouncement: "delete announcements",
     deleteAnn: "delete announcements",
     renderAdmin: "open the admin panel",
   };
-  const authAdminGuarded = { addMember: "add members" };
+  const authAdminGuarded = {
+    addMember: "add members",
+    requestPermanentDeleteEvent: "permanently delete events",
+    requestPermanentDeleteEquipment: "permanently delete equipment",
+  };
   const crewOperationsGuarded = {
     addEvent: "add events",
     addEquipment: "add equipment",
-    deleteEvent: "delete events",
-    deleteEquipment: "delete equipment",
+    requestArchiveEvent: "archive events",
+    restoreArchivedEvent: "restore events",
+    requestArchiveEquipment: "archive equipment",
+    restoreArchivedEquipment: "restore equipment",
     toggleEquipmentAvailability: "change equipment availability",
   };
 
@@ -629,13 +649,31 @@ async function allowCrewCenterUser(user) {
   if (String(user?.app_metadata?.role || "").toLowerCase() === "admin") return true;
   const normalizedEmail = String(user?.email || "").trim().toLowerCase();
   if (normalizedEmail) {
-    const { data: approvedMember, error } = await window.crewCenterSupabase
-      .from("members")
-      .select("id")
-      .ilike("email", normalizedEmail)
-      .limit(1)
-      .maybeSingle();
-    if (!error && approvedMember) return true;
+    let lastError = null;
+    for (const delay of [0, 350, 900]) {
+      if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+      const { data: approvedMember, error } = await window.crewCenterSupabase
+        .from("members")
+        .select("id")
+        .ilike("email", normalizedEmail)
+        .limit(1)
+        .maybeSingle();
+      if (!error) {
+        pendingApprovalCheckUser = null;
+        authLookupActions.classList.remove("visible");
+        if (approvedMember) return true;
+        await window.crewCenterSupabase.auth.signOut();
+        showSignIn();
+        setAuthError("This email is not linked to an approved Media Club account. New students must apply with their school alias email.");
+        return false;
+      }
+      lastError = error;
+    }
+    pendingApprovalCheckUser = user;
+    showSignIn();
+    authLookupActions.classList.add("visible");
+    setAuthError(`We couldn't verify your approved member record because the connection failed. Your session is still active. Retry when the connection is available.${lastError?.message ? ` (${lastError.message})` : ""}`);
+    return false;
   }
   await window.crewCenterSupabase.auth.signOut();
   showSignIn();
@@ -653,6 +691,24 @@ function showSignIn() {
   document.getElementById("auth-visitor-option").style.display = "block";
   setAuthBusy(false);
 }
+
+authLookupRetry.addEventListener("click", async () => {
+  if (!pendingApprovalCheckUser) return;
+  authLookupRetry.disabled = true;
+  authLookupRetry.textContent = "Checking...";
+  setAuthError("");
+  const user = pendingApprovalCheckUser;
+  if (await allowCrewCenterUser(user)) await revealDashboard(user);
+  authLookupRetry.disabled = false;
+  authLookupRetry.textContent = "Retry account check";
+});
+
+document.getElementById("auth-lookup-signout").addEventListener("click", async () => {
+  pendingApprovalCheckUser = null;
+  authLookupActions.classList.remove("visible");
+  await window.crewCenterSupabase?.auth.signOut();
+  showSignIn();
+});
 
 function showPasswordSetup() {
   document.body.classList.add("auth-locked");
@@ -688,6 +744,8 @@ passwordSetupForm.addEventListener("submit", async event => {
 
 authForm.addEventListener("submit", async event => {
   event.preventDefault();
+  pendingApprovalCheckUser = null;
+  authLookupActions.classList.remove("visible");
   setAuthError("");
   if (!window.crewCenterSupabase) {
     setAuthError("Supabase is not available yet. Check the connection and try again.");
@@ -733,6 +791,8 @@ visitorSubmit.addEventListener("click", async () => {
 document.getElementById("auth-signout").addEventListener("click", async () => {
   if (!window.crewCenterSupabase) return;
   await window.crewCenterSupabase.auth.signOut();
+  pendingApprovalCheckUser = null;
+  authLookupActions.classList.remove("visible");
   authPassword.value = "";
   showSignIn();
 });
@@ -795,7 +855,9 @@ function updateEventsBadge() {
     badge.style.display = "none";
     return;
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
   const count = Array.isArray(window.state?.events)
     ? window.state.events.filter(event => event.date >= today).length
     : Number.parseInt(document.getElementById("stat-events")?.textContent || "0", 10);

@@ -24,6 +24,7 @@ drop policy if exists "Authenticated users can update events" on public.events;
 drop policy if exists "Authenticated users can delete events" on public.events;
 drop policy if exists "Signed-in users can read events" on public.events;
 drop policy if exists "Admins can manage events" on public.events;
+drop policy if exists "Admins can update events" on public.events;
 drop policy if exists "Production staff can add events" on public.events;
 drop policy if exists "Production staff can delete events" on public.events;
 drop policy if exists "Authenticated users can read signups" on public.signups;
@@ -158,6 +159,210 @@ $$;
 
 revoke all on function public.get_public_member_directory() from public;
 grant execute on function public.get_public_member_directory() to authenticated;
+
+create or replace function public.set_event_archived(
+  p_event_id uuid,
+  p_archived boolean
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare marker_name text;
+begin
+  if not public.is_crew_operations_user() then
+    raise exception 'Production staff access is required.';
+  end if;
+
+  if p_archived and exists (
+    select 1 from public.equipment_reservations reservation
+    where reservation.event_id = p_event_id
+      and reservation.reservation_status in ('scheduled', 'checked_out', 'auto_released')
+      and reservation.returned_at is null
+      and reservation.ends_at > now()
+  ) then
+    raise exception 'Cancel or complete this event''s active equipment reservations before archiving it.';
+  end if;
+
+  select member.name into marker_name
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+  marker_name := coalesce(marker_name, auth.jwt() ->> 'email', 'Auth Admin');
+
+  update public.events
+  set archived_at = case when p_archived then now() else null end,
+      archived_by = case when p_archived then auth.uid() else null end,
+      archived_by_name = case when p_archived then marker_name else null end
+  where id = p_event_id;
+
+  return found;
+end;
+$$;
+
+create or replace function public.set_equipment_archived(
+  p_equipment_id uuid,
+  p_archived boolean
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare marker_name text;
+begin
+  if not public.is_crew_operations_user() then
+    raise exception 'Production staff access is required.';
+  end if;
+
+  if p_archived and exists (
+    select 1 from public.equipment_reservations reservation
+    where reservation.equipment_id = p_equipment_id
+      and reservation.reservation_status in ('scheduled', 'checked_out', 'auto_released')
+      and reservation.returned_at is null
+  ) then
+    raise exception 'Cancel or complete this equipment''s active reservations before archiving it.';
+  end if;
+
+  select member.name into marker_name
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+  marker_name := coalesce(marker_name, auth.jwt() ->> 'email', 'Auth Admin');
+
+  update public.equipment
+  set archived_at = case when p_archived then now() else null end,
+      archived_by = case when p_archived then auth.uid() else null end,
+      archived_by_name = case when p_archived then marker_name else null end
+  where id = p_equipment_id;
+
+  return found;
+end;
+$$;
+
+create or replace function public.get_event_delete_impact(p_event_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare impact jsonb;
+begin
+  if not public.is_auth_admin() then
+    raise exception 'Only an Auth Admin can permanently delete an event.';
+  end if;
+
+  select jsonb_build_object(
+    'id', event.id,
+    'name', event.title,
+    'signups', (select count(*) from public.signups signup where signup.event_id = event.id),
+    'reservations', (select count(*) from public.equipment_reservations reservation where reservation.event_id = event.id),
+    'notifications', (select count(*) from public.notifications notification where notification.related_event_id = event.id)
+  ) into impact
+  from public.events event
+  where event.id = p_event_id;
+
+  return impact;
+end;
+$$;
+
+create or replace function public.get_equipment_delete_impact(p_equipment_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare impact jsonb;
+begin
+  if not public.is_auth_admin() then
+    raise exception 'Only an Auth Admin can permanently delete equipment.';
+  end if;
+
+  select jsonb_build_object(
+    'id', equipment.id,
+    'name', equipment.name,
+    'reservations', (select count(*) from public.equipment_reservations reservation where reservation.equipment_id = equipment.id)
+  ) into impact
+  from public.equipment equipment
+  where equipment.id = p_equipment_id;
+
+  return impact;
+end;
+$$;
+
+create or replace function public.permanently_delete_event(
+  p_event_id uuid,
+  p_expected_title text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_title text;
+  impact jsonb;
+begin
+  if not public.is_auth_admin() then
+    raise exception 'Only an Auth Admin can permanently delete an event.';
+  end if;
+
+  select title into target_title from public.events where id = p_event_id for update;
+  if target_title is null then return null; end if;
+  if target_title is distinct from p_expected_title then
+    raise exception 'The confirmation text does not match the event title.';
+  end if;
+
+  impact := public.get_event_delete_impact(p_event_id);
+  delete from public.events where id = p_event_id;
+  return impact || jsonb_build_object('deleted', true);
+end;
+$$;
+
+create or replace function public.permanently_delete_equipment(
+  p_equipment_id uuid,
+  p_expected_name text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_name text;
+  impact jsonb;
+begin
+  if not public.is_auth_admin() then
+    raise exception 'Only an Auth Admin can permanently delete equipment.';
+  end if;
+
+  select name into target_name from public.equipment where id = p_equipment_id for update;
+  if target_name is null then return null; end if;
+  if target_name is distinct from p_expected_name then
+    raise exception 'The confirmation text does not match the equipment name.';
+  end if;
+
+  impact := public.get_equipment_delete_impact(p_equipment_id);
+  delete from public.equipment where id = p_equipment_id;
+  return impact || jsonb_build_object('deleted', true);
+end;
+$$;
+
+revoke all on function public.set_event_archived(uuid, boolean) from public;
+revoke all on function public.set_equipment_archived(uuid, boolean) from public;
+revoke all on function public.get_event_delete_impact(uuid) from public;
+revoke all on function public.get_equipment_delete_impact(uuid) from public;
+revoke all on function public.permanently_delete_event(uuid, text) from public;
+revoke all on function public.permanently_delete_equipment(uuid, text) from public;
+grant execute on function public.set_event_archived(uuid, boolean) to authenticated;
+grant execute on function public.set_equipment_archived(uuid, boolean) to authenticated;
+grant execute on function public.get_event_delete_impact(uuid) to authenticated;
+grant execute on function public.get_equipment_delete_impact(uuid) to authenticated;
+grant execute on function public.permanently_delete_event(uuid, text) to authenticated;
+grant execute on function public.permanently_delete_equipment(uuid, text) to authenticated;
 
 create or replace function public.update_own_member_avatar(
   p_avatar_url text,
@@ -602,10 +807,10 @@ using (public.is_admin_panel_user());
 create policy "Signed-in users can read events"
 on public.events for select
 to authenticated
-using (true);
+using (archived_at is null or public.is_crew_operations_user());
 
-create policy "Admins can manage events"
-on public.events for all
+create policy "Admins can update events"
+on public.events for update
 to authenticated
 using (public.is_admin_panel_user())
 with check (public.is_admin_panel_user());
@@ -614,11 +819,6 @@ create policy "Production staff can add events"
 on public.events for insert
 to authenticated
 with check (public.is_crew_operations_user());
-
-create policy "Production staff can delete events"
-on public.events for delete
-to authenticated
-using (public.is_crew_operations_user());
 
 create policy "Signed-in users can read signups"
 on public.signups for select
@@ -683,13 +883,7 @@ using (
 create policy "Signed-in users can read equipment"
 on public.equipment for select
 to authenticated
-using (true);
-
-create policy "Admins can manage equipment"
-on public.equipment for all
-to authenticated
-using (public.is_admin_panel_user())
-with check (public.is_admin_panel_user());
+using (archived_at is null or public.is_crew_operations_user());
 
 create policy "Production staff can add equipment"
 on public.equipment for insert
@@ -701,11 +895,6 @@ on public.equipment for update
 to authenticated
 using (public.is_crew_operations_user())
 with check (public.is_crew_operations_user());
-
-create policy "Production staff can delete equipment"
-on public.equipment for delete
-to authenticated
-using (public.is_crew_operations_user());
 
 create policy "Signed-in users can read equipment reservations"
 on public.equipment_reservations for select

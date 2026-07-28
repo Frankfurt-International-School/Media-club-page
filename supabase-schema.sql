@@ -88,6 +88,9 @@ alter table public.events add column if not exists shift_2_start time;
 alter table public.events add column if not exists shift_2_end time;
 alter table public.events add column if not exists takedown_start time;
 alter table public.events add column if not exists takedown_end time;
+alter table public.events add column if not exists archived_at timestamptz;
+alter table public.events add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.events add column if not exists archived_by_name text;
 update public.events event
 set ends_at = (
   (event.date at time zone 'Europe/Berlin')::date
@@ -318,6 +321,9 @@ create table if not exists public.equipment (
 );
 
 alter table public.equipment add column if not exists category text not null default 'Other';
+alter table public.equipment add column if not exists archived_at timestamptz;
+alter table public.equipment add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.equipment add column if not exists archived_by_name text;
 
 create table if not exists public.equipment_reservations (
   id uuid primary key default gen_random_uuid(),
