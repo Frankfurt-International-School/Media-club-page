@@ -110,3 +110,48 @@ test('reservation policies require approved ownership and limit cancellation', (
   assert.match(policiesSql, /create policy "Users can cancel equipment reservations"[\s\S]*?reservation_status = 'scheduled'[\s\S]*?starts_at > now\(\)[\s\S]*?public\.is_auth_admin\(\)/);
   assert.match(policiesSql, /public\.is_auth_admin\(\)[\s\S]*?member\.id = equipment_reservations\.member_id/);
 });
+
+test('dashboard preferences are owner-scoped and bounded', () => {
+  assert.match(schemaSql, /dashboard_preferences jsonb not null default/);
+  assert.match(policiesSql, /create or replace function public\.update_own_dashboard_preferences\(p_preferences jsonb\)/);
+  assert.match(policiesSql, /auth\.uid\(\) is null or public\.is_visitor_session\(\)/);
+  assert.match(policiesSql, /cardinality\(clean_stats\) < 2 or cardinality\(clean_stats\) > 4/);
+  assert.match(policiesSql, /cardinality\(clean_sections\) < 1 or cardinality\(clean_sections\) > 3/);
+  assert.match(policiesSql, /where lower\(email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
+  assert.match(policiesSql, /revoke all on function public\.update_own_dashboard_preferences\(jsonb\) from public/);
+  assert.match(policiesSql, /grant execute on function public\.update_own_dashboard_preferences\(jsonb\) to authenticated/);
+});
+
+test('dashboard widget visibility follows public, member, operations, and admin access', () => {
+  const available = ({ access, visitor = false, member = true, operations = false, admin = false }) => runFunctions(
+    ['dashboardPreferenceAvailable'],
+    {
+      state: { currentUser: { isVisitor: visitor } },
+      currentMemberRecord: () => member ? ({ id: 'member-1' }) : null,
+      canManageCrewOperations: () => operations,
+      canAccessAdminPanel: () => admin,
+    },
+    `dashboardPreferenceAvailable(${JSON.stringify({ access })})`,
+  );
+
+  assert.equal(available({ access: 'public', visitor: true, member: false }), true);
+  assert.equal(available({ access: 'member', visitor: true, member: false }), false);
+  assert.equal(available({ access: 'member' }), true);
+  assert.equal(available({ access: 'operations', operations: false }), false);
+  assert.equal(available({ access: 'operations', operations: true }), true);
+  assert.equal(available({ access: 'admin', admin: false }), false);
+  assert.equal(available({ access: 'admin', admin: true }), true);
+});
+
+test('dashboard greeting includes the signed-in member first name', () => {
+  const greeting = { textContent: '' };
+  runFunctions(
+    ['splitName', 'updateDashboardGreeting'],
+    {
+      state: { currentUser: { name: 'Jana Stein', isVisitor: false } },
+      document: { getElementById: id => id === 'dashboard-greeting' ? greeting : null },
+    },
+    'updateDashboardGreeting()',
+  );
+  assert.match(greeting.textContent, /^Good (morning|afternoon|evening), Jana$/);
+});

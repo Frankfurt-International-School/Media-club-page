@@ -485,6 +485,67 @@
   .stat-value { font-family: var(--font-head); font-size: 32px; font-weight: 800; color: var(--text); }
   .stat-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
 
+  /* ── MEDIA OPERATIONS DASHBOARD ── */
+  .dashboard-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+  .dashboard-header-actions { display: flex; align-items: center; gap: 8px; }
+  .dashboard-header-actions [hidden] { display: none !important; }
+  .dashboard-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+    align-items: end;
+    min-height: 210px;
+    margin-bottom: 16px;
+    padding: 28px;
+    overflow: hidden;
+    border: 1px solid rgba(164,1,52,.2);
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at 92% 12%, rgba(164,1,52,.2), transparent 34%),
+      linear-gradient(135deg, var(--bg2), var(--bg3));
+    box-shadow: 0 18px 46px rgba(33,37,41,.08);
+  }
+  .dashboard-hero::after { content: ''; position: absolute; width: 230px; height: 230px; right: -95px; bottom: -135px; border: 42px solid rgba(164,1,52,.08); border-radius: 50%; pointer-events: none; }
+  .dashboard-hero-copy, .dashboard-hero-action { position: relative; z-index: 1; }
+  .dashboard-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+  .dashboard-eyebrow::before { content: ''; width: 24px; height: 2px; border-radius: 2px; background: currentColor; }
+  .dashboard-hero-title { max-width: 720px; font-family: var(--font-head); font-size: clamp(31px, 4vw, 48px); line-height: 1.02; letter-spacing: .02em; color: var(--text); }
+  .dashboard-hero-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; color: var(--text2); font-size: 12px; }
+  .dashboard-hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .dashboard-hero-meta svg { width: 14px; height: 14px; color: var(--accent); }
+  .dashboard-hero-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+  .dashboard-hero-action { min-width: 150px; display: flex; justify-content: flex-end; }
+  .dashboard-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .dashboard-stat-card { position: relative; min-height: 132px; padding: 17px 18px; overflow: hidden; border: 1px solid var(--border); border-radius: 15px; background: var(--bg2); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .dashboard-stat-card:hover { transform: translateY(-2px); border-color: var(--border2); box-shadow: 0 10px 26px rgba(33,37,41,.07); }
+  .dashboard-stat-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--stat-tone, var(--accent)); }
+  .dashboard-stat-card.green { --stat-tone: var(--accent); } .dashboard-stat-card.purple { --stat-tone: var(--purple); } .dashboard-stat-card.coral { --stat-tone: var(--coral); } .dashboard-stat-card.amber { --stat-tone: var(--amber); } .dashboard-stat-card.teal { --stat-tone: var(--teal); } .dashboard-stat-card.blue { --stat-tone: var(--blue); }
+  .dashboard-stat-label { color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+  .dashboard-stat-value { margin-top: 8px; font-family: var(--font-head); color: var(--text); font-size: 34px; line-height: 1; }
+  .dashboard-stat-sub { margin-top: 8px; color: var(--text2); font-size: 11px; line-height: 1.4; }
+  .dashboard-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .dashboard-module { min-width: 0; border: 1px solid var(--border); border-radius: 17px; background: var(--bg2); overflow: hidden; }
+  .dashboard-module:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .dashboard-module-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 18px; border-bottom: 1px solid var(--border); }
+  .dashboard-module-title { font-family: var(--font-head); color: var(--text); font-size: 17px; letter-spacing: .04em; }
+  .dashboard-module-body { padding: 8px 18px 12px; }
+  .dashboard-list-row { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 11px; align-items: center; padding: 11px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font-family: var(--font-body); text-align: left; cursor: pointer; }
+  .dashboard-list-row:last-child { border-bottom: 0; }
+  .dashboard-list-row:hover .dashboard-list-title { color: var(--accent); }
+  .dashboard-list-date { width: 39px; padding: 5px 4px; border-radius: 9px; background: var(--accent-dim2); color: var(--accent); text-align: center; }
+  .dashboard-list-date strong { display: block; font-family: var(--font-head); font-size: 18px; line-height: 1; }
+  .dashboard-list-date span { display: block; margin-top: 2px; font-size: 8px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+  .dashboard-list-title { display: block; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; transition: color .15s ease; }
+  .dashboard-list-sub { display: block; margin-top: 2px; overflow: hidden; color: var(--text3); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+  .dashboard-empty { padding: 24px 4px; color: var(--text3); font-size: 12px; text-align: center; }
+  .dashboard-equipment-bars { display: grid; gap: 10px; padding: 12px 0 7px; }
+  .dashboard-equipment-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) 28px; gap: 10px; align-items: center; color: var(--text2); font-size: 11px; }
+  .dashboard-equipment-track { height: 7px; overflow: hidden; border-radius: 10px; background: var(--bg4); }
+  .dashboard-equipment-fill { height: 100%; border-radius: inherit; background: var(--accent); }
+  .dashboard-equipment-fill.checked { background: var(--coral); } .dashboard-equipment-fill.unavailable { background: var(--amber); }
+
+
   /* ── BADGES ── */
   .badge {
     display: inline-flex;
@@ -1181,8 +1242,25 @@
   .sidebar-choice input { accent-color: var(--accent); }
   .sidebar-preference-actions { display: none; align-items: center; gap: 10px; margin-top: 16px; }
   .sidebar-preference-actions.visible { display: flex; }
+  .dashboard-preference-group + .dashboard-preference-group { margin-top: 22px; }
+  .dashboard-preference-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+  .dashboard-preference-heading strong { color: var(--text); font-size: 12px; }
+  .dashboard-preference-heading span { color: var(--text3); font-size: 10px; }
+  .dashboard-choice-list { display: grid; gap: 8px; }
+  .dashboard-widget-choice { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 11px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg3); }
+  .dashboard-widget-choice.selected { border-color: rgba(164,1,52,.26); background: var(--accent-dim2); }
+  .dashboard-widget-choice input { width: 17px; height: 17px; accent-color: var(--accent); }
+  .dashboard-widget-copy strong { display: block; color: var(--text); font-size: 12px; }
+  .dashboard-widget-copy span { display: block; margin-top: 2px; color: var(--text3); font-size: 10px; line-height: 1.4; }
+  .dashboard-order-actions { display: flex; gap: 4px; }
+  .dashboard-order-button { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--bg2); color: var(--text2); cursor: pointer; }
+  .dashboard-order-button:hover { color: var(--accent); border-color: rgba(164,1,52,.28); }
+  .dashboard-order-button:disabled { opacity: .32; cursor: default; }
+  .dashboard-preference-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 18px; }
   @media (max-width: 900px) { .profile-shell, .profile-photo-layout, .settings-layout { grid-template-columns: 1fr; } .settings-nav { position: static; display: flex; overflow-x: auto; } .settings-nav button { white-space: nowrap; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } .all-pages-popover { left: 12px; right: 12px; bottom: 12px; width: auto; } }
-  @media (max-width: 520px) { .sidebar-choice-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 980px) { .dashboard-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 760px) { .dashboard-header { align-items: stretch; flex-direction: column; } .dashboard-header-actions .btn { width: 100%; justify-content: center; } .dashboard-hero { grid-template-columns: 1fr; min-height: 0; padding: 22px; } .dashboard-hero-action { justify-content: flex-start; } .dashboard-module-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 520px) { .sidebar-choice-grid, .dashboard-stat-grid { grid-template-columns: 1fr; } .dashboard-widget-choice { grid-template-columns: auto minmax(0, 1fr); } .dashboard-order-actions { grid-column: 2; } }
 
   /* ── FILTER CHIPS ── */
   .filter-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
@@ -1585,49 +1663,16 @@
 
   <!-- ── DASHBOARD ── -->
   <div id="page-home" class="page active">
-    <div class="page-header">
-      <div class="page-title"><span id="dashboard-greeting">Good afternoon</span> <span class="wave-hand" id="wave-hand">👋</span></div>
-      <div class="page-sub">Here's what's happening in Media Club this week.</div>
-    </div>
-    <div class="grid4 mb24">
-      <div class="stat-card green">
-        <div class="stat-label">Members</div>
-        <div class="stat-value" id="stat-members">34</div>
-        <div class="stat-sub" id="stat-members-sub">Loading this month...</div>
-      </div>
-      <div class="stat-card purple">
-        <div class="stat-label">Upcoming events</div>
-        <div class="stat-value" id="stat-events">4</div>
-        <div class="stat-sub" id="stat-events-sub">Loading events...</div>
-      </div>
-      <div class="stat-card coral">
-        <div class="stat-label">Projects</div>
-        <div class="stat-value" id="stat-projects">0</div>
-        <div class="stat-sub" id="stat-projects-sub">Loading submissions...</div>
-      </div>
-      <div class="stat-card amber">
-        <div class="stat-label">Equipment items</div>
-        <div class="stat-value" id="stat-equipment">0</div>
-        <div class="stat-sub" id="stat-equipment-sub">Loading equipment...</div>
-      </div>
-    </div>
-    <div class="grid2 mb24">
+    <div class="dashboard-header">
       <div>
-        <h3 class="section-head">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Upcoming events
-        </h3>
-        <div id="dash-events-list"></div>
-        <button class="btn btn-ghost btn-sm" onclick="navigate('events', document.querySelector('[onclick*=events]'))">View all events →</button>
+        <div class="page-title"><span id="dashboard-greeting">Good afternoon</span> <span class="wave-hand" id="wave-hand">👋</span></div>
+        <div class="page-sub">Your personal Media Club operations overview.</div>
       </div>
-      <div>
-        <h3 class="section-head">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
-          Announcements
-        </h3>
-        <div id="announcements-list"></div>
-      </div>
+      <div class="dashboard-header-actions"><button class="btn btn-ghost" id="dashboard-customize-button" onclick="openDashboardSettings()" hidden>Customize dashboard</button></div>
     </div>
+    <section class="dashboard-hero" id="dashboard-focus"></section>
+    <div class="dashboard-stat-grid" id="dashboard-stats"></div>
+    <div class="dashboard-module-grid" id="dashboard-modules"></div>
   </div>
 
   <!-- ── EVENTS ── -->
@@ -1896,7 +1941,7 @@
     <div class="page-title mb8">Settings</div>
     <div class="page-sub mb24">Manage your account, appearance, navigation, and notifications.</div>
     <div class="settings-layout">
-      <nav class="settings-nav" aria-label="Settings sections"><button class="active" onclick="showSettingsSection('profile', this)">Profile</button><button onclick="showSettingsSection('appearance', this)">Appearance</button><button onclick="showSettingsSection('sidebar', this)">Sidebar</button><button onclick="showSettingsSection('notifications', this)">Notifications</button></nav>
+      <nav class="settings-nav" aria-label="Settings sections"><button class="active" onclick="showSettingsSection('profile', this)">Profile</button><button onclick="showSettingsSection('appearance', this)">Appearance</button><button id="dashboard-settings-tab" onclick="showSettingsSection('dashboard', this)">Dashboard</button><button onclick="showSettingsSection('sidebar', this)">Sidebar</button><button onclick="showSettingsSection('notifications', this)">Notifications</button></nav>
       <div class="settings-content">
       <section class="profile-panel active" data-settings-section="profile">
         <div class="profile-panel-head"><h3>Profile picture</h3><p>Choose an image, drag to reposition it, and adjust the crop.</p></div>
@@ -1921,6 +1966,14 @@
           <button class="theme-choice" id="theme-light" onclick="setCrewCenterTheme('light')"><span class="theme-swatch light"><span></span><span></span></span><strong>Light</strong></button>
           <button class="theme-choice" id="theme-dark" onclick="setCrewCenterTheme('dark')"><span class="theme-swatch dark"><span></span><span></span></span><strong>Dark</strong></button>
         </div></div>
+      </section>
+      <section class="profile-panel" id="dashboard-preferences-panel" data-settings-section="dashboard">
+        <div class="profile-panel-head"><h3>Dashboard</h3><p>Choose and order the information shown on your dashboard. These preferences follow your account across devices.</p></div>
+        <div class="profile-panel-body">
+          <div class="dashboard-preference-group"><div class="dashboard-preference-heading"><strong>Statistics</strong><span>Choose 2–4</span></div><div class="dashboard-choice-list" id="dashboard-stat-choices"></div></div>
+          <div class="dashboard-preference-group"><div class="dashboard-preference-heading"><strong>Information sections</strong><span>Choose 1–3</span></div><div class="dashboard-choice-list" id="dashboard-section-choices"></div></div>
+          <div class="dashboard-preference-actions"><button class="btn btn-accent" id="dashboard-preference-save" onclick="saveDashboardPreferences()">Save dashboard</button><button class="btn btn-ghost" onclick="resetDashboardPreferenceForm()">Restore recommended</button><span class="text-muted">Your Next up card always remains visible.</span></div>
+        </div>
       </section>
       <section class="profile-panel" id="sidebar-preferences-panel" data-settings-section="sidebar">
         <div class="profile-panel-head"><h3>Sidebar</h3><p>Choose the pages you use most. Your selection follows your account across devices.</p></div>
@@ -2674,6 +2727,10 @@ function normalizeMember(member, index = 0) {
       event_reminders: member.notification_preferences?.event_reminders !== false,
       maybe_reminders: member.notification_preferences?.maybe_reminders !== false,
     },
+    dashboardPreferences: {
+      stats: Array.isArray(member.dashboard_preferences?.stats) ? member.dashboard_preferences.stats : [],
+      sections: Array.isArray(member.dashboard_preferences?.sections) ? member.dashboard_preferences.sections : [],
+    },
     color: colors[index % colors.length],
     joined_date: member.joined_date,
   };
@@ -2825,7 +2882,7 @@ function normalizeApplication(item) {
 async function loadCrewCenterData() {
   if (!supabaseClient || !supabaseSettings.url || supabaseSettings.url.includes('YOUR-PROJECT-REF')) {
     showToast('Add your Supabase URL and anon key in supabase-config.js.', 'error');
-    ['dash-events-list', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
+    ['dashboard-focus', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
     return;
   }
 
@@ -2879,7 +2936,7 @@ async function loadCrewCenterData() {
   } catch (error) {
     console.error(error);
     showToast("Couldn't load Supabase data.", 'error');
-    ['dash-events-list', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
+    ['dashboard-focus', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
   }
 }
 
@@ -3009,6 +3066,146 @@ async function saveSidebarPreferences() {
   if (member) { member.sidebarCustomized = customized; member.sidebarItems = selected; }
   applySidebarPreferences();
   showToast('Sidebar preferences saved.');
+}
+
+const dashboardStatCatalog = {
+  my_assignments: { label: 'My assignments', description: 'Upcoming event roles and confirmations.', access: 'member', tone: 'green' },
+  upcoming_events: { label: 'Upcoming events', description: 'Events still ahead in Berlin time.', access: 'public', tone: 'purple' },
+  available_equipment: { label: 'Available equipment', description: 'Equipment ready to reserve right now.', access: 'public', tone: 'teal' },
+  my_reservations: { label: 'My reservations', description: 'Your scheduled and active equipment loans.', access: 'member', tone: 'blue' },
+  projects: { label: 'Projects', description: 'Published Media Club work.', access: 'public', tone: 'coral' },
+  members: { label: 'Members', description: 'Approved members in the directory.', access: 'public', tone: 'amber' },
+  checked_out: { label: 'Checked out', description: 'Equipment currently in active use.', access: 'operations', tone: 'coral' },
+  pending_applications: { label: 'Pending applications', description: 'Applications awaiting a decision.', access: 'admin', tone: 'amber' },
+};
+
+const dashboardSectionCatalog = {
+  my_commitments: { label: 'My commitments', description: 'Your next roles, confirmations, and reservations.', access: 'member' },
+  upcoming_events: { label: 'Upcoming events', description: 'A compact view of the next club events.', access: 'public' },
+  announcements: { label: 'Announcements', description: 'The latest club-wide updates.', access: 'public' },
+  equipment_snapshot: { label: 'Equipment snapshot', description: 'Availability and checkout balance at a glance.', access: 'public' },
+};
+
+function dashboardPreferenceAvailable(definition) {
+  if (definition.access === 'admin') return canAccessAdminPanel();
+  if (definition.access === 'operations') return canManageCrewOperations();
+  if (definition.access === 'member') return !state.currentUser.isVisitor && Boolean(currentMemberRecord());
+  return true;
+}
+
+function dashboardPreferenceDefaults() {
+  if (state.currentUser.isVisitor || !currentMemberRecord()) {
+    return { stats: ['upcoming_events', 'available_equipment', 'projects', 'members'], sections: ['upcoming_events', 'announcements', 'equipment_snapshot'] };
+  }
+  if (canAccessAdminPanel()) {
+    return { stats: ['pending_applications', 'upcoming_events', 'checked_out', 'members'], sections: ['upcoming_events', 'equipment_snapshot', 'announcements'] };
+  }
+  if (canManageCrewOperations()) {
+    return { stats: ['my_assignments', 'upcoming_events', 'checked_out', 'available_equipment'], sections: ['my_commitments', 'upcoming_events', 'equipment_snapshot'] };
+  }
+  return { stats: ['my_assignments', 'upcoming_events', 'available_equipment', 'my_reservations'], sections: ['my_commitments', 'upcoming_events', 'announcements'] };
+}
+
+function currentDashboardPreferences() {
+  const defaults = dashboardPreferenceDefaults();
+  const saved = currentMemberRecord()?.dashboardPreferences;
+  const availableStats = new Set(Object.entries(dashboardStatCatalog).filter(([, definition]) => dashboardPreferenceAvailable(definition)).map(([key]) => key));
+  const availableSections = new Set(Object.entries(dashboardSectionCatalog).filter(([, definition]) => dashboardPreferenceAvailable(definition)).map(([key]) => key));
+  const stats = [...new Set((saved?.stats || []).filter(key => availableStats.has(key)))];
+  const sections = [...new Set((saved?.sections || []).filter(key => availableSections.has(key)))];
+  return {
+    stats: stats.length >= 2 && stats.length <= 4 ? stats : defaults.stats.filter(key => availableStats.has(key)),
+    sections: sections.length >= 1 && sections.length <= 3 ? sections : defaults.sections.filter(key => availableSections.has(key)),
+  };
+}
+
+function renderDashboardPreferenceChoices(kind, selectedKeys) {
+  const catalog = kind === 'stats' ? dashboardStatCatalog : dashboardSectionCatalog;
+  const container = document.getElementById(kind === 'stats' ? 'dashboard-stat-choices' : 'dashboard-section-choices');
+  if (!container) return;
+  const availableEntries = Object.entries(catalog).filter(([, definition]) => dashboardPreferenceAvailable(definition));
+  const orderedKeys = [...selectedKeys.filter(key => availableEntries.some(([availableKey]) => availableKey === key)), ...availableEntries.map(([key]) => key).filter(key => !selectedKeys.includes(key))];
+  container.innerHTML = orderedKeys.map(key => {
+    const definition = catalog[key];
+    const selected = selectedKeys.includes(key);
+    return `<div class="dashboard-widget-choice ${selected ? 'selected' : ''}" data-dashboard-choice="${key}"><input type="checkbox" aria-label="Show ${escapeHtml(definition.label)}" ${selected ? 'checked' : ''} onchange="dashboardChoiceChanged('${kind}', '${key}', this)"><div class="dashboard-widget-copy"><strong>${escapeHtml(definition.label)}</strong><span>${escapeHtml(definition.description)}</span></div><div class="dashboard-order-actions"><button type="button" class="dashboard-order-button" data-direction="up" onclick="moveDashboardPreference('${kind}', '${key}', -1)" aria-label="Move ${escapeHtml(definition.label)} up">↑</button><button type="button" class="dashboard-order-button" data-direction="down" onclick="moveDashboardPreference('${kind}', '${key}', 1)" aria-label="Move ${escapeHtml(definition.label)} down">↓</button></div></div>`;
+  }).join('');
+  syncDashboardOrderButtons(kind);
+}
+
+function renderDashboardSettings(preferences = currentDashboardPreferences()) {
+  renderDashboardPreferenceChoices('stats', preferences.stats);
+  renderDashboardPreferenceChoices('sections', preferences.sections);
+}
+
+function dashboardChoiceChanged(kind, key, input) {
+  const container = document.getElementById(kind === 'stats' ? 'dashboard-stat-choices' : 'dashboard-section-choices');
+  const maximum = kind === 'stats' ? 4 : 3;
+  const selected = [...container.querySelectorAll('input:checked')];
+  if (selected.length > maximum) {
+    input.checked = false;
+    showToast(`Choose no more than ${maximum} ${kind === 'stats' ? 'statistics' : 'sections'}.`, 'error');
+  }
+  container.querySelector(`[data-dashboard-choice="${key}"]`)?.classList.toggle('selected', input.checked);
+  syncDashboardOrderButtons(kind);
+}
+
+function syncDashboardOrderButtons(kind) {
+  const container = document.getElementById(kind === 'stats' ? 'dashboard-stat-choices' : 'dashboard-section-choices');
+  if (!container) return;
+  const selectedRows = [...container.querySelectorAll('.dashboard-widget-choice')].filter(row => row.querySelector('input')?.checked);
+  container.querySelectorAll('.dashboard-widget-choice').forEach(row => {
+    const index = selectedRows.indexOf(row);
+    const buttons = row.querySelectorAll('.dashboard-order-button');
+    buttons[0].disabled = index <= 0;
+    buttons[1].disabled = index < 0 || index === selectedRows.length - 1;
+  });
+}
+
+function moveDashboardPreference(kind, key, direction) {
+  const container = document.getElementById(kind === 'stats' ? 'dashboard-stat-choices' : 'dashboard-section-choices');
+  const row = container?.querySelector(`[data-dashboard-choice="${key}"]`);
+  if (!row?.querySelector('input')?.checked) return;
+  const selectedRows = [...container.querySelectorAll('.dashboard-widget-choice')].filter(item => item.querySelector('input')?.checked);
+  const index = selectedRows.indexOf(row);
+  const target = selectedRows[index + direction];
+  if (!target) return;
+  if (direction < 0) container.insertBefore(row, target);
+  else container.insertBefore(target, row);
+  syncDashboardOrderButtons(kind);
+}
+
+function resetDashboardPreferenceForm() {
+  renderDashboardSettings(dashboardPreferenceDefaults());
+  showToast('Recommended dashboard selected. Save to apply it.');
+}
+
+async function saveDashboardPreferences() {
+  const stats = [...document.querySelectorAll('#dashboard-stat-choices .dashboard-widget-choice')].filter(row => row.querySelector('input')?.checked).map(row => row.dataset.dashboardChoice);
+  const sections = [...document.querySelectorAll('#dashboard-section-choices .dashboard-widget-choice')].filter(row => row.querySelector('input')?.checked).map(row => row.dataset.dashboardChoice);
+  if (stats.length < 2 || stats.length > 4) { showToast('Choose between two and four statistics.', 'error'); return; }
+  if (sections.length < 1 || sections.length > 3) { showToast('Choose between one and three information sections.', 'error'); return; }
+  const button = document.getElementById('dashboard-preference-save');
+  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+  const preferences = { stats, sections };
+  const { data, error } = await supabaseClient.rpc('update_own_dashboard_preferences', { p_preferences: preferences });
+  if (button) { button.disabled = false; button.textContent = 'Save dashboard'; }
+  if (error || !data) {
+    console.error(error);
+    showToast("Couldn't save dashboard preferences. Run the latest Supabase SQL files first.", 'error');
+    return;
+  }
+  const member = currentMemberRecord();
+  if (member) member.dashboardPreferences = preferences;
+  renderDashboard();
+  showToast('Dashboard preferences saved.');
+}
+
+function openDashboardSettings() {
+  navigate('profile', null);
+  const tab = document.getElementById('dashboard-settings-tab');
+  showSettingsSection('dashboard', tab);
+  renderDashboardSettings();
 }
 
 function renderAllPagesMenu(query = '') {
@@ -3424,6 +3621,7 @@ function updateUserSurfaces() {
     document.getElementById('profile-preview-role').textContent = accountRole;
     document.getElementById('profile-preview-email').textContent = '';
   }
+  updateDashboardGreeting();
 }
 
 function syncCurrentUserWithMemberRecord() {
@@ -3457,8 +3655,14 @@ window.applyCrewCenterAuthUser = function(user) {
 function renderProfile() {
   updateUserSurfaces();
   updateThemeChoices();
+  const dashboardPanel = document.getElementById('dashboard-preferences-panel');
+  const dashboardTab = document.getElementById('dashboard-settings-tab');
+  const dashboardAvailable = !state.currentUser.isVisitor && Boolean(currentMemberRecord());
+  if (dashboardPanel) dashboardPanel.style.display = dashboardAvailable ? '' : 'none';
+  if (dashboardTab) dashboardTab.style.display = dashboardAvailable ? '' : 'none';
   const sidebarPanel = document.getElementById('sidebar-preferences-panel');
   if (sidebarPanel) sidebarPanel.style.display = state.currentUser.isVisitor || !currentMemberRecord() ? 'none' : '';
+  renderDashboardSettings();
   renderSidebarSettings();
   renderNotificationSettings();
   document.getElementById('profile-photo-remove').style.display = state.currentUser.avatarUrl ? '' : 'none';
@@ -3722,65 +3926,136 @@ updateThemeChoices();
 // ══════════════════════════════
 // DASHBOARD
 // ══════════════════════════════
-function renderDashboard() {
+function dashboardUpcomingEvents() {
+  const today = berlinDateKey();
+  return state.events.filter(event => event.date >= today).slice().sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+}
+
+function ownDashboardCommitments() {
+  const today = berlinDateKey();
+  return ownUpcomingSignups()
+    .filter(({ event }) => event.date >= today)
+    .sort((a, b) => (a.signup.attendanceStart || `${a.event.date}T${a.event.time}`).localeCompare(b.signup.attendanceStart || `${b.event.date}T${b.event.time}`));
+}
+
+function ownDashboardReservations() {
+  const memberId = currentMemberRecord()?.id;
+  if (!memberId) return [];
+  return state.equipment.flatMap(item => item.reservations.map(reservation => ({ item, reservation })))
+    .filter(({ reservation }) => reservation.memberId === memberId && ['scheduled', 'checked_out'].includes(reservationLifecycleStatus(reservation)))
+    .sort((a, b) => a.reservation.startsAt.localeCompare(b.reservation.startsAt));
+}
+
+function dashboardStatValues() {
   const today = berlinDateKey();
   const monthStartKey = `${today.slice(0, 7)}-01`;
-  const upcomingEvents = state.events.filter(ev => ev.date >= today);
-  const membersThisMonth = state.members.filter(member => {
-    if (!member.joined_date) return false;
-    return member.joined_date >= monthStartKey;
-  }).length;
-  const projectsThisMonth = state.gallery.filter(project => {
-    if (!project.created_at) return false;
-    return berlinDateKey(project.created_at) >= monthStartKey;
-  }).length;
-  const nextEvent = upcomingEvents[0];
-  const availableEquipment = state.equipment.filter(item => item.status === 'available').length;
-  document.getElementById('stat-members').textContent = state.members.length;
-  document.getElementById('stat-events').textContent = upcomingEvents.length;
-  document.getElementById('stat-projects').textContent = state.gallery.length;
-  document.getElementById('stat-equipment').textContent = state.equipment.length;
-  document.getElementById('stat-members-sub').textContent = `↑ ${membersThisMonth} this month`;
-  document.getElementById('stat-events-sub').textContent = upcomingEvents.length
-    ? `${upcomingEvents.length} upcoming · next ${fmtDate(nextEvent.date)}`
-    : 'No upcoming events';
-  document.getElementById('stat-projects-sub').textContent = projectsThisMonth
-    ? `↑ ${projectsThisMonth} this month`
-    : 'Ready for submissions';
-  document.getElementById('stat-equipment-sub').textContent = state.equipment.length
-    ? `${availableEquipment} available now`
-    : 'Admin setup pending';
+  const upcomingEvents = dashboardUpcomingEvents();
+  const commitments = ownDashboardCommitments();
+  const reservations = ownDashboardReservations();
+  const membersThisMonth = state.members.filter(member => member.joined_date && member.joined_date >= monthStartKey).length;
+  const projectsThisMonth = state.gallery.filter(project => project.created_at && berlinDateKey(project.created_at) >= monthStartKey).length;
+  const availableEquipment = state.equipment.filter(item => equipmentDisplayStatus(item) === 'available').length;
+  const checkedOutEquipment = state.equipment.filter(item => equipmentDisplayStatus(item) === 'checked_out').length;
+  const pendingConfirmations = commitments.filter(({ signup }) => signup.confirmationStatus === 'maybe').length;
+  const activeReservations = reservations.filter(({ reservation }) => reservationLifecycleStatus(reservation) === 'checked_out').length;
+  const pendingApplications = state.applications.filter(application => application.status === 'pending').length;
+  return {
+    my_assignments: { value: commitments.length, sub: pendingConfirmations ? `${pendingConfirmations} awaiting confirmation` : commitments.length ? 'All currently confirmed' : 'No upcoming assignments' },
+    upcoming_events: { value: upcomingEvents.length, sub: upcomingEvents.length ? `Next ${fmtDate(upcomingEvents[0].date)}` : 'Nothing currently scheduled' },
+    available_equipment: { value: availableEquipment, sub: state.equipment.length ? `${state.equipment.length} items in the register` : 'Equipment register is empty' },
+    my_reservations: { value: reservations.length, sub: activeReservations ? `${activeReservations} checked out now` : reservations.length ? 'Upcoming loans scheduled' : 'No active reservations' },
+    projects: { value: state.gallery.length, sub: projectsThisMonth ? `${projectsThisMonth} added this month` : 'Ready for new submissions' },
+    members: { value: state.members.length, sub: `${membersThisMonth} joined this month` },
+    checked_out: { value: checkedOutEquipment, sub: checkedOutEquipment ? 'Currently with members' : 'Everything has been returned' },
+    pending_applications: { value: pendingApplications, sub: pendingApplications ? 'Waiting for review' : 'Application queue is clear' },
+  };
+}
 
-  const el = document.getElementById('dash-events-list');
-  el.innerHTML = upcomingEvents.length ? upcomingEvents.slice(0, 3).map(ev => `
-    <button type="button" class="event-card event-card-link" onclick="navigate('events', navItemForPage('events'))">
-      <div class="event-date-box">
-        <div class="event-month">${fmtMonth(ev.date)}</div>
-        <div class="event-day">${fmtDay(ev.date)}</div>
-      </div>
-      <div style="flex:1;">
-        <div class="event-title">${escapeHtml(ev.title)}</div>
-        <div class="event-meta">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${escapeHtml(ev.time || 'TBC')}</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(ev.loc || 'TBC')}</span>
-        </div>
-        <span class="badge badge-${catColor(ev.cat)}">${escapeHtml(ev.cat)}</span>
-        ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
-        ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${escapeHtml(isstScheduleCaption(ev))}</div>` : ''}
-        ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">${escapeHtml(festivalScheduleCaption(ev))}</div>` : ''}
-      </div>
-    </button>`).join('') : '<div class="empty-state"><p>No upcoming events.</p></div>';
+function dashboardEventCountdown(event) {
+  const startsAt = timeValue(event.date, event.time);
+  if (!startsAt) return 'Time to be confirmed';
+  const remaining = startsAt - Date.now();
+  if (remaining <= 0 && event.date === berlinDateKey()) return 'Happening today';
+  if (remaining <= 0) return 'Event started';
+  const days = Math.floor(remaining / 86400000);
+  if (days >= 1) return `${days} day${days === 1 ? '' : 's'} away`;
+  const hours = Math.max(1, Math.ceil(remaining / 3600000));
+  return `${hours} hour${hours === 1 ? '' : 's'} away`;
+}
 
-  const al = document.getElementById('announcements-list');
-  al.innerHTML = state.announcements.map(a => `
-    <div class="announcement">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>
-      <div>
-        <div class="announcement-title">${escapeHtml(a.title)}</div>
-        <div class="announcement-text">${escapeHtml(a.body)}</div>
-        <div class="announcement-date">${escapeHtml(a.date)}</div>
-      </div>
-    </div>`).join('');
+function renderDashboardFocus(upcomingEvents, commitments) {
+  const focus = document.getElementById('dashboard-focus');
+  if (!focus) return;
+  const ownNext = commitments[0];
+  const event = ownNext?.event || upcomingEvents[0];
+  if (!event) {
+    focus.innerHTML = `<div class="dashboard-hero-copy"><div class="dashboard-eyebrow">Next up</div><div class="dashboard-hero-title">Your schedule is clear</div><div class="dashboard-hero-meta"><span>No upcoming Media Club events are currently scheduled.</span></div></div><div class="dashboard-hero-action"><button class="btn btn-accent" onclick="navigate('events', navItemForPage('events'))">Open events</button></div>`;
+    return;
+  }
+  const signup = ownNext?.signup;
+  const actionPage = signup ? 'signup' : 'events';
+  const actionLabel = signup ? 'Open sign-up sheet' : 'View event';
+  const attendance = signup ? attendanceLabel(signup) : '';
+  focus.innerHTML = `<div class="dashboard-hero-copy"><div class="dashboard-eyebrow">${signup ? 'Your next assignment' : 'Next club event'}</div><div class="dashboard-hero-title">${escapeHtml(event.title)}</div><div class="dashboard-hero-meta"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${escapeHtml(formatEventDate(event.date))}</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>${escapeHtml(event.time || 'TBC')}</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(event.loc || 'TBC')}</span></div><div class="dashboard-hero-status"><span class="badge badge-${catColor(event.cat)}">${escapeHtml(event.cat)}</span><span class="badge badge-gray">${escapeHtml(dashboardEventCountdown(event))}</span>${signup ? `<span class="badge badge-green">${escapeHtml(signup.role || 'Assigned')}</span>${attendance ? `<span class="badge badge-blue">${escapeHtml(attendance)}</span>` : ''}${signup.confirmationStatus === 'maybe' ? `<span class="badge badge-amber">Confirm ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))}</span>` : ''}` : ''}</div></div><div class="dashboard-hero-action"><button class="btn btn-accent" onclick="navigate('${actionPage}', navItemForPage('${actionPage}'))">${actionLabel}</button></div>`;
+}
+
+function dashboardModuleShell(title, actionLabel, actionPage, body) {
+  return `<section class="dashboard-module"><div class="dashboard-module-head"><div class="dashboard-module-title">${escapeHtml(title)}</div>${actionPage ? `<button class="btn btn-ghost btn-sm" onclick="navigate('${actionPage}', navItemForPage('${actionPage}'))">${escapeHtml(actionLabel)}</button>` : ''}</div><div class="dashboard-module-body">${body}</div></section>`;
+}
+
+function renderUpcomingEventsModule(upcomingEvents) {
+  const body = upcomingEvents.length ? upcomingEvents.slice(0, 4).map(event => `<button type="button" class="dashboard-list-row" onclick="navigate('events', navItemForPage('events'))"><span class="dashboard-list-date"><strong>${fmtDay(event.date)}</strong><span>${fmtMonth(event.date)}</span></span><span><span class="dashboard-list-title">${escapeHtml(event.title)}</span><span class="dashboard-list-sub">${escapeHtml(event.time || 'TBC')} · ${escapeHtml(event.loc || 'TBC')}</span></span><span class="badge badge-${catColor(event.cat)}">${escapeHtml(event.cat)}</span></button>`).join('') : '<div class="dashboard-empty">No upcoming events.</div>';
+  return dashboardModuleShell('Upcoming events', 'View all', 'events', body);
+}
+
+function renderAnnouncementsModule() {
+  const body = state.announcements.length ? state.announcements.slice(0, 4).map(announcement => `<div class="dashboard-list-row" style="cursor:default;"><span class="dashboard-list-date"><strong>•</strong><span>${escapeHtml(announcement.date || 'NEW')}</span></span><span><span class="dashboard-list-title">${escapeHtml(announcement.title)}</span><span class="dashboard-list-sub">${escapeHtml(announcement.body)}</span></span><span></span></div>`).join('') : '<div class="dashboard-empty">No announcements yet.</div>';
+  return dashboardModuleShell('Announcements', '', '', body);
+}
+
+function renderMyCommitmentsModule(commitments, reservations) {
+  const items = [
+    ...commitments.map(({ event, signup }) => ({ type: 'signup', timestamp: signup.attendanceStart || `${event.date}T${event.time}`, date: event.date, title: event.title, sub: `${signup.role || 'Assignment'} · ${signup.confirmationStatus === 'maybe' ? 'Needs confirmation' : 'Confirmed'}`, page: 'signup' })),
+    ...reservations.map(({ item, reservation }) => ({ type: 'reservation', timestamp: reservation.startsAt, date: berlinDateKey(reservation.startsAt), title: item.name, sub: `${reservationLifecycleStatus(reservation) === 'checked_out' ? 'Checked out' : 'Reserved'} · ${formatBerlinDateTime(reservation.startsAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`, page: 'equipment' })),
+  ].sort((a, b) => a.timestamp.localeCompare(b.timestamp)).slice(0, 5);
+  const body = items.length ? items.map(item => `<button type="button" class="dashboard-list-row" onclick="navigate('${item.page}', navItemForPage('${item.page}'))"><span class="dashboard-list-date"><strong>${fmtDay(item.date)}</strong><span>${fmtMonth(item.date)}</span></span><span><span class="dashboard-list-title">${escapeHtml(item.title)}</span><span class="dashboard-list-sub">${escapeHtml(item.sub)}</span></span><span class="badge ${item.type === 'signup' ? 'badge-green' : 'badge-blue'}">${item.type === 'signup' ? 'Role' : 'Gear'}</span></button>`).join('') : '<div class="dashboard-empty">You have no upcoming assignments or reservations.</div>';
+  return dashboardModuleShell('My commitments', 'Sign-ups', 'signup', body);
+}
+
+function renderEquipmentSnapshotModule() {
+  const counts = {
+    available: state.equipment.filter(item => equipmentDisplayStatus(item) === 'available').length,
+    checked_out: state.equipment.filter(item => equipmentDisplayStatus(item) === 'checked_out').length,
+    unavailable: state.equipment.filter(item => equipmentDisplayStatus(item) === 'unavailable').length,
+  };
+  const total = Math.max(state.equipment.length, 1);
+  const rows = [['available', 'Available'], ['checked_out', 'Checked out'], ['unavailable', 'Unavailable']];
+  const body = state.equipment.length ? `<div class="dashboard-equipment-bars">${rows.map(([key, label]) => `<div class="dashboard-equipment-row"><span>${label}</span><span class="dashboard-equipment-track"><span class="dashboard-equipment-fill ${key === 'checked_out' ? 'checked' : key}" style="width:${Math.round((counts[key] / total) * 100)}%"></span></span><strong>${counts[key]}</strong></div>`).join('')}</div>` : '<div class="dashboard-empty">The equipment register is empty.</div>';
+  return dashboardModuleShell('Equipment snapshot', 'Open equipment', 'equipment', body);
+}
+
+function renderDashboard() {
+  const preferences = currentDashboardPreferences();
+  const upcomingEvents = dashboardUpcomingEvents();
+  const commitments = ownDashboardCommitments();
+  const reservations = ownDashboardReservations();
+  const statValues = dashboardStatValues();
+  const customize = document.getElementById('dashboard-customize-button');
+  if (customize) customize.hidden = state.currentUser.isVisitor || !currentMemberRecord();
+  renderDashboardFocus(upcomingEvents, commitments);
+  document.getElementById('dashboard-stats').innerHTML = preferences.stats.map(key => {
+    const definition = dashboardStatCatalog[key];
+    const data = statValues[key];
+    return `<article class="dashboard-stat-card ${definition.tone}"><div class="dashboard-stat-label">${escapeHtml(definition.label)}</div><div class="dashboard-stat-value">${escapeHtml(data.value)}</div><div class="dashboard-stat-sub">${escapeHtml(data.sub)}</div></article>`;
+  }).join('');
+  const modules = {
+    upcoming_events: () => renderUpcomingEventsModule(upcomingEvents),
+    announcements: renderAnnouncementsModule,
+    my_commitments: () => renderMyCommitmentsModule(commitments, reservations),
+    equipment_snapshot: renderEquipmentSnapshotModule,
+  };
+  document.getElementById('dashboard-modules').innerHTML = preferences.sections.map(key => modules[key]()).join('');
+  updateDashboardGreeting();
 }
 
 // ══════════════════════════════
@@ -5803,7 +6078,8 @@ function updateDashboardGreeting() {
       : berlinHour >= 12
         ? 'Good afternoon'
         : 'Good morning';
-  el.textContent = greeting;
+  const firstName = splitName(state.currentUser.name).fname || (state.currentUser.isVisitor ? 'Visitor' : 'Member');
+  el.textContent = `${greeting}, ${firstName}`;
 }
 
 function startBerlinClock() {

@@ -467,6 +467,66 @@ $$;
 revoke all on function public.update_own_notification_preferences(jsonb) from public;
 grant execute on function public.update_own_notification_preferences(jsonb) to authenticated;
 
+create or replace function public.update_own_dashboard_preferences(p_preferences jsonb)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_stats text[];
+  clean_sections text[];
+begin
+  if auth.uid() is null or public.is_visitor_session() then
+    raise exception 'A signed-in member account is required.';
+  end if;
+
+  select coalesce(array_agg(value order by position), array[]::text[])
+  into clean_stats
+  from (
+    select value, min(position) as position
+    from jsonb_array_elements_text(
+      case when jsonb_typeof(p_preferences -> 'stats') = 'array' then p_preferences -> 'stats' else '[]'::jsonb end
+    ) with ordinality as selected(value, position)
+    where value = any(array[
+      'members','upcoming_events','projects','available_equipment',
+      'my_assignments','my_reservations','checked_out','pending_applications'
+    ]::text[])
+    group by value
+  ) normalized;
+
+  select coalesce(array_agg(value order by position), array[]::text[])
+  into clean_sections
+  from (
+    select value, min(position) as position
+    from jsonb_array_elements_text(
+      case when jsonb_typeof(p_preferences -> 'sections') = 'array' then p_preferences -> 'sections' else '[]'::jsonb end
+    ) with ordinality as selected(value, position)
+    where value = any(array['upcoming_events','announcements','my_commitments','equipment_snapshot']::text[])
+    group by value
+  ) normalized;
+
+  if cardinality(clean_stats) < 2 or cardinality(clean_stats) > 4 then
+    raise exception 'Choose between two and four dashboard statistics.';
+  end if;
+  if cardinality(clean_sections) < 1 or cardinality(clean_sections) > 3 then
+    raise exception 'Choose between one and three dashboard sections.';
+  end if;
+
+  update public.members
+  set dashboard_preferences = jsonb_build_object(
+    'stats', to_jsonb(clean_stats),
+    'sections', to_jsonb(clean_sections)
+  )
+  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''));
+
+  return found;
+end;
+$$;
+
+revoke all on function public.update_own_dashboard_preferences(jsonb) from public;
+grant execute on function public.update_own_dashboard_preferences(jsonb) to authenticated;
+
 create or replace function public.confirm_own_maybe_signup(p_signup_id uuid)
 returns boolean
 language plpgsql
