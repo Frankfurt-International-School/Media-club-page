@@ -6078,8 +6078,10 @@ function updateDashboardGreeting() {
       : berlinHour >= 12
         ? 'Good afternoon'
         : 'Good morning';
-  const firstName = splitName(state.currentUser.name).fname || (state.currentUser.isVisitor ? 'Visitor' : 'Member');
-  el.textContent = `${greeting}, ${firstName}`;
+  const firstName = state.currentUser.isVisitor
+    ? 'Visitor'
+    : splitName(currentMemberRecord()?.name || '').fname;
+  el.textContent = firstName ? `${greeting}, ${firstName}` : greeting;
 }
 
 function startBerlinClock() {

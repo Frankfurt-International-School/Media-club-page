@@ -143,15 +143,32 @@ test('dashboard widget visibility follows public, member, operations, and admin 
   assert.equal(available({ access: 'admin', admin: true }), true);
 });
 
-test('dashboard greeting includes the signed-in member first name', () => {
+test('dashboard greeting uses the public.members name rather than an email alias', () => {
   const greeting = { textContent: '' };
   runFunctions(
     ['splitName', 'updateDashboardGreeting'],
     {
-      state: { currentUser: { name: 'Jana Stein', isVisitor: false } },
+      state: { currentUser: { name: 'js12345', isVisitor: false } },
+      currentMemberRecord: () => ({ name: 'Jana Stein' }),
       document: { getElementById: id => id === 'dashboard-greeting' ? greeting : null },
     },
     'updateDashboardGreeting()',
   );
   assert.match(greeting.textContent, /^Good (morning|afternoon|evening), Jana$/);
+  assert.doesNotMatch(greeting.textContent, /js12345/);
+});
+
+test('dashboard greeting does not expose an email alias while the member record loads', () => {
+  const greeting = { textContent: '' };
+  runFunctions(
+    ['splitName', 'updateDashboardGreeting'],
+    {
+      state: { currentUser: { name: 'js12345', isVisitor: false } },
+      currentMemberRecord: () => null,
+      document: { getElementById: id => id === 'dashboard-greeting' ? greeting : null },
+    },
+    'updateDashboardGreeting()',
+  );
+  assert.match(greeting.textContent, /^Good (morning|afternoon|evening)$/);
+  assert.doesNotMatch(greeting.textContent, /js12345/);
 });
