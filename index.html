@@ -58,6 +58,11 @@
   :root[data-theme="dark"] .sidebar { background: linear-gradient(180deg, #181920, #14151b); box-shadow: 8px 0 28px rgba(0,0,0,0.28); }
   :root[data-theme="dark"] .topbar { background: rgba(23,24,31,0.96); }
   :root[data-theme="dark"] .logo-image { background: #f8f9fa; }
+  :root[data-theme="dark"] .page-hero::before,
+  :root[data-theme="dark"] .equipment-status-hero::before,
+  :root[data-theme="dark"] .deployment-hero::before { opacity: .075; filter: saturate(.8) brightness(.9); }
+  :root[data-theme="dark"] .dashboard-hero::before { opacity: .06; }
+  :root[data-theme="dark"] .role-guide-hero::before { opacity: .12; }
 
   *, *::before, *::after { 
     box-sizing: border-box; 
@@ -517,7 +522,6 @@
     opacity: .075;
     pointer-events: none;
   }
-  .dashboard-hero::after { content: ''; position: absolute; width: 230px; height: 230px; right: -95px; bottom: -135px; border: 42px solid rgba(164,1,52,.08); border-radius: 50%; pointer-events: none; }
   .dashboard-hero-copy, .dashboard-hero-action { position: relative; z-index: 1; }
   .dashboard-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
   .dashboard-eyebrow::before { content: ''; width: 24px; height: 2px; border-radius: 2px; background: currentColor; }
@@ -820,19 +824,6 @@
     background: url('assets/fis-logo.png') center / contain no-repeat;
     opacity: .105;
     filter: saturate(.85);
-    pointer-events: none;
-  }
-  .page-hero::after {
-    content: "";
-    position: absolute;
-    z-index: -2;
-    width: 240px;
-    height: 240px;
-    right: -100px;
-    top: -130px;
-    border: 1px solid rgba(164,1,52,0.18);
-    border-radius: 50%;
-    box-shadow: 0 0 0 36px rgba(164,1,52,0.035), 0 0 0 72px rgba(94,170,255,0.025);
     pointer-events: none;
   }
   .page-hero-copy { position: relative; z-index: 1; max-width: 650px; }
@@ -1315,6 +1306,7 @@
   /* ── EQUIPMENT STATUS ── */
   .equipment-status-hero {
     position: relative;
+    isolation: isolate;
     overflow: hidden;
     padding: 24px;
     border: 1px solid rgba(164,1,52,.18);
@@ -1322,15 +1314,20 @@
     background: linear-gradient(135deg, rgba(164,1,52,.1), var(--bg2) 48%, rgba(78,240,196,.07));
     box-shadow: 0 18px 46px rgba(33,37,41,.09);
   }
-  .equipment-status-hero::after {
-    content: "";
+  .equipment-status-hero::before {
+    content: '';
     position: absolute;
-    width: 190px; height: 190px;
-    right: -70px; top: -95px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(164,1,52,.2), transparent 68%);
+    z-index: -1;
+    width: 190px;
+    aspect-ratio: 1;
+    top: -42px;
+    right: -24px;
+    background: url('assets/fis-logo.png') center / contain no-repeat;
+    opacity: .095;
+    filter: saturate(.85);
     pointer-events: none;
   }
+  .equipment-status-hero > * { position: relative; z-index: 1; }
   .equipment-status-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; margin-bottom: 7px; }
   .equipment-status-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .equipment-status-stat { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text2); font-size: 11px; }
@@ -1363,7 +1360,21 @@
   @media (max-width: 620px) { .equipment-status-card-grid { grid-template-columns: 1fr; } }
 
   /* ── CREW DEPLOYMENT ── */
-  .deployment-hero { padding: 24px; border: 1px solid rgba(164,1,52,.18); border-radius: 18px; background: linear-gradient(135deg, rgba(164,1,52,.1), var(--bg2) 52%, rgba(94,170,255,.07)); box-shadow: 0 18px 46px rgba(33,37,41,.09); }
+  .deployment-hero { position: relative; isolation: isolate; overflow: hidden; padding: 24px; border: 1px solid rgba(164,1,52,.18); border-radius: 18px; background: linear-gradient(135deg, rgba(164,1,52,.1), var(--bg2) 52%, rgba(94,170,255,.07)); box-shadow: 0 18px 46px rgba(33,37,41,.09); }
+  .deployment-hero::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    width: 190px;
+    aspect-ratio: 1;
+    top: -42px;
+    right: -24px;
+    background: url('assets/fis-logo.png') center / contain no-repeat;
+    opacity: .095;
+    filter: saturate(.85);
+    pointer-events: none;
+  }
+  .deployment-hero > * { position: relative; z-index: 1; }
   .deployment-hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
   .deployment-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; margin-bottom: 7px; }
   .deployment-date-control { min-width: min(260px, 100%); }
@@ -1473,6 +1484,7 @@
     .page { padding: 16px; }
     .page-hero { align-items: stretch; flex-direction: column; gap: 18px; min-height: 0; padding: 22px 20px; }
     .page-hero::before { width: 145px; top: -30px; right: -36px; opacity: .06; }
+    .equipment-status-hero::before, .deployment-hero::before { width: 145px; top: -30px; right: -36px; opacity: .06; }
     .page-hero-actions, .page-hero-actions .btn { width: 100%; }
     .page-hero-actions .btn { justify-content: center; }
     .form-row2 { grid-template-columns: 1fr; }
@@ -1517,6 +1529,7 @@
   /* ── MEDIA ROLE GUIDE ── */
   .role-guide-hero {
     position: relative;
+    isolation: isolate;
     overflow: hidden;
     padding: 30px;
     margin-bottom: 22px;
@@ -1528,17 +1541,20 @@
       #17171b;
     color: #fff;
   }
-  .role-guide-hero::after {
-    content: "";
+  .role-guide-hero::before {
+    content: '';
     position: absolute;
-    width: 180px;
-    height: 180px;
-    right: -60px;
-    bottom: -100px;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 50%;
-    box-shadow: 0 0 0 28px rgba(255,255,255,0.025), 0 0 0 56px rgba(255,255,255,0.018);
+    z-index: -1;
+    width: 220px;
+    aspect-ratio: 1;
+    top: -48px;
+    right: -34px;
+    background: url('assets/fis-logo.png') center / contain no-repeat;
+    opacity: .15;
+    filter: saturate(.9);
+    pointer-events: none;
   }
+  .role-guide-hero > * { position: relative; z-index: 1; }
   .role-guide-credit {
     display: inline-flex;
     align-items: center;
@@ -1592,6 +1608,7 @@
   @media (max-width: 700px) {
     .role-guide-grid { grid-template-columns: 1fr; }
     .role-guide-hero { padding: 24px 20px; }
+    .role-guide-hero::before { width: 165px; top: -34px; right: -42px; opacity: .11; }
   }
 </style>
 </head>

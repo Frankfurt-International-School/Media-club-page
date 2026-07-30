@@ -90,6 +90,12 @@ test('primary content pages share the branded page hero', () => {
   assert.ok(fisLogo.length < 150_000, 'decorative FIS logo should remain lightweight');
   assert.match(indexHtml, /\.page-hero::before[\s\S]*?assets\/fis-logo\.png/);
   assert.match(indexHtml, /\.dashboard-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(indexHtml, /\.equipment-status-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(indexHtml, /\.deployment-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(indexHtml, /\.role-guide-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.doesNotMatch(indexHtml, /\.(?:page|dashboard|equipment-status|role-guide)-hero::after\s*\{/);
+  assert.doesNotMatch(indexHtml, /\.deployment-hero::after\s*\{/);
+  assert.match(indexHtml, /:root\[data-theme="dark"\] \.page-hero::before/);
 
   for (const pageId of ['events', 'signup', 'members', 'gallery', 'equipment']) {
     const start = indexHtml.indexOf(`<div id="page-${pageId}" class="page">`);
