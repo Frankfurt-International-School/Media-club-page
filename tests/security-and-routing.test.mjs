@@ -9,6 +9,7 @@ const headersFile = readFileSync(new URL('../_headers', import.meta.url), 'utf8'
 const redirectsFile = readFileSync(new URL('../_redirects', import.meta.url), 'utf8');
 const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url), 'utf8');
 const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.url), 'utf8');
+const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
 
 function globalHeaders() {
   const lines = headersFile.split(/\r?\n/);
@@ -81,6 +82,20 @@ test('fonts are self-hosted with licenses and no Google Fonts runtime requests',
 
   for (const license of ['BEBAS-NEUE-OFL.txt', 'SPACE-GROTESK-OFL.txt']) {
     assert.match(readFileSync(new URL(`../assets/fonts/${license}`, import.meta.url), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
+  }
+});
+
+test('primary content pages share the branded page hero', () => {
+  assert.deepEqual([...fisLogo.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.ok(fisLogo.length < 150_000, 'decorative FIS logo should remain lightweight');
+  assert.match(indexHtml, /\.page-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(indexHtml, /\.dashboard-hero::before[\s\S]*?assets\/fis-logo\.png/);
+
+  for (const pageId of ['events', 'signup', 'members', 'gallery', 'equipment']) {
+    const start = indexHtml.indexOf(`<div id="page-${pageId}" class="page">`);
+    const end = indexHtml.indexOf('<!-- ──', start + 1);
+    assert.ok(start > -1 && end > start, `Expected ${pageId} page markup`);
+    assert.match(indexHtml.slice(start, end), /<section class="page-hero">/);
   }
 });
 

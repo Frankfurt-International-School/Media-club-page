@@ -506,6 +506,17 @@
       linear-gradient(135deg, var(--bg2), var(--bg3));
     box-shadow: 0 18px 46px rgba(33,37,41,.08);
   }
+  .dashboard-hero::before {
+    content: '';
+    position: absolute;
+    width: 210px;
+    aspect-ratio: 1;
+    top: -48px;
+    right: -34px;
+    background: url('assets/fis-logo.png') center / contain no-repeat;
+    opacity: .075;
+    pointer-events: none;
+  }
   .dashboard-hero::after { content: ''; position: absolute; width: 230px; height: 230px; right: -95px; bottom: -135px; border: 42px solid rgba(164,1,52,.08); border-radius: 50%; pointer-events: none; }
   .dashboard-hero-copy, .dashboard-hero-action { position: relative; z-index: 1; }
   .dashboard-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
@@ -780,9 +791,15 @@
   .reserve-role-badge { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 2px 7px; border-radius: 999px; background: var(--accent-dim); color: var(--accent); font-size: 10px; font-weight: 600; white-space: nowrap; }
   .reserve-priority-note { display: block; margin-top: 3px; color: var(--text3); font-size: 10px; }
 
-  /* ── GALLERY ── */
-  .gallery-hero {
+  /* ── SHARED PAGE HERO ── */
+  .page-hero {
     position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 138px;
     overflow: hidden;
     padding: 26px 28px;
     margin-bottom: 20px;
@@ -792,9 +809,23 @@
       linear-gradient(120deg, rgba(164,1,52,0.12), rgba(94,170,255,0.05) 58%, transparent),
       var(--bg2);
   }
-  .gallery-hero::after {
+  .page-hero::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    width: 190px;
+    aspect-ratio: 1;
+    top: -42px;
+    right: -24px;
+    background: url('assets/fis-logo.png') center / contain no-repeat;
+    opacity: .105;
+    filter: saturate(.85);
+    pointer-events: none;
+  }
+  .page-hero::after {
     content: "";
     position: absolute;
+    z-index: -2;
     width: 240px;
     height: 240px;
     right: -100px;
@@ -804,8 +835,12 @@
     box-shadow: 0 0 0 36px rgba(164,1,52,0.035), 0 0 0 72px rgba(94,170,255,0.025);
     pointer-events: none;
   }
-  .gallery-kicker { color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 5px; }
-  .gallery-hero .page-sub { max-width: 560px; }
+  .page-hero-copy { position: relative; z-index: 1; max-width: 650px; }
+  .page-hero-actions { position: relative; z-index: 2; flex: 0 0 auto; }
+  .page-hero .page-sub { max-width: 580px; }
+  .page-kicker { color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 5px; }
+
+  /* ── GALLERY ── */
   .gallery-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -914,8 +949,6 @@
   .gallery-file-remove { pointer-events: auto; border: 0; background: transparent; color: #fff; cursor: pointer; font: inherit; }
   .gallery-upload-note { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: var(--text3); font-size: 11px; }
   .gallery-upload-note::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px rgba(78,240,196,0.65); }
-  @media (max-width: 700px) { .gallery-hero { padding: 22px 20px; } }
-
   /* ── EQUIPMENT ── */
   .equipment-card {
     background: var(--bg2);
@@ -1259,7 +1292,7 @@
   .dashboard-preference-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 18px; }
   @media (max-width: 900px) { .profile-shell, .profile-photo-layout, .settings-layout { grid-template-columns: 1fr; } .settings-nav { position: static; display: flex; overflow-x: auto; } .settings-nav button { white-space: nowrap; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } .all-pages-popover { left: 12px; right: 12px; bottom: 12px; width: auto; } }
   @media (max-width: 980px) { .dashboard-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 760px) { .dashboard-header { align-items: stretch; flex-direction: column; } .dashboard-header-actions .btn { width: 100%; justify-content: center; } .dashboard-hero { grid-template-columns: 1fr; min-height: 0; padding: 22px; } .dashboard-hero-action { justify-content: flex-start; } .dashboard-module-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .dashboard-header { align-items: stretch; flex-direction: column; } .dashboard-header-actions .btn { width: 100%; justify-content: center; } .dashboard-hero { grid-template-columns: 1fr; min-height: 0; padding: 22px; } .dashboard-hero::before { width: 160px; top: -34px; right: -42px; opacity: .055; } .dashboard-hero-action { justify-content: flex-start; } .dashboard-module-grid { grid-template-columns: 1fr; } }
   @media (max-width: 520px) { .sidebar-choice-grid, .dashboard-stat-grid { grid-template-columns: 1fr; } .dashboard-widget-choice { grid-template-columns: auto minmax(0, 1fr); } .dashboard-order-actions { grid-column: 2; } }
 
   /* ── FILTER CHIPS ── */
@@ -1438,6 +1471,10 @@
     }
     .clock-time { font-size: 15px; }
     .page { padding: 16px; }
+    .page-hero { align-items: stretch; flex-direction: column; gap: 18px; min-height: 0; padding: 22px 20px; }
+    .page-hero::before { width: 145px; top: -30px; right: -36px; opacity: .06; }
+    .page-hero-actions, .page-hero-actions .btn { width: 100%; }
+    .page-hero-actions .btn { justify-content: center; }
     .form-row2 { grid-template-columns: 1fr; }
     .catalog-equipment-grid { grid-template-columns: 1fr; }
     .member-section-grid { grid-template-columns: 1fr; }
@@ -1677,16 +1714,17 @@
 
   <!-- ── EVENTS ── -->
   <div id="page-events" class="page">
-    <div class="flex-between mb24">
-      <div>
+    <section class="page-hero">
+      <div class="page-hero-copy">
+        <div class="page-kicker">Production calendar</div>
         <div class="page-title">Events</div>
         <div class="page-sub">Upcoming Media Club activities. Past events are available on request.</div>
       </div>
-      <button class="btn btn-accent" onclick="openModal('event-modal')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add event
-      </button>
-    </div>
+      <div class="page-hero-actions"><button class="btn btn-accent" onclick="openModal('event-modal')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add event
+        </button></div>
+    </section>
     <div class="filter-row" id="event-filters">
       <button class="filter-chip active" onclick="filterEvents('all', this)">All</button>
       <button class="filter-chip" onclick="filterEvents('Livestream', this)">Livestream</button>
@@ -1704,12 +1742,13 @@
 
   <!-- ── SIGN-UP SHEETS ── -->
   <div id="page-signup" class="page">
-    <div class="flex-between mb20">
-      <div>
+    <section class="page-hero">
+      <div class="page-hero-copy">
+        <div class="page-kicker">Crew assignments</div>
         <div class="page-title">Sign-up Sheets</div>
         <div class="page-sub">Google Sheets–style event sign-ups. Select an event and claim your slot.</div>
       </div>
-    </div>
+    </section>
     <div class="form-group" style="max-width:360px;">
       <label class="form-label">Select event</label>
       <select class="form-select" id="sheet-event-select" onchange="renderSignupSheet()"></select>
@@ -1765,16 +1804,17 @@
 
   <!-- ── MEMBERS ── -->
   <div id="page-members" class="page">
-    <div class="flex-between mb20">
-      <div>
+    <section class="page-hero">
+      <div class="page-hero-copy">
+        <div class="page-kicker">Club directory</div>
         <div class="page-title">Members</div>
         <div class="page-sub">Everyone in the club, their roles, and specialisations.</div>
       </div>
-      <button class="btn btn-accent" style="display:none;" onclick="openModal('member-modal')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add member
-      </button>
-    </div>
+      <div class="page-hero-actions"><button class="btn btn-accent" style="display:none;" onclick="openModal('member-modal')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add member
+        </button></div>
+    </section>
     <div class="flex gap10 mb20" style="flex-wrap:wrap;">
       <input class="form-input" style="max-width:260px;" placeholder="Search members..." id="member-search" oninput="renderMembers()" />
       <select class="form-select" style="max-width:160px;" id="member-role-filter" onchange="renderMembers()">
@@ -1792,17 +1832,17 @@
 
   <!-- ── GALLERY ── -->
   <div id="page-gallery" class="page">
-    <div class="gallery-hero flex-between">
-      <div>
-        <div class="gallery-kicker">Crew output / visual archive</div>
+    <section class="page-hero">
+      <div class="page-hero-copy">
+        <div class="page-kicker">Crew output / visual archive</div>
         <div class="page-title">Project Gallery</div>
         <div class="page-sub">Showcase of films, photos, and podcasts by club members.</div>
       </div>
-      <button class="btn btn-accent" id="gallery-submit-open" onclick="openModal('gallery-modal')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Submit project
-      </button>
-    </div>
+      <div class="page-hero-actions"><button class="btn btn-accent" id="gallery-submit-open" onclick="openModal('gallery-modal')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Submit project
+        </button></div>
+    </section>
     <div class="tab-row" role="tablist" aria-label="Gallery categories">
       <button type="button" class="tab active" role="tab" aria-selected="true" tabindex="0" aria-controls="gallery-grid" onclick="switchGalleryTab('all', this)" onkeydown="handleTabKeydown(event)">All</button>
       <button type="button" class="tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="gallery-grid" onclick="switchGalleryTab('Photo', this)" onkeydown="handleTabKeydown(event)">Photography</button>
@@ -1815,16 +1855,17 @@
 
   <!-- ── EQUIPMENT ── -->
   <div id="page-equipment" class="page">
-    <div class="flex-between mb20">
-      <div>
+    <section class="page-hero">
+      <div class="page-hero-copy">
+        <div class="page-kicker">Production inventory</div>
         <div class="page-title">Equipment</div>
         <div class="page-sub">Browse availability and reserve cameras, audio, and production equipment.</div>
       </div>
-      <button class="btn btn-accent" id="add-equipment-btn" onclick="openModal('equip-add-modal')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add equipment
-      </button>
-    </div>
+      <div class="page-hero-actions"><button class="btn btn-accent" id="add-equipment-btn" onclick="openModal('equip-add-modal')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add equipment
+        </button></div>
+    </section>
     <div class="filter-row" id="equipment-filters">
       <input class="form-input" id="equipment-search" style="max-width:260px;" placeholder="Search equipment" oninput="renderEquipment()" />
       <select class="form-select" id="equipment-category-filter" style="max-width:220px;" onchange="renderEquipment()">
