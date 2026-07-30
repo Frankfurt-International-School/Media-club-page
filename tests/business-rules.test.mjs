@@ -172,3 +172,13 @@ test('dashboard greeting does not expose an email alias while the member record 
   assert.match(greeting.textContent, /^Good (morning|afternoon|evening)$/);
   assert.doesNotMatch(greeting.textContent, /js12345/);
 });
+
+test('signup removals use the shared in-app confirmation before deletion', () => {
+  assert.match(appSource, /function requestRemoveSignup\(eventId, signupId, expired = false\)/);
+  assert.match(appSource, /You are removing another member's signup as an Auth Admin/);
+  assert.match(appSource, /confirmLabel: 'Remove signup'/);
+  assert.match(appSource, /onclick="requestRemoveSignup\('\$\{ev\.id\}','\$\{s\.id\}'\)"/);
+  assert.match(appSource, /onclick="requestRemoveSignup\('\$\{ev\.id\}','\$\{s\.id\}',true\)"/);
+  assert.doesNotMatch(appSource, /onclick="removeSignup\('/);
+  assert.doesNotMatch(appSource, /onclick="removeExpiredSignup\('/);
+});

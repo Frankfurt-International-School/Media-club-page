@@ -521,8 +521,8 @@
   .dashboard-stat-card:hover { transform: translateY(-2px); border-color: var(--border2); box-shadow: 0 10px 26px rgba(33,37,41,.07); }
   .dashboard-stat-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--stat-tone, var(--accent)); }
   .dashboard-stat-card.green { --stat-tone: var(--accent); } .dashboard-stat-card.purple { --stat-tone: var(--purple); } .dashboard-stat-card.coral { --stat-tone: var(--coral); } .dashboard-stat-card.amber { --stat-tone: var(--amber); } .dashboard-stat-card.teal { --stat-tone: var(--teal); } .dashboard-stat-card.blue { --stat-tone: var(--blue); }
-  .dashboard-stat-label { color: var(--text3); font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
-  .dashboard-stat-value { margin-top: 8px; font-family: var(--font-head); color: var(--text); font-size: 34px; line-height: 1; }
+  .dashboard-stat-label { color: var(--text3); font-size: 10px; font-weight: 600; letter-spacing: .055em; text-transform: uppercase; }
+  .dashboard-stat-value { margin-top: 8px; font-family: var(--font-body); color: var(--text); font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.03em; line-height: 1.05; }
   .dashboard-stat-sub { margin-top: 8px; color: var(--text2); font-size: 11px; line-height: 1.4; }
   .dashboard-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
   .dashboard-module { min-width: 0; border: 1px solid var(--border); border-radius: 17px; background: var(--bg2); overflow: hidden; }
@@ -3729,7 +3729,7 @@ function renderNotificationCenter() {
   const unread = storedItems.filter(item => !item.read_at).length + maybeItems.length + upcomingItems.length;
   badge.textContent = unread > 99 ? '99+' : unread;
   badge.classList.toggle('visible', unread > 0);
-  const actionHtml = maybeItems.map(({ event, signup }) => `<div class="notification-item action"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="removeSignupById('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
+  const actionHtml = maybeItems.map(({ event, signup }) => `<div class="notification-item action"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
   const upcomingHtml = upcomingItems.map(({ event }) => `<button type="button" class="notification-item action" onclick="navigate('signup',navItemForPage('signup'))"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(event.time || 'TBC')}.</div><div class="notification-item-meta">Upcoming event</div></button>`).join('');
   const storedHtml = storedItems.map(item => {
     const page = Object.values(sidebarCategories).some(category => category.pages.includes(item.page)) ? item.page : 'events';
@@ -3768,13 +3768,6 @@ function openStoredNotification(page, eventId = '') {
     const select = document.getElementById('sheet-event-select');
     if ([...select.options].some(option => option.value === eventId)) { select.value = eventId; renderSignupSheet(); }
   }
-}
-
-async function removeSignupById(eventId, signupId) {
-  const event = state.events.find(item => item.id === eventId);
-  const index = event?.signups.findIndex(signup => signup.id === signupId) ?? -1;
-  if (index >= 0) await removeSignup(eventId, index);
-  renderNotificationCenter();
 }
 
 function setCrewCenterTheme(theme) {
@@ -4543,7 +4536,7 @@ function renderSignupSheet() {
   const activationAt = reserveActivationAt(ev);
   const reserveIsActive = Boolean(activationAt && Date.now() >= activationAt);
   const orderedSignups = ev.signups
-    .map((signup, originalIndex) => ({ signup, originalIndex, displayRole: reserveAssignments.get(signup.id) || signup.role }))
+    .map(signup => ({ signup, displayRole: reserveAssignments.get(signup.id) || signup.role }))
     .sort((a, b) => {
       const roleA = signupRoleDisplayOrder.indexOf(a.displayRole);
       const roleB = signupRoleDisplayOrder.indexOf(b.displayRole);
@@ -4552,14 +4545,14 @@ function renderSignupSheet() {
       const timeOrder = (a.signup.attendanceStart || '').localeCompare(b.signup.attendanceStart || '');
       return timeOrder || a.signup.name.localeCompare(b.signup.name);
     });
-  let rows = orderedSignups.map(({ signup: s, originalIndex, displayRole }, i) => `
+  let rows = orderedSignups.map(({ signup: s, displayRole }, i) => `
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${escapeHtml(s.name)}</td>
       <td>${displayRole ? escapeHtml(displayRole) : '<span style="color:var(--text3)">—</span>'}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${reserveAssignments.has(s.id) ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${s.role === signupRoleLabels.student_supervisor && !reserveAssignments.has(s.id) && s.reserveRole1 ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${escapeHtml(s.reserveRole1)} → ${escapeHtml(s.reserveRole2)}</span>` : ''}</td>
       <td style="color:var(--text2);font-size:12px;">${escapeHtml(attendanceLabel(s))}</td>
       <td style="color:var(--text3);font-size:12px;">${escapeHtml(s.ts)}</td>
-      ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeSignup('${ev.id}', ${originalIndex})">Remove</button>` : ''}</div></td>` : ''}
+      ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</div></td>` : ''}
     </tr>`).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
@@ -4567,7 +4560,7 @@ function renderSignupSheet() {
       rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${showRemoveColumn ? '<td></td>' : ''}</tr>`;
     }
   }
-  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="removeExpiredSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
+  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}',true)">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
   document.getElementById('sheet-table').innerHTML = `
     <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Staying for</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
@@ -4722,33 +4715,54 @@ async function addSignupRow() {
   renderSignupSheet();
 }
 
-async function removeSignup(evId, idx) {
-  const ev = state.events.find(e => e.id === evId);
-  const signup = ev?.signups[idx];
+function requestRemoveSignup(eventId, signupId, expired = false) {
+  const event = state.events.find(item => item.id === eventId);
+  const collection = expired ? event?.expiredSignups : event?.signups;
+  const signup = collection?.find(item => item.id === signupId);
   const currentMemberId = currentMemberRecord()?.id;
   if (!signup || (!state.currentUser.isAdmin && signup.memberId !== currentMemberId)) {
     showToast('You can only remove your own signup.', 'error');
     return;
   }
-  const name = signup.name;
-  const signupId = signup.id;
-  const { error } = await supabaseClient.from('signups').delete().eq('id', signupId);
-  if (error) { showToast("Couldn't remove signup.", 'error'); return; }
-  ev.signups.splice(idx, 1);
-  showToast(`Removed ${name}.`, 'error');
-  renderSignupSheet();
+  const removesAnotherMember = signup.memberId !== currentMemberId;
+  openActionConfirmation({
+    kind: 'remove-signup',
+    title: removesAnotherMember
+      ? `Remove ${signup.name} from ${event.title}?`
+      : `Remove your signup from ${event.title}?`,
+    copy: removesAnotherMember
+      ? `You are removing another member's signup as an Auth Admin. Their position will immediately become available.`
+      : 'Your position will immediately become available for another member.',
+    impact: [
+      signup.role || 'No production role',
+      attendanceLabel(signup),
+      expired ? 'Expired Maybe signup' : 'Active signup',
+    ],
+    danger: true,
+    confirmLabel: 'Remove signup',
+    busyLabel: 'Removing...',
+    execute: () => removeSignup(eventId, signupId, expired),
+  });
 }
 
-async function removeExpiredSignup(eventId, signupId) {
+async function removeSignup(eventId, signupId, expired = false) {
   const event = state.events.find(item => item.id === eventId);
-  const signup = event?.expiredSignups?.find(item => item.id === signupId);
+  const collection = expired ? event?.expiredSignups : event?.signups;
+  const signup = collection?.find(item => item.id === signupId);
   const currentMemberId = currentMemberRecord()?.id;
-  if (!signup || (!state.currentUser.isAdmin && signup.memberId !== currentMemberId)) { showToast('You can only remove your own signup.', 'error'); return; }
+  if (!signup || (!state.currentUser.isAdmin && signup.memberId !== currentMemberId)) {
+    showToast('This signup can no longer be removed.', 'error');
+    return false;
+  }
   const { error } = await supabaseClient.from('signups').delete().eq('id', signupId);
-  if (error) { showToast("Couldn't remove signup.", 'error'); return; }
-  event.expiredSignups = event.expiredSignups.filter(item => item.id !== signupId);
-  showToast('Expired signup removed.');
+  if (error) { showToast(error.message || "Couldn't remove signup.", 'error', 6000); return false; }
+  if (expired) event.expiredSignups = event.expiredSignups.filter(item => item.id !== signupId);
+  else event.signups = event.signups.filter(item => item.id !== signupId);
   renderSignupSheet();
+  renderNotificationCenter();
+  renderDashboard();
+  showToast(`${signup.name}'s signup removed.`, 'error');
+  return true;
 }
 
 // ══════════════════════════════

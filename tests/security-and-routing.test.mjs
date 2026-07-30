@@ -82,6 +82,8 @@ test('fonts are self-hosted with licenses and no Google Fonts runtime requests',
   for (const license of ['BEBAS-NEUE-OFL.txt', 'SPACE-GROTESK-OFL.txt']) {
     assert.match(readFileSync(new URL(`../assets/fonts/${license}`, import.meta.url), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
   }
+
+  assert.match(indexHtml, /\.dashboard-stat-value\s*\{[^}]*font-family:\s*var\(--font-body\)[^}]*font-variant-numeric:\s*tabular-nums/s);
 });
 
 test('canonical routes and aliases survive static-host deep links', () => {
