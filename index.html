@@ -263,6 +263,7 @@
   .main {
     margin-left: var(--sidebar);
     flex: 1;
+    min-width: 0;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -425,7 +426,7 @@
   .sidebar-toggle-btn svg { width: 16px; height: 16px; }
 
   /* ── PAGES ── */
-  .page { display: none; padding: 28px; animation: fadeIn 0.2s ease; }
+  .page { display: none; width: 100%; min-width: 0; max-width: 100%; padding: 28px; animation: fadeIn 0.2s ease; }
   .page.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -452,6 +453,7 @@
 
   /* ── CARDS ── */
   .card {
+    min-width: 0;
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -554,11 +556,17 @@
   .dashboard-list-title { display: block; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; transition: color .15s ease; }
   .dashboard-list-sub { display: block; margin-top: 2px; overflow: hidden; color: var(--text3); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
   .dashboard-empty { padding: 24px 4px; color: var(--text3); font-size: 12px; text-align: center; }
-  .dashboard-equipment-bars { display: grid; gap: 10px; padding: 12px 0 7px; }
+  .dashboard-equipment-bars { display: grid; gap: 12px; padding: 13px 0 8px; }
   .dashboard-equipment-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) 28px; gap: 10px; align-items: center; color: var(--text2); font-size: 11px; }
-  .dashboard-equipment-track { height: 7px; overflow: hidden; border-radius: 10px; background: var(--bg4); }
-  .dashboard-equipment-fill { height: 100%; border-radius: inherit; background: var(--accent); }
+  .dashboard-equipment-track { height: 11px; overflow: hidden; border: 1px solid var(--border); border-radius: 999px; background: var(--bg4); box-shadow: inset 0 1px 2px rgba(33,37,41,.08); }
+  .dashboard-equipment-fill { position: relative; display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), rgba(164,1,52,.72)); transform-origin: left center; animation: dashboardEquipmentFill .72s cubic-bezier(.22,1,.36,1) both; }
+  .dashboard-equipment-fill::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 25%, rgba(255,255,255,.38) 50%, transparent 75%); transform: translateX(-120%); animation: dashboardEquipmentShine .8s .18s ease-out both; }
   .dashboard-equipment-fill.checked { background: var(--coral); } .dashboard-equipment-fill.unavailable { background: var(--amber); }
+  @keyframes dashboardEquipmentFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes dashboardEquipmentShine { to { transform: translateX(120%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .dashboard-equipment-fill, .dashboard-equipment-fill::after { animation: none; }
+  }
 
 
   /* ── BADGES ── */
@@ -738,6 +746,7 @@
   .member-section-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 
   /* ── SIGNUP SHEET ── */
+  .signup-sheet-card { overflow-x: auto; }
   .sheet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .sheet-table th {
     text-align: left;
@@ -1482,6 +1491,11 @@
     }
     .clock-time { font-size: 15px; }
     .page { padding: 16px; }
+    .tab-row { width: 100%; max-width: 100%; scroll-snap-type: x proximity; }
+    .tab { flex: 0 0 auto; min-height: 38px; padding: 7px 12px; scroll-snap-align: start; }
+    .settings-nav { width: 100%; max-width: 100%; scrollbar-width: none; }
+    .settings-nav::-webkit-scrollbar { display: none; }
+    .filter-row > .form-input, .filter-row > .form-select { flex: 1 1 100%; max-width: none !important; }
     .page-hero { align-items: stretch; flex-direction: column; gap: 18px; min-height: 0; padding: 22px 20px; }
     .page-hero::before { width: 145px; top: -30px; right: -36px; opacity: .06; }
     .equipment-status-hero::before, .deployment-hero::before { width: 145px; top: -30px; right: -36px; opacity: .06; }
@@ -1491,7 +1505,36 @@
     .catalog-equipment-grid { grid-template-columns: 1fr; }
     .member-section-grid { grid-template-columns: 1fr; }
     .signup-entry-grid, .signup-entry-grid.role-free { grid-template-columns: 1fr; }
+    .signup-reserve-fields.visible { grid-template-columns: 1fr; }
+    #signup-entry-card > .sidebar-customize-toggle { align-items: stretch; flex-direction: column; }
+    #signup-entry-card > .sidebar-customize-toggle .form-select { width: 100% !important; }
     .signup-entry-actions .btn { width: 100%; }
+  }
+  @media (max-width: 640px) {
+    .signup-sheet-summary, .equipment-register-card > .flex-between { align-items: flex-start; flex-direction: column; gap: 10px; }
+    .signup-sheet-card, .equipment-register-card { overflow: visible !important; padding: 16px; }
+    .responsive-sheet-table, .responsive-sheet-table tbody, .responsive-sheet-table tr, .responsive-sheet-table td { display: block; width: 100%; }
+    .responsive-sheet-table thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .responsive-sheet-table tr { margin-top: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); }
+    .responsive-sheet-table tr:first-child { margin-top: 0; }
+    .responsive-sheet-table td { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 10px; align-items: start; padding: 9px 10px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+    .responsive-sheet-table td:last-child { border-bottom: 0; }
+    .responsive-sheet-table td::before { color: var(--text3); font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+    #sheet-table td:nth-child(1)::before { content: '#'; }
+    #sheet-table td:nth-child(2)::before { content: 'Name'; }
+    #sheet-table td:nth-child(3)::before { content: 'Event role'; }
+    #sheet-table td:nth-child(4)::before { content: 'Staying for'; }
+    #sheet-table td:nth-child(5)::before { content: 'Signed up'; }
+    #sheet-table td:nth-child(6)::before { content: 'Action'; }
+    #equipment-register-table td:nth-child(1)::before { content: 'Equipment'; }
+    #equipment-register-table td:nth-child(2)::before { content: 'Person'; }
+    #equipment-register-table td:nth-child(3)::before { content: 'Session'; }
+    #equipment-register-table td:nth-child(4)::before { content: 'Time'; }
+    #equipment-register-table td:nth-child(5)::before { content: 'Status'; }
+    #equipment-register-table td:nth-child(6)::before { content: 'Action'; }
+    .responsive-sheet-table td:only-child { display: block; }
+    .responsive-sheet-table td:only-child::before { content: none !important; }
+    .responsive-sheet-table .reserve-role-badge { margin: 4px 5px 0 0; }
   }
   @media (max-width: 420px) {
     .clock-dot, .clock-city { display: none; }
@@ -1770,8 +1813,8 @@
       <label class="form-label">Select event</label>
       <select class="form-select" id="sheet-event-select" onchange="renderSignupSheet()"></select>
     </div>
-    <div class="card mb16" style="overflow-x:auto;">
-      <div class="flex-between mb12">
+    <div class="card mb16 signup-sheet-card">
+      <div class="flex-between mb12 signup-sheet-summary">
         <div>
           <div style="font-size:14px;font-weight:500;color:var(--text)" id="sheet-event-title">—</div>
           <div class="text-muted" id="sheet-event-time">—</div>
@@ -1780,7 +1823,7 @@
         <div id="sheet-cap-badge"></div>
       </div>
       <div class="progress-bar mb12"><div class="progress-fill" id="sheet-progress" style="width:0%"></div></div>
-      <table class="sheet-table" id="sheet-table"></table>
+      <table class="sheet-table responsive-sheet-table" id="sheet-table"></table>
     </div>
     <div class="card signup-entry-card" id="signup-entry-card">
       <div class="signup-entry-head">
@@ -1911,7 +1954,7 @@
     <div class="grid3 mb24" id="equipment-status-grid"></div>
     <div class="card equipment-register-card" style="overflow-x:auto;">
       <div class="flex-between mb16"><div><div class="section-head" style="margin:0;">Checkout register</div><div class="text-muted">Scheduled loans and equipment awaiting a confirmed return.</div></div><label class="equipment-register-toggle"><input id="show-returned-equipment" type="checkbox" onchange="renderEquipmentStatus()">Show returned</label></div>
-      <table class="sheet-table" id="equipment-register-table"></table>
+      <table class="sheet-table responsive-sheet-table" id="equipment-register-table"></table>
     </div>
   </div>
 
@@ -4081,7 +4124,10 @@ function renderEquipmentSnapshotModule() {
   };
   const total = Math.max(state.equipment.length, 1);
   const rows = [['available', 'Available'], ['checked_out', 'Checked out'], ['unavailable', 'Unavailable']];
-  const body = state.equipment.length ? `<div class="dashboard-equipment-bars">${rows.map(([key, label]) => `<div class="dashboard-equipment-row"><span>${label}</span><span class="dashboard-equipment-track"><span class="dashboard-equipment-fill ${key === 'checked_out' ? 'checked' : key}" style="width:${Math.round((counts[key] / total) * 100)}%"></span></span><strong>${counts[key]}</strong></div>`).join('')}</div>` : '<div class="dashboard-empty">The equipment register is empty.</div>';
+  const body = state.equipment.length ? `<div class="dashboard-equipment-bars">${rows.map(([key, label], index) => {
+    const percentage = Math.round((counts[key] / total) * 100);
+    return `<div class="dashboard-equipment-row"><span>${label}</span><span class="dashboard-equipment-track" role="img" aria-label="${escapeHtml(label)}: ${counts[key]} of ${state.equipment.length}"><span class="dashboard-equipment-fill ${key === 'checked_out' ? 'checked' : key}" style="width:${percentage}%;animation-delay:${index * 90}ms"></span></span><strong>${counts[key]}</strong></div>`;
+  }).join('')}</div>` : '<div class="dashboard-empty">The equipment register is empty.</div>';
   return dashboardModuleShell('Equipment snapshot', 'Open equipment', 'equipment', body);
 }
 
@@ -4594,24 +4640,34 @@ function renderSignupSheet() {
   const activationAt = reserveActivationAt(ev);
   const reserveIsActive = Boolean(activationAt && Date.now() >= activationAt);
   const orderedSignups = ev.signups
-    .map(signup => ({ signup, displayRole: reserveAssignments.get(signup.id) || signup.role }))
+    .map(signup => ({ signup, sortRole: reserveAssignments.get(signup.id) || signup.role }))
     .sort((a, b) => {
-      const roleA = signupRoleDisplayOrder.indexOf(a.displayRole);
-      const roleB = signupRoleDisplayOrder.indexOf(b.displayRole);
+      const roleA = signupRoleDisplayOrder.indexOf(a.sortRole);
+      const roleB = signupRoleDisplayOrder.indexOf(b.sortRole);
       const roleOrder = (roleA < 0 ? signupRoleDisplayOrder.length : roleA) - (roleB < 0 ? signupRoleDisplayOrder.length : roleB);
       if (roleOrder) return roleOrder;
       const timeOrder = (a.signup.attendanceStart || '').localeCompare(b.signup.attendanceStart || '');
       return timeOrder || a.signup.name.localeCompare(b.signup.name);
     });
-  let rows = orderedSignups.map(({ signup: s, displayRole }, i) => `
+  let rows = orderedSignups.map(({ signup: s }, i) => {
+    const activeReserveRole = reserveAssignments.get(s.id);
+    const supervisorRoleNote = s.role === signupRoleLabels.student_supervisor
+      ? activeReserveRole
+        ? `<span class="reserve-priority-note"><strong>Current role:</strong> ${escapeHtml(activeReserveRole)}</span>`
+        : s.reserveRole1
+          ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${escapeHtml(s.reserveRole1)} → ${escapeHtml(s.reserveRole2)}</span>`
+          : ''
+      : '';
+    return `
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${escapeHtml(s.name)}</td>
-      <td>${displayRole ? escapeHtml(displayRole) : '<span style="color:var(--text3)">—</span>'}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${reserveAssignments.has(s.id) ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${s.role === signupRoleLabels.student_supervisor && !reserveAssignments.has(s.id) && s.reserveRole1 ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${escapeHtml(s.reserveRole1)} → ${escapeHtml(s.reserveRole2)}</span>` : ''}</td>
+      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${supervisorRoleNote}</td>
       <td style="color:var(--text2);font-size:12px;">${escapeHtml(attendanceLabel(s))}</td>
       <td style="color:var(--text3);font-size:12px;">${escapeHtml(s.ts)}</td>
       ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</div></td>` : ''}
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   if (ev.slots) {
     const empty = Math.min(3, ev.slots - ev.signups.length);
     for (let i = 0; i < empty; i++) {

@@ -182,3 +182,18 @@ test('signup removals use the shared in-app confirmation before deletion', () =>
   assert.doesNotMatch(appSource, /onclick="removeSignup\('/);
   assert.doesNotMatch(appSource, /onclick="removeExpiredSignup\('/);
 });
+
+test('active student supervisor reserves preserve the supervisor label and show the current role', () => {
+  assert.match(appSource, /const activeReserveRole = reserveAssignments\.get\(s\.id\)/);
+  assert.match(appSource, /<strong>Current role:<\/strong> \$\{escapeHtml\(activeReserveRole\)\}/);
+  assert.match(appSource, /<td>\$\{s\.role \? escapeHtml\(s\.role\)/);
+  assert.doesNotMatch(appSource, /<td>\$\{displayRole \? escapeHtml\(displayRole\)/);
+});
+
+test('phone-width tables and dashboard equipment bars retain responsive affordances', () => {
+  assert.match(appSource, /class="sheet-table responsive-sheet-table" id="sheet-table"/);
+  assert.match(appSource, /class="sheet-table responsive-sheet-table" id="equipment-register-table"/);
+  assert.match(appSource, /@keyframes dashboardEquipmentFill/);
+  assert.match(appSource, /prefers-reduced-motion: reduce/);
+  assert.match(appSource, /aria-label="\$\{escapeHtml\(label\)\}: \$\{counts\[key\]\} of \$\{state\.equipment\.length\}"/);
+});
