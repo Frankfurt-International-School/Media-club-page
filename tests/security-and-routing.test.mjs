@@ -8,6 +8,7 @@ const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8'
 const headersFile = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
 const redirectsFile = readFileSync(new URL('../_redirects', import.meta.url), 'utf8');
 const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url), 'utf8');
+const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
 const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.url), 'utf8');
 const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
 const aboutImageNames = [
@@ -133,7 +134,9 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
 
   assert.match(indexHtml, /class="nav-item" data-page="about" data-category="club"/);
   assert.match(indexHtml, /club: \{ label: 'Club', pages: \['crew-deployment', 'equipment-status', 'join', 'about', 'admin'\] \}/);
-  assert.match(indexHtml, /defaultHidden = state\.currentUser\.isVisitor \|\| window\.CREW_CENTER_IS_VISITOR \? new Set\(\) : new Set\(\['about'\]\)/);
+  assert.match(indexHtml, /items: customized && saved\.length \? saved : available/);
+  assert.match(indexHtml, /classList\.toggle\('visible', hiddenCount > 0\)/);
+  assert.match(schemaSql, /sidebar_items text\[\] not null default array\[[^\]]*'about'[^\]]*\]::text\[\]/);
   assert.match(indexHtml, /\.about-beginner:hover \.about-beginner-media img[\s\S]*?scale\(1\.04\)/);
 });
 

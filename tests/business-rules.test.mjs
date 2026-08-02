@@ -209,3 +209,33 @@ test('phone-width tables and dashboard equipment bars retain responsive affordan
   assert.match(appSource, /prefers-reduced-motion: reduce/);
   assert.match(appSource, /aria-label="\$\{escapeHtml\(label\)\}: \$\{counts\[key\]\} of \$\{state\.equipment\.length\}"/);
 });
+
+test('default sidebar includes About Media Club while customized choices remain authoritative', () => {
+  const functions = ['sidebarPageAvailable', 'availableSidebarPages', 'currentSidebarPreferences'];
+  const sidebarCategories = {
+    main: { pages: ['home', 'events', 'signup', 'members'] },
+    content: { pages: ['gallery', 'equipment', 'role-guide'] },
+    club: { pages: ['crew-deployment', 'equipment-status', 'join', 'about', 'admin'] },
+  };
+  const preferences = member => JSON.parse(JSON.stringify(runFunctions(
+    functions,
+    {
+      sidebarCategories,
+      currentMemberRecord: () => member,
+      canAccessAdminPanel: () => false,
+      canAccessCrewSchedule: () => false,
+      canAccessEquipmentStatus: () => false,
+      state: { currentUser: { isVisitor: false } },
+      window: { CREW_CENTER_IS_VISITOR: false },
+    },
+    'currentSidebarPreferences()',
+  )));
+
+  const oldDefault = preferences({ sidebarCustomized: false, sidebarItems: ['home', 'gallery', 'join'] });
+  assert.equal(oldDefault.customized, false);
+  assert.equal(oldDefault.items.includes('about'), true, 'About should appear on the default sidebar');
+
+  const manuallyHidden = preferences({ sidebarCustomized: true, sidebarItems: ['home', 'gallery', 'join'] });
+  assert.equal(manuallyHidden.customized, true);
+  assert.equal(manuallyHidden.items.includes('about'), false, 'a customized sidebar may deliberately hide About');
+});
