@@ -140,6 +140,19 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   assert.match(indexHtml, /\.about-beginner:hover \.about-beginner-media img[\s\S]*?scale\(1\.04\)/);
 });
 
+test('Media Role Guide includes the approved stream expectations', () => {
+  const start = indexHtml.indexOf('<section class="stream-expectations"');
+  const end = indexHtml.indexOf('<section class="role-guide-section">', start);
+  assert.ok(start > -1 && end > start, 'Expected Stream Expectations before the role cards');
+  const expectations = indexHtml.slice(start, end);
+  assert.equal((expectations.match(/data-expectation=/g) || []).length, 10);
+  assert.match(expectations, /fully ready at least 10 minutes before the scheduled stream start/);
+  assert.match(expectations, /do not have to verbally respond to every instruction/);
+  assert.match(expectations, /when their camera is live or is about to go live/);
+  assert.match(expectations, /Do not show injuries on stream/);
+  assert.match(expectations, /Use a neutral wide shot/);
+});
+
 test('gallery projects support an optional production date and link guidance', () => {
   assert.match(indexHtml, /id="gal-produced-on" type="date"/);
   assert.match(indexHtml, /Access for FIS members only/);

@@ -1651,10 +1651,31 @@
   .role-guide-card h3 { position: relative; font-size: 25px; line-height: 1; margin-bottom: 10px; }
   .role-guide-card p { position: relative; color: var(--text2); font-size: 13px; line-height: 1.58; }
   .role-guide-card strong { color: var(--text); }
+  .stream-expectations {
+    position: relative;
+    overflow: hidden;
+    margin-top: 26px;
+    padding: 24px;
+    border: 1px solid rgba(164,1,52,.2);
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--accent-dim2), var(--bg2) 48%, rgba(94,170,255,.06));
+  }
+  .stream-expectations::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--accent); }
+  .stream-expectations-head { display: grid; grid-template-columns: minmax(0,.72fr) minmax(260px,1.28fr); gap: 24px; align-items: end; }
+  .stream-expectations-kicker { margin-bottom: 6px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+  .stream-expectations h2 { color: var(--text); font-size: clamp(31px, 4vw, 44px); line-height: 1; }
+  .stream-expectations-intro { color: var(--text2); font-size: 13px; line-height: 1.65; }
+  .stream-expectations-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin-top: 20px; list-style: none; counter-reset: stream-expectation; }
+  .stream-expectations-list li { counter-increment: stream-expectation; display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 10px; align-items: start; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text2); font-size: 12px; line-height: 1.55; }
+  .stream-expectations-list li::before { content: counter(stream-expectation, decimal-leading-zero); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--accent-dim); color: var(--accent); font-family: var(--font-head); font-size: 14px; line-height: 1; }
+  .stream-expectations-list strong { color: var(--text); }
   @media (max-width: 700px) {
     .role-guide-grid { grid-template-columns: 1fr; }
     .role-guide-hero { padding: 24px 20px; }
     .role-guide-hero::before { width: 165px; top: -34px; right: -42px; opacity: .11; }
+    .stream-expectations { padding: 20px; }
+    .stream-expectations-head, .stream-expectations-list { grid-template-columns: 1fr; }
+    .stream-expectations-head { gap: 10px; }
   }
 
   /* ── ABOUT MEDIA CLUB ── */
@@ -2254,6 +2275,25 @@
       <h1>Media Role Guide</h1>
       <p>Every great production is a team effort. Explore the responsibilities, expectations, and equipment behind each role before choosing your place on the crew.</p>
     </div>
+
+    <section class="stream-expectations" id="stream-expectations" aria-labelledby="stream-expectations-title">
+      <div class="stream-expectations-head">
+        <div><div class="stream-expectations-kicker">Applies to every student role</div><h2 id="stream-expectations-title">Stream Expectations</h2></div>
+        <p class="stream-expectations-intro">A reliable stream depends on preparation, clear communication, safe equipment handling, and respect for everyone taking part in the event.</p>
+      </div>
+      <ol class="stream-expectations-list">
+        <li data-expectation="arrival"><span><strong>Arrive ready.</strong> All students, regardless of role, must arrive and be fully ready at least 10 minutes before the scheduled stream start. Equipment must be checked, headsets connected, and everyone at their assigned position.</span></li>
+        <li data-expectation="attendance"><span><strong>Report changes early.</strong> If you are running late or cannot attend, update your signup and inform a supervisor as early as possible so your role can be covered.</span></li>
+        <li data-expectation="check-in"><span><strong>Check in first.</strong> Report to the Adult Supervisor or Student Supervisor when you arrive. Do not change roles or positions without their approval.</span></li>
+        <li data-expectation="checks"><span><strong>Complete technical checks.</strong> Cameras must be framed and focused, audio monitored, overlays and scores prepared, and the stream or recording connection confirmed before going live.</span></li>
+        <li data-expectation="comms"><span><strong>Keep comms professional.</strong> Headset communication should be short, calm, and relevant to the production. Avoid unnecessary conversation while live.</span></li>
+        <li data-expectation="live-awareness"><span><strong>Know when you are live.</strong> Camera operators do not have to verbally respond to every instruction, but they must acknowledge and remain aware when their camera is live or is about to go live. Hold the requested shot steadily and avoid unexpected changes.</span></li>
+        <li data-expectation="focus"><span><strong>Stay focused.</strong> Avoid personal phones, unrelated conversations, and other distractions unless there is an emergency.</span></li>
+        <li data-expectation="equipment"><span><strong>Handle equipment safely.</strong> Keep food and drinks away, report faults or unsafe cables immediately, and never attempt an unfamiliar technical change without permission.</span></li>
+        <li data-expectation="injuries"><span><strong>Do not show injuries on stream.</strong> If someone is injured, camera operators must move away from close-ups and Mixing must avoid putting the injury on air. Use a neutral wide shot until it is appropriate to return.</span></li>
+        <li data-expectation="wrap"><span><strong>Finish the job.</strong> Wait until a supervisor confirms the stream and recording have ended correctly, then return equipment, tidy the production area, and report any problems.</span></li>
+      </ol>
+    </section>
 
     <section class="role-guide-section">
       <div class="role-guide-section-head">Supervision &amp; leadership</div>
