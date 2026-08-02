@@ -10,6 +10,13 @@ const redirectsFile = readFileSync(new URL('../_redirects', import.meta.url), 'u
 const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url), 'utf8');
 const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.url), 'utf8');
 const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
+const aboutImageNames = [
+  'tech-show-crew.webp',
+  'stroth-control-room.webp',
+  'camera-operator.webp',
+  'tech-show-anchors.webp',
+  'tech-show-team.webp',
+];
 
 function globalHeaders() {
   const lines = headersFile.split(/\r?\n/);
@@ -105,6 +112,26 @@ test('primary content pages share the branded page hero', () => {
   }
 });
 
+test('About Media Club is a local, privacy-conscious brochure page', () => {
+  const start = indexHtml.indexOf('<div id="page-about" class="page">');
+  const end = indexHtml.indexOf('<!-- ── DASHBOARD ── -->', start);
+  assert.ok(start > -1 && end > start, 'Expected the About Media Club page markup');
+  const aboutMarkup = indexHtml.slice(start, end);
+  assert.match(aboutMarkup, /Discover Media Club/);
+  assert.match(aboutMarkup, /Grades 6–12/);
+  assert.match(aboutMarkup, /id="about-recent-projects"/);
+  assert.match(aboutMarkup, /navigate\('gallery'/);
+  assert.match(aboutMarkup, /navigate\('join'/);
+  assert.doesNotMatch(aboutMarkup, /<script|https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)/i);
+
+  for (const file of aboutImageNames) {
+    const bytes = readFileSync(new URL(`../assets/about/${file}`, import.meta.url));
+    assert.deepEqual(bytes.subarray(0, 4).toString('ascii'), 'RIFF', `${file} must be WebP`);
+    assert.ok(bytes.length < 200_000, `${file} should remain lightweight`);
+    assert.ok(aboutMarkup.includes(`assets/about/${file}`), `${file} must be used on the about page`);
+  }
+});
+
 test('canonical routes and aliases survive static-host deep links', () => {
   const start = indexHtml.indexOf('const pageRoutes =');
   const end = indexHtml.indexOf('function navItemForPage', start);
@@ -130,8 +157,10 @@ test('visitor route allowlist exposes only public pages', () => {
   const match = authSource.match(/const visitorAllowedPages = new Set\((\[[^;]+\])\)/);
   assert.ok(match, 'visitor route allowlist must remain explicit');
   const routes = vm.runInNewContext(match[1]);
-  assert.deepEqual([...routes], ['home', 'events', 'gallery', 'equipment', 'role-guide', 'join']);
+  assert.deepEqual([...routes], ['about', 'home', 'events', 'gallery', 'equipment', 'role-guide', 'join']);
   for (const privatePage of ['signup', 'members', 'equipment-status', 'crew-deployment', 'profile', 'admin']) {
     assert.equal(routes.includes(privatePage), false, `${privatePage} must remain private`);
   }
+  assert.match(authSource, /await revealDashboard\(data\.user\);\s*if \(window\.CREW_CENTER_IS_VISITOR[\s\S]*?window\.navigate\("about"/);
+  assert.match(authSource, /const allowedPages = new Set\(\["about", "home", "events", "gallery", "equipment", "role-guide", "join"\]\)/);
 });

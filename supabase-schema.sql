@@ -33,7 +33,8 @@ alter table public.members add column if not exists grade_level text;
 alter table public.members add column if not exists avatar_url text;
 alter table public.members add column if not exists avatar_path text;
 alter table public.members add column if not exists sidebar_customized boolean not null default false;
-alter table public.members add column if not exists sidebar_items text[] not null default array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[];
+alter table public.members add column if not exists sidebar_items text[] not null default array['about','home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[];
+alter table public.members alter column sidebar_items set default array['about','home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[];
 alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true}'::jsonb;
 alter table public.members add column if not exists dashboard_preferences jsonb not null default '{"stats":[],"sections":[]}'::jsonb;
 

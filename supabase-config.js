@@ -447,10 +447,10 @@ window.applyCrewCenterAdminControls = applyAdminControls;
 
 function enforceVisitorPageAccess() {
   if (!window.CREW_CENTER_IS_VISITOR) return;
-  const allowedPages = new Set(["home", "events", "gallery", "equipment", "role-guide", "join"]);
+  const allowedPages = new Set(["about", "home", "events", "gallery", "equipment", "role-guide", "join"]);
   const activePage = document.querySelector(".page.active")?.id?.replace("page-", "") || "home";
   if (!allowedPages.has(activePage) && typeof window.navigate === "function") {
-    window.navigate("home");
+    window.navigate("about");
   }
 }
 
@@ -528,7 +528,7 @@ function installAdminFunctionGuards() {
 
   if (typeof window.navigate === "function" && !window.navigate.__adminGuarded) {
     const originalNavigate = window.navigate;
-    const visitorAllowedPages = new Set(["home", "events", "gallery", "equipment", "role-guide", "join"]);
+    const visitorAllowedPages = new Set(["about", "home", "events", "gallery", "equipment", "role-guide", "join"]);
     window.navigate = function(id, ...args) {
       const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
       if (id === "admin" && !hasAdminPanelAccess) {
@@ -784,6 +784,9 @@ visitorSubmit.addEventListener("click", async () => {
     return;
   }
   await revealDashboard(data.user);
+  if (window.CREW_CENTER_IS_VISITOR && typeof window.navigate === "function") {
+    window.navigate("about", window.navItemForPage?.("about"));
+  }
   setAuthBusy(false);
   visitorSubmit.innerHTML = 'First time here?<span>Explore the Crew Center with limited access</span>';
 });

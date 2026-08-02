@@ -419,12 +419,12 @@ begin
   from (
     select item, min(position) as position
     from unnest(coalesce(p_items, array[]::text[])) with ordinality as chosen(item, position)
-    where item = any(array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[])
+    where item = any(array['about','home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[])
     group by item
   ) normalized;
 
   if coalesce(p_customized, false) and (
-    not (clean_items && array['home','events','signup','members']::text[])
+    not (clean_items && array['about','home','events','signup','members']::text[])
     or not (clean_items && array['gallery','equipment','role-guide']::text[])
     or not (clean_items && array['crew-deployment','equipment-status','join','admin']::text[])
   ) then
