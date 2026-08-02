@@ -98,6 +98,25 @@ as $$
     );
 $$;
 
+create or replace function public.can_access_equipment_status()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_crew_operations_user()
+    and coalesce((
+      select member.equipment_status_access
+      from public.members member
+      where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      limit 1
+    ), true);
+$$;
+
+revoke all on function public.can_access_equipment_status() from public;
+grant execute on function public.can_access_equipment_status() to authenticated;
+
 create or replace function public.is_crew_schedule_user()
 returns boolean
 language sql
@@ -424,9 +443,9 @@ begin
   ) normalized;
 
   if coalesce(p_customized, false) and (
-    not (clean_items && array['about','home','events','signup','members']::text[])
+    not (clean_items && array['home','events','signup','members']::text[])
     or not (clean_items && array['gallery','equipment','role-guide']::text[])
-    or not (clean_items && array['crew-deployment','equipment-status','join','admin']::text[])
+    or not (clean_items && array['crew-deployment','equipment-status','join','about','admin']::text[])
   ) then
     raise exception 'Choose at least one sidebar page from Main, Content, and Club.';
   end if;
@@ -731,6 +750,40 @@ as $$
     );
 $$;
 
+create or replace function public.set_equipment_operational_status(
+  p_equipment_id uuid,
+  p_status text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_access_equipment_status() then
+    raise exception 'Equipment Status access is required.';
+  end if;
+
+  if p_status not in ('available', 'unavailable') then
+    raise exception 'Unsupported equipment status.';
+  end if;
+
+  update public.equipment item
+  set status = p_status
+  where item.id = p_equipment_id
+    and not exists (
+      select 1 from public.equipment_reservations reservation
+      where reservation.equipment_id = item.id
+        and reservation.reservation_status = 'checked_out'
+    );
+
+  return found;
+end;
+$$;
+
+revoke all on function public.set_equipment_operational_status(uuid, text) from public;
+grant execute on function public.set_equipment_operational_status(uuid, text) to authenticated;
+
 create or replace function public.mark_equipment_reservation_returned(p_reservation_id uuid)
 returns boolean
 language plpgsql
@@ -741,8 +794,8 @@ declare
   affected_equipment_id uuid;
   returning_member_name text;
 begin
-  if not public.is_crew_operations_user() then
-    raise exception 'Moderator-or-above access is required.';
+  if not public.can_access_equipment_status() then
+    raise exception 'Equipment Status access is required.';
   end if;
 
   select member.name into returning_member_name

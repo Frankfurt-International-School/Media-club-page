@@ -109,8 +109,11 @@
   body.sidebar-collapsed .sidebar { width: var(--sidebar-compact); }
   .sidebar-scrim { display: none; border: 0; padding: 0; }
   .sidebar-logo {
-    padding: 20px 18px 16px;
+    min-height: var(--topbar);
+    padding: 9px 14px;
     border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
   }
   .logo-copy, .nav-label, .sidebar-user-copy, .nav-section-label {
     transition: opacity 0.18s ease, width 0.25s ease, transform 0.25s ease;
@@ -122,11 +125,11 @@
     color: var(--text);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
   }
   .logo-image {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
     display: block;
@@ -134,13 +137,7 @@
     border: 0;
     background: transparent;
   }
-  .sidebar-logo .logo-sub {
-    font-size: 11px;
-    color: var(--text3);
-    margin-top: 2px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
+  .sidebar-logo .logo-sub { display: none; }
   .sidebar-nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
   .nav-section-label {
     font-size: 10px;
@@ -180,7 +177,7 @@
     box-shadow: inset 3px 0 var(--sidebar-accent), 0 7px 18px rgba(164,1,52,0.12);
   }
   .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.8; }
-  .admin-only, .crew-operations-only, .crew-schedule-only { display: none; }
+  .admin-only, .equipment-status-only, .crew-schedule-only { display: none; }
   .nav-item.sidebar-custom-hidden, .nav-section-label.sidebar-category-hidden { display: none !important; }
   .nav-badge {
     margin-left: auto;
@@ -337,10 +334,11 @@
     z-index: 90;
   }
   .topbar-title {
-    font-family: var(--font-head);
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    color: var(--text2);
     flex: 1;
   }
   .topbar-motto {
@@ -410,9 +408,9 @@
     padding: 4px;
   }
   .sidebar-toggle-btn {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
     color: var(--text2);
     cursor: pointer;
     width: 34px;
@@ -422,7 +420,7 @@
     justify-content: center;
     transition: all 0.15s;
   }
-  .sidebar-toggle-btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+  .sidebar-toggle-btn:hover { background: var(--accent-dim2); color: var(--accent); border-color: rgba(164,1,52,.16); }
   .sidebar-toggle-btn svg { width: 16px; height: 16px; }
 
   /* ── PAGES ── */
@@ -925,6 +923,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .gallery-card-date { margin-top: 4px; color: rgba(255,255,255,.72); font-size: 10px; line-height: 1.35; }
   .gallery-upload-zone {
     position: relative;
     min-height: 176px;
@@ -949,6 +948,8 @@
   .gallery-file-remove { pointer-events: auto; border: 0; background: transparent; color: #fff; cursor: pointer; font: inherit; }
   .gallery-upload-note { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: var(--text3); font-size: 11px; }
   .gallery-upload-note::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px rgba(78,240,196,0.65); }
+  .gallery-link-note { margin-top: 7px; color: var(--text3); font-size: 10px; line-height: 1.45; }
+  .gallery-link-note strong { color: var(--text2); }
   /* ── EQUIPMENT ── */
   .equipment-card {
     background: var(--bg2);
@@ -1727,8 +1728,10 @@
   .about-beginner p { color: rgba(255,255,255,.7); line-height: 1.7; }
   .about-role-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 20px 0 24px; }
   .about-role-chips span { padding: 6px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 999px; background: rgba(255,255,255,.07); color: rgba(255,255,255,.86); font-size: 10px; }
-  .about-beginner-media { min-height: 390px; }
-  .about-beginner-media img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+  .about-beginner-media { min-height: 390px; overflow: hidden; }
+  .about-beginner-media img { width: 100%; height: 100%; object-fit: cover; object-position: center; transition: transform .55s ease; }
+  .about-beginner:hover .about-beginner-media img,
+  .about-beginner:focus-within .about-beginner-media img { transform: scale(1.04); }
 
   .about-achievement { position: relative; min-height: 390px; overflow: hidden; display: flex; align-items: flex-end; padding: clamp(26px, 5vw, 52px); border-radius: 22px; color: #fff; }
   .about-achievement > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
@@ -1796,8 +1799,9 @@
     .about-final-cta .btn { width: 100%; justify-content: center; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .about-story-media img, .about-project-card > img { transition: none; }
-    .about-story:hover .about-story-media img, .about-project-card:hover > img { transform: none; }
+    .about-story-media img, .about-project-card > img, .about-beginner-media img { transition: none; }
+    .about-story:hover .about-story-media img, .about-project-card:hover > img,
+    .about-beginner:hover .about-beginner-media img, .about-beginner:focus-within .about-beginner-media img { transform: none; }
   }
 </style>
 </head>
@@ -1811,10 +1815,6 @@
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section-label" data-nav-category="main">Main</div>
-    <button type="button" class="nav-item" data-page="about" data-category="main" data-label="About Media Club" onclick="navigate('about', this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7h.01"/></svg>
-      <span class="nav-label">About Media Club</span>
-    </button>
     <button type="button" class="nav-item active" data-page="home" data-category="main" data-label="Dashboard" onclick="navigate('home', this)" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span class="nav-label">Dashboard</span>
@@ -1850,13 +1850,17 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M3 12h2M19 12h2"/></svg>
       <span class="nav-label">Crew Schedule</span>
     </button>
-    <button type="button" class="nav-item crew-operations-only" data-page="equipment-status" data-category="club" data-label="Equipment Status" onclick="navigate('equipment-status', this)">
+    <button type="button" class="nav-item equipment-status-only" data-page="equipment-status" data-category="club" data-label="Equipment Status" onclick="navigate('equipment-status', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
       <span class="nav-label">Equipment Status</span>
     </button>
     <button type="button" class="nav-item" data-page="join" data-category="club" data-label="Join the Club" onclick="navigate('join', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
       <span class="nav-label">Join the Club</span>
+    </button>
+    <button type="button" class="nav-item" data-page="about" data-category="club" data-label="About Media Club" onclick="navigate('about', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7h.01"/></svg>
+      <span class="nav-label">About Media Club</span>
     </button>
     <button type="button" class="nav-item admin-only" data-page="admin" data-category="club" data-label="Admin Panel" onclick="navigate('admin', this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
@@ -2593,6 +2597,7 @@
       </div>
       <div class="form-group"><label class="form-label">Your name *</label><input class="form-input" id="gal-author" placeholder="Your name" /></div>
     </div>
+    <div class="form-group"><label class="form-label" for="gal-produced-on">Production date <span class="text-muted">(optional)</span></label><input class="form-input" id="gal-produced-on" type="date" /></div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="gal-desc" placeholder="Tell us about this project..."></textarea></div>
     <div class="form-group">
       <label class="form-label">Cover image</label>
@@ -2608,7 +2613,7 @@
       </label>
       <div class="gallery-upload-note">Preview happens locally before the file is uploaded.</div>
     </div>
-    <div class="form-group"><label class="form-label">Project link <span class="text-muted">(optional when uploading an image)</span></label><input class="form-input" id="gal-link" type="url" placeholder="https://drive.google.com, YouTube, SoundCloud..." /></div>
+    <div class="form-group"><label class="form-label">Project link <span class="text-muted">(optional when uploading an image)</span></label><input class="form-input" id="gal-link" type="url" placeholder="https://drive.google.com, YouTube, SoundCloud..." /><div class="gallery-link-note"><strong>Google Drive:</strong> “Access for FIS members only” is recommended.</div></div>
     <button class="btn btn-accent" id="gallery-submit-button" style="width:100%;" onclick="submitProject()">Submit project</button>
   </div>
 </div>
@@ -2804,6 +2809,13 @@ function canManageCrewOperations() {
 }
 
 window.canManageCrewOperations = canManageCrewOperations;
+
+function canAccessEquipmentStatus() {
+  if (!canManageCrewOperations()) return false;
+  return currentMemberRecord()?.equipmentStatusAccess !== false;
+}
+
+window.canAccessCrewCenterEquipmentStatus = canAccessEquipmentStatus;
 
 function canAccessCrewSchedule() {
   if (canAccessAdminPanel()) return true;
@@ -3103,6 +3115,7 @@ function normalizeMember(member, index = 0) {
       stats: Array.isArray(member.dashboard_preferences?.stats) ? member.dashboard_preferences.stats : [],
       sections: Array.isArray(member.dashboard_preferences?.sections) ? member.dashboard_preferences.sections : [],
     },
+    equipmentStatusAccess: member.equipment_status_access !== false,
     color: colors[index % colors.length],
     joined_date: member.joined_date,
   };
@@ -3189,6 +3202,7 @@ function normalizeGallery(item) {
     link: item.project_url || item.image_url || '#',
     image_url: item.image_url || '',
     storagePath: item.storage_path || '',
+    producedOn: item.produced_on || '',
     created_at: item.created_at,
   };
 }
@@ -3298,7 +3312,7 @@ async function loadCrewCenterData() {
     if (pageFromPath() === 'admin') {
       navigate(canAccessAdminPanel() ? 'admin' : 'home', navItemForPage(canAccessAdminPanel() ? 'admin' : 'home'), { skipUrl: canAccessAdminPanel() });
     } else if (pageFromPath() === 'equipment-status') {
-      navigate(canManageCrewOperations() ? 'equipment-status' : 'home', navItemForPage(canManageCrewOperations() ? 'equipment-status' : 'home'), { skipUrl: canManageCrewOperations() });
+      navigate(canAccessEquipmentStatus() ? 'equipment-status' : 'home', navItemForPage(canAccessEquipmentStatus() ? 'equipment-status' : 'home'), { skipUrl: canAccessEquipmentStatus() });
     } else if (pageFromPath() === 'crew-deployment') {
       navigate(canAccessCrewSchedule() ? 'crew-deployment' : 'home', navItemForPage(canAccessCrewSchedule() ? 'crew-deployment' : 'home'), { skipUrl: canAccessCrewSchedule() });
     }
@@ -3343,15 +3357,15 @@ function renderCurrentPage() {
 }
 
 const sidebarCategories = {
-  main: { label: 'Main', pages: ['about', 'home', 'events', 'signup', 'members'] },
+  main: { label: 'Main', pages: ['home', 'events', 'signup', 'members'] },
   content: { label: 'Content', pages: ['gallery', 'equipment', 'role-guide'] },
-  club: { label: 'Club', pages: ['crew-deployment', 'equipment-status', 'join', 'admin'] },
+  club: { label: 'Club', pages: ['crew-deployment', 'equipment-status', 'join', 'about', 'admin'] },
 };
 
 function sidebarPageAvailable(page) {
   if (page === 'admin') return canAccessAdminPanel();
   if (page === 'crew-deployment') return canAccessCrewSchedule();
-  if (page === 'equipment-status') return canManageCrewOperations();
+  if (page === 'equipment-status') return canAccessEquipmentStatus();
   return true;
 }
 
@@ -3370,24 +3384,28 @@ function currentSidebarPreferences() {
       if (categoryPages.length && !categoryPages.some(page => saved.includes(page))) saved.push(categoryPages[0]);
     });
   }
+  const visitor = Boolean(state.currentUser.isVisitor || window.CREW_CENTER_IS_VISITOR);
+  const defaults = visitor ? available : available.filter(page => page !== 'about');
   return {
     customized,
-    items: saved.length ? saved : available,
+    items: customized && saved.length ? saved : defaults,
   };
 }
 
 function applySidebarPreferences() {
   const preferences = currentSidebarPreferences();
-  const visiblePages = preferences.customized ? new Set(preferences.items) : new Set(availableSidebarPages());
+  const available = availableSidebarPages();
+  const defaultHidden = state.currentUser.isVisitor || window.CREW_CENTER_IS_VISITOR ? new Set() : new Set(['about']);
+  const visiblePages = preferences.customized ? new Set(preferences.items) : new Set(available.filter(page => !defaultHidden.has(page)));
   document.querySelectorAll('.sidebar-nav .nav-item[data-page]').forEach(item => {
-    item.classList.toggle('sidebar-custom-hidden', preferences.customized && !visiblePages.has(item.dataset.page));
+    item.classList.toggle('sidebar-custom-hidden', !visiblePages.has(item.dataset.page));
   });
   Object.entries(sidebarCategories).forEach(([category, definition]) => {
     const hasVisiblePage = definition.pages.some(page => sidebarPageAvailable(page) && visiblePages.has(page));
     document.querySelector(`[data-nav-category="${category}"]`)?.classList.toggle('sidebar-category-hidden', !hasVisiblePage);
   });
-  const hiddenCount = availableSidebarPages().filter(page => !visiblePages.has(page)).length;
-  document.getElementById('sidebar-all-pages-button')?.classList.toggle('visible', preferences.customized);
+  const hiddenCount = available.filter(page => !visiblePages.has(page)).length;
+  document.getElementById('sidebar-all-pages-button')?.classList.toggle('visible', preferences.customized || hiddenCount > 0);
   const count = document.getElementById('sidebar-hidden-count');
   if (count) count.textContent = hiddenCount;
   renderAllPagesMenu(document.getElementById('all-pages-search')?.value || '');
@@ -3680,7 +3698,7 @@ function navigate(id, el, options = {}) {
   if (page === 'admin' && !canAccessAdminPanel()) {
     page = 'home';
   }
-  if (page === 'equipment-status' && !canManageCrewOperations()) {
+  if (page === 'equipment-status' && !canAccessEquipmentStatus()) {
     page = 'home';
   }
   if (page === 'crew-deployment' && !canAccessCrewSchedule()) {
@@ -5463,10 +5481,11 @@ function renderAboutRecentProjects() {
   }
   grid.innerHTML = projects.map(project => {
     const imageUrl = safeExternalUrl(project.image_url);
+    const producedLabel = project.producedOn ? ` · ${formatBerlinCalendarDate(project.producedOn, { day: 'numeric', month: 'short', year: 'numeric' })}` : '';
     return `<article class="about-project-card">
       ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy">` : ''}
       <button type="button" class="about-project-open" aria-label="View ${escapeHtml(project.title)} in the Project Gallery" onclick="navigate('gallery', navItemForPage('gallery'))"></button>
-      <div class="about-project-meta"><div class="about-project-title">${escapeHtml(project.title)}</div><div class="about-project-detail">${escapeHtml(project.author)} · ${escapeHtml(project.type)}</div></div>
+      <div class="about-project-meta"><div class="about-project-title">${escapeHtml(project.title)}</div><div class="about-project-detail">${escapeHtml(project.author)} · ${escapeHtml(project.type)}${escapeHtml(producedLabel)}</div></div>
     </article>`;
   }).join('');
 }
@@ -5495,12 +5514,13 @@ function renderGallery(filter) {
     const canDelete = state.currentUser.isAdmin || (currentMemberId && g.memberId === currentMemberId);
     const imageUrl = safeExternalUrl(g.image_url);
     const projectUrl = safeExternalUrl(g.link);
+    const producedLabel = g.producedOn ? formatBerlinCalendarDate(g.producedOn, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
     return `
       <article class="gallery-item${imageUrl ? ' has-img' : ''}" style="${imageUrl ? '' : `background:linear-gradient(145deg,${gbg},var(--bg3));`}" data-project-url="${escapeHtml(projectUrl)}"${imageUrl ? ` data-image-url="${escapeHtml(imageUrl)}"` : ''}>
         <button type="button" class="gallery-open-target" aria-label="Open ${escapeHtml(g.title)}" onclick="openGalleryProject(this.parentElement)"><span class="visually-hidden">Open ${escapeHtml(g.title)}</span></button>
         ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
         ${imageUrl ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
-        <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
+        <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${producedLabel ? `<div class="gallery-card-date">Produced ${escapeHtml(producedLabel)}</div>` : ''}${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
       </article>`;
   };
   if (f !== 'all') {
@@ -5665,6 +5685,7 @@ async function submitProject() {
   }
   const title = document.getElementById('gal-title').value.trim();
   const link = document.getElementById('gal-link').value.trim();
+  const producedOn = document.getElementById('gal-produced-on').value || null;
   const file = document.getElementById('gal-file').files?.[0] || null;
   const member = currentMemberRecord();
   if (!title) { showToast('Project title required.', 'error'); return; }
@@ -5725,6 +5746,7 @@ async function submitProject() {
       image_url: imageUrl,
       project_url: link || imageUrl,
       storage_path: storagePath,
+      produced_on: producedOn,
     })
     .select('*, members(name)')
     .single();
@@ -5739,7 +5761,7 @@ async function submitProject() {
   updateGallerySubmitCooldown();
   state.gallery.unshift(normalizeGallery(data));
   closeModal('gallery-modal');
-  ['gal-title','gal-desc','gal-link'].forEach(id => document.getElementById(id).value = '');
+  ['gal-title','gal-desc','gal-link','gal-produced-on'].forEach(id => document.getElementById(id).value = '');
   clearGalleryFile();
   document.getElementById('gal-type').value = 'Photo';
   renderGalleryAuthorField();
@@ -5869,7 +5891,7 @@ function renderEquipment() {
         ${reservations.slice(0, 2).map(reservation => `<div class="text-muted" style="margin-top:6px;">${escapeHtml(reservation.memberName)} · ${escapeHtml(formatBerlinDateTime(reservation.startsAt, { dateStyle: 'medium', timeStyle: 'short' }))}–${escapeHtml(berlinTimeLabel(reservation.endsAt))}${reservation.eventTitle ? ` · ${escapeHtml(reservation.eventTitle)}` : ''}</div>`).join('')}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
           <button class="btn btn-accent btn-sm" ${liveStatus !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>
-          ${canManageCrewOperations() ? `${liveStatus === 'checked_out' ? '<span class="text-muted">Manage return through Equipment Status</span>' : ''}<button class="btn btn-ghost btn-sm" onclick="requestArchiveEquipment('${e.id}')">Archive</button>` : ''}
+          ${canManageCrewOperations() ? `${liveStatus === 'checked_out' && canAccessEquipmentStatus() ? '<span class="text-muted">Manage return through Equipment Status</span>' : ''}<button class="btn btn-ghost btn-sm" onclick="requestArchiveEquipment('${e.id}')">Archive</button>` : ''}
           ${canAddMembers() ? `<button class="btn btn-danger btn-sm" onclick="requestPermanentDeleteEquipment('${e.id}')">Delete everything</button>` : ''}
         </div>
       </div>`;
@@ -5890,7 +5912,7 @@ function renderEquipment() {
 }
 
 function renderEquipmentStatus() {
-  if (!canManageCrewOperations()) return;
+  if (!canAccessEquipmentStatus()) return;
   scheduleEquipmentStatusRefresh();
   const grid = document.getElementById('equipment-status-grid');
   const register = document.getElementById('equipment-register-table');
@@ -5988,18 +6010,18 @@ async function cancelEquipmentReservation(reservationId) {
 }
 
 async function setEquipmentStatus(id, status) {
-  if (!canManageCrewOperations() || !['available', 'unavailable'].includes(status)) return;
+  if (!canAccessEquipmentStatus() || !['available', 'unavailable'].includes(status)) return;
   const item = state.equipment.find(equipment => equipment.id === id);
   if (!item || activeEquipmentReservation(item)) { showToast('Return checked-out equipment before changing its status.', 'error'); renderEquipmentStatus(); return; }
-  const { error } = await supabaseClient.from('equipment').update({ status }).eq('id', id);
-  if (error) { showToast("Couldn't update equipment status.", 'error'); renderEquipmentStatus(); return; }
+  const { data: updated, error } = await supabaseClient.rpc('set_equipment_operational_status', { p_equipment_id: id, p_status: status });
+  if (error || !updated) { showToast(error?.message || "Couldn't update equipment status.", 'error', 6000); renderEquipmentStatus(); return; }
   item.status = status;
   renderEquipmentStatus();
   showToast(`${item.name} marked ${equipmentStatusLabel(status).toLowerCase()}.`);
 }
 
 async function markEquipmentReturned(reservationId) {
-  if (!canManageCrewOperations()) return;
+  if (!canAccessEquipmentStatus()) return;
   const { data: updated, error } = await supabaseClient.rpc('mark_equipment_reservation_returned', { p_reservation_id: reservationId });
   if (error || !updated) { showToast(error?.message || "Couldn't register the return.", 'error', 6000); return; }
   state.equipment.forEach(item => {

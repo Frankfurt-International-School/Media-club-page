@@ -130,6 +130,19 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
     assert.ok(bytes.length < 200_000, `${file} should remain lightweight`);
     assert.ok(aboutMarkup.includes(`assets/about/${file}`), `${file} must be used on the about page`);
   }
+
+  assert.match(indexHtml, /class="nav-item" data-page="about" data-category="club"/);
+  assert.match(indexHtml, /club: \{ label: 'Club', pages: \['crew-deployment', 'equipment-status', 'join', 'about', 'admin'\] \}/);
+  assert.match(indexHtml, /defaultHidden = state\.currentUser\.isVisitor \|\| window\.CREW_CENTER_IS_VISITOR \? new Set\(\) : new Set\(\['about'\]\)/);
+  assert.match(indexHtml, /\.about-beginner:hover \.about-beginner-media img[\s\S]*?scale\(1\.04\)/);
+});
+
+test('gallery projects support an optional production date and link guidance', () => {
+  assert.match(indexHtml, /id="gal-produced-on" type="date"/);
+  assert.match(indexHtml, /Access for FIS members only/);
+  assert.match(indexHtml, /produced_on: producedOn/);
+  assert.match(indexHtml, /producedOn: item\.produced_on \|\| ''/);
+  assert.match(indexHtml, /Produced \$\{escapeHtml\(producedLabel\)\}/);
 });
 
 test('canonical routes and aliases survive static-host deep links', () => {

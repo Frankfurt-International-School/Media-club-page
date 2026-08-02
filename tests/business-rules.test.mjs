@@ -32,27 +32,39 @@ test('authority tiers preserve the Auth Admin and faculty distinction', () => {
     'canAccessAdminPanel',
     'canAddMembers',
     'canManageCrewOperations',
+    'canAccessEquipmentStatus',
     'canAccessCrewSchedule',
   ];
 
-  const capabilities = ({ role = 'Member', authAdmin = false }) => JSON.parse(JSON.stringify(runFunctions(
+  const capabilities = ({ role = 'Member', authAdmin = false, equipmentStatusAccess = true }) => JSON.parse(JSON.stringify(runFunctions(
     functions,
     {
       state: {
         currentUser: { email: 'test@fis.edu', name: 'Test Member', role, isAdmin: false },
-        members: [{ email: 'test@fis.edu', name: 'Test Member', role }],
+        members: [{ email: 'test@fis.edu', name: 'Test Member', role, equipmentStatusAccess }],
       },
       window: { CREW_CENTER_AUTH_USER: { email: 'test@fis.edu' }, CREW_CENTER_IS_ADMIN: authAdmin },
     },
-    '({ admin: canAccessAdminPanel(), addMembers: canAddMembers(), equipment: canManageCrewOperations(), schedule: canAccessCrewSchedule() })',
+    '({ admin: canAccessAdminPanel(), addMembers: canAddMembers(), equipment: canManageCrewOperations(), equipmentStatus: canAccessEquipmentStatus(), schedule: canAccessCrewSchedule() })',
   )));
 
-  assert.deepEqual(capabilities({ authAdmin: true }), { admin: true, addMembers: true, equipment: true, schedule: true });
-  assert.deepEqual(capabilities({ role: 'Faculty' }), { admin: true, addMembers: false, equipment: true, schedule: true });
-  assert.deepEqual(capabilities({ role: 'Leader' }), { admin: false, addMembers: false, equipment: true, schedule: true });
-  assert.deepEqual(capabilities({ role: 'Co Leader' }), { admin: false, addMembers: false, equipment: true, schedule: true });
-  assert.deepEqual(capabilities({ role: 'Moderator' }), { admin: false, addMembers: false, equipment: true, schedule: false });
-  assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, schedule: false });
+  assert.deepEqual(capabilities({ authAdmin: true }), { admin: true, addMembers: true, equipment: true, equipmentStatus: true, schedule: true });
+  assert.deepEqual(capabilities({ role: 'Faculty' }), { admin: true, addMembers: false, equipment: true, equipmentStatus: true, schedule: true });
+  assert.deepEqual(capabilities({ role: 'Leader' }), { admin: false, addMembers: false, equipment: true, equipmentStatus: true, schedule: true });
+  assert.deepEqual(capabilities({ role: 'Co Leader' }), { admin: false, addMembers: false, equipment: true, equipmentStatus: true, schedule: true });
+  assert.deepEqual(capabilities({ role: 'Moderator' }), { admin: false, addMembers: false, equipment: true, equipmentStatus: true, schedule: false });
+  assert.deepEqual(capabilities({ role: 'Moderator', equipmentStatusAccess: false }), { admin: false, addMembers: false, equipment: true, equipmentStatus: false, schedule: false });
+  assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, equipmentStatus: false, schedule: false });
+});
+
+test('Equipment Status restrictions are enforced in the UI and server workflows', () => {
+  assert.match(schemaSql, /equipment_status_access boolean not null default true/);
+  assert.match(policiesSql, /create or replace function public\.can_access_equipment_status\(\)/);
+  assert.match(policiesSql, /member\.equipment_status_access/);
+  assert.match(policiesSql, /create or replace function public\.set_equipment_operational_status/);
+  assert.match(policiesSql, /create or replace function public\.mark_equipment_reservation_returned[\s\S]*?if not public\.can_access_equipment_status\(\)/);
+  assert.match(appSource, /if \(page === 'equipment-status' && !canAccessEquipmentStatus\(\)\)/);
+  assert.match(appSource, /supabaseClient\.rpc\('set_equipment_operational_status'/);
 });
 
 test('signup windows use half-open boundaries', () => {

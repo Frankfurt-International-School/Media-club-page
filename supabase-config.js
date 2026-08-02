@@ -381,6 +381,7 @@ function setAuthBusy(isBusy) {
 function applyAdminControls() {
   const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
   const hasCrewOperationsAccess = Boolean(hasAdminPanelAccess || window.canManageCrewOperations?.());
+  const hasEquipmentStatusAccess = Boolean(window.canAccessCrewCenterEquipmentStatus?.());
   const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
   const canAddMembers = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAddCrewCenterMembers?.());
   document.querySelectorAll('.admin-only').forEach(el => {
@@ -422,14 +423,13 @@ function applyAdminControls() {
       el.style.display = hasCrewOperationsAccess && !isVisitor ? "" : "none";
     });
   });
-  document.querySelectorAll('.crew-operations-only').forEach(el => {
-    el.style.display = hasCrewOperationsAccess && !isVisitor ? "flex" : "none";
+  document.querySelectorAll('.equipment-status-only').forEach(el => {
+    el.style.display = hasEquipmentStatusAccess && !isVisitor ? "flex" : "none";
   });
   const hasCrewScheduleAccess = Boolean(hasAdminPanelAccess || window.canAccessCrewSchedule?.());
   document.querySelectorAll('.crew-schedule-only').forEach(el => {
     el.style.display = hasCrewScheduleAccess && !isVisitor ? "flex" : "none";
   });
-
   const visitorHiddenSelectors = [
     '.nav-item[onclick*="signup"]',
     '.nav-item[onclick*="members"]',
@@ -534,7 +534,7 @@ function installAdminFunctionGuards() {
       if (id === "admin" && !hasAdminPanelAccess) {
         return originalNavigate.call(this, "home");
       }
-      if (id === "equipment-status" && !Boolean(window.CREW_CENTER_IS_ADMIN || window.canManageCrewOperations?.())) {
+      if (id === "equipment-status" && !Boolean(window.canAccessCrewCenterEquipmentStatus?.())) {
         showNotAuthorized("open Equipment Status");
         return originalNavigate.call(this, "home");
       }
