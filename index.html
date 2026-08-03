@@ -1655,27 +1655,63 @@
     position: relative;
     overflow: hidden;
     margin-top: 26px;
-    padding: 24px;
+    padding: clamp(22px, 3vw, 32px);
     border: 1px solid rgba(164,1,52,.2);
-    border-radius: 18px;
-    background: linear-gradient(135deg, var(--accent-dim2), var(--bg2) 48%, rgba(94,170,255,.06));
+    border-radius: 22px;
+    background: linear-gradient(145deg, var(--accent-dim2), var(--bg2) 42%, rgba(94,170,255,.055));
+    box-shadow: 0 18px 44px rgba(33,37,41,.08);
   }
   .stream-expectations::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--accent); }
-  .stream-expectations-head { display: grid; grid-template-columns: minmax(0,.72fr) minmax(260px,1.28fr); gap: 24px; align-items: end; }
+  .stream-expectations::after { content: ''; position: absolute; z-index: 0; width: 320px; aspect-ratio: 1; top: -190px; right: -110px; border-radius: 50%; background: radial-gradient(circle, rgba(164,1,52,.11), transparent 68%); pointer-events: none; }
+  .stream-expectations > * { position: relative; z-index: 1; }
+  .stream-expectations-head { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 28px; align-items: center; }
   .stream-expectations-kicker { margin-bottom: 6px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
-  .stream-expectations h2 { color: var(--text); font-size: clamp(31px, 4vw, 44px); line-height: 1; }
-  .stream-expectations-intro { color: var(--text2); font-size: 13px; line-height: 1.65; }
-  .stream-expectations-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin-top: 20px; list-style: none; counter-reset: stream-expectation; }
-  .stream-expectations-list li { counter-increment: stream-expectation; display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 10px; align-items: start; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text2); font-size: 12px; line-height: 1.55; }
-  .stream-expectations-list li::before { content: counter(stream-expectation, decimal-leading-zero); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--accent-dim); color: var(--accent); font-family: var(--font-head); font-size: 14px; line-height: 1; }
-  .stream-expectations-list strong { color: var(--text); }
+  .stream-expectations h2 { color: var(--text); font-size: clamp(38px, 5vw, 56px); line-height: .95; }
+  .stream-expectations-intro { max-width: 700px; margin-top: 10px; color: var(--text2); font-size: 13px; line-height: 1.65; }
+  .stream-expectations-callout { min-width: 205px; display: flex; align-items: center; gap: 13px; padding: 14px 17px; border: 1px solid rgba(164,1,52,.22); border-radius: 16px; background: var(--bg); box-shadow: 0 10px 24px rgba(164,1,52,.08); }
+  .stream-expectations-callout strong { color: var(--accent); font-family: var(--font-head); font-size: 42px; line-height: .8; white-space: nowrap; }
+  .stream-expectations-callout span { max-width: 88px; color: var(--text2); font-size: 10px; font-weight: 700; line-height: 1.35; letter-spacing: .07em; text-transform: uppercase; }
+  .stream-expectations-phases { display: grid; gap: 12px; margin-top: 24px; }
+  .expectation-phase { --phase-color: var(--accent); --phase-soft: var(--accent-dim2); display: grid; grid-template-columns: 180px minmax(0,1fr); overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--bg); }
+  .expectation-phase.before { --phase-color: #a66d0c; --phase-soft: rgba(255,181,71,.12); }
+  .expectation-phase.live { --phase-color: var(--accent); --phase-soft: var(--accent-dim2); }
+  .expectation-phase.after { --phase-color: #168363; --phase-soft: rgba(78,240,196,.1); }
+  .expectation-phase-label { padding: 19px; border-right: 1px solid var(--border); background: linear-gradient(145deg, var(--phase-soft), transparent); }
+  .expectation-phase-icon { width: 38px; height: 38px; display: grid; place-items: center; margin-bottom: 22px; border: 1px solid color-mix(in srgb, var(--phase-color) 28%, transparent); border-radius: 12px; background: var(--phase-soft); color: var(--phase-color); }
+  .expectation-phase-icon svg { width: 19px; height: 19px; stroke-width: 1.8; }
+  .expectation-phase-step { margin-bottom: 4px; color: var(--phase-color); font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .expectation-phase-title { color: var(--text); font-family: var(--font-head); font-size: 24px; line-height: 1; }
+  .expectation-phase-sub { margin-top: 6px; color: var(--text3); font-size: 10px; line-height: 1.45; }
+  .stream-expectations-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; padding: 12px; list-style: none; }
+  .expectation-phase.after .stream-expectations-list { grid-template-columns: 1fr; }
+  .stream-expectations-list li { display: grid; grid-template-columns: 31px minmax(0,1fr); gap: 10px; align-items: start; padding: 12px; border: 1px solid transparent; border-radius: 12px; color: var(--text2); font-size: 12px; line-height: 1.55; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+  .stream-expectations-list li:hover { transform: translateY(-2px); border-color: var(--border); background: var(--bg2); }
+  .stream-expectations-list li::before { content: attr(data-number); display: grid; place-items: center; width: 31px; height: 31px; border-radius: 10px; background: var(--phase-soft); color: var(--phase-color); font-family: var(--font-head); font-size: 14px; line-height: 1; }
+  .stream-expectations-list strong { display: block; margin-bottom: 2px; color: var(--text); font-size: 12px; }
+  .expectation-rule-alert { grid-column: 1 / -1; border-color: rgba(164,1,52,.18) !important; background: linear-gradient(90deg, var(--accent-dim2), transparent); }
+  :root[data-theme="dark"] .expectation-phase.before { --phase-color: var(--amber); }
+  :root[data-theme="dark"] .expectation-phase.live { --phase-color: #f06b91; }
+  :root[data-theme="dark"] .expectation-phase.after { --phase-color: var(--teal); }
+  @media (max-width: 900px) {
+    .expectation-phase { grid-template-columns: 150px minmax(0,1fr); }
+    .stream-expectations-list { grid-template-columns: 1fr; }
+    .expectation-rule-alert { grid-column: auto; }
+  }
   @media (max-width: 700px) {
     .role-guide-grid { grid-template-columns: 1fr; }
     .role-guide-hero { padding: 24px 20px; }
     .role-guide-hero::before { width: 165px; top: -34px; right: -42px; opacity: .11; }
     .stream-expectations { padding: 20px; }
-    .stream-expectations-head, .stream-expectations-list { grid-template-columns: 1fr; }
+    .stream-expectations-head, .expectation-phase { grid-template-columns: 1fr; }
     .stream-expectations-head { gap: 10px; }
+    .stream-expectations-callout { width: 100%; min-width: 0; margin-top: 6px; }
+    .stream-expectations-callout span { max-width: none; }
+    .expectation-phase-label { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 12px; align-items: center; padding: 14px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
+    .expectation-phase-icon { grid-row: 1 / 3; width: 42px; height: 42px; margin: 0; }
+    .expectation-phase-step { align-self: end; margin: 0; }
+    .expectation-phase-title { align-self: start; }
+    .expectation-phase-sub { display: none; }
+    .stream-expectations-list { padding: 8px; }
   }
 
   /* ── ABOUT MEDIA CLUB ── */
@@ -2278,21 +2314,36 @@
 
     <section class="stream-expectations" id="stream-expectations" aria-labelledby="stream-expectations-title">
       <div class="stream-expectations-head">
-        <div><div class="stream-expectations-kicker">Applies to every student role</div><h2 id="stream-expectations-title">Stream Expectations</h2></div>
-        <p class="stream-expectations-intro">A reliable stream depends on preparation, clear communication, safe equipment handling, and respect for everyone taking part in the event.</p>
+        <div><div class="stream-expectations-kicker">Applies to every student role</div><h2 id="stream-expectations-title">Stream Expectations</h2><p class="stream-expectations-intro">A reliable stream depends on preparation, clear communication, safe equipment handling, and respect for everyone taking part in the event.</p></div>
+        <div class="stream-expectations-callout" aria-label="Be ready 10 minutes before the stream starts"><strong>10 min</strong><span>ready before start</span></div>
       </div>
-      <ol class="stream-expectations-list">
-        <li data-expectation="arrival"><span><strong>Arrive ready.</strong> All students, regardless of role, must arrive and be fully ready at least 10 minutes before the scheduled stream start. Equipment must be checked, headsets connected, and everyone at their assigned position.</span></li>
-        <li data-expectation="attendance"><span><strong>Report changes early.</strong> If you are running late or cannot attend, update your signup and inform a supervisor as early as possible so your role can be covered.</span></li>
-        <li data-expectation="check-in"><span><strong>Check in first.</strong> Report to the Adult Supervisor or Student Supervisor when you arrive. Do not change roles or positions without their approval.</span></li>
-        <li data-expectation="checks"><span><strong>Complete technical checks.</strong> Cameras must be framed and focused, audio monitored, overlays and scores prepared, and the stream or recording connection confirmed before going live.</span></li>
-        <li data-expectation="comms"><span><strong>Keep comms professional.</strong> Headset communication should be short, calm, and relevant to the production. Avoid unnecessary conversation while live.</span></li>
-        <li data-expectation="live-awareness"><span><strong>Know when you are live.</strong> Camera operators do not have to verbally respond to every instruction, but they must acknowledge and remain aware when their camera is live or is about to go live. Hold the requested shot steadily and avoid unexpected changes.</span></li>
-        <li data-expectation="focus"><span><strong>Stay focused.</strong> Avoid personal phones, unrelated conversations, and other distractions unless there is an emergency.</span></li>
-        <li data-expectation="equipment"><span><strong>Handle equipment safely.</strong> Keep food and drinks away, report faults or unsafe cables immediately, and never attempt an unfamiliar technical change without permission.</span></li>
-        <li data-expectation="injuries"><span><strong>Do not show injuries on stream.</strong> If someone is injured, camera operators must move away from close-ups and Mixing must avoid putting the injury on air. Use a neutral wide shot until it is appropriate to return.</span></li>
-        <li data-expectation="wrap"><span><strong>Finish the job.</strong> Wait until a supervisor confirms the stream and recording have ended correctly, then return equipment, tidy the production area, and report any problems.</span></li>
-      </ol>
+      <div class="stream-expectations-phases">
+        <section class="expectation-phase before" aria-labelledby="expectation-before-title">
+          <div class="expectation-phase-label"><div class="expectation-phase-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div class="expectation-phase-step">Phase 01</div><h3 class="expectation-phase-title" id="expectation-before-title">Before live</h3><p class="expectation-phase-sub">Arrive, check in, and prepare every system.</p></div>
+          <ol class="stream-expectations-list" aria-label="Before the stream">
+            <li data-number="01" data-expectation="arrival"><span><strong>Arrive ready.</strong> All students, regardless of role, must arrive and be fully ready at least 10 minutes before the scheduled stream start. Equipment must be checked, headsets connected, and everyone at their assigned position.</span></li>
+            <li data-number="02" data-expectation="attendance"><span><strong>Report changes early.</strong> If you are running late or cannot attend, update your signup and inform a supervisor as early as possible so your role can be covered.</span></li>
+            <li data-number="03" data-expectation="check-in"><span><strong>Check in first.</strong> Report to the Adult Supervisor or Student Supervisor when you arrive. Do not change roles or positions without their approval.</span></li>
+            <li data-number="04" data-expectation="checks"><span><strong>Complete technical checks.</strong> Cameras must be framed and focused, audio monitored, overlays and scores prepared, and the stream or recording connection confirmed before going live.</span></li>
+          </ol>
+        </section>
+        <section class="expectation-phase live" aria-labelledby="expectation-live-title">
+          <div class="expectation-phase-label"><div class="expectation-phase-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 000 7M15.5 8.5a5 5 0 010 7M5 5a10 10 0 000 14M19 5a10 10 0 010 14"/></svg></div><div class="expectation-phase-step">Phase 02</div><h3 class="expectation-phase-title" id="expectation-live-title">On air</h3><p class="expectation-phase-sub">Stay aware, communicate clearly, and protect the coverage.</p></div>
+          <ol class="stream-expectations-list" aria-label="During the stream" start="5">
+            <li data-number="05" data-expectation="comms"><span><strong>Keep comms professional.</strong> Headset communication should be short, calm, and relevant to the production. Avoid unnecessary conversation while live.</span></li>
+            <li data-number="06" data-expectation="live-awareness"><span><strong>Know when you are live.</strong> Camera operators do not have to verbally respond to every instruction, but they must acknowledge and remain aware when their camera is live or is about to go live. Hold the requested shot steadily and avoid unexpected changes.</span></li>
+            <li data-number="07" data-expectation="focus"><span><strong>Stay focused.</strong> Avoid personal phones, unrelated conversations, and other distractions unless there is an emergency.</span></li>
+            <li data-number="08" data-expectation="equipment"><span><strong>Handle equipment safely.</strong> Keep food and drinks away, report faults or unsafe cables immediately, and never attempt an unfamiliar technical change without permission.</span></li>
+            <li class="expectation-rule-alert" data-number="09" data-expectation="injuries"><span><strong>Do not show injuries on stream.</strong> If someone is injured, camera operators must move away from close-ups and Mixing must avoid putting the injury on air. Use a neutral wide shot until it is appropriate to return.</span></li>
+          </ol>
+        </section>
+        <section class="expectation-phase after" aria-labelledby="expectation-after-title">
+          <div class="expectation-phase-label"><div class="expectation-phase-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12l4 4L19 6"/></svg></div><div class="expectation-phase-step">Phase 03</div><h3 class="expectation-phase-title" id="expectation-after-title">After the stream</h3><p class="expectation-phase-sub">Close down correctly and leave the space ready.</p></div>
+          <ol class="stream-expectations-list" aria-label="After the stream" start="10">
+            <li data-number="10" data-expectation="wrap"><span><strong>Finish the job.</strong> Wait until a supervisor confirms the stream and recording have ended correctly, then return equipment, tidy the production area, and report any problems.</span></li>
+          </ol>
+        </section>
+      </div>
     </section>
 
     <section class="role-guide-section">

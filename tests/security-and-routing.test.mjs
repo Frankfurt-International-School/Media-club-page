@@ -146,6 +146,10 @@ test('Media Role Guide includes the approved stream expectations', () => {
   assert.ok(start > -1 && end > start, 'Expected Stream Expectations before the role cards');
   const expectations = indexHtml.slice(start, end);
   assert.equal((expectations.match(/data-expectation=/g) || []).length, 10);
+  assert.match(expectations, /Phase 01[\s\S]*?Before live/);
+  assert.match(expectations, /Phase 02[\s\S]*?On air/);
+  assert.match(expectations, /Phase 03[\s\S]*?After the stream/);
+  assert.match(expectations, /class="stream-expectations-callout"[\s\S]*?<strong>10 min<\/strong>/);
   assert.match(expectations, /fully ready at least 10 minutes before the scheduled stream start/);
   assert.match(expectations, /do not have to verbally respond to every instruction/);
   assert.match(expectations, /when their camera is live or is about to go live/);
