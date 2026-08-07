@@ -37,6 +37,7 @@ alter table public.members add column if not exists sidebar_items text[] not nul
 alter table public.members alter column sidebar_items set default array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','about','admin']::text[];
 alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true}'::jsonb;
 alter table public.members add column if not exists dashboard_preferences jsonb not null default '{"stats":[],"sections":[]}'::jsonb;
+alter table public.members add column if not exists tutorial_progress jsonb not null default '{"version":1,"completed":[],"dismissed_welcome":false,"active_tour":null,"active_step":0}'::jsonb;
 alter table public.members add column if not exists equipment_status_access boolean not null default true;
 
 -- New member email rules are enforced by the Auth Admin insert policy. Keeping

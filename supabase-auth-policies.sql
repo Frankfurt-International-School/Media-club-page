@@ -546,6 +546,70 @@ $$;
 revoke all on function public.update_own_dashboard_preferences(jsonb) from public;
 grant execute on function public.update_own_dashboard_preferences(jsonb) to authenticated;
 
+create or replace function public.update_own_tutorial_progress(p_progress jsonb)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_completed text[];
+  clean_active_tour text;
+  clean_active_step integer;
+  clean_dismissed_welcome boolean;
+  allowed_tours constant text[] := array[
+    'full','home','events','signup','members','gallery','equipment','role-guide',
+    'crew-deployment','equipment-status','join','about','profile','admin'
+  ]::text[];
+begin
+  if auth.uid() is null or public.is_visitor_session() then
+    raise exception 'A signed-in member account is required.';
+  end if;
+
+  select coalesce(array_agg(value order by position), array[]::text[])
+  into clean_completed
+  from (
+    select value, min(position) as position
+    from jsonb_array_elements_text(
+      case when jsonb_typeof(p_progress -> 'completed') = 'array' then p_progress -> 'completed' else '[]'::jsonb end
+    ) with ordinality as selected(value, position)
+    where value = any(allowed_tours)
+    group by value
+  ) normalized;
+
+  clean_active_tour := nullif(p_progress ->> 'active_tour', '');
+  if clean_active_tour is not null and not (clean_active_tour = any(allowed_tours)) then
+    clean_active_tour := null;
+  end if;
+
+  clean_active_step := case
+    when coalesce(p_progress ->> 'active_step', '') ~ '^[0-9]+$'
+      then least(100, greatest(0, (p_progress ->> 'active_step')::integer))
+    else 0
+  end;
+  clean_dismissed_welcome := case
+    when lower(coalesce(p_progress ->> 'dismissed_welcome', '')) in ('true', 'false')
+      then (p_progress ->> 'dismissed_welcome')::boolean
+    else false
+  end;
+
+  update public.members
+  set tutorial_progress = jsonb_build_object(
+    'version', 1,
+    'completed', to_jsonb(clean_completed),
+    'dismissed_welcome', clean_dismissed_welcome,
+    'active_tour', to_jsonb(clean_active_tour),
+    'active_step', clean_active_step
+  )
+  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''));
+
+  return found;
+end;
+$$;
+
+revoke all on function public.update_own_tutorial_progress(jsonb) from public;
+grant execute on function public.update_own_tutorial_progress(jsonb) to authenticated;
+
 create or replace function public.confirm_own_maybe_signup(p_signup_id uuid)
 returns boolean
 language plpgsql
