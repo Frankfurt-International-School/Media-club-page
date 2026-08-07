@@ -184,6 +184,9 @@ test('canonical routes and aliases survive static-host deep links', () => {
   assert.match(redirectsFile, /^\/\*\s+\/index\.html\s+200\s*$/m);
   assert.match(headersFile, /\/signup\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(headersFile, /\/signups\n\s+Cache-Control: no-store, max-age=0/);
+  assert.match(headersFile, /\/signin\n\s+Cache-Control: no-store, max-age=0/);
+  assert.match(authSource, /window\.location\.pathname !== "\/signin"[\s\S]*?history\.replaceState\(\{ page: "signin" \}, "", "\/signin"\)/);
+  assert.match(authSource, /window\.location\.pathname === "\/signin"[\s\S]*?defaultRoute[\s\S]*?history\.replaceState/);
 });
 
 test('visitor route allowlist exposes only public pages', () => {
@@ -196,4 +199,11 @@ test('visitor route allowlist exposes only public pages', () => {
   }
   assert.match(authSource, /await revealDashboard\(data\.user\);\s*if \(window\.CREW_CENTER_IS_VISITOR[\s\S]*?window\.navigate\("about"/);
   assert.match(authSource, /const allowedPages = new Set\(\["about", "home", "events", "gallery", "equipment", "role-guide", "join"\]\)/);
+});
+
+test('visitor portals default to a compact desktop sidebar without changing member preferences', () => {
+  assert.match(indexHtml, /Boolean\(window\.CREW_CENTER_IS_VISITOR\) \|\| localStorage\.getItem\('crew-center-sidebar-compact'\) === 'true'/);
+  assert.match(indexHtml, /setSidebarCollapsed\(!document\.body\.classList\.contains\('sidebar-collapsed'\), \{ persist: !window\.CREW_CENTER_IS_VISITOR \}\)/);
+  assert.match(indexHtml, /Boolean\(collapsed\) && window\.innerWidth > 900/);
+  assert.match(authSource, /applySignedInUser\(user\);\s*window\.syncSidebarCollapsePreference\?\.\(\);/);
 });

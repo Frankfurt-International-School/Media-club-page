@@ -3858,23 +3858,28 @@ function closeMobileSidebar() {
   document.getElementById('mobile-menu-button')?.setAttribute('aria-expanded', 'false');
 }
 
-function toggleSidebarCollapse() {
-  const collapsed = document.body.classList.toggle('sidebar-collapsed');
+function setSidebarCollapsed(collapsed, { persist = false } = {}) {
+  const shouldCollapse = Boolean(collapsed) && window.innerWidth > 900;
+  document.body.classList.toggle('sidebar-collapsed', shouldCollapse);
   const btn = document.getElementById('sidebar-toggle-btn');
   const icon = document.getElementById('sidebar-toggle-icon');
-  btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Condense sidebar');
-  btn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Condense sidebar');
-  icon.innerHTML = collapsed ? '<polyline points="9 18 15 12 9 6"/>' : '<polyline points="15 18 9 12 15 6"/>';
-  localStorage.setItem('crew-center-sidebar-compact', String(collapsed));
+  btn.setAttribute('aria-label', shouldCollapse ? 'Expand sidebar' : 'Condense sidebar');
+  btn.setAttribute('title', shouldCollapse ? 'Expand sidebar' : 'Condense sidebar');
+  icon.innerHTML = shouldCollapse ? '<polyline points="9 18 15 12 9 6"/>' : '<polyline points="15 18 9 12 15 6"/>';
+  if (persist) localStorage.setItem('crew-center-sidebar-compact', String(Boolean(collapsed)));
 }
 
-if (localStorage.getItem('crew-center-sidebar-compact') === 'true' && window.innerWidth > 900) {
-  document.body.classList.add('sidebar-collapsed');
-  const sidebarToggle = document.getElementById('sidebar-toggle-btn');
-  sidebarToggle.setAttribute('aria-label', 'Expand sidebar');
-  sidebarToggle.setAttribute('title', 'Expand sidebar');
-  document.getElementById('sidebar-toggle-icon').innerHTML = '<polyline points="9 18 15 12 9 6"/>';
+function syncSidebarCollapsePreference() {
+  const shouldCollapse = Boolean(window.CREW_CENTER_IS_VISITOR) || localStorage.getItem('crew-center-sidebar-compact') === 'true';
+  setSidebarCollapsed(shouldCollapse);
 }
+
+function toggleSidebarCollapse() {
+  setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'), { persist: !window.CREW_CENTER_IS_VISITOR });
+}
+
+syncSidebarCollapsePreference();
+window.addEventListener('resize', syncSidebarCollapsePreference);
 
 // ══════════════════════════════
 // MODAL

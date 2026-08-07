@@ -628,6 +628,13 @@ function applySignedInUser(user) {
 
 async function revealDashboard(user) {
   applySignedInUser(user);
+  window.syncSidebarCollapsePreference?.();
+  if (window.location.pathname === "/signin") {
+    const defaultPage = window.CREW_CENTER_IS_VISITOR ? "about" : "home";
+    const defaultRoute = window.CREW_CENTER_IS_VISITOR ? "/about" : "/dashboard";
+    history.replaceState({ page: defaultPage }, "", defaultRoute);
+    window.navigate?.(defaultPage, window.navItemForPage?.(defaultPage), { skipUrl: true });
+  }
   document.body.classList.remove("auth-locked");
   document.body.classList.add("auth-ready");
   setTimeout(() => applySignedInUser(user), 0);
@@ -689,6 +696,9 @@ function showSignIn() {
   document.body.classList.remove("auth-ready");
   document.getElementById("auth-visitor-exit")?.classList.remove("visible");
   document.getElementById("auth-visitor-option").style.display = "block";
+  if (!inviteFlow && window.location.pathname !== "/signin") {
+    history.replaceState({ page: "signin" }, "", "/signin");
+  }
   setAuthBusy(false);
 }
 
