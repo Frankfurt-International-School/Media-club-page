@@ -2411,7 +2411,7 @@
     <div class="page-title mb8">Settings</div>
     <div class="page-sub mb24">Manage your account, appearance, navigation, and notifications.</div>
     <div class="settings-layout">
-      <nav class="settings-nav" aria-label="Settings sections"><button class="active" onclick="showSettingsSection('profile', this)">Profile</button><button onclick="showSettingsSection('appearance', this)">Appearance</button><button id="dashboard-settings-tab" onclick="showSettingsSection('dashboard', this)">Dashboard</button><button onclick="showSettingsSection('sidebar', this)">Sidebar</button><button onclick="showSettingsSection('notifications', this)">Notifications</button></nav>
+      <nav class="settings-nav" aria-label="Settings sections"><button class="active" onclick="showSettingsSection('profile', this)">Profile</button><button onclick="showSettingsSection('appearance', this)">Appearance</button><button id="dashboard-settings-tab" onclick="showSettingsSection('dashboard', this)">Dashboard</button><button onclick="showSettingsSection('sidebar', this)">Sidebar</button><button onclick="showSettingsSection('notifications', this)">Notifications</button><button id="tutorial-settings-tab" onclick="showSettingsSection('tutorials', this)">Tutorials</button></nav>
       <div class="settings-content">
       <section class="profile-panel active" data-settings-section="profile">
         <div class="profile-panel-head"><h3>Profile picture</h3><p>Choose an image, drag to reposition it, and adjust the crop.</p></div>
@@ -2460,6 +2460,16 @@
           <label class="notification-choice"><span><strong>Upcoming event reminders</strong><span class="text-muted" style="display:block;">Remind me about my confirmed events during the final 24 hours.</span></span><input id="notify-event-reminders" type="checkbox"></label>
           <label class="notification-choice"><span><strong>Maybe confirmation reminders</strong><span class="text-muted" style="display:block;">Show countdowns for signups that still need confirmation.</span></span><input id="notify-maybe-reminders" type="checkbox"></label>
         </div><button class="btn btn-accent" id="notification-preference-save" style="margin-top:16px;" onclick="saveNotificationPreferences()">Save notifications</button></div>
+      </section>
+      <section class="profile-panel" id="tutorial-settings-panel" data-settings-section="tutorials">
+        <div class="profile-panel-head"><h3>Crew Center tutorials</h3><p>Learn the whole Crew Center or replay a guide for one page.</p></div>
+        <div class="profile-panel-body">
+          <div class="tutorial-settings-entry">
+            <div class="tutorial-settings-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 014.86.83c0 1.67-2.36 1.84-2.36 3.67"/><path d="M12 17h.01"/></svg></div>
+            <div class="tutorial-settings-copy"><strong>Learn Crew Center</strong><span id="tutorial-settings-progress">Guides for every page available to your account.</span></div>
+            <button type="button" class="btn btn-accent" id="tutorial-launch-button" aria-haspopup="dialog" aria-controls="tutorial-library-backdrop">Open tutorials</button>
+          </div>
+        </div>
       </section>
       </div>
     </div>
@@ -4147,6 +4157,11 @@ function renderProfile() {
   if (dashboardTab) dashboardTab.style.display = dashboardAvailable ? '' : 'none';
   const sidebarPanel = document.getElementById('sidebar-preferences-panel');
   if (sidebarPanel) sidebarPanel.style.display = state.currentUser.isVisitor || !currentMemberRecord() ? 'none' : '';
+  const tutorialPanel = document.getElementById('tutorial-settings-panel');
+  const tutorialTab = document.getElementById('tutorial-settings-tab');
+  const tutorialAvailable = !state.currentUser.isVisitor && Boolean(currentMemberRecord());
+  if (tutorialPanel) tutorialPanel.style.display = tutorialAvailable ? '' : 'none';
+  if (tutorialTab) tutorialTab.style.display = tutorialAvailable ? '' : 'none';
   renderDashboardSettings();
   renderSidebarSettings();
   renderNotificationSettings();

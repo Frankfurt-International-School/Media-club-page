@@ -8,11 +8,12 @@ const tutorialStyles = readFileSync(new URL('../tutorial.css', import.meta.url),
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
 const policiesSql = readFileSync(new URL('../supabase-auth-policies.sql', import.meta.url), 'utf8');
 
-test('tutorial module is self-hosted and launches from the sidebar footer', () => {
+test('tutorial module is self-hosted and launches from Settings', () => {
   assert.match(appSource, /<link rel="stylesheet" href="tutorial\.css">/);
   assert.match(appSource, /<script src="tutorial\.js"><\/script>/);
-  assert.match(tutorialSource, /document\.querySelector\('\.sidebar-footer'\)/);
-  assert.match(tutorialSource, /id="tutorial-launch-button"/);
+  assert.match(appSource, /data-settings-section="tutorials"/);
+  assert.match(appSource, /id="tutorial-launch-button"/);
+  assert.doesNotMatch(tutorialSource, /document\.querySelector\('\.sidebar-footer'\)/);
   assert.doesNotMatch(tutorialSource, /\.topbar/);
 });
 
@@ -31,11 +32,14 @@ test('tutorial motion and controls remain accessible', () => {
   assert.match(tutorialStyles, /transition: left 360ms/);
   assert.match(tutorialStyles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(tutorialStyles, /@media \(max-width: 700px\)/);
+  assert.match(tutorialStyles, /\.tutorial-running \.main \{ margin-right: 386px/);
+  assert.match(tutorialStyles, /padding-bottom: var\(--tutorial-sheet-space/);
   assert.match(tutorialSource, /aria-modal="true"/);
   assert.match(tutorialSource, /event\.key === 'Escape'/);
   assert.match(tutorialSource, /event\.key === 'ArrowRight'/);
   assert.match(tutorialSource, /trapFocus/);
-  assert.match(tutorialSource, /scrollIntoView\(\{ behavior: reduceMotion\.matches \? 'auto' : 'smooth'/);
+  assert.match(tutorialSource, /window\.scrollBy\(\{ top: scrollDelta, behavior: reduceMotion\.matches \? 'auto' : 'smooth'/);
+  assert.match(tutorialSource, /revealTargetWithoutCardOverlap/);
 });
 
 test('tutorial progress is account-synced through an owner-only RPC', () => {

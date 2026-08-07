@@ -224,14 +224,8 @@
   }
 
   function injectTutorialInterface() {
-    const footer = document.querySelector('.sidebar-footer');
-    if (!footer || document.getElementById('tutorial-launch-button')) return;
-    footer.insertAdjacentHTML('afterbegin', `
-      <button type="button" class="tutorial-launch" id="tutorial-launch-button" aria-haspopup="dialog" aria-controls="tutorial-library-backdrop" title="Learn Crew Center">
-        <span class="tutorial-launch-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 014.86.83c0 1.67-2.36 1.84-2.36 3.67"/><path d="M12 17h.01"/></svg></span>
-        <span class="tutorial-launch-copy"><strong>Learn Crew Center</strong><span>Guides for every page</span></span>
-      </button>
-    `);
+    const launcher = document.getElementById('tutorial-launch-button');
+    if (!launcher || document.getElementById('tutorial-library-backdrop')) return;
     document.body.insertAdjacentHTML('beforeend', `
       <div class="tutorial-library-backdrop" id="tutorial-library-backdrop" hidden>
         <section class="tutorial-library" role="dialog" aria-modal="true" aria-labelledby="tutorial-library-title">
@@ -259,7 +253,7 @@
       </div>
     `);
 
-    document.getElementById('tutorial-launch-button').addEventListener('click', () => openTutorialLibrary(false));
+    launcher.addEventListener('click', () => openTutorialLibrary(false));
     document.getElementById('tutorial-library-close').addEventListener('click', closeTutorialLibrary);
     document.getElementById('tutorial-library-later').addEventListener('click', closeTutorialLibrary);
     document.getElementById('tutorial-library-backdrop').addEventListener('click', event => {
@@ -277,7 +271,7 @@
     document.getElementById('tutorial-next').addEventListener('click', nextTutorialStep);
     document.getElementById('tutorial-pause').addEventListener('click', pauseTutorial);
     document.addEventListener('keydown', handleTutorialKeydown);
-    window.addEventListener('resize', repositionTutorial);
+    window.addEventListener('resize', resizeTutorial);
     window.addEventListener('scroll', repositionTutorial, true);
   }
 
@@ -293,6 +287,13 @@
     }
     const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
     const fullButton = document.getElementById('tutorial-full-start');
+    const settingsProgress = document.getElementById('tutorial-settings-progress');
+    if (settingsProgress) {
+      const completedAvailable = available.filter(id => completed.has(id)).length;
+      settingsProgress.textContent = completedAvailable
+        ? `${completedAvailable} of ${available.length} page guides completed.`
+        : `Guides for all ${available.length} pages available to your account.`;
+    }
     document.getElementById('tutorial-guide-count').textContent = `${available.length} available`;
     document.getElementById('tutorial-guide-grid').innerHTML = available.map((id, index) => `
       <button type="button" class="tutorial-guide-button" data-tutorial-guide="${id}">
@@ -422,17 +423,33 @@
     document.getElementById('tutorial-back').disabled = index === 0;
     document.getElementById('tutorial-next').textContent = index === runtime.steps.length - 1 ? 'Finish' : 'Next';
 
-    const rect = target.getBoundingClientRect();
-    const safeTop = 86;
-    const safeBottom = window.innerHeight - (window.innerWidth <= 700 ? 270 : 90);
-    if (rect.top < safeTop || rect.bottom > safeBottom) {
-      target.scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: window.innerWidth <= 700 ? 'start' : 'center' });
-      await delay(reduceMotion.matches ? 20 : 360);
-    }
+    await revealTargetWithoutCardOverlap(target);
     positionTutorial(target);
     overlay.classList.remove('is-moving');
     runtime.moving = false;
     document.getElementById('tutorial-next').focus({ preventScroll: true });
+  }
+
+  function usesBottomGuideSheet() {
+    return window.innerWidth <= 1100;
+  }
+
+  async function revealTargetWithoutCardOverlap(target) {
+    const card = document.getElementById('tutorial-card');
+    const cardHeight = Math.ceil(card.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--tutorial-sheet-space', `${cardHeight + 30}px`);
+    const rect = target.getBoundingClientRect();
+    const safeTop = 84;
+    const safeBottom = usesBottomGuideSheet() ? window.innerHeight - cardHeight - 30 : window.innerHeight - 24;
+    const availableHeight = Math.max(80, safeBottom - safeTop);
+    let scrollDelta = 0;
+    if (rect.height > availableHeight) scrollDelta = rect.top - safeTop;
+    else if (rect.bottom > safeBottom) scrollDelta = rect.bottom - safeBottom;
+    else if (rect.top < safeTop) scrollDelta = rect.top - safeTop;
+    if (Math.abs(scrollDelta) > 2) {
+      window.scrollBy({ top: scrollDelta, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+      await delay(reduceMotion.matches ? 20 : 360);
+    }
   }
 
   function positionTutorial(target = runtime.target) {
@@ -440,9 +457,13 @@
     const rect = target.getBoundingClientRect();
     const padding = window.innerWidth <= 700 ? 6 : 9;
     const left = Math.max(5, rect.left - padding);
-    const top = Math.max(5, rect.top - padding);
     const right = Math.min(window.innerWidth - 5, rect.right + padding);
-    const bottom = Math.min(window.innerHeight - 5, rect.bottom + padding);
+    const card = document.getElementById('tutorial-card');
+    const cardHeight = Math.ceil(card.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--tutorial-sheet-space', `${cardHeight + 30}px`);
+    const safeBottom = usesBottomGuideSheet() ? window.innerHeight - cardHeight - 24 : window.innerHeight - 5;
+    const top = Math.min(Math.max(5, rect.top - padding), Math.max(5, safeBottom - 8));
+    const bottom = Math.min(safeBottom, rect.bottom + padding);
     const spotlight = document.getElementById('tutorial-spotlight');
     spotlight.style.left = `${left}px`;
     spotlight.style.top = `${top}px`;
@@ -450,35 +471,19 @@
     spotlight.style.height = `${Math.max(8, bottom - top)}px`;
     spotlight.style.borderRadius = `${Math.min(18, Math.max(11, parseFloat(getComputedStyle(target).borderRadius) || 12))}px`;
 
-    if (window.innerWidth <= 700) return;
-    const card = document.getElementById('tutorial-card');
-    const cardRect = card.getBoundingClientRect();
-    const gap = 20;
-    const margin = 14;
-    let cardLeft;
-    let cardTop;
-    if (window.innerWidth - right >= cardRect.width + gap + margin) {
-      cardLeft = right + gap;
-      cardTop = top + Math.min(20, Math.max(0, (bottom - top - cardRect.height) / 2));
-    } else if (left >= cardRect.width + gap + margin) {
-      cardLeft = left - cardRect.width - gap;
-      cardTop = top + Math.min(20, Math.max(0, (bottom - top - cardRect.height) / 2));
-    } else if (window.innerHeight - bottom >= cardRect.height + gap + margin) {
-      cardLeft = Math.min(window.innerWidth - cardRect.width - margin, Math.max(margin, left));
-      cardTop = bottom + gap;
-    } else {
-      cardLeft = Math.min(window.innerWidth - cardRect.width - margin, Math.max(margin, left));
-      cardTop = Math.max(margin, top - cardRect.height - gap);
-    }
-    card.style.left = `${Math.max(margin, Math.min(window.innerWidth - cardRect.width - margin, cardLeft))}px`;
-    card.style.top = `${Math.max(margin, Math.min(window.innerHeight - cardRect.height - margin, cardTop))}px`;
-    card.style.right = 'auto';
-    card.style.bottom = 'auto';
   }
 
   function repositionTutorial() {
     if (!runtime.target || runtime.moving) return;
     window.requestAnimationFrame(() => positionTutorial(runtime.target));
+  }
+
+  function resizeTutorial() {
+    if (!runtime.target || runtime.moving) return;
+    window.requestAnimationFrame(async () => {
+      await revealTargetWithoutCardOverlap(runtime.target);
+      positionTutorial(runtime.target);
+    });
   }
 
   async function nextTutorialStep() {
@@ -518,7 +523,9 @@
     runtime.steps = [];
     runtime.tourId = null;
     runtime.moving = false;
-    document.getElementById('tutorial-launch-button')?.focus({ preventScroll: true });
+    document.documentElement.style.removeProperty('--tutorial-sheet-space');
+    const launcher = document.getElementById('tutorial-launch-button');
+    if (launcher && isVisibleTarget(launcher)) launcher.focus({ preventScroll: true });
   }
 
   function trapFocus(container, event) {
