@@ -2914,6 +2914,10 @@ function canManageCrewOperations() {
 
 window.canManageCrewOperations = canManageCrewOperations;
 
+function canSignupForOtherMembers() {
+  return canAccessAdminPanel();
+}
+
 function canAccessEquipmentStatus() {
   if (!canManageCrewOperations()) return false;
   return currentMemberRecord()?.equipmentStatusAccess !== false;
@@ -3127,7 +3131,7 @@ function renderSignupNameField() {
   const input = document.getElementById('signup-name');
   if (!input) return;
   const help = document.getElementById('signup-name-help');
-  const canChooseMember = canManageCrewOperations();
+  const canChooseMember = canSignupForOtherMembers();
   input.placeholder = 'Name as shown on the Members page';
   input.readOnly = !canChooseMember;
   if (help) help.hidden = !canChooseMember;
@@ -5109,7 +5113,7 @@ async function addSignupRow() {
   }
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
-  const canChooseMember = canManageCrewOperations();
+  const canChooseMember = canSignupForOtherMembers();
   const nameInput = document.getElementById('signup-name');
   const name = nameInput.value.trim().replace(/\s+/g, ' ');
   if (!name) {

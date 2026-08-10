@@ -1023,7 +1023,7 @@ with check (
     or (signup_role is null and reserve_role_1 is null and reserve_role_2 is null)
   )
   and (
-    public.is_crew_operations_user()
+    public.is_admin_panel_user()
     or exists (
       select 1
       from public.members member
