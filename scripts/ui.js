@@ -274,18 +274,18 @@ window.applyCrewCenterAuthUser = function(user) {
 function renderProfile() {
   updateUserSurfaces();
   updateThemeChoices();
-  const dashboardPanel = document.getElementById('dashboard-preferences-panel');
-  const dashboardTab = document.getElementById('dashboard-settings-tab');
-  const dashboardAvailable = !isVisitorSession() && Boolean(currentMemberRecord());
-  if (dashboardPanel) dashboardPanel.style.display = dashboardAvailable ? '' : 'none';
-  if (dashboardTab) dashboardTab.style.display = dashboardAvailable ? '' : 'none';
-  const sidebarPanel = document.getElementById('sidebar-preferences-panel');
-  if (sidebarPanel) sidebarPanel.style.display = isVisitorSession() || !currentMemberRecord() ? 'none' : '';
-  const tutorialPanel = document.getElementById('tutorial-settings-panel');
-  const tutorialTab = document.getElementById('tutorial-settings-tab');
-  const tutorialAvailable = !isVisitorSession() && Boolean(currentMemberRecord());
-  if (tutorialPanel) tutorialPanel.style.display = tutorialAvailable ? '' : 'none';
-  if (tutorialTab) tutorialTab.style.display = tutorialAvailable ? '' : 'none';
+  const memberSettingsAvailable = !isVisitorSession() && (!state.dataLoaded.members || Boolean(currentMemberRecord()));
+  [
+    ['dashboard-settings-tab', 'dashboard-preferences-panel'],
+    ['settings-tab-sidebar', 'sidebar-preferences-panel'],
+    ['settings-tab-notifications', 'notification-preferences-panel'],
+    ['tutorial-settings-tab', 'tutorial-settings-panel'],
+  ].forEach(([tabId, panelId]) => {
+    const tab = document.getElementById(tabId);
+    const panel = document.getElementById(panelId);
+    if (tab) tab.style.display = memberSettingsAvailable ? '' : 'none';
+    if (panel) panel.style.display = memberSettingsAvailable ? '' : 'none';
+  });
   renderDashboardSettings();
   renderSidebarSettings();
   renderNotificationSettings();
@@ -320,8 +320,6 @@ function renderNotificationSettings() {
   const preferences = currentNotificationPreferences();
   const mapping = { 'notify-event-created': 'event_created', 'notify-event-reminders': 'event_reminders', 'notify-maybe-reminders': 'maybe_reminders' };
   Object.entries(mapping).forEach(([id, key]) => { const input = document.getElementById(id); if (input) input.checked = preferences[key]; });
-  const panel = document.getElementById('notification-preferences-panel');
-  if (panel) panel.style.display = isVisitorSession() || !currentMemberRecord() ? 'none' : '';
 }
 
 async function saveNotificationPreferences() {

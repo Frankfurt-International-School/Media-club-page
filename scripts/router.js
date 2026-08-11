@@ -138,21 +138,6 @@ function installNativeLinkNavigation() {
     return page;
   };
 
-  if (window.navigation?.addEventListener) {
-    window.navigation.addEventListener('navigate', event => {
-      if (!event.canIntercept || event.navigationType !== 'push' || event.hashChange || event.formData || event.downloadRequest) return;
-      const page = pageForDestination(new URL(event.destination.url));
-      if (!page) return;
-      event.intercept({
-        focusReset: 'manual',
-        handler() {
-          navigate(page, navItemForPage(page), { skipUrl: true });
-        },
-      });
-    });
-    return;
-  }
-
   document.addEventListener('click', event => {
     const link = event.target.closest?.('a[href]');
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

@@ -279,9 +279,6 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   const nativeNavigationStart = appSource.indexOf('function installNativeLinkNavigation()');
   const nativeNavigationEnd = appSource.indexOf('installNativeLinkNavigation();', nativeNavigationStart);
   const nativeNavigation = appSource.slice(nativeNavigationStart, nativeNavigationEnd);
-  assert.match(nativeNavigation, /window\.navigation\.addEventListener\('navigate'/);
-  assert.match(nativeNavigation, /event\.intercept\(/);
-  assert.match(nativeNavigation, /event\.navigationType !== 'push'/);
   assert.match(nativeNavigation, /destination\.origin !== window\.location\.origin/);
   assert.match(nativeNavigation, /event\.button !== 0 \|\| event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey \|\| event\.altKey/);
   assert.match(nativeNavigation, /event\.preventDefault\(\)/);
@@ -290,6 +287,10 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.match(appStyles, /html\.sidebar-pending \.sidebar-nav,[\s\S]*?visibility: hidden/);
   assert.match(appSource, /document\.documentElement\.classList\.remove\('sidebar-pending'\)/);
   assert.match(appSource, /renderDatasetErrors\(\);\s*closeAllPages\(\);\s*closeMobileSidebar\(\);/);
+  assert.match(appSource, /!state\.dataLoaded\.members \|\| Boolean\(currentMemberRecord\(\)\)/);
+  for (const tabId of ['dashboard-settings-tab', 'settings-tab-sidebar', 'settings-tab-notifications', 'tutorial-settings-tab']) {
+    assert.match(appSource, new RegExp(`'${tabId}'`));
+  }
 });
 
 test('visitor route allowlist exposes only public pages', () => {
