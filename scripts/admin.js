@@ -35,7 +35,7 @@ async function submitJoin() {
 // ══════════════════════════════
 function updateAdminPendingIndicator() {
   const pendingCount = state.applications.filter(application => application.status === 'pending').length;
-  const adminDot = document.querySelector('.nav-item[onclick*=admin] .notif-dot');
+  const adminDot = document.querySelector('.nav-item[data-page="admin"] .notif-dot');
   if (adminDot) adminDot.style.display = canAccessAdminPanel() && pendingCount > 0 ? 'inline-block' : 'none';
   const pendingBadge = document.getElementById('pending-count');
   if (pendingBadge) pendingBadge.textContent = pendingCount;
@@ -50,6 +50,7 @@ function renderAdmin() {
   renderPending();
   renderManageEvents();
   renderAdminAnn();
+  showAdminTab(tabValueFromUrl(['pending', 'manage-events', 'announcements'], 'pending'));
 }
 
 function renderPending() {
@@ -217,7 +218,10 @@ async function deleteAnn(id) {
   return true;
 }
 
-function switchAdminTab(name, el) {
+function showAdminTab(name) {
+  const el = document.querySelector(`#page-admin [data-admin-tab="${name}"]`)
+    || document.querySelector('#page-admin [data-admin-tab="pending"]');
+  name = el.dataset.adminTab;
   document.querySelectorAll('#page-admin .tab').forEach(t => {
     t.classList.remove('active');
     t.setAttribute('aria-selected', 'false');
@@ -287,4 +291,3 @@ function startWaveAnimation() {
   wave();
   setInterval(wave, 10000);
 }
-

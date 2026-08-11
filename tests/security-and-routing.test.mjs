@@ -177,8 +177,8 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   assert.match(aboutMarkup, /Discover Media Club/);
   assert.match(aboutMarkup, /Grades 6–12/);
   assert.match(aboutMarkup, /id="about-recent-projects"/);
-  assert.match(aboutMarkup, /navigate\('gallery'/);
-  assert.match(aboutMarkup, /navigate\('join'/);
+  assert.match(aboutMarkup, /href="\/gallery"/);
+  assert.match(aboutMarkup, /href="\/join"/);
   assert.doesNotMatch(aboutMarkup, /<script|https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)/i);
 
   for (const file of aboutImageNames) {
@@ -225,8 +225,8 @@ test('canonical routes and aliases survive static-host deep links', () => {
   const start = appSource.indexOf('const pageRoutes =');
   const end = appSource.indexOf('function navItemForPage', start);
   assert.ok(start > -1 && end > start);
-  const context = { window: { location: { pathname: '/' } } };
-  vm.runInNewContext(`${appSource.slice(start, end)}\nglobalThis.__routing = { pageRoutes, routePages, pageFromPath };`, context);
+  const context = { URLSearchParams, window: { location: { pathname: '/', search: '' } } };
+  vm.runInNewContext(`${appSource.slice(start, end)}\nglobalThis.__routing = { pageRoutes, routePages, pageFromPath, pageUrl, tabValueFromUrl };`, context);
 
   for (const [page, route] of Object.entries(context.__routing.pageRoutes)) {
     context.window.location.pathname = route;
@@ -236,6 +236,11 @@ test('canonical routes and aliases survive static-host deep links', () => {
   assert.equal(context.__routing.pageFromPath(), 'signup');
   context.window.location.pathname = '/not-a-route';
   assert.equal(context.__routing.pageFromPath(), 'home');
+  assert.equal(context.__routing.pageUrl('gallery', { tab: 'video' }), '/gallery?tab=video');
+  context.window.location.search = '?tab=announcements';
+  assert.equal(context.__routing.tabValueFromUrl(['pending', 'announcements'], 'pending'), 'announcements');
+  context.window.location.search = '?tab=not-a-tab';
+  assert.equal(context.__routing.tabValueFromUrl(['pending', 'announcements'], 'pending'), 'pending');
 
   assert.match(redirectsFile, /^\/\*\s+\/index\.html\s+200\s*$/m);
   assert.match(headersFile, /\/signup\n\s+Cache-Control: no-store, max-age=0/);
@@ -243,6 +248,34 @@ test('canonical routes and aliases survive static-host deep links', () => {
   assert.match(headersFile, /\/signin\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(authSource, /window\.location\.pathname !== "\/signin"[\s\S]*?history\.replaceState\(\{ page: "signin" \}, "", "\/signin"\)/);
   assert.match(authSource, /window\.location\.pathname === "\/signin"[\s\S]*?defaultRoute[\s\S]*?history\.replaceState/);
+});
+
+test('navigation tabs use native deep links and restore state from the URL', () => {
+  const roleTabs = [...indexHtml.matchAll(/<(a|button)\b[^>]*role="tab"[^>]*>/g)].map(match => match[0]);
+  assert.equal(roleTabs.length, 14);
+  roleTabs.forEach(tab => {
+    assert.match(tab, /^<a\b/);
+    assert.match(tab, /href="\/(?:gallery|profile|admin)\?tab=[a-z-]+"/);
+    assert.match(tab, /aria-selected="(?:true|false)"/);
+    assert.match(tab, /aria-controls="[^"]+"/);
+    assert.doesNotMatch(tab, /onclick=/);
+  });
+  assert.doesNotMatch(indexHtml, /<button\b[^>]*role="tab"/);
+
+  const sidebarLinks = [...indexHtml.matchAll(/<a\b[^>]*class="nav-item[^>]*data-page="[^"]+"[^>]*>/g)].map(match => match[0]);
+  assert.equal(sidebarLinks.length, 12);
+  sidebarLinks.forEach(link => {
+    assert.match(link, /href="\/[^"]+"/);
+    assert.doesNotMatch(link, /onclick=/);
+  });
+
+  assert.match(appSource, /tabValueFromUrl\(Object\.keys\(galleryTabFilters\), 'all'\)/);
+  assert.match(appSource, /tabValueFromUrl\(\['profile', 'appearance', 'dashboard', 'sidebar', 'notifications', 'tutorials'\], 'profile'\)/);
+  assert.match(appSource, /showAdminTab\(tabValueFromUrl\(\['pending', 'manage-events', 'announcements'\], 'pending'\)\)/);
+  assert.match(appSource, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
+  assert.match(appSource, /tabs\[nextIndex\]\.focus\(\)/);
+  assert.doesNotMatch(appSource, /tabs\[nextIndex\]\.click\(\)/);
+  assert.match(appSource, /new URLSearchParams\(window\.location\.search\)\.get\('event'\)/);
 });
 
 test('visitor route allowlist exposes only public pages', () => {

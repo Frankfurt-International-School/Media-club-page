@@ -45,7 +45,7 @@ function renderEvents(filter) {
               ? '<span class="text-muted">This event has ended.</span>'
               : isVisitorSession()
               ? '<span class="text-muted">Visitors can view events only.</span>'
-              : `<button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>`}
+              : `<a class="btn btn-accent btn-sm" href="${escapeHtml(pageUrl('signup', { event: ev.id }))}">Sign up</a>`}
             ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="requestArchiveEvent('${ev.id}')">Archive</button>` : ''}
             ${canAddMembers() ? `<button class="btn btn-danger btn-sm" onclick="requestPermanentDeleteEvent('${ev.id}')">Delete everything</button>` : ''}
           </div>
@@ -354,4 +354,3 @@ async function requestPermanentDeleteEvent(id) {
     },
   });
 }
-

@@ -2,6 +2,7 @@
 // GALLERY
 // ══════════════════════════════
 const galleryColors = { Photo: ['#EEEDFE','#b49dff'], Video: ['#FAECE7','#ff7b5e'], Podcast: ['#E1F5EE','#4ef0c4'], Design: ['#FAEEDA','#ffb547'] };
+const galleryTabFilters = { all: 'all', photo: 'Photo', video: 'Video', podcast: 'Podcast', design: 'Design' };
 const galleryIcons = {
   Photo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
   Video: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
@@ -41,14 +42,22 @@ function renderAboutRecentProjects() {
     const producedLabel = project.producedOn ? ` · ${formatBerlinCalendarDate(project.producedOn, { day: 'numeric', month: 'short', year: 'numeric' })}` : '';
     return `<article class="about-project-card">
       ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="Cover image for ${escapeHtml(project.title)}" loading="lazy">` : ''}
-      <button type="button" class="about-project-open" aria-label="View ${escapeHtml(project.title)} in the Project Gallery" onclick="navigate('gallery', navItemForPage('gallery'))"></button>
+      <a class="about-project-open" href="${escapeHtml(pageUrl('gallery', { tab: String(project.type || '').toLowerCase() }))}" aria-label="View ${escapeHtml(project.title)} in the Project Gallery"></a>
       <div class="about-project-meta"><div class="about-project-title">${escapeHtml(project.title)}</div><div class="about-project-detail">${escapeHtml(project.author)} · ${escapeHtml(project.type)}${escapeHtml(producedLabel)}</div></div>
     </article>`;
   }).join('');
 }
 
-function renderGallery(filter) {
-  if (filter !== undefined) state.galleryFilter = filter;
+function renderGallery() {
+  const selectedTab = tabValueFromUrl(Object.keys(galleryTabFilters), 'all');
+  state.galleryFilter = galleryTabFilters[selectedTab];
+  document.querySelectorAll('#page-gallery [data-gallery-tab]').forEach(tab => {
+    const active = tab.dataset.galleryTab === selectedTab;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  updateSlidingTab(document.querySelector('#page-gallery .tab-row'));
   const canSubmit = !isVisitorSession() && Boolean(currentMemberRecord());
   const submitButton = document.getElementById('gallery-submit-open');
   if (submitButton) submitButton.style.display = canSubmit ? '' : 'none';
@@ -113,19 +122,6 @@ function updateSlidingTab(row) {
 
 function initSlidingTabs() { document.querySelectorAll('.tab-row').forEach(updateSlidingTab); }
 
-function switchGalleryTab(f, el) {
-  document.querySelectorAll('#page-gallery .tab').forEach(t => {
-    t.classList.remove('active');
-    t.setAttribute('aria-selected', 'false');
-    t.tabIndex = -1;
-  });
-  el.classList.add('active');
-  el.setAttribute('aria-selected', 'true');
-  el.tabIndex = 0;
-  updateSlidingTab(el.closest('.tab-row'));
-  renderGallery(f);
-}
-
 function handleTabKeydown(event) {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   const tabs = [...event.currentTarget.closest('[role="tablist"]').querySelectorAll('[role="tab"]')]
@@ -136,7 +132,6 @@ function handleTabKeydown(event) {
       : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
   event.preventDefault();
   tabs[nextIndex].focus();
-  tabs[nextIndex].click();
 }
 
 let pendingGalleryDeleteId = null;
@@ -327,4 +322,3 @@ async function submitProject() {
   renderGallery();
   renderDashboard();
 }
-

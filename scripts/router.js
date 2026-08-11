@@ -39,6 +39,21 @@ function pageFromPath() {
   return routePages[window.location.pathname] || 'home';
 }
 
+function pageUrl(page, params = {}) {
+  const route = pageRoutes[page] || pageRoutes.home;
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+  });
+  const query = search.toString();
+  return query ? `${route}?${query}` : route;
+}
+
+function tabValueFromUrl(allowed, fallback) {
+  const requested = new URLSearchParams(window.location.search).get('tab');
+  return allowed.includes(requested) ? requested : fallback;
+}
+
 function navItemForPage(id) {
   if (id === 'profile') return null;
   return document.querySelector(`.nav-item[data-page="${id}"]`);
@@ -73,8 +88,8 @@ function navigate(id, el, options = {}) {
   requestAnimationFrame(() => updateSlidingTab(document.querySelector(`#page-${page} .tab-row`)));
   document.getElementById('auth-signout')?.classList.toggle('visible', page === 'profile');
   if (!options.skipUrl) {
-    const route = pageRoutes[page] || pageRoutes.home;
-    if (window.location.pathname !== route) {
+    const route = pageUrl(page);
+    if (`${window.location.pathname}${window.location.search}` !== route) {
       history.pushState({ page }, '', route);
     }
   }
@@ -144,4 +159,3 @@ function toggleSidebarCollapse() {
 
 syncSidebarCollapsePreference();
 window.addEventListener('resize', syncSidebarCollapsePreference);
-

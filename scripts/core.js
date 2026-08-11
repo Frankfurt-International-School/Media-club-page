@@ -1027,13 +1027,6 @@ async function saveDashboardPreferences() {
   showToast('Dashboard preferences saved.');
 }
 
-function openDashboardSettings() {
-  navigate('profile', null);
-  const tab = document.getElementById('dashboard-settings-tab');
-  showSettingsSection('dashboard', tab);
-  renderDashboardSettings();
-}
-
 function renderAllPagesMenu(query = '') {
   const list = document.getElementById('all-pages-list');
   if (!list) return;
@@ -1045,7 +1038,7 @@ function renderAllPagesMenu(query = '') {
     if (!pages.length) return '';
     return `<div class="all-pages-group"><div class="all-pages-group-title">${definition.label}</div>${pages.map(page => {
       const icon = document.querySelector(`.sidebar-nav .nav-item[data-page="${page}"] svg`)?.outerHTML || '';
-      return `<button class="all-pages-link" onclick="openAllPagesPage('${page}')">${icon}<span>${pageTitles[page]}</span>${visible.has(page) ? '' : '<span class="all-pages-hidden-label">Hidden</span>'}</button>`;
+      return `<a class="all-pages-link" href="${escapeHtml(pageUrl(page))}">${icon}<span>${pageTitles[page]}</span>${visible.has(page) ? '' : '<span class="all-pages-hidden-label">Hidden</span>'}</a>`;
     }).join('')}</div>`;
   }).join('') || '<div class="empty-state" style="padding:24px 12px;"><p>No matching pages.</p></div>';
 }
@@ -1068,11 +1061,6 @@ function closeAllPages() {
   document.getElementById('sidebar-all-pages-button')?.setAttribute('aria-expanded', 'false');
 }
 
-function openAllPagesPage(page) {
-  closeAllPages();
-  navigate(page, navItemForPage(page));
-}
-
 document.addEventListener('click', event => {
   const popover = document.getElementById('all-pages-popover');
   if (popover?.classList.contains('open') && !popover.contains(event.target) && !document.getElementById('sidebar-all-pages-button')?.contains(event.target)) closeAllPages();
@@ -1081,4 +1069,3 @@ document.addEventListener('click', event => {
 });
 
 document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeAllPages(); closeNotificationPanel(); } });
-

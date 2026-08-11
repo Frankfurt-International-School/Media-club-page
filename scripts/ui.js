@@ -290,9 +290,15 @@ function renderProfile() {
   renderSidebarSettings();
   renderNotificationSettings();
   document.getElementById('profile-photo-remove').style.display = state.currentUser.avatarUrl ? '' : 'none';
+  showSettingsSection(tabValueFromUrl(['profile', 'appearance', 'dashboard', 'sidebar', 'notifications', 'tutorials'], 'profile'));
 }
 
-function showSettingsSection(section, button) {
+function showSettingsSection(section) {
+  let button = document.querySelector(`.settings-nav [data-settings-tab="${section}"]`);
+  if (!button || button.hidden || getComputedStyle(button).display === 'none') {
+    section = 'profile';
+    button = document.querySelector('.settings-nav [data-settings-tab="profile"]');
+  }
   document.querySelectorAll('.settings-content [data-settings-section]').forEach(panel => {
     const active = panel.dataset.settingsSection === section;
     panel.classList.toggle('active', active);
@@ -363,11 +369,12 @@ function renderNotificationCenter() {
   badge.textContent = unread > 99 ? '99+' : unread;
   badge.classList.toggle('visible', unread > 0);
   const actionHtml = maybeItems.map(({ event, signup }) => `<div class="notification-item action"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
-  const upcomingHtml = upcomingItems.map(({ event }) => `<button type="button" class="notification-item action" onclick="navigate('signup',navItemForPage('signup'))"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(event.time || 'TBC')}.</div><div class="notification-item-meta">Upcoming event</div></button>`).join('');
+  const upcomingHtml = upcomingItems.map(({ event }) => `<a class="notification-item action" href="${escapeHtml(pageUrl('signup', { event: event.id }))}"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(event.time || 'TBC')}.</div><div class="notification-item-meta">Upcoming event</div></a>`).join('');
   const storedHtml = storedItems.map(item => {
     const page = Object.values(sidebarCategories).some(category => category.pages.includes(item.page)) ? item.page : 'events';
     const relatedEventId = state.events.some(event => event.id === item.related_event_id) ? item.related_event_id : '';
-    return `<button type="button" class="notification-item${item.read_at ? '' : ' unread'}" onclick="openStoredNotification('${page}','${relatedEventId}')"><div class="notification-item-title">${escapeHtml(item.title)}</div><div class="notification-item-copy">${escapeHtml(item.message)}</div><div class="notification-item-meta">${escapeHtml(formatBerlinDateTime(item.created_at, { dateStyle: 'medium', timeStyle: 'short' }))}</div></button>`;
+    const href = pageUrl(page, page === 'signup' && relatedEventId ? { event: relatedEventId } : {});
+    return `<a class="notification-item${item.read_at ? '' : ' unread'}" href="${escapeHtml(href)}"><div class="notification-item-title">${escapeHtml(item.title)}</div><div class="notification-item-copy">${escapeHtml(item.message)}</div><div class="notification-item-meta">${escapeHtml(formatBerlinDateTime(item.created_at, { dateStyle: 'medium', timeStyle: 'short' }))}</div></a>`;
   }).join('');
   list.innerHTML = actionHtml + upcomingHtml + storedHtml || '<div class="empty-state" style="padding:28px 12px;"><p>You’re all caught up.</p></div>';
 }
@@ -392,15 +399,6 @@ async function markNotificationsRead() {
   if (error) { showToast("Couldn't mark notifications as read.", 'error'); return; }
   state.notifications.forEach(item => { item.read_at = item.read_at || new Date().toISOString(); });
   renderNotificationCenter();
-}
-
-function openStoredNotification(page, eventId = '') {
-  closeNotificationPanel();
-  navigate(page, navItemForPage(page));
-  if (page === 'signup' && eventId) {
-    const select = document.getElementById('sheet-event-select');
-    if ([...select.options].some(option => option.value === eventId)) { select.value = eventId; renderSignupSheet(); }
-  }
 }
 
 function setCrewCenterTheme(theme) {
@@ -548,4 +546,3 @@ async function removeProfilePhoto() {
 }
 initializeProfileCropDrag();
 updateThemeChoices();
-

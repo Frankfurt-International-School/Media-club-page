@@ -4,9 +4,11 @@
 function initSignupSheet() {
   const sel = document.getElementById('sheet-event-select');
   const previousEventId = sel.value;
+  const requestedEventId = new URLSearchParams(window.location.search).get('event') || '';
   const upcomingEvents = state.events.filter(event => !isPastEvent(event));
   sel.innerHTML = upcomingEvents.map(e => `<option value="${e.id}">${escapeHtml(e.title)} — ${escapeHtml(fmtDate(e.date))}</option>`).join('');
-  if (upcomingEvents.some(event => event.id === previousEventId)) sel.value = previousEventId;
+  const preferredEventId = requestedEventId || previousEventId;
+  if (upcomingEvents.some(event => event.id === preferredEventId)) sel.value = preferredEventId;
   renderSignupSheet();
 }
 
@@ -369,4 +371,3 @@ async function removeSignup(eventId, signupId, expired = false) {
   showToast(`${signup.name}'s signup removed.`, 'error');
   return true;
 }
-

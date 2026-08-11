@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "typecheck": "node tools/check-javascript.mjs",
+    "build": "node tools/build-static.mjs"
   },
   "engines": {
     "node": ">=20"
