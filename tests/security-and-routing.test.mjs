@@ -113,6 +113,7 @@ test('dark mode includes the signed-out authentication surface', () => {
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
   assert.match(indexHtml, /id="route-announcer" aria-live="polite" aria-atomic="true"/);
   assert.match(indexHtml, /heading\.focus\(\{ preventScroll: false \}\)/);
+  assert.match(indexHtml, /\.page :is\(h1, \.page-title\)\[tabindex="-1"\]:focus \{ outline: none; \}/);
   assert.match(indexHtml, /t\.setAttribute\('role', type === 'error' \? 'alert' : 'status'\)/);
   assert.match(indexHtml, /id="event-filters" role="group" aria-label="Filter events"/);
   assert.match(indexHtml, /class="filter-chip active" aria-pressed="true"/);
