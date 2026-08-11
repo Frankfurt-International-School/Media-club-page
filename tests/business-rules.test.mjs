@@ -20,6 +20,14 @@ function extractFunction(name) {
   throw new Error(`Could not find the end of ${name}`);
 }
 
+function extractSqlFunction(name) {
+  const start = policiesSql.indexOf(`create or replace function public.${name}(`);
+  assert.notEqual(start, -1, `Expected ${name} in supabase-auth-policies.sql`);
+  const end = policiesSql.indexOf('\n$$;', start);
+  assert.ok(end > start, `Could not find the end of ${name}`);
+  return policiesSql.slice(start, end + 4);
+}
+
 function runFunctions(names, context, expression) {
   const source = names.map(extractFunction).join('\n');
   return vm.runInNewContext(`${source}\n${expression}`, context);
@@ -143,9 +151,10 @@ test('dashboard preferences are owner-scoped and bounded', () => {
 
 test('dashboard widget visibility follows public, member, operations, and admin access', () => {
   const available = ({ access, visitor = false, member = true, operations = false, admin = false }) => runFunctions(
-    ['dashboardPreferenceAvailable'],
+    ['isVisitorSession', 'dashboardPreferenceAvailable'],
     {
       state: { currentUser: { isVisitor: visitor } },
+      window: { CREW_CENTER_IS_VISITOR: visitor },
       currentMemberRecord: () => member ? ({ id: 'member-1' }) : null,
       canManageCrewOperations: () => operations,
       canAccessAdminPanel: () => admin,
@@ -165,9 +174,10 @@ test('dashboard widget visibility follows public, member, operations, and admin 
 test('dashboard greeting uses the public.members name rather than an email alias', () => {
   const greeting = { textContent: '' };
   runFunctions(
-    ['splitName', 'updateDashboardGreeting'],
+    ['splitName', 'isVisitorSession', 'updateDashboardGreeting'],
     {
       state: { currentUser: { name: 'js12345', isVisitor: false } },
+      window: { CREW_CENTER_IS_VISITOR: false },
       currentMemberRecord: () => ({ name: 'Jana Stein' }),
       document: { getElementById: id => id === 'dashboard-greeting' ? greeting : null },
     },
@@ -180,9 +190,10 @@ test('dashboard greeting uses the public.members name rather than an email alias
 test('dashboard greeting does not expose an email alias while the member record loads', () => {
   const greeting = { textContent: '' };
   runFunctions(
-    ['splitName', 'updateDashboardGreeting'],
+    ['splitName', 'isVisitorSession', 'updateDashboardGreeting'],
     {
       state: { currentUser: { name: 'js12345', isVisitor: false } },
+      window: { CREW_CENTER_IS_VISITOR: false },
       currentMemberRecord: () => null,
       document: { getElementById: id => id === 'dashboard-greeting' ? greeting : null },
     },
@@ -245,4 +256,50 @@ test('default sidebar includes About Media Club while customized choices remain 
   const manuallyHidden = preferences({ sidebarCustomized: true, sidebarItems: ['home', 'gallery', 'join'] });
   assert.equal(manuallyHidden.customized, true);
   assert.equal(manuallyHidden.items.includes('about'), false, 'a customized sidebar may deliberately hide About');
+});
+
+test('visitor reads use narrow RPCs and direct operational table reads stay blocked', () => {
+  const publicEvents = extractSqlFunction('get_public_events');
+  const publicGallery = extractSqlFunction('get_public_gallery');
+  const publicEquipment = extractSqlFunction('get_public_equipment');
+  const publicAnnouncements = extractSqlFunction('get_public_announcements');
+
+  assert.doesNotMatch(publicEvents, /archived_by|signups|member_id|livestream_setup_date|game_[1-4]_|shift_[12]_|takedown_|setup_start/);
+  assert.doesNotMatch(publicGallery, /member_id|storage_path|members\.name/);
+  assert.doesNotMatch(publicEquipment, /assigned_to|notes|equipment_reservations|member_id/);
+  assert.doesNotMatch(publicAnnouncements, /member_id|email/);
+  assert.match(policiesSql, /drop function if exists public\.get_public_member_directory\(\)/);
+  assert.doesNotMatch(appSource, /get_public_member_directory/);
+  for (const rpc of ['get_public_events', 'get_public_gallery', 'get_public_equipment', 'get_public_announcements']) {
+    assert.match(appSource, new RegExp(`['"]${rpc}['"]`));
+    assert.match(policiesSql, new RegExp(`grant execute on function public\\.${rpc}\\(\\) to authenticated`));
+  }
+  assert.match(policiesSql, /create policy "Signed-in users can read events"[\s\S]*?not public\.is_visitor_session\(\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read equipment"[\s\S]*?not public\.is_visitor_session\(\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?using \(not public\.is_visitor_session\(\)\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read announcements"[\s\S]*?using \(not public\.is_visitor_session\(\)\)/);
+});
+
+test('realtime changes refresh only affected datasets and coalesce bursts', () => {
+  const queue = extractFunction('queueRealtimeDataLoad');
+  const subscribe = extractFunction('subscribeToCrewCenterChanges');
+  assert.match(queue, /pendingRealtimeDatasets\.add/);
+  assert.match(queue, /setTimeout\([\s\S]*?250\)/);
+  assert.match(queue, /loadCrewCenterData\(\{ datasets: pending, silent: true \}\)/);
+  assert.match(subscribe, /members: \['members', 'gallery'\]/);
+  assert.match(subscribe, /signups: \['events'\]/);
+  assert.match(subscribe, /equipment_reservations: \['equipment'\]/);
+  assert.match(subscribe, /if \(mode === 'visitor'\) return/);
+  assert.doesNotMatch(subscribe, /loadCrewCenterData\)\s*\.on/);
+});
+
+test('visitor dashboard avoids member metrics and loading failures remain retryable', () => {
+  assert.match(appSource, /event_categories: \{ label: 'Event types'/);
+  assert.match(appSource, /stats: \['upcoming_events', 'available_equipment', 'projects', 'event_categories'\]/);
+  assert.match(appSource, /Explore upcoming events, published projects, and Media Club resources\./);
+  assert.match(appSource, /id="data-status-banner" role="status" aria-live="polite"/);
+  assert.match(appSource, /function retryDataset\(dataset\)/);
+  assert.match(appSource, /function retryFailedDatasets\(\)/);
+  assert.match(appSource, /state\.dataLoaded\[dataset\]/);
+  assert.match(appSource, /Other information remains usable/);
 });

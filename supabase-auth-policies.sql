@@ -163,21 +163,86 @@ as $$
     );
 $$;
 
-create or replace function public.get_public_member_directory()
-returns table (id uuid, name text)
+drop function if exists public.get_public_member_directory();
+
+create or replace function public.get_public_events()
+returns table (
+  id uuid,
+  title text,
+  description text,
+  date timestamptz,
+  location text,
+  category text,
+  ends_at timestamptz
+)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select member.id, member.name
-  from public.members member
-  where lower(coalesce(member.status, 'active')) <> 'inactive'
-  order by member.name;
+  select
+    event.id, event.title, event.description, event.date, event.location, event.category, event.ends_at
+  from public.events event
+  where event.archived_at is null
+  order by event.date;
 $$;
 
-revoke all on function public.get_public_member_directory() from public;
-grant execute on function public.get_public_member_directory() to authenticated;
+create or replace function public.get_public_gallery()
+returns table (
+  id uuid,
+  project_name text,
+  project_type text,
+  description text,
+  image_url text,
+  project_url text,
+  produced_on date,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    project.id, project.project_name, project.project_type, project.description,
+    project.image_url, project.project_url, project.produced_on, project.created_at
+  from public.gallery project
+  order by project.created_at desc;
+$$;
+
+create or replace function public.get_public_equipment()
+returns table (id uuid, name text, category text, status text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select item.id, item.name, item.category, item.status
+  from public.equipment item
+  where item.archived_at is null
+  order by item.name;
+$$;
+
+create or replace function public.get_public_announcements()
+returns table (id uuid, title text, body text, created_at timestamptz)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select announcement.id, announcement.title, announcement.body, announcement.created_at
+  from public.announcements announcement
+  order by announcement.created_at desc;
+$$;
+
+revoke all on function public.get_public_events() from public;
+revoke all on function public.get_public_gallery() from public;
+revoke all on function public.get_public_equipment() from public;
+revoke all on function public.get_public_announcements() from public;
+grant execute on function public.get_public_events() to authenticated;
+grant execute on function public.get_public_gallery() to authenticated;
+grant execute on function public.get_public_equipment() to authenticated;
+grant execute on function public.get_public_announcements() to authenticated;
 
 create or replace function public.set_event_archived(
   p_event_id uuid,
@@ -984,7 +1049,10 @@ using (public.is_admin_panel_user());
 create policy "Signed-in users can read events"
 on public.events for select
 to authenticated
-using (archived_at is null or public.is_crew_operations_user());
+using (
+  not public.is_visitor_session()
+  and (archived_at is null or public.is_crew_operations_user())
+);
 
 create policy "Admins can update events"
 on public.events for update
@@ -1060,7 +1128,10 @@ using (
 create policy "Signed-in users can read equipment"
 on public.equipment for select
 to authenticated
-using (archived_at is null or public.is_crew_operations_user());
+using (
+  not public.is_visitor_session()
+  and (archived_at is null or public.is_crew_operations_user())
+);
 
 create policy "Production staff can add equipment"
 on public.equipment for insert
@@ -1113,7 +1184,7 @@ using (
 create policy "Signed-in users can read gallery"
 on public.gallery for select
 to authenticated
-using (true);
+using (not public.is_visitor_session());
 
 create policy "Signed-in members can submit gallery projects"
 on public.gallery for insert
@@ -1151,7 +1222,7 @@ using (
 create policy "Signed-in users can read announcements"
 on public.announcements for select
 to authenticated
-using (true);
+using (not public.is_visitor_session());
 
 create policy "Admins can manage announcements"
 on public.announcements for all

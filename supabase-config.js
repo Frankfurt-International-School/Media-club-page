@@ -267,6 +267,46 @@ authStyle.textContent = `
   .auth-lookup-actions { display: none; gap: 8px; margin: 10px 0 16px; }
   .auth-lookup-actions.visible { display: flex; }
   .auth-lookup-actions button { flex: 1; }
+
+  :root[data-theme="dark"] .auth-gate {
+    background:
+      linear-gradient(135deg, rgba(164,1,52,0.22), transparent 36%),
+      linear-gradient(315deg, rgba(94,170,255,0.10), transparent 32%),
+      #101116;
+    color: #f2f3f5;
+  }
+  :root[data-theme="dark"] .auth-gate-card {
+    background: rgba(23,24,31,0.94);
+    border-color: rgba(255,255,255,0.10);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.28);
+  }
+  :root[data-theme="dark"] .auth-gate-logo { background: #f8f9fa; }
+  :root[data-theme="dark"] .auth-gate-kicker,
+  :root[data-theme="dark"] .auth-visitor-divider,
+  :root[data-theme="dark"] .auth-visitor-button span,
+  :root[data-theme="dark"] .auth-gate-note { color: #858a97; }
+  :root[data-theme="dark"] .auth-gate-sub,
+  :root[data-theme="dark"] .auth-gate-label,
+  :root[data-theme="dark"] .auth-remember { color: #b9bdc7; }
+  :root[data-theme="dark"] .auth-gate-input {
+    background: #20212a;
+    border-color: rgba(255,255,255,0.10);
+    color: #f2f3f5;
+  }
+  :root[data-theme="dark"] .auth-visitor-divider::before,
+  :root[data-theme="dark"] .auth-visitor-divider::after { background: rgba(255,255,255,0.10); }
+  :root[data-theme="dark"] .auth-visitor-button {
+    background: #20212a;
+    border-color: rgba(255,255,255,0.12);
+    color: #f2f3f5;
+  }
+  :root[data-theme="dark"] .auth-visitor-button:hover { background: rgba(164,1,52,0.18); }
+  :root[data-theme="dark"] .auth-signout,
+  :root[data-theme="dark"] .auth-visitor-exit {
+    background: #20212a;
+    border-color: rgba(255,255,255,0.10);
+    color: #b9bdc7;
+  }
 `;
 document.head.appendChild(authStyle);
 
@@ -274,7 +314,7 @@ document.body.insertAdjacentHTML("afterbegin", `
   <section class="auth-gate" aria-labelledby="auth-gate-title">
     <div class="auth-gate-card">
       <div class="auth-gate-brand">
-        <img class="auth-gate-logo" src="assets/media-club-logo.svg" alt="Media Club logo">
+        <img class="auth-gate-logo" src="assets/media-club-logo.png" width="128" height="128" alt="Media Club logo">
         <div>
           <div class="auth-gate-name">Media Club</div>
           <div class="auth-gate-kicker">FIS Student Media Club</div>

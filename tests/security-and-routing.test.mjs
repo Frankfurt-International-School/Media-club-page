@@ -11,6 +11,7 @@ const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
 const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.url), 'utf8');
 const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
+const mediaClubLogo = readFileSync(new URL('../assets/media-club-logo.png', import.meta.url));
 const aboutImageNames = [
   'tech-show-crew.webp',
   'stroth-control-room.webp',
@@ -91,6 +92,33 @@ test('fonts are self-hosted with licenses and no Google Fonts runtime requests',
   for (const license of ['BEBAS-NEUE-OFL.txt', 'SPACE-GROTESK-OFL.txt']) {
     assert.match(readFileSync(new URL(`../assets/fonts/${license}`, import.meta.url), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
   }
+});
+
+test('the Media Club logo is a lightweight local raster asset', () => {
+  assert.deepEqual([...mediaClubLogo.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.ok(mediaClubLogo.length < 50_000, 'the small interface logo should remain below 50 KB');
+  assert.match(indexHtml, /assets\/media-club-logo\.png/);
+  assert.match(authSource, /assets\/media-club-logo\.png/);
+  assert.doesNotMatch(indexHtml, /media-club-logo\.svg/);
+  assert.doesNotMatch(authSource, /media-club-logo\.svg/);
+});
+
+test('dark mode includes the signed-out authentication surface', () => {
+  assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate\s*\{/);
+  assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate-card\s*\{/);
+  assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate-input\s*\{/);
+  assert.match(authSource, /:root\[data-theme="dark"\] \.auth-visitor-button\s*\{/);
+});
+
+test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
+  assert.match(indexHtml, /id="route-announcer" aria-live="polite" aria-atomic="true"/);
+  assert.match(indexHtml, /heading\.focus\(\{ preventScroll: false \}\)/);
+  assert.match(indexHtml, /t\.setAttribute\('role', type === 'error' \? 'alert' : 'status'\)/);
+  assert.match(indexHtml, /id="event-filters" role="group" aria-label="Filter events"/);
+  assert.match(indexHtml, /class="filter-chip active" aria-pressed="true"/);
+  assert.match(indexHtml, /class="settings-nav" role="tablist"/);
+  assert.match(indexHtml, /data-settings-section="appearance" role="tabpanel"/);
+  assert.match(indexHtml, /item\.setAttribute\('aria-selected', String\(active\)\)/);
 });
 
 test('primary content pages share the branded page hero', () => {

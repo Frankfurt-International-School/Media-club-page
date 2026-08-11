@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/svg+xml" href="assets/media-club-logo.svg">
+<link rel="icon" type="image/png" href="assets/media-club-logo.png">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="tutorial.css">
 <title>Media Club</title>
@@ -1131,6 +1131,24 @@
   .toast.error svg { color: var(--coral); }
   @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
+  .data-status-banner {
+    margin: 12px 28px 0;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid rgba(255,181,71,0.32);
+    border-radius: var(--radius-sm);
+    background: var(--amber-dim);
+    color: var(--text2);
+    font-size: 12px;
+  }
+  .data-status-banner[hidden] { display: none; }
+  .data-status-copy { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .data-status-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--amber); }
+  .load-error-actions { margin-top: 12px; }
+
   /* ── TABS ── */
   .tab-row {
     display: flex;
@@ -1296,7 +1314,7 @@
   .dashboard-preference-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 18px; }
   @media (max-width: 900px) { .profile-shell, .profile-photo-layout, .settings-layout { grid-template-columns: 1fr; } .settings-nav { position: static; display: flex; overflow-x: auto; } .settings-nav button { white-space: nowrap; } .profile-crop-frame { width: min(280px, 100%); aspect-ratio: 1; height: auto; } .all-pages-popover { left: 12px; right: 12px; bottom: 12px; width: auto; } }
   @media (max-width: 980px) { .dashboard-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 760px) { .dashboard-header { align-items: stretch; flex-direction: column; } .dashboard-header-actions .btn { width: 100%; justify-content: center; } .dashboard-hero { grid-template-columns: 1fr; min-height: 0; padding: 22px; } .dashboard-hero::before { width: 160px; top: -34px; right: -42px; opacity: .055; } .dashboard-hero-action { justify-content: flex-start; } .dashboard-module-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .dashboard-header { align-items: stretch; flex-direction: column; } .dashboard-header-actions .btn { width: 100%; justify-content: center; } .dashboard-hero { grid-template-columns: 1fr; min-height: 0; padding: 22px; } .dashboard-hero::before { width: 160px; top: -34px; right: -42px; opacity: .055; } .dashboard-hero-action { justify-content: flex-start; } .dashboard-module-grid { grid-template-columns: 1fr; } .data-status-banner { margin: 10px 16px 0; align-items: flex-start; flex-direction: column; } }
   @media (max-width: 520px) { .sidebar-choice-grid, .dashboard-stat-grid { grid-template-columns: 1fr; } .dashboard-widget-choice { grid-template-columns: auto minmax(0, 1fr); } .dashboard-order-actions { grid-column: 2; } }
 
   /* ── FILTER CHIPS ── */
@@ -1870,7 +1888,7 @@
 <!-- ── SIDEBAR ── -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-mark"><img class="logo-image" src="assets/media-club-logo.svg" alt="Media Club logo"><span class="logo-copy">Media Club</span></div>
+    <div class="logo-mark"><img class="logo-image" src="assets/media-club-logo.png" width="128" height="128" alt="Media Club logo"><span class="logo-copy">Media Club</span></div>
     <div class="logo-sub logo-copy">FIS Student Media club</div>
   </div>
   <nav class="sidebar-nav">
@@ -1971,6 +1989,8 @@
     </div>
   </div>
   <div class="notification-panel" id="notification-panel" role="dialog" aria-label="Notifications"><div class="notification-panel-head"><div><div class="all-pages-title">Notifications</div><div class="text-muted">Updates and actions that need your attention.</div></div><button class="btn btn-ghost btn-sm" onclick="markNotificationsRead()">Mark read</button></div><div class="notification-list" id="notification-list"></div></div>
+  <div class="data-status-banner" id="data-status-banner" role="status" aria-live="polite" aria-atomic="true" hidden><span class="data-status-copy"><span class="data-status-dot" aria-hidden="true"></span><span id="data-status-message"></span></span><button type="button" class="btn btn-ghost btn-sm" onclick="retryFailedDatasets()">Retry</button></div>
+  <div class="visually-hidden" id="route-announcer" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ── ABOUT MEDIA CLUB ── -->
   <div id="page-about" class="page">
@@ -2098,7 +2118,7 @@
     <div class="dashboard-header">
       <div>
         <div class="page-title"><span id="dashboard-greeting">Good afternoon</span> <span class="wave-hand" id="wave-hand">👋</span></div>
-        <div class="page-sub">Your personal Media Club operations overview.</div>
+        <div class="page-sub" id="dashboard-subtitle">Your personal Media Club operations overview.</div>
       </div>
       <div class="dashboard-header-actions"><button class="btn btn-ghost" id="dashboard-customize-button" onclick="openDashboardSettings()" hidden>Customize dashboard</button></div>
     </div>
@@ -2120,13 +2140,13 @@
           Add event
         </button></div>
     </section>
-    <div class="filter-row" id="event-filters">
-      <button class="filter-chip active" onclick="filterEvents('all', this)">All</button>
-      <button class="filter-chip" onclick="filterEvents('Livestream', this)">Livestream</button>
-      <button class="filter-chip" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
-      <button class="filter-chip" onclick="filterEvents('Event', this)">Event</button>
-      <button class="filter-chip" onclick="filterEvents('Other', this)">Other</button>
-      <button class="filter-chip" id="past-events-toggle" onclick="togglePastEvents()">Show past events</button>
+    <div class="filter-row" id="event-filters" role="group" aria-label="Filter events">
+      <button class="filter-chip active" aria-pressed="true" onclick="filterEvents('all', this)">All</button>
+      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Livestream', this)">Livestream</button>
+      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
+      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Event', this)">Event</button>
+      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Other', this)">Other</button>
+      <button class="filter-chip" id="past-events-toggle" aria-pressed="false" onclick="togglePastEvents()">Show past events</button>
     </div>
     <div id="events-list"></div>
     <section class="archived-panel" id="archived-events-panel" hidden>
@@ -2411,9 +2431,16 @@
     <div class="page-title mb8">Settings</div>
     <div class="page-sub mb24">Manage your account, appearance, navigation, and notifications.</div>
     <div class="settings-layout">
-      <nav class="settings-nav" aria-label="Settings sections"><button class="active" onclick="showSettingsSection('profile', this)">Profile</button><button onclick="showSettingsSection('appearance', this)">Appearance</button><button id="dashboard-settings-tab" onclick="showSettingsSection('dashboard', this)">Dashboard</button><button onclick="showSettingsSection('sidebar', this)">Sidebar</button><button onclick="showSettingsSection('notifications', this)">Notifications</button><button id="tutorial-settings-tab" onclick="showSettingsSection('tutorials', this)">Tutorials</button></nav>
+      <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+        <button id="settings-tab-profile" class="active" role="tab" aria-selected="true" tabindex="0" aria-controls="settings-panel-profile" onclick="showSettingsSection('profile', this)" onkeydown="handleTabKeydown(event)">Profile</button>
+        <button id="settings-tab-appearance" role="tab" aria-selected="false" tabindex="-1" aria-controls="settings-panel-appearance" onclick="showSettingsSection('appearance', this)" onkeydown="handleTabKeydown(event)">Appearance</button>
+        <button id="dashboard-settings-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="dashboard-preferences-panel" onclick="showSettingsSection('dashboard', this)" onkeydown="handleTabKeydown(event)">Dashboard</button>
+        <button id="settings-tab-sidebar" role="tab" aria-selected="false" tabindex="-1" aria-controls="sidebar-preferences-panel" onclick="showSettingsSection('sidebar', this)" onkeydown="handleTabKeydown(event)">Sidebar</button>
+        <button id="settings-tab-notifications" role="tab" aria-selected="false" tabindex="-1" aria-controls="notification-preferences-panel" onclick="showSettingsSection('notifications', this)" onkeydown="handleTabKeydown(event)">Notifications</button>
+        <button id="tutorial-settings-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="tutorial-settings-panel" onclick="showSettingsSection('tutorials', this)" onkeydown="handleTabKeydown(event)">Tutorials</button>
+      </nav>
       <div class="settings-content">
-      <section class="profile-panel active" data-settings-section="profile">
+      <section class="profile-panel active" id="settings-panel-profile" data-settings-section="profile" role="tabpanel" aria-labelledby="settings-tab-profile" tabindex="0">
         <div class="profile-panel-head"><h3>Profile picture</h3><p>Choose an image, drag to reposition it, and adjust the crop.</p></div>
         <div class="profile-panel-body profile-photo-layout">
           <div class="profile-crop-frame" id="profile-crop-frame">
@@ -2430,14 +2457,14 @@
           </div>
         </div>
       </section>
-      <section class="profile-panel" data-settings-section="appearance">
+      <section class="profile-panel" id="settings-panel-appearance" data-settings-section="appearance" role="tabpanel" aria-labelledby="settings-tab-appearance" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Appearance</h3><p>Your theme is remembered on this browser.</p></div>
         <div class="profile-panel-body"><div class="theme-options">
           <button class="theme-choice" id="theme-light" onclick="setCrewCenterTheme('light')"><span class="theme-swatch light"><span></span><span></span></span><strong>Light</strong></button>
           <button class="theme-choice" id="theme-dark" onclick="setCrewCenterTheme('dark')"><span class="theme-swatch dark"><span></span><span></span></span><strong>Dark</strong></button>
         </div></div>
       </section>
-      <section class="profile-panel" id="dashboard-preferences-panel" data-settings-section="dashboard">
+      <section class="profile-panel" id="dashboard-preferences-panel" data-settings-section="dashboard" role="tabpanel" aria-labelledby="dashboard-settings-tab" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Dashboard</h3><p>Choose and order the information shown on your dashboard. These preferences follow your account across devices.</p></div>
         <div class="profile-panel-body">
           <div class="dashboard-preference-group"><div class="dashboard-preference-heading"><strong>Statistics</strong><span>Choose 2–4</span></div><div class="dashboard-choice-list" id="dashboard-stat-choices"></div></div>
@@ -2445,7 +2472,7 @@
           <div class="dashboard-preference-actions"><button class="btn btn-accent" id="dashboard-preference-save" onclick="saveDashboardPreferences()">Save dashboard</button><button class="btn btn-ghost" onclick="resetDashboardPreferenceForm()">Restore recommended</button><span class="text-muted">Your Next up card always remains visible.</span></div>
         </div>
       </section>
-      <section class="profile-panel" id="sidebar-preferences-panel" data-settings-section="sidebar">
+      <section class="profile-panel" id="sidebar-preferences-panel" data-settings-section="sidebar" role="tabpanel" aria-labelledby="settings-tab-sidebar" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Sidebar</h3><p>Choose the pages you use most. Your selection follows your account across devices.</p></div>
         <div class="profile-panel-body">
           <label class="sidebar-customize-toggle"><span><strong>Customize sidebar</strong><span class="text-muted" style="display:block;">Keep at least one page from each category.</span></span><input id="sidebar-customize-enabled" type="checkbox" onchange="toggleSidebarCustomization(this.checked)"></label>
@@ -2453,7 +2480,7 @@
           <div class="sidebar-preference-actions" id="sidebar-preference-actions"><button class="btn btn-accent" id="sidebar-preference-save" onclick="saveSidebarPreferences()">Save sidebar</button><span class="text-muted">Hidden pages remain available from All pages.</span></div>
         </div>
       </section>
-      <section class="profile-panel" id="notification-preferences-panel" data-settings-section="notifications">
+      <section class="profile-panel" id="notification-preferences-panel" data-settings-section="notifications" role="tabpanel" aria-labelledby="settings-tab-notifications" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Notifications</h3><p>Choose which in-app updates you want to receive.</p></div>
         <div class="profile-panel-body"><div class="notification-choice-list">
           <label class="notification-choice"><span><strong>New events and signups</strong><span class="text-muted" style="display:block;">Notify me when a new event is created and opens for signup.</span></span><input id="notify-event-created" type="checkbox"></label>
@@ -2461,7 +2488,7 @@
           <label class="notification-choice"><span><strong>Maybe confirmation reminders</strong><span class="text-muted" style="display:block;">Show countdowns for signups that still need confirmation.</span></span><input id="notify-maybe-reminders" type="checkbox"></label>
         </div><button class="btn btn-accent" id="notification-preference-save" style="margin-top:16px;" onclick="saveNotificationPreferences()">Save notifications</button></div>
       </section>
-      <section class="profile-panel" id="tutorial-settings-panel" data-settings-section="tutorials">
+      <section class="profile-panel" id="tutorial-settings-panel" data-settings-section="tutorials" role="tabpanel" aria-labelledby="tutorial-settings-tab" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Crew Center tutorials</h3><p>Learn the whole Crew Center or replay a guide for one page.</p></div>
         <div class="profile-panel-body">
           <div class="tutorial-settings-entry">
@@ -2846,13 +2873,12 @@ const state = {
   gallery: [],
   equipment: [],
   archivedEquipment: [],
-  announcements: [
-    { id: 1, title: "New camera training slots open", body: "Sign up for a 1-hour induction on the Sony A7 III before borrowing it for the first time.", date: "May 5" },
-    { id: 2, title: "End-of-year screening: submit projects", body: "Submit your films or photo series by June 1st for consideration in the screening night.", date: "Apr 28" },
-    { id: 3, title: "Photography competition now open", body: "The theme this term is 'Urban life'. Entries close May 20. Any member can enter.", date: "Apr 20" },
-  ],
+  announcements: [],
   applications: [],
   notifications: [],
+  dataErrors: {},
+  dataLoaded: {},
+  dataUpdatedAt: {},
   eventFilter: "all",
   showPastEvents: false,
   galleryFilter: "all",
@@ -2898,6 +2924,10 @@ function canAccessAdminPanel() {
   return role === 'faculty';
 }
 
+function isVisitorSession() {
+  return Boolean(window.CREW_CENTER_IS_VISITOR || state.currentUser.isVisitor);
+}
+
 function canAddMembers() {
   return Boolean(window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin);
 }
@@ -2934,7 +2964,7 @@ function canAccessCrewSchedule() {
 window.canAccessCrewSchedule = canAccessCrewSchedule;
 
 function currentUserSignupRoleKeys() {
-  if (state.currentUser.isVisitor) return [];
+  if (isVisitorSession()) return [];
   if (canAccessAdminPanel()) return adminSignupRoles;
   const memberRecord = currentMemberRecord();
   const role = normalizeRoleName(memberRecord?.role || state.currentUser.role);
@@ -3187,11 +3217,62 @@ function validateSignupNameInput(canonicalize = false) {
   return matches;
 }
 
-function showLoadError(targetId, message = "Couldn't load data.") {
+const datasetLabels = {
+  members: 'member directory',
+  events: 'events',
+  gallery: 'project gallery',
+  equipment: 'equipment register',
+  announcements: 'announcements',
+  applications: 'applications',
+  notifications: 'notifications',
+};
+
+const datasetErrorTargets = {
+  members: ['members-grid'],
+  events: ['dashboard-focus', 'events-list'],
+  gallery: ['about-recent-projects', 'gallery-grid'],
+  equipment: ['equipment-grid'],
+  applications: ['pending-list'],
+};
+
+function showLoadError(targetId, message = "Couldn't load data.", dataset = '') {
   const target = document.getElementById(targetId);
   if (target) {
-    target.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><p>${escapeHtml(message)}</p></div>`;
+    const retry = dataset ? `<div class="load-error-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="retryDataset('${dataset}')">Retry</button></div>` : '';
+    target.innerHTML = `<div class="empty-state" style="grid-column:1/-1" role="status"><p>${escapeHtml(message)}</p>${retry}</div>`;
   }
+}
+
+function renderDataStatus() {
+  const banner = document.getElementById('data-status-banner');
+  const message = document.getElementById('data-status-message');
+  if (!banner || !message) return;
+  const failed = Object.keys(state.dataErrors);
+  banner.hidden = failed.length === 0;
+  if (!failed.length) {
+    message.textContent = '';
+    return;
+  }
+  const labels = failed.map(dataset => datasetLabels[dataset] || dataset);
+  message.textContent = `${labels.join(', ')} ${labels.length === 1 ? 'is' : 'are'} temporarily unavailable. Other information remains usable.`;
+}
+
+function renderDatasetErrors() {
+  Object.entries(state.dataErrors).forEach(([dataset, message]) => {
+    if (state.dataLoaded[dataset]) return;
+    (datasetErrorTargets[dataset] || []).forEach(targetId => showLoadError(targetId, message, dataset));
+  });
+  renderDataStatus();
+}
+
+function retryDataset(dataset) {
+  if (!datasetLabels[dataset]) return;
+  loadCrewCenterData({ datasets: [dataset] });
+}
+
+function retryFailedDatasets() {
+  const datasets = Object.keys(state.dataErrors);
+  if (datasets.length) loadCrewCenterData({ datasets });
 }
 
 function splitName(name = '') {
@@ -3300,12 +3381,13 @@ function normalizeEvent(event) {
 
 function normalizeGallery(item) {
   const directoryMember = state.members.find(member => member.id === item.member_id);
+  const visitor = isVisitorSession();
   return {
     id: item.id,
     title: item.project_name,
     type: item.project_type || 'Photo',
-    memberId: item.member_id || '',
-    author: item.members?.name || directoryMember?.name || 'Media Club member',
+    memberId: visitor ? '' : item.member_id || '',
+    author: visitor ? 'Media Club' : item.members?.name || directoryMember?.name || 'Media Club member',
     desc: item.description || '',
     link: item.project_url || item.image_url || '#',
     image_url: item.image_url || '',
@@ -3373,82 +3455,180 @@ function normalizeApplication(item) {
   };
 }
 
-async function loadCrewCenterData() {
-  if (!supabaseClient || !supabaseSettings.url || supabaseSettings.url.includes('YOUR-PROJECT-REF')) {
-    showToast('Add your Supabase URL and anon key in supabase-config.js.', 'error');
-    ['dashboard-focus', 'about-recent-projects', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
-    return;
+const crewCenterDatasets = ['members', 'events', 'gallery', 'equipment', 'announcements', 'applications', 'notifications'];
+const queuedDatasets = new Set();
+let dataLoadPromise = null;
+let realtimeLoadTimer = null;
+const pendingRealtimeDatasets = new Set();
+
+function crewCenterDatasetRequest(dataset, visitor) {
+  if (visitor) {
+    const publicRpc = {
+      events: 'get_public_events',
+      gallery: 'get_public_gallery',
+      equipment: 'get_public_equipment',
+      announcements: 'get_public_announcements',
+    }[dataset];
+    if (publicRpc) return supabaseClient.rpc(publicRpc);
+    return Promise.resolve({ data: [], error: null });
   }
+  const requests = {
+    members: () => supabaseClient.from('members').select('*').order('name'),
+    events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
+    gallery: () => supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
+    equipment: () => supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
+    announcements: () => supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }).limit(30),
+    applications: () => supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
+    notifications: () => supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
+  };
+  return requests[dataset]();
+}
 
-  try {
-    const visitor = state.currentUser.isVisitor;
-    const [membersRes, eventsRes, galleryRes, equipmentRes, announcementsRes, applicationsRes, notificationsRes] = await Promise.all([
-      visitor ? supabaseClient.rpc('get_public_member_directory') : supabaseClient.from('members').select('*').order('name'),
-      visitor ? supabaseClient.from('events').select('*').order('date', { ascending: true }) : supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
-      visitor ? supabaseClient.from('gallery').select('*').order('created_at', { ascending: false }) : supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
-      visitor ? supabaseClient.from('equipment').select('*').order('name') : supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
-      supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
-      visitor ? Promise.resolve({ data: [], error: null }) : supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
-      visitor ? Promise.resolve({ data: [], error: null }) : supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
-    ]);
-
-    const failed = [membersRes, eventsRes, galleryRes, equipmentRes].find(result => result.error);
-    if (failed) throw failed.error;
-
-    state.members = membersRes.data.map(normalizeMember);
+function applyCrewCenterDataset(dataset, rows) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (dataset === 'members') {
+    state.members = data.map(normalizeMember);
     syncCurrentUserWithMemberRecord();
-    const normalizedEvents = eventsRes.data.map(normalizeEvent);
-    state.events = normalizedEvents.filter(event => !event.archivedAt);
-    state.archivedEvents = normalizedEvents.filter(event => event.archivedAt);
-    state.gallery = galleryRes.data.map(normalizeGallery);
-    const normalizedEquipment = equipmentRes.data.map(normalizeEquipment);
-    state.equipment = normalizedEquipment.filter(item => !item.archivedAt);
-    state.archivedEquipment = normalizedEquipment.filter(item => item.archivedAt);
-    if (!announcementsRes.error) {
-      state.announcements = announcementsRes.data.map(normalizeAnnouncement);
-    }
-    if (!applicationsRes.error && canAccessAdminPanel()) {
-      state.applications = applicationsRes.data.map(normalizeApplication);
-    }
-    state.notifications = notificationsRes.error ? [] : notificationsRes.data;
-    updateAdminPendingIndicator();
-    window.applyCrewCenterAdminControls?.();
-    applySidebarPreferences();
-    renderNotificationCenter();
-    renderGalleryAuthorField();
-    window.CREW_CENTER_DATA_LOADED = true;
-    if (pageFromPath() === 'admin') {
-      navigate(canAccessAdminPanel() ? 'admin' : 'home', navItemForPage(canAccessAdminPanel() ? 'admin' : 'home'), { skipUrl: canAccessAdminPanel() });
-    } else if (pageFromPath() === 'equipment-status') {
-      navigate(canAccessEquipmentStatus() ? 'equipment-status' : 'home', navItemForPage(canAccessEquipmentStatus() ? 'equipment-status' : 'home'), { skipUrl: canAccessEquipmentStatus() });
-    } else if (pageFromPath() === 'crew-deployment') {
-      navigate(canAccessCrewSchedule() ? 'crew-deployment' : 'home', navItemForPage(canAccessCrewSchedule() ? 'crew-deployment' : 'home'), { skipUrl: canAccessCrewSchedule() });
-    }
-    renderCurrentPage();
-    scheduleEventVisibilityRefresh();
-    window.updateCrewCenterEventsBadge?.();
-  } catch (error) {
-    console.error(error);
-    showToast("Couldn't load Supabase data.", 'error');
-    ['dashboard-focus', 'about-recent-projects', 'events-list', 'members-grid', 'gallery-grid', 'equipment-grid'].forEach(id => showLoadError(id));
+  } else if (dataset === 'events') {
+    const normalized = data.map(normalizeEvent);
+    state.events = normalized.filter(event => !event.archivedAt);
+    state.archivedEvents = normalized.filter(event => event.archivedAt);
+  } else if (dataset === 'gallery') {
+    state.gallery = data.map(normalizeGallery);
+  } else if (dataset === 'equipment') {
+    const normalized = data.map(normalizeEquipment);
+    state.equipment = normalized.filter(item => !item.archivedAt);
+    state.archivedEquipment = normalized.filter(item => item.archivedAt);
+  } else if (dataset === 'announcements') {
+    state.announcements = data.map(normalizeAnnouncement);
+  } else if (dataset === 'applications') {
+    state.applications = canAccessAdminPanel() ? data.map(normalizeApplication) : [];
+  } else if (dataset === 'notifications') {
+    state.notifications = data;
   }
 }
 
+async function loadCrewCenterDatasetBatch(datasets, silent) {
+  const visitor = isVisitorSession();
+  const results = await Promise.all(datasets.map(async dataset => {
+    try {
+      return [dataset, await crewCenterDatasetRequest(dataset, visitor)];
+    } catch (error) {
+      return [dataset, { data: null, error }];
+    }
+  }));
+  const failed = [];
+  results.forEach(([dataset, result]) => {
+    if (result?.error) {
+      console.error(`Couldn't load ${dataset}.`, result.error);
+      state.dataErrors[dataset] = `Couldn't load the ${datasetLabels[dataset] || dataset}.`;
+      failed.push(dataset);
+      return;
+    }
+    delete state.dataErrors[dataset];
+    state.dataLoaded[dataset] = true;
+    state.dataUpdatedAt[dataset] = Date.now();
+    applyCrewCenterDataset(dataset, result?.data);
+  });
+
+  updateAdminPendingIndicator();
+  window.applyCrewCenterAdminControls?.();
+  applySidebarPreferences();
+  renderNotificationCenter();
+  renderGalleryAuthorField();
+  window.CREW_CENTER_DATA_LOADED = ['events', 'gallery', 'equipment'].every(dataset => state.dataLoaded[dataset]);
+  if (pageFromPath() === 'admin') {
+    navigate(canAccessAdminPanel() ? 'admin' : 'home', navItemForPage(canAccessAdminPanel() ? 'admin' : 'home'), { skipUrl: canAccessAdminPanel(), preserveFocus: true });
+  } else if (pageFromPath() === 'equipment-status') {
+    navigate(canAccessEquipmentStatus() ? 'equipment-status' : 'home', navItemForPage(canAccessEquipmentStatus() ? 'equipment-status' : 'home'), { skipUrl: canAccessEquipmentStatus(), preserveFocus: true });
+  } else if (pageFromPath() === 'crew-deployment') {
+    navigate(canAccessCrewSchedule() ? 'crew-deployment' : 'home', navItemForPage(canAccessCrewSchedule() ? 'crew-deployment' : 'home'), { skipUrl: canAccessCrewSchedule(), preserveFocus: true });
+  }
+  renderCurrentPage();
+  renderDatasetErrors();
+  scheduleEventVisibilityRefresh();
+  window.updateCrewCenterEventsBadge?.();
+  if (failed.length && !silent) {
+    showToast(`Some information could not be refreshed: ${failed.map(dataset => datasetLabels[dataset] || dataset).join(', ')}.`, 'error', 7000);
+  }
+}
+
+async function loadCrewCenterData(options = {}) {
+  if (!supabaseClient || !supabaseSettings.url || supabaseSettings.url.includes('YOUR-PROJECT-REF')) {
+    crewCenterDatasets.forEach(dataset => { state.dataErrors[dataset] = `Couldn't load the ${datasetLabels[dataset] || dataset}.`; });
+    renderDatasetErrors();
+    showToast('Add your Supabase URL and anon key in supabase-config.js.', 'error');
+    return;
+  }
+  const requested = Array.isArray(options.datasets) && options.datasets.length ? options.datasets : crewCenterDatasets;
+  requested.filter(dataset => crewCenterDatasets.includes(dataset)).forEach(dataset => queuedDatasets.add(dataset));
+  if (dataLoadPromise) return dataLoadPromise;
+  dataLoadPromise = (async () => {
+    let silent = options.silent === true;
+    while (queuedDatasets.size) {
+      const batch = [...queuedDatasets];
+      queuedDatasets.clear();
+      await loadCrewCenterDatasetBatch(batch, silent);
+      silent = true;
+    }
+  })();
+  try {
+    await dataLoadPromise;
+  } finally {
+    dataLoadPromise = null;
+  }
+}
+
+function queueRealtimeDataLoad(...datasets) {
+  if (isVisitorSession()) return;
+  datasets.forEach(dataset => pendingRealtimeDatasets.add(dataset));
+  if (realtimeLoadTimer) clearTimeout(realtimeLoadTimer);
+  realtimeLoadTimer = setTimeout(() => {
+    const pending = [...pendingRealtimeDatasets];
+    pendingRealtimeDatasets.clear();
+    loadCrewCenterData({ datasets: pending, silent: true });
+  }, 250);
+}
+
+function refreshVisitorDataForPage(page) {
+  if (!isVisitorSession()) return;
+  const pageDatasets = {
+    about: ['gallery'],
+    home: ['events', 'gallery', 'equipment', 'announcements'],
+    events: ['events'],
+    gallery: ['gallery'],
+    equipment: ['equipment'],
+  }[page] || [];
+  const stale = pageDatasets.filter(dataset => !state.dataUpdatedAt[dataset] || Date.now() - state.dataUpdatedAt[dataset] > 120000);
+  if (stale.length) loadCrewCenterData({ datasets: stale, silent: true });
+}
+
 function subscribeToCrewCenterChanges() {
-  if (!supabaseClient || window.CREW_CENTER_REALTIME_READY) return;
-  window.CREW_CENTER_REALTIME_READY = true;
-  supabaseClient
-    .channel('crew-center-live-data')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment_reservations' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'join_applications' }, loadCrewCenterData)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, loadCrewCenterData)
-    .subscribe();
+  if (!supabaseClient) return;
+  const mode = isVisitorSession() ? 'visitor' : 'member';
+  if (window.CREW_CENTER_REALTIME_READY === mode) return;
+  if (window.CREW_CENTER_REALTIME_CHANNEL) {
+    supabaseClient.removeChannel(window.CREW_CENTER_REALTIME_CHANNEL);
+    window.CREW_CENTER_REALTIME_CHANNEL = null;
+  }
+  window.CREW_CENTER_REALTIME_READY = mode;
+  if (mode === 'visitor') return;
+  const tableDatasets = {
+    members: ['members', 'gallery'],
+    events: ['events', 'equipment'],
+    signups: ['events'],
+    gallery: ['gallery'],
+    equipment: ['equipment'],
+    equipment_reservations: ['equipment'],
+    announcements: ['announcements'],
+    join_applications: ['applications'],
+    notifications: ['notifications'],
+  };
+  let channel = supabaseClient.channel('crew-center-live-data');
+  Object.entries(tableDatasets).forEach(([table, datasets]) => {
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => queueRealtimeDataLoad(...datasets));
+  });
+  window.CREW_CENTER_REALTIME_CHANNEL = channel.subscribe();
 }
 
 function renderCurrentPage() {
@@ -3570,7 +3750,8 @@ const dashboardStatCatalog = {
   available_equipment: { label: 'Available equipment', description: 'Equipment ready to reserve right now.', access: 'public', tone: 'teal' },
   my_reservations: { label: 'My reservations', description: 'Your scheduled and active equipment loans.', access: 'member', tone: 'blue' },
   projects: { label: 'Projects', description: 'Published Media Club work.', access: 'public', tone: 'coral' },
-  members: { label: 'Members', description: 'Approved members in the directory.', access: 'public', tone: 'amber' },
+  event_categories: { label: 'Event types', description: 'The range of upcoming Media Club productions.', access: 'public', tone: 'amber' },
+  members: { label: 'Members', description: 'Approved members in the directory.', access: 'member', tone: 'amber' },
   checked_out: { label: 'Checked out', description: 'Equipment currently in active use.', access: 'operations', tone: 'coral' },
   pending_applications: { label: 'Pending applications', description: 'Applications awaiting a decision.', access: 'admin', tone: 'amber' },
 };
@@ -3585,13 +3766,13 @@ const dashboardSectionCatalog = {
 function dashboardPreferenceAvailable(definition) {
   if (definition.access === 'admin') return canAccessAdminPanel();
   if (definition.access === 'operations') return canManageCrewOperations();
-  if (definition.access === 'member') return !state.currentUser.isVisitor && Boolean(currentMemberRecord());
+  if (definition.access === 'member') return !isVisitorSession() && Boolean(currentMemberRecord());
   return true;
 }
 
 function dashboardPreferenceDefaults() {
-  if (state.currentUser.isVisitor || !currentMemberRecord()) {
-    return { stats: ['upcoming_events', 'available_equipment', 'projects', 'members'], sections: ['upcoming_events', 'announcements', 'equipment_snapshot'] };
+  if (isVisitorSession() || !currentMemberRecord()) {
+    return { stats: ['upcoming_events', 'available_equipment', 'projects', 'event_categories'], sections: ['upcoming_events', 'announcements', 'equipment_snapshot'] };
   }
   if (canAccessAdminPanel()) {
     return { stats: ['pending_applications', 'upcoming_events', 'checked_out', 'members'], sections: ['upcoming_events', 'equipment_snapshot', 'announcements'] };
@@ -3821,6 +4002,9 @@ function navigate(id, el, options = {}) {
     activeNav.setAttribute('aria-current', 'page');
   }
   document.getElementById('topbar-title').textContent = pageTitles[page] || page;
+  const pageLabel = pageTitles[page] || page;
+  const announcer = document.getElementById('route-announcer');
+  if (announcer) announcer.textContent = `${pageLabel} page`;
   requestAnimationFrame(() => updateSlidingTab(document.querySelector(`#page-${page} .tab-row`)));
   document.getElementById('auth-signout')?.classList.toggle('visible', page === 'profile');
   if (!options.skipUrl) {
@@ -3840,7 +4024,18 @@ function navigate(id, el, options = {}) {
   if (page === 'crew-deployment') initCrewDeployment();
   if (page === 'profile') renderProfile();
   if (page === 'admin') renderAdmin();
+  renderDatasetErrors();
   closeMobileSidebar();
+  refreshVisitorDataForPage(page);
+  if (!options.preserveFocus) {
+    requestAnimationFrame(() => {
+      const activePage = document.getElementById('page-' + page);
+      const heading = activePage?.querySelector('h1, .page-title');
+      if (!heading) return;
+      heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: false });
+    });
+  }
 }
 
 function openPageFromUrl() {
@@ -4016,6 +4211,8 @@ function showToast(msg, type = 'success', duration = 3500) {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
   t.className = `toast ${type}`;
+  t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  t.setAttribute('aria-atomic', 'true');
   const icon = type === 'success'
     ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>`
     : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
@@ -4129,7 +4326,7 @@ function updateUserSurfaces() {
 }
 
 function syncCurrentUserWithMemberRecord() {
-  if (state.currentUser.isVisitor) return;
+  if (isVisitorSession()) return;
   const member = currentMemberRecord();
   if (!member) return;
   state.currentUser.name = member.name;
@@ -4161,14 +4358,14 @@ function renderProfile() {
   updateThemeChoices();
   const dashboardPanel = document.getElementById('dashboard-preferences-panel');
   const dashboardTab = document.getElementById('dashboard-settings-tab');
-  const dashboardAvailable = !state.currentUser.isVisitor && Boolean(currentMemberRecord());
+  const dashboardAvailable = !isVisitorSession() && Boolean(currentMemberRecord());
   if (dashboardPanel) dashboardPanel.style.display = dashboardAvailable ? '' : 'none';
   if (dashboardTab) dashboardTab.style.display = dashboardAvailable ? '' : 'none';
   const sidebarPanel = document.getElementById('sidebar-preferences-panel');
-  if (sidebarPanel) sidebarPanel.style.display = state.currentUser.isVisitor || !currentMemberRecord() ? 'none' : '';
+  if (sidebarPanel) sidebarPanel.style.display = isVisitorSession() || !currentMemberRecord() ? 'none' : '';
   const tutorialPanel = document.getElementById('tutorial-settings-panel');
   const tutorialTab = document.getElementById('tutorial-settings-tab');
-  const tutorialAvailable = !state.currentUser.isVisitor && Boolean(currentMemberRecord());
+  const tutorialAvailable = !isVisitorSession() && Boolean(currentMemberRecord());
   if (tutorialPanel) tutorialPanel.style.display = tutorialAvailable ? '' : 'none';
   if (tutorialTab) tutorialTab.style.display = tutorialAvailable ? '' : 'none';
   renderDashboardSettings();
@@ -4178,8 +4375,17 @@ function renderProfile() {
 }
 
 function showSettingsSection(section, button) {
-  document.querySelectorAll('.settings-content [data-settings-section]').forEach(panel => panel.classList.toggle('active', panel.dataset.settingsSection === section));
-  document.querySelectorAll('.settings-nav button').forEach(item => item.classList.toggle('active', item === button));
+  document.querySelectorAll('.settings-content [data-settings-section]').forEach(panel => {
+    const active = panel.dataset.settingsSection === section;
+    panel.classList.toggle('active', active);
+    panel.hidden = !active;
+  });
+  document.querySelectorAll('.settings-nav [role="tab"]').forEach(item => {
+    const active = item === button;
+    item.classList.toggle('active', active);
+    item.setAttribute('aria-selected', String(active));
+    item.tabIndex = active ? 0 : -1;
+  });
 }
 
 function currentNotificationPreferences() {
@@ -4191,7 +4397,7 @@ function renderNotificationSettings() {
   const mapping = { 'notify-event-created': 'event_created', 'notify-event-reminders': 'event_reminders', 'notify-maybe-reminders': 'maybe_reminders' };
   Object.entries(mapping).forEach(([id, key]) => { const input = document.getElementById(id); if (input) input.checked = preferences[key]; });
   const panel = document.getElementById('notification-preferences-panel');
-  if (panel) panel.style.display = state.currentUser.isVisitor || !currentMemberRecord() ? 'none' : '';
+  if (panel) panel.style.display = isVisitorSession() || !currentMemberRecord() ? 'none' : '';
 }
 
 async function saveNotificationPreferences() {
@@ -4221,7 +4427,7 @@ function renderNotificationCenter() {
   const list = document.getElementById('notification-list');
   const badge = document.getElementById('notification-count');
   if (!list || !badge) return;
-  if (state.currentUser.isVisitor || !currentMemberRecord()) {
+  if (isVisitorSession() || !currentMemberRecord()) {
     list.innerHTML = '<div class="empty-state" style="padding:24px 12px;"><p>Member notifications are unavailable in visitor mode.</p></div>';
     badge.classList.remove('visible');
     return;
@@ -4458,6 +4664,7 @@ function dashboardStatValues() {
   const projectsThisMonth = state.gallery.filter(project => project.created_at && berlinDateKey(project.created_at) >= monthStartKey).length;
   const availableEquipment = state.equipment.filter(item => equipmentDisplayStatus(item) === 'available').length;
   const checkedOutEquipment = state.equipment.filter(item => equipmentDisplayStatus(item) === 'checked_out').length;
+  const eventCategories = new Set(upcomingEvents.map(event => event.cat).filter(Boolean));
   const pendingConfirmations = commitments.filter(({ signup }) => signup.confirmationStatus === 'maybe').length;
   const activeReservations = reservations.filter(({ reservation }) => reservationLifecycleStatus(reservation) === 'checked_out').length;
   const pendingApplications = state.applications.filter(application => application.status === 'pending').length;
@@ -4467,6 +4674,7 @@ function dashboardStatValues() {
     available_equipment: { value: availableEquipment, sub: state.equipment.length ? `${state.equipment.length} items in the register` : 'Equipment register is empty' },
     my_reservations: { value: reservations.length, sub: activeReservations ? `${activeReservations} checked out now` : reservations.length ? 'Upcoming loans scheduled' : 'No active reservations' },
     projects: { value: state.gallery.length, sub: projectsThisMonth ? `${projectsThisMonth} added this month` : 'Ready for new submissions' },
+    event_categories: { value: eventCategories.size, sub: eventCategories.size ? 'Across upcoming productions' : 'Explore the Media Role Guide' },
     members: { value: state.members.length, sub: `${membersThisMonth} joined this month` },
     checked_out: { value: checkedOutEquipment, sub: checkedOutEquipment ? 'Currently with members' : 'Everything has been returned' },
     pending_applications: { value: pendingApplications, sub: pendingApplications ? 'Waiting for review' : 'Application queue is clear' },
@@ -4491,7 +4699,8 @@ function renderDashboardFocus(upcomingEvents, commitments) {
   const ownNext = commitments[0];
   const event = ownNext?.event || upcomingEvents[0];
   if (!event) {
-    focus.innerHTML = `<div class="dashboard-hero-copy"><div class="dashboard-eyebrow">Next up</div><div class="dashboard-hero-title">Your schedule is clear</div><div class="dashboard-hero-meta"><span>No upcoming Media Club events are currently scheduled.</span></div></div><div class="dashboard-hero-action"><button class="btn btn-accent" onclick="navigate('events', navItemForPage('events'))">Open events</button></div>`;
+    const title = isVisitorSession() ? 'No upcoming events' : 'Your schedule is clear';
+    focus.innerHTML = `<div class="dashboard-hero-copy"><div class="dashboard-eyebrow">Next up</div><div class="dashboard-hero-title">${title}</div><div class="dashboard-hero-meta"><span>No upcoming Media Club events are currently scheduled.</span></div></div><div class="dashboard-hero-action"><button class="btn btn-accent" onclick="navigate('events', navItemForPage('events'))">Open events</button></div>`;
     return;
   }
   const signup = ownNext?.signup;
@@ -4546,7 +4755,9 @@ function renderDashboard() {
   const reservations = ownDashboardReservations();
   const statValues = dashboardStatValues();
   const customize = document.getElementById('dashboard-customize-button');
-  if (customize) customize.hidden = state.currentUser.isVisitor || !currentMemberRecord();
+  const subtitle = document.getElementById('dashboard-subtitle');
+  if (customize) customize.hidden = isVisitorSession() || !currentMemberRecord();
+  if (subtitle) subtitle.textContent = isVisitorSession() ? 'Explore upcoming events, published projects, and Media Club resources.' : 'Your personal Media Club operations overview.';
   renderDashboardFocus(upcomingEvents, commitments);
   document.getElementById('dashboard-stats').innerHTML = preferences.stats.map(key => {
     const definition = dashboardStatCatalog[key];
@@ -4576,6 +4787,7 @@ function renderEvents(filter) {
   if (pastToggle) {
     pastToggle.textContent = state.showPastEvents ? 'Hide past events' : 'Show past events';
     pastToggle.classList.toggle('active', state.showPastEvents);
+    pastToggle.setAttribute('aria-pressed', String(state.showPastEvents));
   }
   const el = document.getElementById('events-list');
   if (!list.length) { el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>${state.showPastEvents ? 'No events in this category.' : 'No upcoming events in this category.'}</p></div>`; return; }
@@ -4607,7 +4819,7 @@ function renderEvents(filter) {
           <div style="margin-top:10px;display:flex;gap:8px;">
             ${past
               ? '<span class="text-muted">This event has ended.</span>'
-              : state.currentUser.isVisitor
+              : isVisitorSession()
               ? '<span class="text-muted">Visitors can view events only.</span>'
               : `<button class="btn btn-accent btn-sm" onclick="navigate('signup', document.querySelector('[onclick*=signup]')); setTimeout(()=>{document.getElementById('sheet-event-select').value='${ev.id}';renderSignupSheet();},100)">Sign up</button>`}
             ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="requestArchiveEvent('${ev.id}')">Archive</button>` : ''}
@@ -4636,8 +4848,12 @@ function renderEvents(filter) {
 }
 
 function filterEvents(f, el) {
-  document.querySelectorAll('#event-filters .filter-chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#event-filters .filter-chip:not(#past-events-toggle)').forEach(c => {
+    c.classList.remove('active');
+    c.setAttribute('aria-pressed', 'false');
+  });
   el.classList.add('active');
+  el.setAttribute('aria-pressed', 'true');
   renderEvents(f);
 }
 
@@ -5107,7 +5323,7 @@ async function confirmMaybeSignup(eventId, signupId) {
 }
 
 async function addSignupRow() {
-  if (state.currentUser.isVisitor) {
+  if (isVisitorSession()) {
     showToast('Visitors can view events, but cannot sign up for roles.', 'error');
     return;
   }
@@ -5598,7 +5814,7 @@ function renderAboutRecentProjects() {
     const imageUrl = safeExternalUrl(project.image_url);
     const producedLabel = project.producedOn ? ` · ${formatBerlinCalendarDate(project.producedOn, { day: 'numeric', month: 'short', year: 'numeric' })}` : '';
     return `<article class="about-project-card">
-      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy">` : ''}
+      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="Cover image for ${escapeHtml(project.title)}" loading="lazy">` : ''}
       <button type="button" class="about-project-open" aria-label="View ${escapeHtml(project.title)} in the Project Gallery" onclick="navigate('gallery', navItemForPage('gallery'))"></button>
       <div class="about-project-meta"><div class="about-project-title">${escapeHtml(project.title)}</div><div class="about-project-detail">${escapeHtml(project.author)} · ${escapeHtml(project.type)}${escapeHtml(producedLabel)}</div></div>
     </article>`;
@@ -5607,7 +5823,7 @@ function renderAboutRecentProjects() {
 
 function renderGallery(filter) {
   if (filter !== undefined) state.galleryFilter = filter;
-  const canSubmit = !state.currentUser.isVisitor && Boolean(currentMemberRecord());
+  const canSubmit = !isVisitorSession() && Boolean(currentMemberRecord());
   const submitButton = document.getElementById('gallery-submit-open');
   if (submitButton) submitButton.style.display = canSubmit ? '' : 'none';
   if (!canSubmit && document.getElementById('gallery-modal')?.classList.contains('open')) closeModal('gallery-modal');
@@ -5686,7 +5902,8 @@ function switchGalleryTab(f, el) {
 
 function handleTabKeydown(event) {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-  const tabs = [...event.currentTarget.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+  const tabs = [...event.currentTarget.closest('[role="tablist"]').querySelectorAll('[role="tab"]')]
+    .filter(tab => !tab.hidden && getComputedStyle(tab).display !== 'none');
   const currentIndex = tabs.indexOf(event.currentTarget);
   const nextIndex = event.key === 'Home' ? 0
     : event.key === 'End' ? tabs.length - 1
@@ -5787,7 +6004,7 @@ async function confirmDeleteGalleryProject() {
 }
 
 async function submitProject() {
-  if (state.currentUser.isVisitor) {
+  if (isVisitorSession()) {
     showToast('Visitors cannot submit gallery projects.', 'error');
     return;
   }
@@ -6255,7 +6472,7 @@ async function requestPermanentDeleteEquipment(id) {
 let reservingEquipmentId = null;
 
 function openEquipmentReservation(id) {
-  if (state.currentUser.isVisitor) { showToast('Visitors cannot reserve equipment.', 'error'); return; }
+  if (isVisitorSession()) { showToast('Visitors cannot reserve equipment.', 'error'); return; }
   const item = state.equipment.find(equipment => equipment.id === id);
   if (!item || equipmentDisplayStatus(item) !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
   const member = currentMemberRecord();
@@ -6636,7 +6853,7 @@ function updateDashboardGreeting() {
       : berlinHour >= 12
         ? 'Good afternoon'
         : 'Good morning';
-  const firstName = state.currentUser.isVisitor
+  const firstName = isVisitorSession()
     ? 'Visitor'
     : splitName(currentMemberRecord()?.name || '').fname;
   el.textContent = firstName ? `${greeting}, ${firstName}` : greeting;
