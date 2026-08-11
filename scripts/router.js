@@ -105,6 +105,7 @@ function navigate(id, el, options = {}) {
   if (page === 'profile') renderProfile();
   if (page === 'admin') renderAdmin();
   renderDatasetErrors();
+  closeAllPages();
   closeMobileSidebar();
   refreshVisitorDataForPage(page);
   if (!options.preserveFocus) {

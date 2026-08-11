@@ -289,6 +289,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.match(indexHtml, /<html lang="en" class="sidebar-pending">/);
   assert.match(appStyles, /html\.sidebar-pending \.sidebar-nav,[\s\S]*?visibility: hidden/);
   assert.match(appSource, /document\.documentElement\.classList\.remove\('sidebar-pending'\)/);
+  assert.match(appSource, /renderDatasetErrors\(\);\s*closeAllPages\(\);\s*closeMobileSidebar\(\);/);
 });
 
 test('visitor route allowlist exposes only public pages', () => {
