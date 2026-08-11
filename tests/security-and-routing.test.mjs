@@ -5,6 +5,11 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const crewCenterScriptPaths = [...indexHtml.matchAll(/<script src="(scripts\/[^"]+)"><\/script>/g)].map(match => match[1]);
+const appSource = crewCenterScriptPaths
+  .map(path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'))
+  .join('\n');
+const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const headersFile = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
 const redirectsFile = readFileSync(new URL('../_redirects', import.meta.url), 'utf8');
 const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url), 'utf8');
@@ -63,7 +68,7 @@ test('Cloudflare headers enforce transport, framing, capability, and MIME protec
 test('every inline script block is hash-pinned by CSP', () => {
   const csp = globalHeaders().get('Content-Security-Policy');
   const bodies = inlineScriptBodies();
-  assert.equal(bodies.length, 2);
+  assert.equal(bodies.length, 1);
   for (const body of bodies) {
     const hash = `sha256-${createHash('sha256').update(body).digest('base64')}`;
     assert.ok(csp.includes(`'${hash}'`), `Missing CSP hash ${hash}`);
@@ -71,6 +76,28 @@ test('every inline script block is hash-pinned by CSP', () => {
   assert.match(csp, /script-src-attr 'unsafe-inline'/, 'legacy inline UI handlers must remain functional');
   const scriptElementPolicy = csp.split(';').map(part => part.trim()).find(part => part.startsWith('script-src '));
   assert.doesNotMatch(scriptElementPolicy, /'unsafe-inline'/, 'script elements must not allow arbitrary inline code');
+});
+
+test('Crew Center assets stay static-host compatible and load in dependency order', () => {
+  assert.match(indexHtml, /<link rel="stylesheet" href="crew-center\.css">/);
+  assert.doesNotMatch(indexHtml, /<style>/);
+  assert.deepEqual(crewCenterScriptPaths, [
+    'scripts/core.js',
+    'scripts/router.js',
+    'scripts/ui.js',
+    'scripts/dashboard.js',
+    'scripts/events.js',
+    'scripts/signups.js',
+    'scripts/crew-schedule.js',
+    'scripts/members.js',
+    'scripts/gallery.js',
+    'scripts/equipment.js',
+    'scripts/admin.js',
+    'scripts/init.js',
+  ]);
+  assert.match(indexHtml, /<script src="supabase-config\.js"><\/script>\s*<script src="scripts\/core\.js"><\/script>/);
+  assert.match(indexHtml, /<script src="scripts\/init\.js"><\/script>\s*<script src="tutorial\.js"><\/script>/);
+  assert.match(redirectsFile, /^\/\*\s+\/index\.html\s+200\s*$/m);
 });
 
 test('fonts are self-hosted with licenses and no Google Fonts runtime requests', () => {
@@ -112,27 +139,27 @@ test('dark mode includes the signed-out authentication surface', () => {
 
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
   assert.match(indexHtml, /id="route-announcer" aria-live="polite" aria-atomic="true"/);
-  assert.match(indexHtml, /heading\.focus\(\{ preventScroll: false \}\)/);
-  assert.match(indexHtml, /\.page :is\(h1, \.page-title\)\[tabindex="-1"\]:focus \{ outline: none; \}/);
-  assert.match(indexHtml, /t\.setAttribute\('role', type === 'error' \? 'alert' : 'status'\)/);
+  assert.match(appSource, /heading\.focus\(\{ preventScroll: false \}\)/);
+  assert.match(appStyles, /\.page :is\(h1, \.page-title\)\[tabindex="-1"\]:focus \{ outline: none; \}/);
+  assert.match(appSource, /t\.setAttribute\('role', type === 'error' \? 'alert' : 'status'\)/);
   assert.match(indexHtml, /id="event-filters" role="group" aria-label="Filter events"/);
   assert.match(indexHtml, /class="filter-chip active" aria-pressed="true"/);
   assert.match(indexHtml, /class="settings-nav" role="tablist"/);
   assert.match(indexHtml, /data-settings-section="appearance" role="tabpanel"/);
-  assert.match(indexHtml, /item\.setAttribute\('aria-selected', String\(active\)\)/);
+  assert.match(appSource, /item\.setAttribute\('aria-selected', String\(active\)\)/);
 });
 
 test('primary content pages share the branded page hero', () => {
   assert.deepEqual([...fisLogo.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.ok(fisLogo.length < 150_000, 'decorative FIS logo should remain lightweight');
-  assert.match(indexHtml, /\.page-hero::before[\s\S]*?assets\/fis-logo\.png/);
-  assert.match(indexHtml, /\.dashboard-hero::before[\s\S]*?assets\/fis-logo\.png/);
-  assert.match(indexHtml, /\.equipment-status-hero::before[\s\S]*?assets\/fis-logo\.png/);
-  assert.match(indexHtml, /\.deployment-hero::before[\s\S]*?assets\/fis-logo\.png/);
-  assert.match(indexHtml, /\.role-guide-hero::before[\s\S]*?assets\/fis-logo\.png/);
-  assert.doesNotMatch(indexHtml, /\.(?:page|dashboard|equipment-status|role-guide)-hero::after\s*\{/);
-  assert.doesNotMatch(indexHtml, /\.deployment-hero::after\s*\{/);
-  assert.match(indexHtml, /:root\[data-theme="dark"\] \.page-hero::before/);
+  assert.match(appStyles, /\.page-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(appStyles, /\.dashboard-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(appStyles, /\.equipment-status-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(appStyles, /\.deployment-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(appStyles, /\.role-guide-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.doesNotMatch(appStyles, /\.(?:page|dashboard|equipment-status|role-guide)-hero::after\s*\{/);
+  assert.doesNotMatch(appStyles, /\.deployment-hero::after\s*\{/);
+  assert.match(appStyles, /:root\[data-theme="dark"\] \.page-hero::before/);
 
   for (const pageId of ['events', 'signup', 'members', 'gallery', 'equipment']) {
     const start = indexHtml.indexOf(`<div id="page-${pageId}" class="page">`);
@@ -162,11 +189,11 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   }
 
   assert.match(indexHtml, /class="nav-item" data-page="about" data-category="club"/);
-  assert.match(indexHtml, /club: \{ label: 'Club', pages: \['crew-deployment', 'equipment-status', 'join', 'about', 'admin'\] \}/);
-  assert.match(indexHtml, /items: customized && saved\.length \? saved : available/);
-  assert.match(indexHtml, /classList\.toggle\('visible', hiddenCount > 0\)/);
+  assert.match(appSource, /club: \{ label: 'Club', pages: \['crew-deployment', 'equipment-status', 'join', 'about', 'admin'\] \}/);
+  assert.match(appSource, /items: customized && saved\.length \? saved : available/);
+  assert.match(appSource, /classList\.toggle\('visible', hiddenCount > 0\)/);
   assert.match(schemaSql, /sidebar_items text\[\] not null default array\[[^\]]*'about'[^\]]*\]::text\[\]/);
-  assert.match(indexHtml, /\.about-beginner:hover \.about-beginner-media img[\s\S]*?scale\(1\.04\)/);
+  assert.match(appStyles, /\.about-beginner:hover \.about-beginner-media img[\s\S]*?scale\(1\.04\)/);
 });
 
 test('Media Role Guide includes the approved stream expectations', () => {
@@ -189,17 +216,17 @@ test('Media Role Guide includes the approved stream expectations', () => {
 test('gallery projects support an optional production date and link guidance', () => {
   assert.match(indexHtml, /id="gal-produced-on" type="date"/);
   assert.match(indexHtml, /Access for FIS members only/);
-  assert.match(indexHtml, /produced_on: producedOn/);
-  assert.match(indexHtml, /producedOn: item\.produced_on \|\| ''/);
-  assert.match(indexHtml, /Produced \$\{escapeHtml\(producedLabel\)\}/);
+  assert.match(appSource, /produced_on: producedOn/);
+  assert.match(appSource, /producedOn: item\.produced_on \|\| ''/);
+  assert.match(appSource, /Produced \$\{escapeHtml\(producedLabel\)\}/);
 });
 
 test('canonical routes and aliases survive static-host deep links', () => {
-  const start = indexHtml.indexOf('const pageRoutes =');
-  const end = indexHtml.indexOf('function navItemForPage', start);
+  const start = appSource.indexOf('const pageRoutes =');
+  const end = appSource.indexOf('function navItemForPage', start);
   assert.ok(start > -1 && end > start);
   const context = { window: { location: { pathname: '/' } } };
-  vm.runInNewContext(`${indexHtml.slice(start, end)}\nglobalThis.__routing = { pageRoutes, routePages, pageFromPath };`, context);
+  vm.runInNewContext(`${appSource.slice(start, end)}\nglobalThis.__routing = { pageRoutes, routePages, pageFromPath };`, context);
 
   for (const [page, route] of Object.entries(context.__routing.pageRoutes)) {
     context.window.location.pathname = route;
@@ -231,8 +258,8 @@ test('visitor route allowlist exposes only public pages', () => {
 });
 
 test('visitor portals default to a compact desktop sidebar without changing member preferences', () => {
-  assert.match(indexHtml, /Boolean\(window\.CREW_CENTER_IS_VISITOR\) \|\| localStorage\.getItem\('crew-center-sidebar-compact'\) === 'true'/);
-  assert.match(indexHtml, /setSidebarCollapsed\(!document\.body\.classList\.contains\('sidebar-collapsed'\), \{ persist: !window\.CREW_CENTER_IS_VISITOR \}\)/);
-  assert.match(indexHtml, /Boolean\(collapsed\) && window\.innerWidth > 900/);
+  assert.match(appSource, /Boolean\(window\.CREW_CENTER_IS_VISITOR\) \|\| localStorage\.getItem\('crew-center-sidebar-compact'\) === 'true'/);
+  assert.match(appSource, /setSidebarCollapsed\(!document\.body\.classList\.contains\('sidebar-collapsed'\), \{ persist: !window\.CREW_CENTER_IS_VISITOR \}\)/);
+  assert.match(appSource, /Boolean\(collapsed\) && window\.innerWidth > 900/);
   assert.match(authSource, /applySignedInUser\(user\);\s*window\.syncSidebarCollapsePreference\?\.\(\);/);
 });

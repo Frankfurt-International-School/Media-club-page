@@ -1,0 +1,147 @@
+// ══════════════════════════════
+// NAVIGATION
+// ══════════════════════════════
+const pageTitles = { about: "About Media Club", home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageRoutes = {
+  about: '/about',
+  home: '/dashboard',
+  events: '/events',
+  signup: '/signups',
+  members: '/members',
+  gallery: '/gallery',
+  equipment: '/equipment',
+  'equipment-status': '/equipment-status',
+  'crew-deployment': '/crew-deployment',
+  'role-guide': '/role-guide',
+  profile: '/profile',
+  join: '/join',
+  admin: '/admin',
+};
+const routePages = {
+  '/': 'home',
+  '/about': 'about',
+  '/dashboard': 'home',
+  '/events': 'events',
+  '/signup': 'signup',
+  '/signups': 'signup',
+  '/members': 'members',
+  '/gallery': 'gallery',
+  '/equipment': 'equipment',
+  '/equipment-status': 'equipment-status',
+  '/crew-deployment': 'crew-deployment',
+  '/role-guide': 'role-guide',
+  '/profile': 'profile',
+  '/join': 'join',
+  '/admin': 'admin',
+};
+
+function pageFromPath() {
+  return routePages[window.location.pathname] || 'home';
+}
+
+function navItemForPage(id) {
+  if (id === 'profile') return null;
+  return document.querySelector(`.nav-item[data-page="${id}"]`);
+}
+
+function navigate(id, el, options = {}) {
+  let page = document.getElementById('page-' + id) ? id : 'home';
+  if (page === 'admin' && !canAccessAdminPanel()) {
+    page = 'home';
+  }
+  if (page === 'equipment-status' && !canAccessEquipmentStatus()) {
+    page = 'home';
+  }
+  if (page === 'crew-deployment' && !canAccessCrewSchedule()) {
+    page = 'home';
+  }
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item[data-page]').forEach(n => {
+    n.classList.remove('active');
+    n.removeAttribute('aria-current');
+  });
+  document.getElementById('page-' + page).classList.add('active');
+  const activeNav = el || navItemForPage(page);
+  if (activeNav) {
+    activeNav.classList.add('active');
+    activeNav.setAttribute('aria-current', 'page');
+  }
+  document.getElementById('topbar-title').textContent = pageTitles[page] || page;
+  const pageLabel = pageTitles[page] || page;
+  const announcer = document.getElementById('route-announcer');
+  if (announcer) announcer.textContent = `${pageLabel} page`;
+  requestAnimationFrame(() => updateSlidingTab(document.querySelector(`#page-${page} .tab-row`)));
+  document.getElementById('auth-signout')?.classList.toggle('visible', page === 'profile');
+  if (!options.skipUrl) {
+    const route = pageRoutes[page] || pageRoutes.home;
+    if (window.location.pathname !== route) {
+      history.pushState({ page }, '', route);
+    }
+  }
+  if (page === 'about') renderAboutRecentProjects();
+  if (page === 'home') renderDashboard();
+  if (page === 'events') renderEvents();
+  if (page === 'signup') initSignupSheet();
+  if (page === 'members') renderMembers();
+  if (page === 'gallery') renderGallery();
+  if (page === 'equipment') renderEquipment();
+  if (page === 'equipment-status') renderEquipmentStatus();
+  if (page === 'crew-deployment') initCrewDeployment();
+  if (page === 'profile') renderProfile();
+  if (page === 'admin') renderAdmin();
+  renderDatasetErrors();
+  closeMobileSidebar();
+  refreshVisitorDataForPage(page);
+  if (!options.preserveFocus) {
+    requestAnimationFrame(() => {
+      const activePage = document.getElementById('page-' + page);
+      const heading = activePage?.querySelector('h1, .page-title');
+      if (!heading) return;
+      heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: false });
+    });
+  }
+}
+
+function openPageFromUrl() {
+  navigate(pageFromPath(), navItemForPage(pageFromPath()), { skipUrl: true });
+}
+
+window.addEventListener('popstate', openPageFromUrl);
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const open = sidebar.classList.toggle('open');
+  document.getElementById('sidebar-scrim').classList.toggle('open', open);
+  document.getElementById('mobile-menu-button').setAttribute('aria-expanded', String(open));
+}
+
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-scrim').classList.remove('open');
+  document.getElementById('mobile-menu-button')?.setAttribute('aria-expanded', 'false');
+}
+
+function setSidebarCollapsed(collapsed, { persist = false } = {}) {
+  const shouldCollapse = Boolean(collapsed) && window.innerWidth > 900;
+  document.body.classList.toggle('sidebar-collapsed', shouldCollapse);
+  const btn = document.getElementById('sidebar-toggle-btn');
+  const icon = document.getElementById('sidebar-toggle-icon');
+  btn.setAttribute('aria-label', shouldCollapse ? 'Expand sidebar' : 'Condense sidebar');
+  btn.setAttribute('title', shouldCollapse ? 'Expand sidebar' : 'Condense sidebar');
+  icon.innerHTML = shouldCollapse ? '<polyline points="9 18 15 12 9 6"/>' : '<polyline points="15 18 9 12 15 6"/>';
+  if (persist) localStorage.setItem('crew-center-sidebar-compact', String(Boolean(collapsed)));
+}
+
+function syncSidebarCollapsePreference() {
+  const shouldCollapse = Boolean(window.CREW_CENTER_IS_VISITOR) || localStorage.getItem('crew-center-sidebar-compact') === 'true';
+  setSidebarCollapsed(shouldCollapse);
+}
+
+function toggleSidebarCollapse() {
+  setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'), { persist: !window.CREW_CENTER_IS_VISITOR });
+}
+
+syncSidebarCollapsePreference();
+window.addEventListener('resize', syncSidebarCollapsePreference);
+

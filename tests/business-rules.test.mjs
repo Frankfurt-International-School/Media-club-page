@@ -3,13 +3,17 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const appSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const appSource = [...indexHtml.matchAll(/<script src="(scripts\/[^"]+)"><\/script>/g)]
+  .map(match => readFileSync(new URL(`../${match[1]}`, import.meta.url), 'utf8'))
+  .join('\n');
+const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const policiesSql = readFileSync(new URL('../supabase-auth-policies.sql', import.meta.url), 'utf8');
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
 
 function extractFunction(name) {
   const start = appSource.indexOf(`function ${name}(`);
-  assert.notEqual(start, -1, `Expected ${name} in index.html`);
+  assert.notEqual(start, -1, `Expected ${name} in the Crew Center scripts`);
   const bodyStart = appSource.indexOf('{', start);
   let depth = 0;
   for (let index = bodyStart; index < appSource.length; index += 1) {
@@ -221,10 +225,10 @@ test('active student supervisor reserves preserve the supervisor label and show 
 });
 
 test('phone-width tables and dashboard equipment bars retain responsive affordances', () => {
-  assert.match(appSource, /class="sheet-table responsive-sheet-table" id="sheet-table"/);
-  assert.match(appSource, /class="sheet-table responsive-sheet-table" id="equipment-register-table"/);
-  assert.match(appSource, /@keyframes dashboardEquipmentFill/);
-  assert.match(appSource, /prefers-reduced-motion: reduce/);
+  assert.match(indexHtml, /class="sheet-table responsive-sheet-table" id="sheet-table"/);
+  assert.match(indexHtml, /class="sheet-table responsive-sheet-table" id="equipment-register-table"/);
+  assert.match(appStyles, /@keyframes dashboardEquipmentFill/);
+  assert.match(appStyles, /prefers-reduced-motion: reduce/);
   assert.match(appSource, /aria-label="\$\{escapeHtml\(label\)\}: \$\{counts\[key\]\} of \$\{state\.equipment\.length\}"/);
 });
 
@@ -297,7 +301,7 @@ test('visitor dashboard avoids member metrics and loading failures remain retrya
   assert.match(appSource, /event_categories: \{ label: 'Event types'/);
   assert.match(appSource, /stats: \['upcoming_events', 'available_equipment', 'projects', 'event_categories'\]/);
   assert.match(appSource, /Explore upcoming events, published projects, and Media Club resources\./);
-  assert.match(appSource, /id="data-status-banner" role="status" aria-live="polite"/);
+  assert.match(indexHtml, /id="data-status-banner" role="status" aria-live="polite"/);
   assert.match(appSource, /function retryDataset\(dataset\)/);
   assert.match(appSource, /function retryFailedDatasets\(\)/);
   assert.match(appSource, /state\.dataLoaded\[dataset\]/);
