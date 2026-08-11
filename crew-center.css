@@ -132,6 +132,8 @@
     text-transform: uppercase;
   }
   .sidebar-nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
+  html.sidebar-pending .sidebar-nav,
+  html.sidebar-pending .sidebar-footer { visibility: hidden; }
   .nav-section-label {
     font-size: 10px;
     font-weight: 600;

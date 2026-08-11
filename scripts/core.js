@@ -843,6 +843,7 @@ function applySidebarPreferences() {
   const count = document.getElementById('sidebar-hidden-count');
   if (count) count.textContent = hiddenCount;
   renderAllPagesMenu(document.getElementById('all-pages-search')?.value || '');
+  document.documentElement.classList.remove('sidebar-pending');
 }
 
 function renderSidebarSettings() {

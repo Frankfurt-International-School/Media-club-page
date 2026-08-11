@@ -276,6 +276,19 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.match(appSource, /tabs\[nextIndex\]\.focus\(\)/);
   assert.doesNotMatch(appSource, /tabs\[nextIndex\]\.click\(\)/);
   assert.match(appSource, /new URLSearchParams\(window\.location\.search\)\.get\('event'\)/);
+  const nativeNavigationStart = appSource.indexOf('function installNativeLinkNavigation()');
+  const nativeNavigationEnd = appSource.indexOf('installNativeLinkNavigation();', nativeNavigationStart);
+  const nativeNavigation = appSource.slice(nativeNavigationStart, nativeNavigationEnd);
+  assert.match(nativeNavigation, /window\.navigation\.addEventListener\('navigate'/);
+  assert.match(nativeNavigation, /event\.intercept\(/);
+  assert.match(nativeNavigation, /event\.navigationType !== 'push'/);
+  assert.match(nativeNavigation, /destination\.origin !== window\.location\.origin/);
+  assert.match(nativeNavigation, /event\.button !== 0 \|\| event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey \|\| event\.altKey/);
+  assert.match(nativeNavigation, /event\.preventDefault\(\)/);
+  assert.match(nativeNavigation, /history\.pushState\(\{ page \}, '', `\$\{destination\.pathname\}\$\{destination\.search\}\$\{destination\.hash\}`\)/);
+  assert.match(indexHtml, /<html lang="en" class="sidebar-pending">/);
+  assert.match(appStyles, /html\.sidebar-pending \.sidebar-nav,[\s\S]*?visibility: hidden/);
+  assert.match(appSource, /document\.documentElement\.classList\.remove\('sidebar-pending'\)/);
 });
 
 test('visitor route allowlist exposes only public pages', () => {
@@ -288,6 +301,9 @@ test('visitor route allowlist exposes only public pages', () => {
   }
   assert.match(authSource, /await revealDashboard\(data\.user\);\s*if \(window\.CREW_CENTER_IS_VISITOR[\s\S]*?window\.navigate\("about"/);
   assert.match(authSource, /const allowedPages = new Set\(\["about", "home", "events", "gallery", "equipment", "role-guide", "join"\]\)/);
+  assert.match(authSource, /\.nav-item\[data-page="signup"\]/);
+  assert.match(authSource, /\.nav-item\[data-page="members"\]/);
+  assert.doesNotMatch(authSource, /\.nav-item\[onclick\*="(?:signup|members)"\]/);
 });
 
 test('visitor portals default to a compact desktop sidebar without changing member preferences', () => {

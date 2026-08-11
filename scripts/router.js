@@ -124,6 +124,49 @@ function openPageFromUrl() {
 
 window.addEventListener('popstate', openPageFromUrl);
 
+function installNativeLinkNavigation() {
+  const visitorPages = new Set(['about', 'home', 'events', 'gallery', 'equipment', 'role-guide', 'join']);
+  const pageForDestination = destination => {
+    if (destination.origin !== window.location.origin) return;
+    const page = routePages[destination.pathname];
+    if (!page) return;
+    if (page === 'admin' && !canAccessAdminPanel()) return;
+    if (page === 'equipment-status' && !canAccessEquipmentStatus()) return;
+    if (page === 'crew-deployment' && !canAccessCrewSchedule()) return;
+    if (isVisitorSession() && !visitorPages.has(page)) return;
+    return page;
+  };
+
+  if (window.navigation?.addEventListener) {
+    window.navigation.addEventListener('navigate', event => {
+      if (!event.canIntercept || event.navigationType !== 'push' || event.hashChange || event.formData || event.downloadRequest) return;
+      const page = pageForDestination(new URL(event.destination.url));
+      if (!page) return;
+      event.intercept({
+        focusReset: 'manual',
+        handler() {
+          navigate(page, navItemForPage(page), { skipUrl: true });
+        },
+      });
+    });
+    return;
+  }
+
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a[href]');
+    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if ((link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+    const destination = new URL(link.href, window.location.href);
+    const page = pageForDestination(destination);
+    if (!page) return;
+    event.preventDefault();
+    history.pushState({ page }, '', `${destination.pathname}${destination.search}${destination.hash}`);
+    navigate(page, navItemForPage(page), { skipUrl: true });
+  });
+}
+
+installNativeLinkNavigation();
+
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const open = sidebar.classList.toggle('open');

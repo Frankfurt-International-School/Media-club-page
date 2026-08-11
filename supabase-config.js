@@ -428,7 +428,7 @@ function applyAdminControls() {
     el.style.display = hasAdminPanelAccess && !isVisitor ? "flex" : "none";
   });
   const adminSelectors = [
-    '.nav-item[onclick*="admin"]',
+    '.nav-item[data-page="admin"]',
     'button[onclick*="removeMember"]',
     'button[onclick*="renderManageEvents"]',
   ];
@@ -471,8 +471,8 @@ function applyAdminControls() {
     el.style.display = hasCrewScheduleAccess && !isVisitor ? "flex" : "none";
   });
   const visitorHiddenSelectors = [
-    '.nav-item[onclick*="signup"]',
-    '.nav-item[onclick*="members"]',
+    '.nav-item[data-page="signup"]',
+    '.nav-item[data-page="members"]',
     '.sidebar-footer',
   ];
   visitorHiddenSelectors.forEach(selector => {
