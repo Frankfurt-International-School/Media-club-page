@@ -7,6 +7,7 @@ const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8'
 const appSource = [...indexHtml.matchAll(/<script src="(scripts\/[^"]+)"><\/script>/g)]
   .map(match => readFileSync(new URL(`../${match[1]}`, import.meta.url), 'utf8'))
   .join('\n');
+const uiSource = readFileSync(new URL('../scripts/ui.js', import.meta.url), 'utf8');
 const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const policiesSql = readFileSync(new URL('../supabase-auth-policies.sql', import.meta.url), 'utf8');
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
@@ -200,6 +201,13 @@ test('dashboard greeting uses the public.members name rather than an email alias
   );
   assert.match(greeting.textContent, /^Good (morning|afternoon|evening), Jana$/);
   assert.doesNotMatch(greeting.textContent, /js12345/);
+});
+
+test('dashboard greeting is defined before cached auth can update user surfaces', () => {
+  const greetingDefinition = uiSource.indexOf('function updateDashboardGreeting()');
+  const userSurfaceDefinition = uiSource.indexOf('function updateUserSurfaces()');
+  assert.ok(greetingDefinition >= 0);
+  assert.ok(greetingDefinition < userSurfaceDefinition);
 });
 
 test('dashboard greeting does not expose an email alias while the member record loads', () => {

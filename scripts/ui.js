@@ -220,6 +220,25 @@ function applyCheckedState(input, checked) {
   input.closest('.checkbox-label').classList.toggle('checked', checked);
 }
 
+function updateDashboardGreeting() {
+  const el = document.getElementById('dashboard-greeting');
+  if (!el) return;
+  const berlinHour = Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Berlin',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date()));
+  const greeting = berlinHour >= 18 || berlinHour < 5
+    ? 'Good evening'
+      : berlinHour >= 12
+        ? 'Good afternoon'
+        : 'Good morning';
+  const firstName = isVisitorSession()
+    ? 'Visitor'
+    : splitName(currentMemberRecord()?.name || '').fname;
+  el.textContent = firstName ? `${greeting}, ${firstName}` : greeting;
+}
+
 function updateUserSurfaces() {
   const user = state.currentUser;
   const [bg, fg] = memberColor(user.color);
