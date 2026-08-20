@@ -80,7 +80,7 @@
       summary: 'Follow assignments, handoffs, and attendance.',
       steps: [
         { target: '.deployment-hero', title: 'Daily production schedule', body: 'Choose a production date and review the crew coverage, timing, locations, and handoffs for that day.' },
-        { target: '#crew-deployment-grid', title: 'Manage the working crew', body: 'Authorised leaders can follow assignments and record attendance while preserving the original signup information.' },
+        { target: '#crew-deployment-grid', title: 'Manage the working crew', body: 'Auth Admins can follow assignments and record attendance while preserving the original signup information.' },
       ],
     },
     'equipment-status': {

@@ -308,6 +308,14 @@ test('visitor route allowlist exposes only public pages', () => {
   assert.doesNotMatch(authSource, /\.nav-item\[onclick\*="(?:signup|members)"\]/);
 });
 
+test('restricted operational pages are revealed only through their Auth Admin capability checks', () => {
+  assert.match(authSource, /const hasEquipmentStatusAccess = Boolean\(window\.canAccessCrewCenterEquipmentStatus\?\.\(\)\)/);
+  assert.match(authSource, /const hasCrewScheduleAccess = Boolean\(window\.CREW_CENTER_IS_ADMIN \|\| window\.canAccessCrewSchedule\?\.\(\)\)/);
+  assert.doesNotMatch(authSource, /hasCrewScheduleAccess = Boolean\(hasAdminPanelAccess/);
+  assert.match(authSource, /id === "equipment-status" && !Boolean\(window\.canAccessCrewCenterEquipmentStatus\?\.\(\)\)/);
+  assert.match(authSource, /id === "crew-deployment" && !Boolean\(window\.CREW_CENTER_IS_ADMIN \|\| window\.canAccessCrewSchedule\?\.\(\)\)/);
+});
+
 test('visitor portals default to a compact desktop sidebar without changing member preferences', () => {
   assert.match(appSource, /Boolean\(window\.CREW_CENTER_IS_VISITOR\) \|\| localStorage\.getItem\('crew-center-sidebar-compact'\) === 'true'/);
   assert.match(appSource, /setSidebarCollapsed\(!document\.body\.classList\.contains\('sidebar-collapsed'\), \{ persist: !window\.CREW_CENTER_IS_VISITOR \}\)/);

@@ -466,7 +466,7 @@ function applyAdminControls() {
   document.querySelectorAll('.equipment-status-only').forEach(el => {
     el.style.display = hasEquipmentStatusAccess && !isVisitor ? "flex" : "none";
   });
-  const hasCrewScheduleAccess = Boolean(hasAdminPanelAccess || window.canAccessCrewSchedule?.());
+  const hasCrewScheduleAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewSchedule?.());
   document.querySelectorAll('.crew-schedule-only').forEach(el => {
     el.style.display = hasCrewScheduleAccess && !isVisitor ? "flex" : "none";
   });

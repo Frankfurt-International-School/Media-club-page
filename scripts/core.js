@@ -98,16 +98,13 @@ function canSignupForOtherMembers() {
 }
 
 function canAccessEquipmentStatus() {
-  if (!canManageCrewOperations()) return false;
-  return currentMemberRecord()?.equipmentStatusAccess !== false;
+  return canAddMembers();
 }
 
 window.canAccessCrewCenterEquipmentStatus = canAccessEquipmentStatus;
 
 function canAccessCrewSchedule() {
-  if (canAccessAdminPanel()) return true;
-  const role = normalizeRoleName(currentMemberRecord()?.role || state.currentUser.role || '');
-  return ['leader', 'co-leader'].includes(role);
+  return canAddMembers();
 }
 
 window.canAccessCrewSchedule = canAccessCrewSchedule;

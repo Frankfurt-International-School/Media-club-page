@@ -105,13 +105,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select public.is_crew_operations_user()
-    and coalesce((
-      select member.equipment_status_access
-      from public.members member
-      where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-      limit 1
-    ), true);
+  select public.is_auth_admin();
 $$;
 
 revoke all on function public.can_access_equipment_status() from public;
@@ -124,12 +118,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select public.is_admin_panel_user()
-    or exists (
-      select 1 from public.members member
-      where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-        and replace(lower(member.role), ' ', '-') in ('leader', 'co-leader')
-    );
+  select public.is_auth_admin();
 $$;
 
 create or replace function public.is_visitor_session()
@@ -981,7 +970,7 @@ declare
   marker_name text;
 begin
   if not public.is_crew_schedule_user() then
-    raise exception 'Co-Leader-or-above access is required.';
+    raise exception 'Auth Admin access is required.';
   end if;
   if p_attendance_status not in ('not_taken', 'present', 'late', 'absent', 'excused') then
     raise exception 'Invalid attendance status.';
