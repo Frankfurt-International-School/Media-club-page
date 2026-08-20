@@ -314,6 +314,7 @@ test('restricted operational pages are revealed only through their Auth Admin ca
   assert.doesNotMatch(authSource, /hasCrewScheduleAccess = Boolean\(hasAdminPanelAccess/);
   assert.match(authSource, /id === "equipment-status" && !Boolean\(window\.canAccessCrewCenterEquipmentStatus\?\.\(\)\)/);
   assert.match(authSource, /id === "crew-deployment" && !Boolean\(window\.CREW_CENTER_IS_ADMIN \|\| window\.canAccessCrewSchedule\?\.\(\)\)/);
+  assert.doesNotMatch(authSource, /toggleEquipmentAvailability/);
 });
 
 test('visitor portals default to a compact desktop sidebar without changing member preferences', () => {

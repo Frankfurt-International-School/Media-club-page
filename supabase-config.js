@@ -441,7 +441,6 @@ function applyAdminControls() {
     'button[onclick*="restoreArchivedEvent"]',
     'button[onclick*="requestArchiveEquipment"]',
     'button[onclick*="restoreArchivedEquipment"]',
-    'button[onclick*="toggleEquipmentAvailability"]',
   ];
 
   adminSelectors.forEach(selector => {
@@ -522,7 +521,6 @@ function installAdminFunctionGuards() {
     restoreArchivedEvent: "restore events",
     requestArchiveEquipment: "archive equipment",
     restoreArchivedEquipment: "restore equipment",
-    toggleEquipmentAvailability: "change equipment availability",
   };
 
   Object.entries(adminGuarded).forEach(([name, action]) => {
