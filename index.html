@@ -445,7 +445,28 @@
     <div class="deployment-hero mb24">
       <div class="deployment-hero-row">
         <div><div class="deployment-kicker">Daily production map</div><div class="page-title">Crew Schedule</div><div class="page-sub">See who is covering each location, follow handoffs, and take attendance.</div></div>
-        <div class="deployment-date-control"><label class="form-label" for="crew-deployment-date">Production date</label><select class="form-select" id="crew-deployment-date" onchange="renderCrewDeployment()"></select></div>
+        <div class="deployment-controls">
+          <div class="deployment-view-switch" role="group" aria-label="Crew schedule view">
+            <button class="deployment-view-option active" id="crew-deployment-upcoming" type="button" aria-pressed="true" onclick="setCrewDeploymentView('upcoming')">Active &amp; upcoming</button>
+            <button class="deployment-view-option" id="crew-deployment-past" type="button" aria-pressed="false" onclick="setCrewDeploymentView('past')">Past logs</button>
+          </div>
+          <div class="deployment-date-control">
+            <label class="form-label" for="crew-deployment-date">Production date</label>
+            <div class="deployment-date-navigator">
+              <button class="deployment-date-step" id="crew-deployment-date-previous" type="button" aria-label="Previous production date" onclick="stepCrewDeploymentDate(-1)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <div class="deployment-date-select-shell">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                <select class="form-select" id="crew-deployment-date" aria-describedby="crew-deployment-date-help" onchange="selectCrewDeploymentDate()"></select>
+              </div>
+              <button class="deployment-date-step" id="crew-deployment-date-next" type="button" aria-label="Next production date" onclick="stepCrewDeploymentDate(1)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+            <div class="deployment-date-help" id="crew-deployment-date-help">The nearest unfinished production is selected automatically.</div>
+          </div>
+        </div>
       </div>
       <div class="deployment-summary" id="crew-deployment-summary"></div>
     </div>

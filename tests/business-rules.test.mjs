@@ -224,6 +224,42 @@ test('active student supervisor reserves preserve the supervisor label and show 
   assert.doesNotMatch(appSource, /<td>\$\{displayRole \? escapeHtml\(displayRole\)/);
 });
 
+test('Crew Schedule defaults to unfinished productions and keeps completed events in read-only past logs', () => {
+  const dates = ['2026-08-18', '2026-08-21', '2026-09-02'];
+  assert.equal(runFunctions(['defaultCrewDeploymentDate'], {}, `defaultCrewDeploymentDate(${JSON.stringify(dates)}, 'upcoming')`), '2026-08-18');
+  assert.equal(runFunctions(['defaultCrewDeploymentDate'], {}, `defaultCrewDeploymentDate(${JSON.stringify(dates)}, 'past')`), '2026-09-02');
+  assert.match(appSource, /view === 'past' \? isPastEvent\(event, now\) : !isPastEvent\(event, now\)/);
+  assert.match(appSource, /crewDeploymentView = 'upcoming'/);
+  assert.match(appSource, /function openCrewDeployment\(\) \{\s*crewDeploymentView = 'upcoming';\s*initCrewDeployment\(\);\s*\}/);
+  assert.match(appSource, /if \(page === 'crew-deployment'\) openCrewDeployment\(\)/);
+  assert.match(appSource, /if \(pastLog\) \{[\s\S]*?deployment-attendance-log/);
+  assert.match(appSource, /Recorded by \$\{escapeHtml\(recorder\)\}/);
+  assert.match(appSource, /Completed productions are read-only and the newest log opens first\./);
+});
+
+test('Crew Schedule explains whether each member covers the full game, joins, or leaves', () => {
+  const block = { startMs: 100, endMs: 200 };
+  const coverage = signup => JSON.parse(JSON.stringify(runFunctions(
+    ['deploymentCoverageState'],
+    {},
+    `deploymentCoverageState(${JSON.stringify(signup)}, ${JSON.stringify(block)})`,
+  )));
+  assert.deepEqual(coverage({ attendanceStart: '', attendanceEnd: '' }), { kind: 'full' });
+  assert.deepEqual(coverage({ attendanceStart: new Date(100).toISOString(), attendanceEnd: new Date(200).toISOString() }), { kind: 'full' });
+  assert.deepEqual(coverage({ attendanceStart: new Date(125).toISOString(), attendanceEnd: new Date(200).toISOString() }), { kind: 'joins', time: 125 });
+  assert.deepEqual(coverage({ attendanceStart: new Date(100).toISOString(), attendanceEnd: new Date(175).toISOString() }), { kind: 'leaves', time: 175 });
+  assert.deepEqual(coverage({ attendanceStart: new Date(125).toISOString(), attendanceEnd: new Date(175).toISOString() }), { kind: 'partial', start: 125, end: 175 });
+  assert.match(appSource, /Stays for full \$\{block\.key === 'event' \? 'event' : block\.label\}/);
+});
+
+test('Crew Schedule date controls are branded, navigable, and mobile-safe', () => {
+  assert.match(indexHtml, /id="crew-deployment-upcoming"[\s\S]*?id="crew-deployment-past"/);
+  assert.match(indexHtml, /id="crew-deployment-date-previous"[\s\S]*?id="crew-deployment-date"[\s\S]*?id="crew-deployment-date-next"/);
+  assert.match(appStyles, /\.deployment-date-select-shell/);
+  assert.match(appStyles, /\.form-input\[type="date"\]/);
+  assert.match(appStyles, /@media \(max-width: 620px\)[\s\S]*?\.deployment-person \{ grid-template-columns: 1fr/);
+});
+
 test('phone-width tables and dashboard equipment bars retain responsive affordances', () => {
   assert.match(indexHtml, /class="sheet-table responsive-sheet-table" id="sheet-table"/);
   assert.match(indexHtml, /class="sheet-table responsive-sheet-table" id="equipment-register-table"/);

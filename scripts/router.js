@@ -101,7 +101,7 @@ function navigate(id, el, options = {}) {
   if (page === 'gallery') renderGallery();
   if (page === 'equipment') renderEquipment();
   if (page === 'equipment-status') renderEquipmentStatus();
-  if (page === 'crew-deployment') initCrewDeployment();
+  if (page === 'crew-deployment') openCrewDeployment();
   if (page === 'profile') renderProfile();
   if (page === 'admin') renderAdmin();
   renderDatasetErrors();
