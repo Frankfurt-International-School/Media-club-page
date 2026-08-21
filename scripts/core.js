@@ -1029,14 +1029,12 @@ function renderAllPagesMenu(query = '') {
   const list = document.getElementById('all-pages-list');
   if (!list) return;
   const search = query.trim().toLowerCase();
-  const preferences = currentSidebarPreferences();
-  const visible = new Set(preferences.items);
   list.innerHTML = Object.entries(sidebarCategories).map(([category, definition]) => {
     const pages = definition.pages.filter(page => sidebarPageAvailable(page) && (!search || pageTitles[page].toLowerCase().includes(search)));
     if (!pages.length) return '';
     return `<div class="all-pages-group"><div class="all-pages-group-title">${definition.label}</div>${pages.map(page => {
       const icon = document.querySelector(`.sidebar-nav .nav-item[data-page="${page}"] svg`)?.outerHTML || '';
-      return `<a class="all-pages-link" href="${escapeHtml(pageUrl(page))}">${icon}<span>${pageTitles[page]}</span>${visible.has(page) ? '' : '<span class="all-pages-hidden-label">Hidden</span>'}</a>`;
+      return `<a class="all-pages-link" href="${escapeHtml(pageUrl(page))}">${icon}<span>${pageTitles[page]}</span></a>`;
     }).join('')}</div>`;
   }).join('') || '<div class="empty-state" style="padding:24px 12px;"><p>No matching pages.</p></div>';
 }

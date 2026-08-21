@@ -192,6 +192,8 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   assert.match(appSource, /club: \{ label: 'Club', pages: \['crew-deployment', 'equipment-status', 'join', 'about', 'admin'\] \}/);
   assert.match(appSource, /items: customized && saved\.length \? saved : available/);
   assert.match(appSource, /classList\.toggle\('visible', hiddenCount > 0\)/);
+  assert.doesNotMatch(appSource, /all-pages-hidden-label|>Hidden<\/span>/);
+  assert.doesNotMatch(appStyles, /\.all-pages-hidden-label/);
   assert.match(schemaSql, /sidebar_items text\[\] not null default array\[[^\]]*'about'[^\]]*\]::text\[\]/);
   assert.match(appStyles, /\.about-beginner:hover \.about-beginner-media img[\s\S]*?scale\(1\.04\)/);
 });
