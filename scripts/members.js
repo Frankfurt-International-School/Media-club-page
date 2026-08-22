@@ -18,6 +18,15 @@ function memberRoleColor(role = '') {
   }[normalized] || 'gray';
 }
 
+function memberDirectoryTags(specialisation = '') {
+  const tags = String(specialisation).split(',').map(tag => tag.trim()).filter(Boolean);
+  const isNewsTeam = tag => ['news team', 'student news team'].includes(tag.toLowerCase());
+  return {
+    hasNewsTeam: tags.some(isNewsTeam),
+    specialisations: tags.filter(tag => !isNewsTeam(tag)),
+  };
+}
+
 function renderMembers() {
   const q = (document.getElementById('member-search').value || '').toLowerCase();
   const rf = document.getElementById('member-role-filter').value;
@@ -29,7 +38,8 @@ function renderMembers() {
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
   const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
-    const tags = m.spec.split(',').map(s => `<span class="badge badge-gray">${escapeHtml(s.trim())}</span>`).join('');
+    const { hasNewsTeam, specialisations } = memberDirectoryTags(m.spec);
+    const tags = `${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
     const safeAvatarUrl = safeExternalUrl(m.avatarUrl);
     const avatarStyle = safeAvatarUrl
       ? `background:url(&quot;${escapeHtml(safeAvatarUrl)}&quot;) center/cover;color:transparent;`
@@ -138,4 +148,3 @@ async function submitMemberRemoval() {
   renderDashboard();
   showToast(`${member.name} removed from the member directory.`, 'error');
 }
-

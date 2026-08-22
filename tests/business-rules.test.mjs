@@ -71,6 +71,21 @@ test('authority tiers preserve the Auth Admin and faculty distinction', () => {
   assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, otherSignups: false, equipmentStatus: false, schedule: false });
 });
 
+test('News Team is a canonical secondary member tag before specialisations', () => {
+  const tags = JSON.parse(JSON.stringify(runFunctions(
+    ['memberDirectoryTags'],
+    {},
+    "memberDirectoryTags('Photography, student NEWS team, Video, News Team')",
+  )));
+
+  assert.deepEqual(tags, {
+    hasNewsTeam: true,
+    specialisations: ['Photography', 'Video'],
+  });
+  assert.match(appSource, /hasNewsTeam \? '<span class="badge badge-teal">News Team<\/span>'/);
+  assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
+});
+
 test('only Auth Admin and Faculty can create event signups for another member', () => {
   assert.match(appSource, /function canSignupForOtherMembers\(\) \{\s*return canAccessAdminPanel\(\);\s*\}/);
   assert.equal((appSource.match(/const canChooseMember = canSignupForOtherMembers\(\);/g) || []).length, 2);
