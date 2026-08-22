@@ -243,7 +243,7 @@ async function addEvent() {
       takedown_end: isFestival ? festivalTimes[7] : null,
       ends_at: new Date(eventEnd).toISOString(),
     })
-    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))')
+    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))')
     .single();
   if (error) { showToast("Couldn't create event.", 'error'); return; }
   const ev = normalizeEvent(data);

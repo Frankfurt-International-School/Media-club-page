@@ -255,6 +255,7 @@ function renderSignupRoleOptions(ev) {
   document.getElementById('signup-entry-grid')?.classList.toggle('role-free', Boolean(roleFreeAttendance));
   if (roleFreeAttendance) {
     select.innerHTML = '<option value="">No role required</option>';
+    renderSignupCameraSource();
     return;
   }
   const selected = select.value;
@@ -292,18 +293,20 @@ function updateReserveRoleFields() {
   const fields = document.getElementById('signup-reserve-fields');
   const isSupervisor = document.getElementById('signup-role')?.value === signupRoleLabels.student_supervisor;
   fields?.classList.toggle('visible', isSupervisor);
-  if (!isSupervisor) return;
-  const first = document.getElementById('signup-reserve-role-1');
-  const second = document.getElementById('signup-reserve-role-2');
-  const roles = availableReserveRoleLabels();
-  const previousFirst = first.value;
-  const previousSecond = second.value;
-  first.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
-  if (roles.includes(previousFirst)) first.value = previousFirst;
-  second.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
-  if (roles.includes(previousSecond) && previousSecond !== first.value) second.value = previousSecond;
-  if (second.value === first.value) second.value = roles.find(role => role !== first.value) || '';
-  syncReserveRoleOptions();
+  if (isSupervisor) {
+    const first = document.getElementById('signup-reserve-role-1');
+    const second = document.getElementById('signup-reserve-role-2');
+    const roles = availableReserveRoleLabels();
+    const previousFirst = first.value;
+    const previousSecond = second.value;
+    first.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+    if (roles.includes(previousFirst)) first.value = previousFirst;
+    second.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
+    if (roles.includes(previousSecond) && previousSecond !== first.value) second.value = previousSecond;
+    if (second.value === first.value) second.value = roles.find(role => role !== first.value) || '';
+    syncReserveRoleOptions();
+  }
+  renderSignupCameraSource();
 }
 
 function syncReserveRoleOptions() {
@@ -335,6 +338,7 @@ function renderSignupNameField() {
   } else {
     input.removeAttribute('aria-label');
   }
+  renderSignupCameraSource();
 }
 
 function normalizedSignupName(value = '') {
@@ -357,6 +361,7 @@ function setSignupNameHelp(message, status = '') {
 
 function clearSignupNameValidation() {
   setSignupNameHelp('Enter the full name exactly as displayed on the Members page. Capitalization does not matter.');
+  renderSignupCameraSource();
 }
 
 function validateSignupNameInput(canonicalize = false) {
@@ -364,20 +369,59 @@ function validateSignupNameInput(canonicalize = false) {
   const value = input?.value || '';
   if (!value.trim()) {
     setSignupNameHelp('Enter the full name exactly as displayed on the Members page. Capitalization does not matter.');
+    renderSignupCameraSource();
     return [];
   }
   const matches = matchingSignupMembers(value);
   if (!matches.length) {
     setSignupNameHelp('Name not found. Check the spelling or copy the name from the Members page.', 'error');
+    renderSignupCameraSource();
     return [];
   }
   if (matches.length > 1) {
     setSignupNameHelp('More than one member has this name. Ask an administrator for help.', 'error');
+    renderSignupCameraSource();
     return matches;
   }
   if (canonicalize) input.value = matches[0].name;
   setSignupNameHelp(`Matched to ${matches[0].name}.`, 'valid');
+  renderSignupCameraSource();
   return matches;
+}
+
+function signupMemberForEquipmentPreference() {
+  const inputName = document.getElementById('signup-name')?.value || '';
+  const matches = matchingSignupMembers(inputName);
+  return matches.length === 1 ? matches[0] : canSignupForOtherMembers() ? null : currentMemberRecord();
+}
+
+function renderSignupCameraSource() {
+  const panel = document.getElementById('signup-camera-source');
+  const select = document.getElementById('signup-camera-source-select');
+  const summary = document.getElementById('signup-camera-source-summary');
+  if (!panel || !select || !summary) return;
+  const photographerSelected = document.getElementById('signup-role')?.value === signupRoleLabels.photographer;
+  panel.hidden = !photographerSelected;
+  if (!photographerSelected) {
+    delete panel.dataset.preferenceContext;
+    return;
+  }
+
+  const member = signupMemberForEquipmentPreference();
+  const preference = member?.personalEquipmentPreferences || { cameraName: '', autoUseCamera: false };
+  const cameraName = preference.cameraName.trim();
+  const ownOption = select.querySelector('option[value="own"]');
+  ownOption.disabled = !cameraName;
+  ownOption.textContent = cameraName ? `My camera — ${cameraName}` : 'My camera — add one in Settings';
+  const context = `${document.getElementById('sheet-event-select')?.value || ''}:${member?.id || ''}:${cameraName}:${preference.autoUseCamera}`;
+  if (panel.dataset.preferenceContext !== context) {
+    select.value = cameraName && preference.autoUseCamera ? 'own' : 'club';
+    panel.dataset.preferenceContext = context;
+  }
+  if (select.value === 'own' && !cameraName) select.value = 'club';
+  summary.innerHTML = select.value === 'own'
+    ? `<span class="signup-camera-status-dot"></span><strong>Personal kit armed</strong><span>${escapeHtml(cameraName)}</span>`
+    : '<span class="signup-camera-status-dot club"></span><strong>Club equipment</strong><span>Reserve or collect a club camera separately.</span>';
 }
 
 const datasetLabels = {
@@ -469,6 +513,10 @@ function normalizeMember(member, index = 0) {
       stats: Array.isArray(member.dashboard_preferences?.stats) ? member.dashboard_preferences.stats : [],
       sections: Array.isArray(member.dashboard_preferences?.sections) ? member.dashboard_preferences.sections : [],
     },
+    personalEquipmentPreferences: {
+      cameraName: typeof member.personal_equipment_preferences?.camera_name === 'string' ? member.personal_equipment_preferences.camera_name : '',
+      autoUseCamera: member.personal_equipment_preferences?.auto_use_camera === true,
+    },
     equipmentStatusAccess: member.equipment_status_access !== false,
     color: colors[index % colors.length],
     joined_date: member.joined_date,
@@ -483,6 +531,8 @@ function normalizeSignup(signup) {
     role: signup.signup_role || '',
     reserveRole1: signup.reserve_role_1 || '',
     reserveRole2: signup.reserve_role_2 || '',
+    equipmentSource: signup.equipment_source === 'own' ? 'own' : 'club',
+    ownCameraName: signup.own_camera_name || '',
     attendanceType: signup.attendance_type || 'whole',
     attendanceStart: signup.attendance_start || '',
     attendanceEnd: signup.attendance_end || '',
@@ -669,7 +719,7 @@ function crewCenterDatasetRequest(dataset, visitor) {
   }
   const requests = {
     members: () => supabaseClient.from('members').select('*').order('name'),
-    events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
+    events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
     meetings: () => supabaseClient.from('meetings').select('*, meeting_attendees(id, member_id, response, responded_at, members(name, role, avatar_url))').order('starts_at', { ascending: true }),
     gallery: () => supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
     equipment: () => supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),

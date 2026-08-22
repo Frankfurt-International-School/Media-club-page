@@ -248,6 +248,29 @@ test('dashboard preferences are owner-scoped and bounded', () => {
   assert.match(policiesSql, /grant execute on function public\.update_own_dashboard_preferences\(jsonb\) to authenticated/);
 });
 
+test('personal cameras are owner-scoped and snapshotted only for Photographer signups', () => {
+  const updatePreferences = extractSqlFunction('update_own_personal_equipment_preferences');
+  assert.match(schemaSql, /personal_equipment_preferences jsonb not null default '\{"camera_name":"","auto_use_camera":false\}'::jsonb/);
+  assert.match(schemaSql, /equipment_source text not null default 'club'/);
+  assert.match(schemaSql, /signups_photographer_equipment_check[\s\S]*?equipment_source = 'own'[\s\S]*?signup_role = 'Photographer'[\s\S]*?char_length\(own_camera_name\) between 1 and 80/);
+  assert.match(updatePreferences, /auth\.uid\(\) is null or public\.is_visitor_session\(\)/);
+  assert.match(updatePreferences, /char_length\(clean_camera_name\) > 80/);
+  assert.match(updatePreferences, /where lower\(email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
+  assert.match(policiesSql, /revoke all on function public\.update_own_personal_equipment_preferences\(jsonb\) from public/);
+  assert.match(policiesSql, /grant execute on function public\.update_own_personal_equipment_preferences\(jsonb\) to authenticated/);
+  assert.match(policiesSql, /equipment_source = 'own'[\s\S]*?camera_owner\.id = signups\.member_id[\s\S]*?personal_equipment_preferences ->> 'camera_name'/);
+  assert.match(indexHtml, /href="\/profile\?tab=personalisation" id="settings-tab-personalisation"/);
+  assert.match(indexHtml, /id="settings-panel-personalisation"[\s\S]*?id="personal-camera-name"[\s\S]*?id="personal-camera-auto-use"/);
+  assert.match(indexHtml, /id="signup-camera-source"[\s\S]*?id="signup-camera-source-select"/);
+  assert.match(appSource, /function renderSignupCameraSource\(\)/);
+  assert.match(appSource, /cameraName && preference\.autoUseCamera \? 'own' : 'club'/);
+  assert.match(appSource, /equipment_source: equipmentSource/);
+  assert.match(appSource, /own_camera_name: equipmentSource === 'own' \? personalCameraName : null/);
+  assert.match(appSource, /Own camera · \$\{escapeHtml\(signup\.ownCameraName\)\}/);
+  assert.match(appStyles, /\.personal-kit-console/);
+  assert.match(appStyles, /\.signup-camera-source\[hidden\]/);
+});
+
 test('dashboard widget visibility follows public, member, operations, and admin access', () => {
   const available = ({ access, visitor = false, member = true, operations = false, admin = false }) => runFunctions(
     ['isVisitorSession', 'dashboardPreferenceAvailable'],

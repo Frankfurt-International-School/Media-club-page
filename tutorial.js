@@ -121,8 +121,8 @@
       title: 'Settings',
       summary: 'Personalise your account and Crew Center.',
       steps: [
-        { target: '#page-profile .settings-nav', title: 'Your account settings', body: 'Move between profile, appearance, dashboard, sidebar, and notification settings from this menu.' },
-        { target: '#page-profile .settings-content', title: 'Preferences that follow you', body: 'Profile, dashboard, sidebar, and notification changes are saved with the appropriate account controls. Theme choice stays on this browser.' },
+        { target: '#page-profile .settings-nav', title: 'Your account settings', body: 'Move between profile, appearance, personalisation, dashboard, sidebar, and notification settings from this menu.' },
+        { target: '#page-profile .settings-content', title: 'Preferences that follow you', body: 'Profile, personal camera, dashboard, sidebar, and notification changes are saved with the appropriate account controls. Theme choice stays on this browser.' },
       ],
     },
     admin: {

@@ -906,6 +906,40 @@ $$;
 revoke all on function public.update_own_dashboard_preferences(jsonb) from public;
 grant execute on function public.update_own_dashboard_preferences(jsonb) to authenticated;
 
+create or replace function public.update_own_personal_equipment_preferences(p_preferences jsonb)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clean_camera_name text := btrim(coalesce(p_preferences ->> 'camera_name', ''));
+  clean_auto_use boolean := coalesce((p_preferences ->> 'auto_use_camera')::boolean, false);
+begin
+  if auth.uid() is null or public.is_visitor_session() then
+    raise exception 'A signed-in member account is required.';
+  end if;
+  if char_length(clean_camera_name) > 80 or clean_camera_name ~ '[[:cntrl:]]' then
+    raise exception 'Camera names must contain 80 characters or fewer.';
+  end if;
+  if clean_auto_use and clean_camera_name = '' then
+    raise exception 'Add a camera before making it your Photographer default.';
+  end if;
+
+  update public.members
+  set personal_equipment_preferences = jsonb_build_object(
+    'camera_name', clean_camera_name,
+    'auto_use_camera', clean_auto_use
+  )
+  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''));
+
+  return found;
+end;
+$$;
+
+revoke all on function public.update_own_personal_equipment_preferences(jsonb) from public;
+grant execute on function public.update_own_personal_equipment_preferences(jsonb) to authenticated;
+
 create or replace function public.update_own_tutorial_progress(p_progress jsonb)
 returns boolean
 language plpgsql
@@ -1447,6 +1481,19 @@ with check (
   and confirmation_status in ('confirmed', 'maybe')
   and public.is_valid_event_signup(event_id, signup_role, attendance_type, attendance_start, attendance_end)
   and (signup_role <> 'Student Supervisor' or public.is_crew_operations_user())
+  and (
+    (equipment_source = 'club' and own_camera_name is null)
+    or (
+      equipment_source = 'own'
+      and signup_role = 'Photographer'
+      and exists (
+        select 1
+        from public.members camera_owner
+        where camera_owner.id = signups.member_id
+          and btrim(coalesce(camera_owner.personal_equipment_preferences ->> 'camera_name', '')) = own_camera_name
+      )
+    )
+  )
   and (
     (signup_role = 'Student Supervisor' and reserve_role_1 is not null and reserve_role_2 is not null and reserve_role_1 <> reserve_role_2)
     or (signup_role <> 'Student Supervisor' and reserve_role_1 is null and reserve_role_2 is null)

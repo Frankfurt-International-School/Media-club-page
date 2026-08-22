@@ -40,6 +40,11 @@ function attendanceLabel(signup) {
   return `${labels[signup.attendanceType] || 'Custom'} · ${start}–${end}`;
 }
 
+function signupCameraBadge(signup) {
+  if (signup.role !== signupRoleLabels.photographer || signup.equipmentSource !== 'own' || !signup.ownCameraName) return '';
+  return `<span class="signup-camera-badge"><span aria-hidden="true"></span>Own camera · ${escapeHtml(signup.ownCameraName)}</span>`;
+}
+
 let reserveActivationTimer = null;
 
 function reserveActivationAt(ev) {
@@ -155,7 +160,7 @@ function renderSignupSheet() {
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${escapeHtml(s.name)}</td>
-      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${supervisorRoleNote}</td>
+      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${signupCameraBadge(s)}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${supervisorRoleNote}</td>
       <td style="color:var(--text2);font-size:12px;">${escapeHtml(attendanceLabel(s))}</td>
       <td style="color:var(--text3);font-size:12px;">${escapeHtml(s.ts)}</td>
       ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</div></td>` : ''}
@@ -167,7 +172,7 @@ function renderSignupSheet() {
       rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${showRemoveColumn ? '<td></td>' : ''}</tr>`;
     }
   }
-  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}',true)">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
+  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')}${signupCameraBadge(s)} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}',true)">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
   document.getElementById('sheet-table').innerHTML = `
     <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Staying for</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
@@ -215,6 +220,7 @@ async function addSignupRow() {
     showToast('More than one member has this name. Ask an administrator to make the member records unique.', 'error');
     return;
   }
+  const matchedMember = matchingMembers[0];
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
   const role = document.getElementById('signup-role').value;
   const isStudentSupervisor = role === signupRoleLabels.student_supervisor;
@@ -251,7 +257,6 @@ async function addSignupRow() {
   const signedInMember = authEmail
     ? state.members.find(m => (m.email || '').toLowerCase() === authEmail)
     : currentMemberRecord();
-  const matchedMember = matchingMembers[0];
   nameInput.value = matchedMember.name;
   const member = canChooseMember ? matchedMember : signedInMember;
   if (!member) {
@@ -260,6 +265,13 @@ async function addSignupRow() {
   }
   if (!canChooseMember && member.id !== matchedMember.id) {
     showToast('You can only sign up using your own full name.', 'error');
+    return;
+  }
+  const personalCameraName = member.personalEquipmentPreferences?.cameraName?.trim() || '';
+  const equipmentSource = role === signupRoleLabels.photographer && document.getElementById('signup-camera-source-select')?.value === 'own' ? 'own' : 'club';
+  if (equipmentSource === 'own' && !personalCameraName) {
+    showToast('Add a personal camera in Settings before using My camera for a Photographer signup.', 'error', 6000);
+    renderSignupCameraSource();
     return;
   }
   if (role !== signupRoleLabels.adult_supervisor) {
@@ -278,12 +290,14 @@ async function addSignupRow() {
       signup_role: roleFreeAttendance ? null : role,
       reserve_role_1: isStudentSupervisor ? reserveRole1 : null,
       reserve_role_2: isStudentSupervisor ? reserveRole2 : null,
+      equipment_source: equipmentSource,
+      own_camera_name: equipmentSource === 'own' ? personalCameraName : null,
       attendance_type: attendance.type,
       attendance_start: new Date(attendance.start).toISOString(),
       attendance_end: new Date(attendance.end).toISOString(),
       confirmation_status: confirmationStatus,
     })
-    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role)')
+    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role)')
     .single();
   if (error) {
     if (error.code === '23505' || error.code === '23P01') {
@@ -302,6 +316,8 @@ async function addSignupRow() {
     role: signup.signup_role || '',
     reserveRole1: signup.reserve_role_1 || '',
     reserveRole2: signup.reserve_role_2 || '',
+    equipmentSource: signup.equipment_source === 'own' ? 'own' : 'club',
+    ownCameraName: signup.own_camera_name || '',
     attendanceType: signup.attendance_type || attendance.type,
     attendanceStart: signup.attendance_start,
     attendanceEnd: signup.attendance_end,

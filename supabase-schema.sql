@@ -38,6 +38,7 @@ alter table public.members alter column sidebar_items set default array['home','
 alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true}'::jsonb;
 alter table public.members add column if not exists dashboard_preferences jsonb not null default '{"stats":[],"sections":[]}'::jsonb;
 alter table public.members add column if not exists tutorial_progress jsonb not null default '{"version":1,"completed":[],"dismissed_welcome":false,"active_tour":null,"active_step":0}'::jsonb;
+alter table public.members add column if not exists personal_equipment_preferences jsonb not null default '{"camera_name":"","auto_use_camera":false}'::jsonb;
 alter table public.members add column if not exists equipment_status_access boolean not null default true;
 
 create table if not exists public.member_team_memberships (
@@ -213,6 +214,8 @@ create table if not exists public.signups (
   signup_role text,
   reserve_role_1 text,
   reserve_role_2 text,
+  equipment_source text not null default 'club',
+  own_camera_name text,
   attendance_type text not null default 'whole' check (attendance_type in ('whole', 'game_1', 'game_2', 'game_3', 'game_4', 'custom')),
   attendance_start timestamptz,
   attendance_end timestamptz,
@@ -227,6 +230,8 @@ create table if not exists public.signups (
 alter table public.signups add column if not exists signup_role text;
 alter table public.signups add column if not exists reserve_role_1 text;
 alter table public.signups add column if not exists reserve_role_2 text;
+alter table public.signups add column if not exists equipment_source text not null default 'club';
+alter table public.signups add column if not exists own_camera_name text;
 alter table public.signups add column if not exists attendance_type text not null default 'whole';
 alter table public.signups add column if not exists attendance_start timestamptz;
 alter table public.signups add column if not exists attendance_end timestamptz;
@@ -255,6 +260,18 @@ alter table public.signups add constraint signups_student_supervisor_reserves_ch
     and reserve_role_1 <> reserve_role_2
   )
   or (reserve_role_1 is null and reserve_role_2 is null)
+);
+alter table public.signups drop constraint if exists signups_photographer_equipment_check;
+alter table public.signups add constraint signups_photographer_equipment_check check (
+  (
+    equipment_source = 'own'
+    and signup_role = 'Photographer'
+    and own_camera_name is not null
+    and own_camera_name = btrim(own_camera_name)
+    and char_length(own_camera_name) between 1 and 80
+    and own_camera_name !~ '[[:cntrl:]]'
+  )
+  or (equipment_source = 'club' and own_camera_name is null)
 );
 drop index if exists public.signups_event_signup_role_idx;
 alter table public.signups drop constraint if exists signups_role_attendance_no_overlap;

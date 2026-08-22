@@ -362,6 +362,19 @@
         <div class="form-group" style="margin:0"><label class="form-label">Arrival time</label><input class="form-input" id="signup-start-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
         <div class="form-group" style="margin:0"><label class="form-label">Leaving time</label><input class="form-input" id="signup-end-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
       </div>
+      <div class="signup-camera-source" id="signup-camera-source" hidden>
+        <div class="signup-camera-source-copy">
+          <div class="signup-camera-source-kicker"><span aria-hidden="true"></span> Photographer loadout</div>
+          <strong>Camera source</strong>
+          <p>Choose whether this assignment uses a club camera or the member’s saved personal camera.</p>
+        </div>
+        <div class="signup-camera-source-control">
+          <label class="form-label" for="signup-camera-source-select">Equipment</label>
+          <div class="signup-select-shell"><select class="form-select" id="signup-camera-source-select" onchange="renderSignupCameraSource()"><option value="club">Club equipment</option><option value="own">My camera</option></select></div>
+        </div>
+        <div class="signup-camera-source-summary" id="signup-camera-source-summary"></div>
+        <a class="signup-camera-settings-link" href="/profile?tab=personalisation">Edit personal camera</a>
+      </div>
       <div class="signup-reserve-fields" id="signup-reserve-fields">
         <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-1">Reserve priority 1</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-1" onchange="syncReserveRoleOptions()"></select></div></div>
         <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-2">Reserve priority 2</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-2" onchange="syncReserveRoleOptions()"></select></div></div>
@@ -612,6 +625,7 @@
       <nav class="settings-nav" role="tablist" aria-label="Settings sections">
         <a href="/profile?tab=profile" id="settings-tab-profile" class="active" data-settings-tab="profile" role="tab" aria-selected="true" tabindex="0" aria-controls="settings-panel-profile" onkeydown="handleTabKeydown(event)">Profile</a>
         <a href="/profile?tab=appearance" id="settings-tab-appearance" data-settings-tab="appearance" role="tab" aria-selected="false" tabindex="-1" aria-controls="settings-panel-appearance" onkeydown="handleTabKeydown(event)">Appearance</a>
+        <a href="/profile?tab=personalisation" id="settings-tab-personalisation" data-settings-tab="personalisation" role="tab" aria-selected="false" tabindex="-1" aria-controls="settings-panel-personalisation" onkeydown="handleTabKeydown(event)">Personalisation</a>
         <a href="/profile?tab=dashboard" id="dashboard-settings-tab" data-settings-tab="dashboard" role="tab" aria-selected="false" tabindex="-1" aria-controls="dashboard-preferences-panel" onkeydown="handleTabKeydown(event)">Dashboard</a>
         <a href="/profile?tab=sidebar" id="settings-tab-sidebar" data-settings-tab="sidebar" role="tab" aria-selected="false" tabindex="-1" aria-controls="sidebar-preferences-panel" onkeydown="handleTabKeydown(event)">Sidebar</a>
         <a href="/profile?tab=notifications" id="settings-tab-notifications" data-settings-tab="notifications" role="tab" aria-selected="false" tabindex="-1" aria-controls="notification-preferences-panel" onkeydown="handleTabKeydown(event)">Notifications</a>
@@ -641,6 +655,25 @@
           <button class="theme-choice" id="theme-light" onclick="setCrewCenterTheme('light')"><span class="theme-swatch light"><span></span><span></span></span><strong>Light</strong></button>
           <button class="theme-choice" id="theme-dark" onclick="setCrewCenterTheme('dark')"><span class="theme-swatch dark"><span></span><span></span></span><strong>Dark</strong></button>
         </div></div>
+      </section>
+      <section class="profile-panel" id="settings-panel-personalisation" data-settings-section="personalisation" role="tabpanel" aria-labelledby="settings-tab-personalisation" tabindex="0" hidden>
+        <div class="profile-panel-head"><h3>Personalisation</h3><p>Save the personal kit you bring to productions. Your Photographer signups can use it automatically.</p></div>
+        <div class="profile-panel-body">
+          <div class="personal-kit-console">
+            <div class="personal-kit-visual" aria-hidden="true">
+              <div class="personal-kit-orbit"></div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h3l1.5-2h7L17 7h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>CAM / 01</span>
+            </div>
+            <div class="personal-kit-editor">
+              <div class="personal-kit-heading"><div><span class="personal-kit-signal"></span> Personal camera profile</div><small>ACCOUNT SYNC</small></div>
+              <div class="form-group" style="margin:0"><label class="form-label" for="personal-camera-name">Camera name or model</label><input class="form-input" id="personal-camera-name" maxlength="80" placeholder="e.g. Sony A7 IV + 24–70 mm" oninput="updatePersonalEquipmentPreview()"></div>
+              <label class="personal-camera-default"><span><strong>Use as my Photographer default</strong><span>Automatically selects your camera when you claim a Photographer role. You can still switch to club equipment.</span></span><input id="personal-camera-auto-use" type="checkbox" onchange="updatePersonalEquipmentPreview()"></label>
+              <div class="personal-kit-preview" id="personal-kit-preview" aria-live="polite"></div>
+              <div class="personal-kit-actions"><button class="btn btn-accent" id="personal-equipment-save" onclick="savePersonalEquipmentPreferences()">Save personal kit</button><button class="btn btn-ghost" type="button" onclick="clearPersonalEquipmentForm()">Clear camera</button></div>
+            </div>
+          </div>
+        </div>
       </section>
       <section class="profile-panel" id="dashboard-preferences-panel" data-settings-section="dashboard" role="tabpanel" aria-labelledby="dashboard-settings-tab" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Dashboard</h3><p>Choose and order the information shown on your dashboard. These preferences follow your account across devices.</p></div>

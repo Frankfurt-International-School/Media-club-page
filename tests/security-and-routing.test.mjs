@@ -256,7 +256,7 @@ test('canonical routes and aliases survive static-host deep links', () => {
 
 test('navigation tabs use native deep links and restore state from the URL', () => {
   const roleTabs = [...indexHtml.matchAll(/<(a|button)\b[^>]*role="tab"[^>]*>/g)].map(match => match[0]);
-  assert.equal(roleTabs.length, 16);
+  assert.equal(roleTabs.length, 17);
   roleTabs.forEach(tab => {
     assert.match(tab, /^<a\b/);
     assert.match(tab, /href="\/(?:meetings|gallery|profile|admin)\?tab=[a-z-]+"/);
@@ -275,7 +275,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
 
   assert.match(appSource, /tabValueFromUrl\(Object\.keys\(galleryTabFilters\), 'all'\)/);
   assert.match(appSource, /tabValueFromUrl\(\['upcoming', 'past'\], 'upcoming'\)/);
-  assert.match(appSource, /tabValueFromUrl\(\['profile', 'appearance', 'dashboard', 'sidebar', 'notifications', 'tutorials'\], 'profile'\)/);
+  assert.match(appSource, /tabValueFromUrl\(\['profile', 'appearance', 'personalisation', 'dashboard', 'sidebar', 'notifications', 'tutorials'\], 'profile'\)/);
   assert.match(appSource, /showAdminTab\(tabValueFromUrl\(\['pending', 'manage-events', 'announcements'\], 'pending'\)\)/);
   assert.match(appSource, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(appSource, /tabs\[nextIndex\]\.focus\(\)/);
@@ -293,7 +293,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.match(appSource, /document\.documentElement\.classList\.remove\('sidebar-pending'\)/);
   assert.match(appSource, /renderDatasetErrors\(\);\s*closeAllPages\(\);\s*closeMobileSidebar\(\);/);
   assert.match(appSource, /!state\.dataLoaded\.members \|\| Boolean\(currentMemberRecord\(\)\)/);
-  for (const tabId of ['dashboard-settings-tab', 'settings-tab-sidebar', 'settings-tab-notifications', 'tutorial-settings-tab']) {
+  for (const tabId of ['settings-tab-personalisation', 'dashboard-settings-tab', 'settings-tab-sidebar', 'settings-tab-notifications', 'tutorial-settings-tab']) {
     assert.match(appSource, new RegExp(`'${tabId}'`));
   }
 });

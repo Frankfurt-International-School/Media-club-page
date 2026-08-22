@@ -295,6 +295,7 @@ function renderProfile() {
   updateThemeChoices();
   const memberSettingsAvailable = !isVisitorSession() && (!state.dataLoaded.members || Boolean(currentMemberRecord()));
   [
+    ['settings-tab-personalisation', 'settings-panel-personalisation'],
     ['dashboard-settings-tab', 'dashboard-preferences-panel'],
     ['settings-tab-sidebar', 'sidebar-preferences-panel'],
     ['settings-tab-notifications', 'notification-preferences-panel'],
@@ -308,8 +309,9 @@ function renderProfile() {
   renderDashboardSettings();
   renderSidebarSettings();
   renderNotificationSettings();
+  renderPersonalEquipmentSettings();
   document.getElementById('profile-photo-remove').style.display = state.currentUser.avatarUrl ? '' : 'none';
-  showSettingsSection(tabValueFromUrl(['profile', 'appearance', 'dashboard', 'sidebar', 'notifications', 'tutorials'], 'profile'));
+  showSettingsSection(tabValueFromUrl(['profile', 'appearance', 'personalisation', 'dashboard', 'sidebar', 'notifications', 'tutorials'], 'profile'));
 }
 
 function showSettingsSection(section) {
@@ -339,6 +341,69 @@ function renderNotificationSettings() {
   const preferences = currentNotificationPreferences();
   const mapping = { 'notify-event-created': 'event_created', 'notify-event-reminders': 'event_reminders', 'notify-maybe-reminders': 'maybe_reminders' };
   Object.entries(mapping).forEach(([id, key]) => { const input = document.getElementById(id); if (input) input.checked = preferences[key]; });
+}
+
+function currentPersonalEquipmentPreferences() {
+  return currentMemberRecord()?.personalEquipmentPreferences || { cameraName: '', autoUseCamera: false };
+}
+
+function renderPersonalEquipmentSettings() {
+  const cameraInput = document.getElementById('personal-camera-name');
+  const autoUseInput = document.getElementById('personal-camera-auto-use');
+  if (!cameraInput || !autoUseInput) return;
+  const preferences = currentPersonalEquipmentPreferences();
+  cameraInput.value = preferences.cameraName || '';
+  autoUseInput.checked = Boolean(preferences.autoUseCamera && preferences.cameraName);
+  updatePersonalEquipmentPreview();
+}
+
+function updatePersonalEquipmentPreview() {
+  const cameraInput = document.getElementById('personal-camera-name');
+  const autoUseInput = document.getElementById('personal-camera-auto-use');
+  const preview = document.getElementById('personal-kit-preview');
+  if (!cameraInput || !autoUseInput || !preview) return;
+  const cameraName = cameraInput.value.trim();
+  autoUseInput.disabled = !cameraName;
+  if (!cameraName) autoUseInput.checked = false;
+  preview.classList.toggle('configured', Boolean(cameraName));
+  preview.innerHTML = cameraName
+    ? `<span class="personal-kit-preview-dot"></span><div><small>PHOTOGRAPHER LOADOUT</small><strong>${escapeHtml(cameraName)}</strong><span>${autoUseInput.checked ? 'Auto-select is armed' : 'Available when you choose My camera'}</span></div>`
+    : '<span class="personal-kit-preview-dot idle"></span><div><small>NO PERSONAL CAMERA</small><strong>Club equipment stays default</strong><span>Add a camera model to activate your personal loadout.</span></div>';
+}
+
+function clearPersonalEquipmentForm() {
+  const cameraInput = document.getElementById('personal-camera-name');
+  const autoUseInput = document.getElementById('personal-camera-auto-use');
+  if (!cameraInput || !autoUseInput) return;
+  cameraInput.value = '';
+  autoUseInput.checked = false;
+  updatePersonalEquipmentPreview();
+  showToast('Personal camera cleared in this form. Save to sync the change.');
+}
+
+async function savePersonalEquipmentPreferences() {
+  const cameraInput = document.getElementById('personal-camera-name');
+  const autoUseInput = document.getElementById('personal-camera-auto-use');
+  const cameraName = cameraInput?.value.trim() || '';
+  const autoUseCamera = Boolean(cameraName && autoUseInput?.checked);
+  if (cameraName.length > 80) {
+    showToast('Keep the camera name within 80 characters.', 'error');
+    return;
+  }
+  const button = document.getElementById('personal-equipment-save');
+  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+  const preferences = { camera_name: cameraName, auto_use_camera: autoUseCamera };
+  const { data, error } = await supabaseClient.rpc('update_own_personal_equipment_preferences', { p_preferences: preferences });
+  if (button) { button.disabled = false; button.textContent = 'Save personal kit'; }
+  if (error || !data) {
+    showToast("Couldn't save your personal kit. Run the latest Supabase SQL files first.", 'error');
+    return;
+  }
+  const member = currentMemberRecord();
+  if (member) member.personalEquipmentPreferences = { cameraName, autoUseCamera };
+  updatePersonalEquipmentPreview();
+  renderSignupCameraSource();
+  showToast(cameraName ? 'Personal camera synced to your account.' : 'Personal camera removed from your account.');
 }
 
 async function saveNotificationPreferences() {
