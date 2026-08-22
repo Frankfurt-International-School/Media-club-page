@@ -876,18 +876,6 @@
     opacity: .12;
     filter: saturate(.72);
   }
-  .meetings-hero::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background-image:
-      linear-gradient(rgba(164,1,52,.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(164,1,52,.06) 1px, transparent 1px);
-    background-size: 28px 28px, 28px 28px;
-    mask-image: linear-gradient(90deg, transparent 28%, #000 70%);
-    pointer-events: none;
-  }
   .meetings-hero .page-kicker { color: #A40134; }
   .meetings-hero-status { display: inline-flex; align-items: center; gap: 7px; margin-top: 13px; color: var(--text3); font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
   .meetings-hero-status span { width: 7px; height: 7px; border-radius: 50%; background: #A40134; box-shadow: 0 0 0 4px rgba(164,1,52,.12), 0 0 16px rgba(164,1,52,.32); animation: meetingSignal 2.2s ease-in-out infinite; }
@@ -1699,7 +1687,6 @@
     .page-hero-actions, .page-hero-actions .btn { width: 100%; }
     .page-hero-actions .btn { justify-content: center; }
     .meetings-hero { min-height: 0; }
-    .meetings-hero::after { mask-image: linear-gradient(180deg, transparent 8%, #000 72%); }
     .meeting-command-grid { grid-template-columns: 1fr; gap: 8px; }
     .meeting-command-card { padding: 12px 14px; }
     .meeting-card { grid-template-columns: 54px minmax(0, 1fr); gap: 11px; padding: 15px 14px 15px 20px; }

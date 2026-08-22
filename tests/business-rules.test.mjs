@@ -125,10 +125,9 @@ test('Meetings remain a private deep-linked page with a themed watermark hero', 
   assert.match(appSource, /meetings: '\/meetings'/);
   assert.match(appSource, /if \(page === 'meetings' && isVisitorSession\(\)\)/);
   assert.match(appStyles, /\.meetings-hero::before[\s\S]*?assets\/fis-logo\.png/);
-  assert.match(appStyles, /\.meetings-hero::after[\s\S]*?linear-gradient/);
+  assert.doesNotMatch(appStyles, /\.meetings-hero::after/);
   assert.match(appStyles, /\.meetings-hero \{[\s\S]*?rgba\(164,1,52,\.14\)/);
   assert.match(appStyles, /\.meetings-hero \.page-kicker \{ color: #A40134; \}/);
-  assert.doesNotMatch(appStyles, /rgba\(94,170,255,\.12\) 70% 70\.4%/);
   assert.match(appStyles, /--meeting-accent: var\(--teal\)/);
   assert.match(appStyles, /@media \(max-width: 768px\)[\s\S]*?\.meeting-card \{ grid-template-columns: 54px minmax\(0, 1fr\)/);
   assert.match(schemaSql, /sidebar_items text\[\] not null default array\[[^\]]*'events','meetings','signup'[^\]]*\]::text\[\]/);
