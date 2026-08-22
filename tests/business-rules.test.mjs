@@ -309,6 +309,14 @@ test('dashboard greeting does not expose an email alias while the member record 
   assert.doesNotMatch(greeting.textContent, /js12345/);
 });
 
+test('auth refreshes never replace the approved sidebar name with an email alias', () => {
+  assert.doesNotMatch(uiSource, /email\?\.split\('@'\)\[0\]/);
+  assert.doesNotMatch(authSource, /email\?\.split\("@"\)\[0\]/);
+  assert.match(uiSource, /state\.currentUser\.name = member\?\.name \|\| \(isVisitor \? 'Visitor' : 'Media Club member'\)/);
+  assert.match(authSource, /const name = memberRecord\?\.name \|\| \(isVisitor \? "Visitor" : "Media Club member"\)/);
+  assert.doesNotMatch(authSource, /document\.addEventListener\("click",[\s\S]*?applySignedInUser/);
+});
+
 test('signup removals use the shared in-app confirmation before deletion', () => {
   assert.match(appSource, /function requestRemoveSignup\(eventId, signupId, expired = false\)/);
   assert.match(appSource, /You are removing another member's signup as an Auth Admin/);
@@ -399,6 +407,10 @@ test('default sidebar includes About Media Club while customized choices remain 
   const manuallyHidden = preferences({ sidebarCustomized: true, sidebarItems: ['home', 'gallery', 'join'] });
   assert.equal(manuallyHidden.customized, true);
   assert.equal(manuallyHidden.items.includes('about'), false, 'a customized sidebar may deliberately hide About');
+
+  const storedRestrictedPages = preferences({ sidebarCustomized: true, sidebarItems: ['home', 'crew-deployment', 'equipment-status', 'gallery', 'join'] });
+  assert.equal(storedRestrictedPages.items.includes('crew-deployment'), false, 'stored Crew Schedule preferences must not reveal the restricted page');
+  assert.equal(storedRestrictedPages.items.includes('equipment-status'), false, 'stored Equipment Status preferences must not reveal the restricted page');
 });
 
 test('visitor reads use narrow RPCs and direct operational table reads stay blocked', () => {

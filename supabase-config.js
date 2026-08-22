@@ -626,12 +626,12 @@ function applySignedInUser(user) {
   const appMetadata = user.app_metadata || {};
   const isVisitor = Boolean(user.is_anonymous) || (appMetadata.role || metadata.role || "").toLowerCase() === "visitor";
   const memberRecord = window.currentMemberRecord?.();
-  const name = memberRecord?.name || metadata.full_name || metadata.name || metadata.display_name || user.email?.split("@")[0] || (isVisitor ? "Visitor" : "Media Club member");
+  const name = memberRecord?.name || (isVisitor ? "Visitor" : "Media Club member");
   window.CREW_CENTER_IS_ADMIN = (appMetadata.role || "").toLowerCase() === "admin";
   window.CREW_CENTER_IS_VISITOR = isVisitor;
   const role = isVisitor ? "Visitor" : window.CREW_CENTER_IS_ADMIN ? "Admin" : "Member";
-  const initials = metadata.initials || name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC";
-  const avatarUrl = memberRecord ? memberRecord.avatarUrl : metadata.avatar_url || "";
+  const initials = memberRecord ? name.split(/\s+/).map(part => part[0]).join("").slice(0, 3).toUpperCase() || "MC" : isVisitor ? "V" : "MC";
+  const avatarUrl = memberRecord?.avatarUrl || "";
   const palette = {
     green: ["rgba(234,122,244,0.15)", "#EA7AF4"],
     purple: ["rgba(180,157,255,0.12)", "#b49dff"],
@@ -874,12 +874,6 @@ if (window.crewCenterSupabase) {
   showSignIn();
   setAuthError("Supabase is not available yet. Check the connection and try again.");
 }
-
-document.addEventListener("click", () => {
-  if (window.CREW_CENTER_AUTH_USER && document.body.classList.contains("auth-ready")) {
-    setTimeout(() => applySignedInUser(window.CREW_CENTER_AUTH_USER), 80);
-  }
-});
 
 setTimeout(() => {
   installAdminFunctionGuards();
