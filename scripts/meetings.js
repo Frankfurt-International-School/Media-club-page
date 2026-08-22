@@ -178,7 +178,7 @@ function renderMeetings() {
   meetings.sort((a, b) => tab === 'past' ? b.startsAt.localeCompare(a.startsAt) : a.startsAt.localeCompare(b.startsAt));
   const target = document.getElementById('meetings-list');
   if (!meetings.length) {
-    target.innerHTML = `<div class="empty-state meeting-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="9" r="1.5"/><circle cx="16" cy="15" r="1.5"/><path d="M10 12h3M14.5 10l-3 1.5M14.5 14l-3-1.5"/></svg><p>${tab === 'past' ? 'No past meeting records are available.' : 'No meetings are currently scheduled for you.'}</p>${canManageCrewOperations() && tab === 'upcoming' ? '<button type="button" class="btn btn-accent btn-sm" onclick="openMeetingEditor()">Schedule the first meeting</button>' : ''}</div>`;
+    target.innerHTML = `<div class="empty-state meeting-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="9" r="1.5"/><circle cx="16" cy="15" r="1.5"/><path d="M10 12h3M14.5 10l-3 1.5M14.5 14l-3-1.5"/></svg><p>${tab === 'past' ? 'No past meeting records are available.' : 'No meetings are currently scheduled for you.'}</p>${canCreateMeetings() && tab === 'upcoming' ? '<button type="button" class="btn btn-accent btn-sm" onclick="openMeetingEditor()">Schedule the first meeting</button>' : ''}</div>`;
     return;
   }
   target.innerHTML = meetings.map(renderMeetingCard).join('');
@@ -209,13 +209,18 @@ function setMeetingEditorValues(meeting) {
 }
 
 function openMeetingEditor(id = '') {
-  if (!canManageCrewOperations()) { showToast('Production staff access is required to manage meetings.', 'error'); return; }
   const meeting = id ? meetingById(id) : null;
   if (id && (!meeting || meeting.archivedAt)) return;
+  if (!meeting && !canCreateMeetings()) { showToast('Only Faculty, Leaders, and Co-Leaders can schedule meetings.', 'error'); return; }
+  if (meeting && !canManageCrewOperations()) { showToast('Production staff access is required to edit meetings.', 'error'); return; }
   editingMeetingId = meeting?.id || null;
   document.getElementById('meeting-modal-title').textContent = meeting ? 'Edit meeting' : 'Schedule meeting';
   document.getElementById('meeting-modal-sub').textContent = meeting ? 'Update the schedule, audience, agenda, or published meeting record.' : 'Choose who needs the meeting, when it happens, and what the crew should prepare.';
   document.getElementById('meeting-save-button').textContent = meeting ? 'Save meeting changes' : 'Schedule meeting';
+  const authorizationNotice = document.getElementById('meeting-faculty-authorization');
+  const authorizationCheckbox = document.getElementById('meeting-faculty-authorization-confirmed');
+  authorizationNotice.hidden = Boolean(meeting) || !meetingCreationNeedsFacultyConfirmation();
+  authorizationCheckbox.checked = false;
   setMeetingEditorValues(meeting);
   openModal('meeting-modal');
 }
@@ -226,7 +231,9 @@ function closeMeetingEditor() {
 }
 
 async function saveMeeting() {
-  if (!canManageCrewOperations()) { showToast('Production staff access is required to manage meetings.', 'error'); return; }
+  const creating = !editingMeetingId;
+  if (creating && !canCreateMeetings()) { showToast('Only Faculty, Leaders, and Co-Leaders can schedule meetings.', 'error'); return; }
+  if (!creating && !canManageCrewOperations()) { showToast('Production staff access is required to edit meetings.', 'error'); return; }
   const title = document.getElementById('meeting-title').value.trim();
   const date = document.getElementById('meeting-date').value;
   const startTime = document.getElementById('meeting-start').value;
@@ -234,9 +241,11 @@ async function saveMeeting() {
   const startsAt = berlinTimestamp(date, startTime);
   const endsAt = berlinTimestamp(date, endTime);
   const link = document.getElementById('meeting-link').value.trim();
+  const facultyAuthorized = Boolean(document.getElementById('meeting-faculty-authorization-confirmed').checked);
   if (!title || !date || !startTime || !endTime) { showToast('Add a title, date, start time, and end time.', 'error'); return; }
   if (startsAt === null || endsAt === null || endsAt <= startsAt) { showToast('The meeting end must be after its Berlin start time.', 'error'); return; }
   if (link && (!safeExternalUrl(link) || !/^https:\/\//i.test(link))) { showToast('Meeting links must use a valid HTTPS address.', 'error'); return; }
+  if (creating && meetingCreationNeedsFacultyConfirmation() && !facultyAuthorized) { showToast('Confirm that a Faculty member authorized this meeting before scheduling it.', 'error', 7000); return; }
   const payload = {
     p_title: title,
     p_agenda: document.getElementById('meeting-agenda').value,
@@ -252,7 +261,7 @@ async function saveMeeting() {
   button.textContent = editingMeetingId ? 'Saving changes…' : 'Scheduling…';
   const request = editingMeetingId
     ? supabaseClient.rpc('update_meeting', { ...payload, p_meeting_id: editingMeetingId, p_notes: document.getElementById('meeting-notes').value })
-    : supabaseClient.rpc('create_meeting', payload);
+    : supabaseClient.rpc('create_meeting', { ...payload, p_faculty_authorized: facultyAuthorized });
   const { data, error } = await request;
   button.disabled = false;
   button.textContent = editingMeetingId ? 'Save meeting changes' : 'Schedule meeting';

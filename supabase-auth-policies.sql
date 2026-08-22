@@ -109,6 +109,24 @@ as $$
     );
 $$;
 
+create or replace function public.can_create_meetings()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.members member
+    where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and replace(lower(member.role), ' ', '-') in ('faculty', 'leader', 'co-leader')
+  );
+$$;
+
+revoke all on function public.can_create_meetings() from public;
+grant execute on function public.can_create_meetings() to authenticated;
+
 create or replace function public.can_access_equipment_status()
 returns boolean
 language sql
@@ -346,6 +364,8 @@ begin
 end;
 $$;
 
+drop function if exists public.create_meeting(text, text, timestamptz, timestamptz, text, text, text, uuid);
+
 create or replace function public.create_meeting(
   p_title text,
   p_agenda text,
@@ -354,7 +374,8 @@ create or replace function public.create_meeting(
   p_location text,
   p_meeting_link text,
   p_audience text,
-  p_related_event_id uuid
+  p_related_event_id uuid,
+  p_faculty_authorized boolean
 )
 returns public.meetings
 language plpgsql
@@ -364,10 +385,11 @@ as $$
 declare
   organizer_id uuid;
   organizer_label text;
+  organizer_role text;
   created_meeting public.meetings;
 begin
-  if not public.is_crew_operations_user() then
-    raise exception 'Production staff access is required.';
+  if not public.can_create_meetings() then
+    raise exception 'Only Faculty, Leaders, and Co-Leaders can create meetings.';
   end if;
   if nullif(btrim(p_title), '') is null or char_length(btrim(p_title)) > 120 then
     raise exception 'Meeting titles must contain between 1 and 120 characters.';
@@ -382,19 +404,29 @@ begin
     raise exception 'Meeting links must use a valid HTTPS address.';
   end if;
 
-  select member.id, member.name into organizer_id, organizer_label
+  select member.id, member.name, replace(lower(member.role), ' ', '-')
+  into organizer_id, organizer_label, organizer_role
   from public.members member
   where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   limit 1;
-  organizer_label := coalesce(organizer_label, 'Auth Admin');
+  organizer_label := coalesce(organizer_label, 'Media Club member');
+
+  if organizer_role in ('leader', 'co-leader') and not coalesce(p_faculty_authorized, false) then
+    raise exception 'A Leader or Co-Leader must confirm Faculty authorization before creating a meeting.';
+  end if;
 
   insert into public.meetings (
     title, agenda, starts_at, ends_at, location, meeting_link, audience,
-    related_event_id, organizer_member_id, organizer_name, created_by
+    related_event_id, organizer_member_id, organizer_name,
+    faculty_authorization_confirmed, faculty_authorization_confirmed_at,
+    created_by
   ) values (
     btrim(p_title), coalesce(btrim(p_agenda), ''), p_starts_at, p_ends_at,
     coalesce(btrim(p_location), ''), nullif(btrim(p_meeting_link), ''), p_audience,
-    p_related_event_id, organizer_id, organizer_label, auth.uid()
+    p_related_event_id, organizer_id, organizer_label,
+    organizer_role in ('leader', 'co-leader'),
+    case when organizer_role in ('leader', 'co-leader') then now() else null end,
+    auth.uid()
   ) returning * into created_meeting;
 
   return created_meeting;
@@ -689,7 +721,7 @@ end;
 $$;
 
 revoke all on function public.set_event_archived(uuid, boolean) from public;
-revoke all on function public.create_meeting(text, text, timestamptz, timestamptz, text, text, text, uuid) from public;
+revoke all on function public.create_meeting(text, text, timestamptz, timestamptz, text, text, text, uuid, boolean) from public;
 revoke all on function public.update_meeting(uuid, text, text, text, timestamptz, timestamptz, text, text, text, uuid) from public;
 revoke all on function public.set_meeting_archived(uuid, boolean) from public;
 revoke all on function public.get_meeting_delete_impact(uuid) from public;
@@ -700,7 +732,7 @@ revoke all on function public.get_equipment_delete_impact(uuid) from public;
 revoke all on function public.permanently_delete_event(uuid, text) from public;
 revoke all on function public.permanently_delete_equipment(uuid, text) from public;
 grant execute on function public.set_event_archived(uuid, boolean) to authenticated;
-grant execute on function public.create_meeting(text, text, timestamptz, timestamptz, text, text, text, uuid) to authenticated;
+grant execute on function public.create_meeting(text, text, timestamptz, timestamptz, text, text, text, uuid, boolean) to authenticated;
 grant execute on function public.update_meeting(uuid, text, text, text, timestamptz, timestamptz, text, text, text, uuid) to authenticated;
 grant execute on function public.set_meeting_archived(uuid, boolean) to authenticated;
 grant execute on function public.get_meeting_delete_impact(uuid) to authenticated;

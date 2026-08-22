@@ -9,6 +9,7 @@ const appSource = [...indexHtml.matchAll(/<script src="(scripts\/[^"]+)"><\/scri
   .join('\n');
 const uiSource = readFileSync(new URL('../scripts/ui.js', import.meta.url), 'utf8');
 const meetingsSource = readFileSync(new URL('../scripts/meetings.js', import.meta.url), 'utf8');
+const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url), 'utf8');
 const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const policiesSql = readFileSync(new URL('../supabase-auth-policies.sql', import.meta.url), 'utf8');
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
@@ -46,6 +47,8 @@ test('authority tiers preserve the Auth Admin and faculty distinction', () => {
     'canAccessAdminPanel',
     'canAddMembers',
     'canManageCrewOperations',
+    'canCreateMeetings',
+    'meetingCreationNeedsFacultyConfirmation',
     'canSignupForOtherMembers',
     'canAccessEquipmentStatus',
     'canAccessCrewSchedule',
@@ -60,16 +63,16 @@ test('authority tiers preserve the Auth Admin and faculty distinction', () => {
       },
       window: { CREW_CENTER_AUTH_USER: { email: 'test@fis.edu' }, CREW_CENTER_IS_ADMIN: authAdmin },
     },
-    '({ admin: canAccessAdminPanel(), addMembers: canAddMembers(), equipment: canManageCrewOperations(), otherSignups: canSignupForOtherMembers(), equipmentStatus: canAccessEquipmentStatus(), schedule: canAccessCrewSchedule() })',
+    '({ admin: canAccessAdminPanel(), addMembers: canAddMembers(), equipment: canManageCrewOperations(), createMeetings: canCreateMeetings(), facultyConfirmation: meetingCreationNeedsFacultyConfirmation(), otherSignups: canSignupForOtherMembers(), equipmentStatus: canAccessEquipmentStatus(), schedule: canAccessCrewSchedule() })',
   )));
 
-  assert.deepEqual(capabilities({ authAdmin: true }), { admin: true, addMembers: true, equipment: true, otherSignups: true, equipmentStatus: true, schedule: true });
-  assert.deepEqual(capabilities({ role: 'Faculty' }), { admin: true, addMembers: false, equipment: true, otherSignups: true, equipmentStatus: false, schedule: false });
-  assert.deepEqual(capabilities({ role: 'Leader' }), { admin: false, addMembers: false, equipment: true, otherSignups: false, equipmentStatus: false, schedule: false });
-  assert.deepEqual(capabilities({ role: 'Co Leader' }), { admin: false, addMembers: false, equipment: true, otherSignups: false, equipmentStatus: false, schedule: false });
-  assert.deepEqual(capabilities({ role: 'Moderator' }), { admin: false, addMembers: false, equipment: true, otherSignups: false, equipmentStatus: false, schedule: false });
-  assert.deepEqual(capabilities({ role: 'Moderator', equipmentStatusAccess: false }), { admin: false, addMembers: false, equipment: true, otherSignups: false, equipmentStatus: false, schedule: false });
-  assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, otherSignups: false, equipmentStatus: false, schedule: false });
+  assert.deepEqual(capabilities({ authAdmin: true }), { admin: true, addMembers: true, equipment: true, createMeetings: false, facultyConfirmation: false, otherSignups: true, equipmentStatus: true, schedule: true });
+  assert.deepEqual(capabilities({ role: 'Faculty' }), { admin: true, addMembers: false, equipment: true, createMeetings: true, facultyConfirmation: false, otherSignups: true, equipmentStatus: false, schedule: false });
+  assert.deepEqual(capabilities({ role: 'Leader' }), { admin: false, addMembers: false, equipment: true, createMeetings: true, facultyConfirmation: true, otherSignups: false, equipmentStatus: false, schedule: false });
+  assert.deepEqual(capabilities({ role: 'Co Leader' }), { admin: false, addMembers: false, equipment: true, createMeetings: true, facultyConfirmation: true, otherSignups: false, equipmentStatus: false, schedule: false });
+  assert.deepEqual(capabilities({ role: 'Moderator' }), { admin: false, addMembers: false, equipment: true, createMeetings: false, facultyConfirmation: false, otherSignups: false, equipmentStatus: false, schedule: false });
+  assert.deepEqual(capabilities({ role: 'Moderator', equipmentStatusAccess: false }), { admin: false, addMembers: false, equipment: true, createMeetings: false, facultyConfirmation: false, otherSignups: false, equipmentStatus: false, schedule: false });
+  assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, createMeetings: false, facultyConfirmation: false, otherSignups: false, equipmentStatus: false, schedule: false });
 });
 
 test('News Team is a canonical secondary member tag before specialisations', () => {
@@ -107,16 +110,30 @@ test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', ()
   for (const name of ['create_meeting', 'update_meeting', 'set_meeting_archived', 'get_meeting_delete_impact', 'permanently_delete_meeting']) {
     assert.match(policiesSql, new RegExp(`create or replace function public\\.${name}\\(`));
   }
-  assert.match(extractSqlFunction('create_meeting'), /if not public\.is_crew_operations_user\(\)/);
+  const meetingCreation = extractSqlFunction('create_meeting');
+  assert.match(extractSqlFunction('can_create_meetings'), /'faculty', 'leader', 'co-leader'/);
+  assert.doesNotMatch(extractSqlFunction('can_create_meetings'), /moderator|is_auth_admin/);
+  assert.match(meetingCreation, /if not public\.can_create_meetings\(\)/);
+  assert.match(meetingCreation, /organizer_role in \('leader', 'co-leader'\) and not coalesce\(p_faculty_authorized, false\)/);
+  assert.match(meetingCreation, /faculty_authorization_confirmed/);
   assert.match(extractSqlFunction('update_meeting'), /if not public\.is_crew_operations_user\(\)/);
   assert.match(extractSqlFunction('permanently_delete_meeting'), /if not public\.is_auth_admin\(\)/);
   assert.match(policiesSql, /create policy "Members can add own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)[\s\S]*?meeting\.ends_at > now\(\)/);
   assert.match(policiesSql, /create policy "Members can update own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)/);
   assert.match(policiesSql, /create policy "Members can remove own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)/);
-  assert.match(appSource, /supabaseClient\.rpc\('create_meeting'/);
+  assert.match(appSource, /supabaseClient\.rpc\('create_meeting',[\s\S]*?p_faculty_authorized: facultyAuthorized/);
+  assert.match(indexHtml, /id="meeting-faculty-authorization"[\s\S]*?id="meeting-faculty-authorization-confirmed"/);
+  assert.match(appSource, /Confirm that a Faculty member authorized this meeting before scheduling it/);
+  assert.match(schemaSql, /faculty_authorization_confirmed boolean not null default false/);
   assert.match(appSource, /supabaseClient\.rpc\('update_meeting'/);
   assert.match(appSource, /from\('meeting_attendees'\)\.upsert\([\s\S]*?onConflict: 'meeting_id,member_id'/);
   assert.match(appSource, /from\('meeting_attendees'\)\.delete\(\)\.eq\('meeting_id', id\)\.eq\('member_id', member\.id\)/);
+});
+
+test('sidebar identity omits Auth Admin and Member account labels', () => {
+  assert.doesNotMatch(indexHtml, /id="sidebar-user-role"/);
+  assert.doesNotMatch(uiSource, /sidebar-user-role/);
+  assert.doesNotMatch(authSource, /sidebar-user-role/);
 });
 
 test('Meetings remain a private deep-linked page with a themed watermark hero', () => {

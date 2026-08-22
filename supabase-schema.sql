@@ -176,6 +176,8 @@ create table if not exists public.meetings (
   related_event_id uuid references public.events(id) on delete set null,
   organizer_member_id uuid references public.members(id) on delete set null,
   organizer_name text not null default 'Media Club',
+  faculty_authorization_confirmed boolean not null default false,
+  faculty_authorization_confirmed_at timestamptz,
   created_by uuid references auth.users(id) on delete set null default auth.uid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -185,6 +187,9 @@ create table if not exists public.meetings (
   check (ends_at > starts_at),
   check (meeting_link is null or meeting_link ~ '^https://[^[:space:]<>"'']+$')
 );
+
+alter table public.meetings add column if not exists faculty_authorization_confirmed boolean not null default false;
+alter table public.meetings add column if not exists faculty_authorization_confirmed_at timestamptz;
 
 create index if not exists meetings_starts_at_idx on public.meetings (starts_at);
 create index if not exists meetings_audience_starts_idx on public.meetings (audience, starts_at);

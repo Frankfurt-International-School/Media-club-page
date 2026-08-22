@@ -942,6 +942,11 @@
   .meeting-editor-modal { max-width: 720px; border-color: rgba(78,240,196,.26); background: linear-gradient(155deg, var(--bg2), var(--bg3)); }
   .meeting-editor-modal::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; border-radius: inherit; background: linear-gradient(90deg, #168a79, var(--blue), transparent); }
   .meeting-editor-kicker { margin-bottom: 4px; color: #168a79; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  .meeting-authorization-notice { margin-bottom: 15px; padding: 13px 14px; border: 1px solid rgba(164,1,52,.25); border-radius: 11px; background: var(--accent-dim2); }
+  .meeting-authorization-notice strong { display: block; color: var(--accent); font-size: 12px; }
+  .meeting-authorization-notice p { margin-top: 4px; color: var(--text2); font-size: 11px; line-height: 1.55; }
+  .meeting-authorization-notice label { display: flex; align-items: flex-start; gap: 9px; margin-top: 10px; color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer; }
+  .meeting-authorization-notice input { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 1px; accent-color: var(--accent); }
   .form-row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   @keyframes meetingSignal { 0%, 100% { opacity: .55; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) {

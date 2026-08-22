@@ -87,7 +87,6 @@
       <div class="user-avatar" id="sidebar-user-avatar">JS</div>
       <div class="sidebar-user-copy">
         <div class="user-name" id="sidebar-user-name">Jana Stein</div>
-        <div class="user-role" id="sidebar-user-role">President</div>
       </div>
     </a>
   </div>
@@ -295,7 +294,7 @@
         <div class="page-sub">Plan together, capture decisions, and keep the right crew aligned.</div>
         <div class="meetings-hero-status"><span></span> Member-secured workspace</div>
       </div>
-      <div class="page-hero-actions"><button class="btn btn-accent meeting-operations-only" id="meeting-add-button" style="display:none;" onclick="openMeetingEditor()">
+      <div class="page-hero-actions"><button class="btn btn-accent meeting-creation-only" id="meeting-add-button" style="display:none;" onclick="openMeetingEditor()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Schedule meeting
       </button></div>
@@ -889,6 +888,11 @@
     <div class="form-group"><label class="form-label" for="meeting-related-event">Related production <span class="text-muted">(optional)</span></label><select class="form-select" id="meeting-related-event"><option value="">No linked production</option></select></div>
     <div class="form-group"><label class="form-label" for="meeting-agenda">Agenda</label><textarea class="form-textarea" id="meeting-agenda" placeholder="Topics, preparation, and decisions needed…"></textarea></div>
     <div class="form-group" id="meeting-notes-group" hidden><label class="form-label" for="meeting-notes">Minutes and decisions</label><textarea class="form-textarea" id="meeting-notes" placeholder="Capture decisions, follow-ups, and important context…"></textarea></div>
+    <div class="meeting-authorization-notice" id="meeting-faculty-authorization" hidden>
+      <strong>Faculty authorization required</strong>
+      <p>Leaders and Co-Leaders may schedule a meeting only after a Faculty member has explicitly authorized it. Your confirmation is recorded with the meeting.</p>
+      <label><input id="meeting-faculty-authorization-confirmed" type="checkbox"><span>I confirm that a Faculty member authorized me to create this meeting.</span></label>
+    </div>
     <button class="btn btn-accent" id="meeting-save-button" style="width:100%;justify-content:center;" onclick="saveMeeting()">Schedule meeting</button>
   </div>
 </div>

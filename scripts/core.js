@@ -95,6 +95,18 @@ function canManageCrewOperations() {
 
 window.canManageCrewOperations = canManageCrewOperations;
 
+function canCreateMeetings() {
+  const role = normalizeRoleName(currentMemberRecord()?.role || '');
+  return ['faculty', 'leader', 'co-leader'].includes(role);
+}
+
+function meetingCreationNeedsFacultyConfirmation() {
+  const role = normalizeRoleName(currentMemberRecord()?.role || '');
+  return ['leader', 'co-leader'].includes(role);
+}
+
+window.canCreateCrewCenterMeetings = canCreateMeetings;
+
 function canSignupForOtherMembers() {
   return canAccessAdminPanel();
 }

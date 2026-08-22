@@ -421,6 +421,7 @@ function setAuthBusy(isBusy) {
 function applyAdminControls() {
   const hasAdminPanelAccess = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAccessCrewCenterAdminPanel?.());
   const hasCrewOperationsAccess = Boolean(hasAdminPanelAccess || window.canManageCrewOperations?.());
+  const hasMeetingCreationAccess = Boolean(window.canCreateCrewCenterMeetings?.());
   const hasEquipmentStatusAccess = Boolean(window.canAccessCrewCenterEquipmentStatus?.());
   const isVisitor = Boolean(window.CREW_CENTER_IS_VISITOR);
   const canAddMembers = Boolean(window.CREW_CENTER_IS_ADMIN || window.canAddCrewCenterMembers?.());
@@ -434,7 +435,6 @@ function applyAdminControls() {
   ];
   const crewOperationsSelectors = [
     'button[onclick*="event-modal"]',
-    '.meeting-operations-only',
     'button[onclick*="equip-add-modal"]',
     'button[onclick*="addEquipment"]',
     'button[onclick*="addEvent"]',
@@ -462,6 +462,9 @@ function applyAdminControls() {
     document.querySelectorAll(selector).forEach(el => {
       el.style.display = hasCrewOperationsAccess && !isVisitor ? "" : "none";
     });
+  });
+  document.querySelectorAll('.meeting-creation-only').forEach(el => {
+    el.style.display = hasMeetingCreationAccess && !isVisitor ? "flex" : "none";
   });
   document.querySelectorAll('.equipment-status-only').forEach(el => {
     el.style.display = hasEquipmentStatusAccess && !isVisitor ? "flex" : "none";
@@ -643,7 +646,6 @@ function applySignedInUser(user) {
   const [avatarBg, avatarFg] = palette[colorName];
   const surfaces = [
     ["sidebar-user-name", name],
-    ["sidebar-user-role", role],
     ["sidebar-user-avatar", initials],
     ["profile-preview-name", name],
     ["profile-preview-role", role],

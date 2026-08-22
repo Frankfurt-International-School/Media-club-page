@@ -245,7 +245,6 @@ function updateUserSurfaces() {
   const avatarUrl = user.avatarUrl || '';
   const accountRole = user.isVisitor ? 'Visitor' : user.isAdmin ? 'Admin' : 'Member';
   document.getElementById('sidebar-user-name').textContent = user.name;
-  document.getElementById('sidebar-user-role').textContent = accountRole;
   const sidebarAvatar = document.getElementById('sidebar-user-avatar');
   sidebarAvatar.textContent = avatarUrl ? '' : user.initials;
   sidebarAvatar.style.background = avatarUrl ? `url("${avatarUrl}") center/cover` : bg;
