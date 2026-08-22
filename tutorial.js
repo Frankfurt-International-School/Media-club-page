@@ -3,12 +3,12 @@
 
   const TUTORIAL_VERSION = 1;
   const TUTORIAL_IDS = [
-    'full', 'home', 'events', 'signup', 'members', 'gallery', 'equipment',
+    'full', 'home', 'events', 'meetings', 'signup', 'members', 'gallery', 'equipment',
     'role-guide', 'crew-deployment', 'equipment-status', 'about', 'join',
     'profile', 'admin',
   ];
   const FULL_TOUR_ORDER = [
-    'home', 'events', 'signup', 'members', 'gallery', 'equipment', 'role-guide',
+    'home', 'events', 'meetings', 'signup', 'members', 'gallery', 'equipment', 'role-guide',
     'crew-deployment', 'equipment-status', 'about', 'join', 'profile', 'admin',
   ];
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -30,6 +30,15 @@
         { target: '#page-events .page-hero-copy', title: 'The production calendar', body: 'Events contains upcoming livestreams, recordings, activities, and other Media Club work.' },
         { target: '#event-filters', title: 'Find the right event', body: 'Filter by production type or reveal past events without losing the upcoming calendar.' },
         { target: '#events-list', title: 'Event information', body: 'Each event card shows its schedule, location, category, signup availability, and relevant production details.' },
+      ],
+    },
+    meetings: {
+      title: 'Meetings',
+      summary: 'Plan with the right crew and preserve decisions.',
+      steps: [
+        { target: '#page-meetings .meetings-hero', title: 'Your private meeting channel', body: 'Meetings are visible only to approved members in the selected audience: General, News Team, or Leadership.' },
+        { target: '#meeting-command-grid', title: 'See what needs attention', body: 'The command cards identify your next meeting, whether you have responded, and how many meetings are queued.' },
+        { target: '#meetings-list', title: 'Agenda, RSVP, and records', body: 'Open the relevant meeting information, record your own RSVP, and return to Past meetings for published minutes and decisions.' },
       ],
     },
     signup: {

@@ -1,11 +1,12 @@
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { about: "About Media Club", home: "Dashboard", events: "Events", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { about: "About Media Club", home: "Dashboard", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   about: '/about',
   home: '/dashboard',
   events: '/events',
+  meetings: '/meetings',
   signup: '/signups',
   members: '/members',
   gallery: '/gallery',
@@ -22,6 +23,7 @@ const routePages = {
   '/about': 'about',
   '/dashboard': 'home',
   '/events': 'events',
+  '/meetings': 'meetings',
   '/signup': 'signup',
   '/signups': 'signup',
   '/members': 'members',
@@ -64,6 +66,9 @@ function navigate(id, el, options = {}) {
   if (page === 'admin' && !canAccessAdminPanel()) {
     page = 'home';
   }
+  if (page === 'meetings' && isVisitorSession()) {
+    page = 'home';
+  }
   if (page === 'equipment-status' && !canAccessEquipmentStatus()) {
     page = 'home';
   }
@@ -96,6 +101,7 @@ function navigate(id, el, options = {}) {
   if (page === 'about') renderAboutRecentProjects();
   if (page === 'home') renderDashboard();
   if (page === 'events') renderEvents();
+  if (page === 'meetings') renderMeetings();
   if (page === 'signup') initSignupSheet();
   if (page === 'members') renderMembers();
   if (page === 'gallery') renderGallery();

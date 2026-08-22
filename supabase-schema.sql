@@ -33,12 +33,28 @@ alter table public.members add column if not exists grade_level text;
 alter table public.members add column if not exists avatar_url text;
 alter table public.members add column if not exists avatar_path text;
 alter table public.members add column if not exists sidebar_customized boolean not null default false;
-alter table public.members add column if not exists sidebar_items text[] not null default array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','about','admin']::text[];
-alter table public.members alter column sidebar_items set default array['home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','about','admin']::text[];
+alter table public.members add column if not exists sidebar_items text[] not null default array['home','events','meetings','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','about','admin']::text[];
+alter table public.members alter column sidebar_items set default array['home','events','meetings','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','about','admin']::text[];
 alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true}'::jsonb;
 alter table public.members add column if not exists dashboard_preferences jsonb not null default '{"stats":[],"sections":[]}'::jsonb;
 alter table public.members add column if not exists tutorial_progress jsonb not null default '{"version":1,"completed":[],"dismissed_welcome":false,"active_tour":null,"active_step":0}'::jsonb;
 alter table public.members add column if not exists equipment_status_access boolean not null default true;
+
+create table if not exists public.member_team_memberships (
+  member_id uuid not null references public.members(id) on delete cascade,
+  team_key text not null check (team_key in ('news_team')),
+  joined_at timestamptz not null default now(),
+  primary key (member_id, team_key)
+);
+
+create index if not exists member_team_memberships_team_idx
+on public.member_team_memberships (team_key, member_id);
+
+insert into public.member_team_memberships (member_id, team_key)
+select member.id, 'news_team'
+from public.members member
+where lower(coalesce(member.status, '')) ~ '(^|[[:space:]]*,[[:space:]])(student[[:space:]]+)?news[[:space:]]+team([[:space:]]*,|$)'
+on conflict (member_id, team_key) do nothing;
 
 -- New member email rules are enforced by the Auth Admin insert policy. Keeping
 -- this as a table CHECK would prevent approved legacy/test accounts from later
@@ -146,6 +162,44 @@ alter table public.events add constraint events_festival_schedule_check check (
     and shift_2_end <= takedown_start and takedown_start < takedown_end
   )
 );
+
+create table if not exists public.meetings (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(btrim(title)) between 1 and 120),
+  agenda text not null default '',
+  notes text not null default '',
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  location text not null default '',
+  meeting_link text,
+  audience text not null default 'general' check (audience in ('general', 'news_team', 'leadership')),
+  related_event_id uuid references public.events(id) on delete set null,
+  organizer_member_id uuid references public.members(id) on delete set null,
+  organizer_name text not null default 'Media Club',
+  created_by uuid references auth.users(id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  archived_at timestamptz,
+  archived_by uuid references auth.users(id) on delete set null,
+  archived_by_name text,
+  check (ends_at > starts_at),
+  check (meeting_link is null or meeting_link ~ '^https://[^[:space:]<>"'']+$')
+);
+
+create index if not exists meetings_starts_at_idx on public.meetings (starts_at);
+create index if not exists meetings_audience_starts_idx on public.meetings (audience, starts_at);
+
+create table if not exists public.meeting_attendees (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id uuid not null references public.meetings(id) on delete cascade,
+  member_id uuid not null references public.members(id) on delete cascade,
+  response text not null check (response in ('attending', 'maybe', 'declined')),
+  responded_at timestamptz not null default now(),
+  unique (meeting_id, member_id)
+);
+
+create index if not exists meeting_attendees_meeting_response_idx
+on public.meeting_attendees (meeting_id, response);
 
 create table if not exists public.signups (
   id uuid primary key default gen_random_uuid(),

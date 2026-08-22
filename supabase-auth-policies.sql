@@ -1,5 +1,8 @@
 alter table public.members enable row level security;
+alter table public.member_team_memberships enable row level security;
 alter table public.events enable row level security;
+alter table public.meetings enable row level security;
+alter table public.meeting_attendees enable row level security;
 alter table public.signups enable row level security;
 alter table public.equipment enable row level security;
 alter table public.equipment_reservations enable row level security;
@@ -11,6 +14,9 @@ alter table public.notifications enable row level security;
 drop policy if exists "Authenticated users can read members" on public.members;
 drop policy if exists "Authenticated users can add members" on public.members;
 drop policy if exists "Admins can manage members" on public.members;
+drop policy if exists "Approved members can read team memberships" on public.member_team_memberships;
+drop policy if exists "Admin Panel users can manage team memberships" on public.member_team_memberships;
+drop policy if exists "Auth Admins can manage team memberships" on public.member_team_memberships;
 drop policy if exists "Auth Admins can add members" on public.members;
 drop policy if exists "Admins can update members" on public.members;
 drop policy if exists "Admins can delete members" on public.members;
@@ -27,6 +33,11 @@ drop policy if exists "Admins can manage events" on public.events;
 drop policy if exists "Admins can update events" on public.events;
 drop policy if exists "Production staff can add events" on public.events;
 drop policy if exists "Production staff can delete events" on public.events;
+drop policy if exists "Audience members can read meetings" on public.meetings;
+drop policy if exists "Audience members can read meeting attendees" on public.meeting_attendees;
+drop policy if exists "Members can add own meeting RSVP" on public.meeting_attendees;
+drop policy if exists "Members can update own meeting RSVP" on public.meeting_attendees;
+drop policy if exists "Members can remove own meeting RSVP" on public.meeting_attendees;
 drop policy if exists "Authenticated users can read signups" on public.signups;
 drop policy if exists "Authenticated users can add signups" on public.signups;
 drop policy if exists "Authenticated users can delete signups" on public.signups;
@@ -152,6 +163,67 @@ as $$
     );
 $$;
 
+create or replace function public.current_member_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select member.id
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+$$;
+
+create or replace function public.is_member_of_team(p_team_key text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.member_team_memberships membership
+    where membership.member_id = public.current_member_id()
+      and membership.team_key = p_team_key
+  );
+$$;
+
+create or replace function public.can_read_meeting(p_meeting_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  target_audience text;
+  target_archived_at timestamptz;
+begin
+  if not public.is_approved_member() then return false; end if;
+
+  select meeting.audience, meeting.archived_at
+  into target_audience, target_archived_at
+  from public.meetings meeting
+  where meeting.id = p_meeting_id;
+
+  if target_audience is null then return false; end if;
+  if target_archived_at is not null and not public.is_crew_operations_user() then return false; end if;
+  if target_audience = 'general' then return true; end if;
+  if public.is_crew_operations_user() then return true; end if;
+  return target_audience = 'news_team' and public.is_member_of_team('news_team');
+end;
+$$;
+
+revoke all on function public.current_member_id() from public;
+revoke all on function public.is_member_of_team(text) from public;
+revoke all on function public.can_read_meeting(uuid) from public;
+grant execute on function public.current_member_id() to authenticated;
+grant execute on function public.is_member_of_team(text) to authenticated;
+grant execute on function public.can_read_meeting(uuid) to authenticated;
+
 drop function if exists public.get_public_member_directory();
 
 create or replace function public.get_public_events()
@@ -271,6 +343,198 @@ begin
   where id = p_event_id;
 
   return found;
+end;
+$$;
+
+create or replace function public.create_meeting(
+  p_title text,
+  p_agenda text,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz,
+  p_location text,
+  p_meeting_link text,
+  p_audience text,
+  p_related_event_id uuid
+)
+returns public.meetings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  organizer_id uuid;
+  organizer_label text;
+  created_meeting public.meetings;
+begin
+  if not public.is_crew_operations_user() then
+    raise exception 'Production staff access is required.';
+  end if;
+  if nullif(btrim(p_title), '') is null or char_length(btrim(p_title)) > 120 then
+    raise exception 'Meeting titles must contain between 1 and 120 characters.';
+  end if;
+  if p_starts_at is null or p_ends_at is null or p_ends_at <= p_starts_at then
+    raise exception 'The meeting end must be after its start.';
+  end if;
+  if p_audience not in ('general', 'news_team', 'leadership') then
+    raise exception 'Invalid meeting audience.';
+  end if;
+  if nullif(btrim(p_meeting_link), '') is not null and btrim(p_meeting_link) !~ '^https://[^[:space:]<>"'']+$' then
+    raise exception 'Meeting links must use a valid HTTPS address.';
+  end if;
+
+  select member.id, member.name into organizer_id, organizer_label
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+  organizer_label := coalesce(organizer_label, 'Auth Admin');
+
+  insert into public.meetings (
+    title, agenda, starts_at, ends_at, location, meeting_link, audience,
+    related_event_id, organizer_member_id, organizer_name, created_by
+  ) values (
+    btrim(p_title), coalesce(btrim(p_agenda), ''), p_starts_at, p_ends_at,
+    coalesce(btrim(p_location), ''), nullif(btrim(p_meeting_link), ''), p_audience,
+    p_related_event_id, organizer_id, organizer_label, auth.uid()
+  ) returning * into created_meeting;
+
+  return created_meeting;
+end;
+$$;
+
+create or replace function public.update_meeting(
+  p_meeting_id uuid,
+  p_title text,
+  p_agenda text,
+  p_notes text,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz,
+  p_location text,
+  p_meeting_link text,
+  p_audience text,
+  p_related_event_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_crew_operations_user() then
+    raise exception 'Production staff access is required.';
+  end if;
+  if nullif(btrim(p_title), '') is null or char_length(btrim(p_title)) > 120 then
+    raise exception 'Meeting titles must contain between 1 and 120 characters.';
+  end if;
+  if p_starts_at is null or p_ends_at is null or p_ends_at <= p_starts_at then
+    raise exception 'The meeting end must be after its start.';
+  end if;
+  if p_audience not in ('general', 'news_team', 'leadership') then
+    raise exception 'Invalid meeting audience.';
+  end if;
+  if nullif(btrim(p_meeting_link), '') is not null and btrim(p_meeting_link) !~ '^https://[^[:space:]<>"'']+$' then
+    raise exception 'Meeting links must use a valid HTTPS address.';
+  end if;
+
+  update public.meetings
+  set title = btrim(p_title),
+      agenda = coalesce(btrim(p_agenda), ''),
+      notes = coalesce(btrim(p_notes), ''),
+      starts_at = p_starts_at,
+      ends_at = p_ends_at,
+      location = coalesce(btrim(p_location), ''),
+      meeting_link = nullif(btrim(p_meeting_link), ''),
+      audience = p_audience,
+      related_event_id = p_related_event_id,
+      updated_at = now()
+  where id = p_meeting_id and archived_at is null;
+
+  return found;
+end;
+$$;
+
+create or replace function public.set_meeting_archived(
+  p_meeting_id uuid,
+  p_archived boolean
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare marker_name text;
+begin
+  if not public.is_crew_operations_user() then
+    raise exception 'Production staff access is required.';
+  end if;
+
+  select member.name into marker_name
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+  marker_name := coalesce(marker_name, 'Auth Admin');
+
+  update public.meetings
+  set archived_at = case when p_archived then now() else null end,
+      archived_by = case when p_archived then auth.uid() else null end,
+      archived_by_name = case when p_archived then marker_name else null end,
+      updated_at = now()
+  where id = p_meeting_id;
+
+  return found;
+end;
+$$;
+
+create or replace function public.get_meeting_delete_impact(p_meeting_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare impact jsonb;
+begin
+  if not public.is_auth_admin() then
+    raise exception 'Only an Auth Admin can permanently delete a meeting.';
+  end if;
+
+  select jsonb_build_object(
+    'id', meeting.id,
+    'name', meeting.title,
+    'responses', (select count(*) from public.meeting_attendees attendee where attendee.meeting_id = meeting.id)
+  ) into impact
+  from public.meetings meeting
+  where meeting.id = p_meeting_id;
+
+  return impact;
+end;
+$$;
+
+create or replace function public.permanently_delete_meeting(
+  p_meeting_id uuid,
+  p_expected_title text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_title text;
+  impact jsonb;
+begin
+  if not public.is_auth_admin() then
+    raise exception 'Only an Auth Admin can permanently delete a meeting.';
+  end if;
+
+  select title into target_title from public.meetings where id = p_meeting_id for update;
+  if target_title is null then return null; end if;
+  if target_title is distinct from p_expected_title then
+    raise exception 'The confirmation text does not match the meeting title.';
+  end if;
+
+  impact := public.get_meeting_delete_impact(p_meeting_id);
+  delete from public.meetings where id = p_meeting_id;
+  return impact || jsonb_build_object('deleted', true);
 end;
 $$;
 
@@ -425,12 +689,22 @@ end;
 $$;
 
 revoke all on function public.set_event_archived(uuid, boolean) from public;
+revoke all on function public.create_meeting(text, text, timestamptz, timestamptz, text, text, text, uuid) from public;
+revoke all on function public.update_meeting(uuid, text, text, text, timestamptz, timestamptz, text, text, text, uuid) from public;
+revoke all on function public.set_meeting_archived(uuid, boolean) from public;
+revoke all on function public.get_meeting_delete_impact(uuid) from public;
+revoke all on function public.permanently_delete_meeting(uuid, text) from public;
 revoke all on function public.set_equipment_archived(uuid, boolean) from public;
 revoke all on function public.get_event_delete_impact(uuid) from public;
 revoke all on function public.get_equipment_delete_impact(uuid) from public;
 revoke all on function public.permanently_delete_event(uuid, text) from public;
 revoke all on function public.permanently_delete_equipment(uuid, text) from public;
 grant execute on function public.set_event_archived(uuid, boolean) to authenticated;
+grant execute on function public.create_meeting(text, text, timestamptz, timestamptz, text, text, text, uuid) to authenticated;
+grant execute on function public.update_meeting(uuid, text, text, text, timestamptz, timestamptz, text, text, text, uuid) to authenticated;
+grant execute on function public.set_meeting_archived(uuid, boolean) to authenticated;
+grant execute on function public.get_meeting_delete_impact(uuid) to authenticated;
+grant execute on function public.permanently_delete_meeting(uuid, text) to authenticated;
 grant execute on function public.set_equipment_archived(uuid, boolean) to authenticated;
 grant execute on function public.get_event_delete_impact(uuid) to authenticated;
 grant execute on function public.get_equipment_delete_impact(uuid) to authenticated;
@@ -492,12 +766,12 @@ begin
   from (
     select item, min(position) as position
     from unnest(coalesce(p_items, array[]::text[])) with ordinality as chosen(item, position)
-    where item = any(array['about','home','events','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[])
+    where item = any(array['about','home','events','meetings','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','admin']::text[])
     group by item
   ) normalized;
 
   if coalesce(p_customized, false) and (
-    not (clean_items && array['home','events','signup','members']::text[])
+    not (clean_items && array['home','events','meetings','signup','members']::text[])
     or not (clean_items && array['gallery','equipment','role-guide']::text[])
     or not (clean_items && array['crew-deployment','equipment-status','join','about','admin']::text[])
   ) then
@@ -612,7 +886,7 @@ declare
   clean_active_step integer;
   clean_dismissed_welcome boolean;
   allowed_tours constant text[] := array[
-    'full','home','events','signup','members','gallery','equipment','role-guide',
+    'full','home','events','meetings','signup','members','gallery','equipment','role-guide',
     'crew-deployment','equipment-status','join','about','profile','admin'
   ]::text[];
 begin
@@ -1013,6 +1287,17 @@ on public.members for select
 to authenticated
 using (public.is_approved_member());
 
+create policy "Approved members can read team memberships"
+on public.member_team_memberships for select
+to authenticated
+using (public.is_approved_member());
+
+create policy "Auth Admins can manage team memberships"
+on public.member_team_memberships for all
+to authenticated
+using (public.is_auth_admin())
+with check (public.is_auth_admin());
+
 create policy "Auth Admins can add members"
 on public.members for insert
 to authenticated
@@ -1053,6 +1338,62 @@ create policy "Production staff can add events"
 on public.events for insert
 to authenticated
 with check (public.is_crew_operations_user());
+
+create policy "Audience members can read meetings"
+on public.meetings for select
+to authenticated
+using (public.can_read_meeting(id));
+
+create policy "Audience members can read meeting attendees"
+on public.meeting_attendees for select
+to authenticated
+using (public.can_read_meeting(meeting_id));
+
+create policy "Members can add own meeting RSVP"
+on public.meeting_attendees for insert
+to authenticated
+with check (
+  member_id = public.current_member_id()
+  and public.can_read_meeting(meeting_id)
+  and exists (
+    select 1 from public.meetings meeting
+    where meeting.id = meeting_attendees.meeting_id
+      and meeting.archived_at is null
+      and meeting.ends_at > now()
+  )
+);
+
+create policy "Members can update own meeting RSVP"
+on public.meeting_attendees for update
+to authenticated
+using (
+  member_id = public.current_member_id()
+  and public.can_read_meeting(meeting_id)
+)
+with check (
+  member_id = public.current_member_id()
+  and public.can_read_meeting(meeting_id)
+  and exists (
+    select 1 from public.meetings meeting
+    where meeting.id = meeting_attendees.meeting_id
+      and meeting.archived_at is null
+      and meeting.ends_at > now()
+  )
+);
+
+create policy "Members can remove own meeting RSVP"
+on public.meeting_attendees for delete
+to authenticated
+using (
+  member_id = public.current_member_id()
+  and public.can_read_meeting(meeting_id)
+  and exists (
+    select 1 from public.meetings meeting
+    where meeting.id = meeting_attendees.meeting_id
+      and meeting.archived_at is null
+      and meeting.ends_at > now()
+  )
+);
 
 create policy "Signed-in users can read signups"
 on public.signups for select
@@ -1243,7 +1584,25 @@ end $$;
 
 do $$
 begin
+  alter publication supabase_realtime add table public.member_team_memberships;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
   alter publication supabase_realtime add table public.events;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.meetings;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.meeting_attendees;
 exception when duplicate_object then null;
 end $$;
 

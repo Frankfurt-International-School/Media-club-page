@@ -18,6 +18,8 @@ const state = {
   },
   events: [],
   archivedEvents: [],
+  meetings: [],
+  archivedMeetings: [],
   members: [],
   gallery: [],
   equipment: [],
@@ -190,14 +192,17 @@ let eventVisibilityTimer = null;
 function scheduleEventVisibilityRefresh() {
   if (eventVisibilityTimer) clearTimeout(eventVisibilityTimer);
   const now = Date.now();
-  const nextEnd = state.events
-    .map(eventEndTimestamp)
+  const nextEnd = [
+    ...state.events.map(eventEndTimestamp),
+    ...state.meetings.map(meeting => Date.parse(meeting.endsAt || '')),
+  ]
     .filter(end => end !== null && end > now)
     .sort((a, b) => a - b)[0];
   if (!nextEnd) return;
   eventVisibilityTimer = setTimeout(() => {
     const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
     if (activePage === 'events') renderEvents();
+    if (activePage === 'meetings') renderMeetings();
     if (activePage === 'signup') initSignupSheet();
     scheduleEventVisibilityRefresh();
   }, Math.min(nextEnd - now + 250, 2147483647));
@@ -366,6 +371,7 @@ function validateSignupNameInput(canonicalize = false) {
 const datasetLabels = {
   members: 'member directory',
   events: 'events',
+  meetings: 'meetings',
   gallery: 'project gallery',
   equipment: 'equipment register',
   announcements: 'announcements',
@@ -376,6 +382,7 @@ const datasetLabels = {
 const datasetErrorTargets = {
   members: ['members-grid'],
   events: ['dashboard-focus', 'events-list'],
+  meetings: ['meetings-list'],
   gallery: ['about-recent-projects', 'gallery-grid'],
   equipment: ['equipment-grid'],
   applications: ['pending-list'],
@@ -525,6 +532,36 @@ function normalizeEvent(event) {
   };
 }
 
+function normalizeMeeting(meeting) {
+  return {
+    id: meeting.id,
+    title: meeting.title || 'Untitled meeting',
+    agenda: meeting.agenda || '',
+    notes: meeting.notes || '',
+    startsAt: meeting.starts_at || '',
+    endsAt: meeting.ends_at || '',
+    location: meeting.location || '',
+    meetingLink: meeting.meeting_link || '',
+    audience: meeting.audience || 'general',
+    relatedEventId: meeting.related_event_id || '',
+    organizerMemberId: meeting.organizer_member_id || '',
+    organizerName: meeting.organizer_name || 'Media Club',
+    createdAt: meeting.created_at || '',
+    updatedAt: meeting.updated_at || '',
+    archivedAt: meeting.archived_at || '',
+    archivedByName: meeting.archived_by_name || '',
+    attendees: (meeting.meeting_attendees || []).map(attendee => ({
+      id: attendee.id,
+      memberId: attendee.member_id,
+      response: attendee.response || 'maybe',
+      respondedAt: attendee.responded_at || '',
+      name: attendee.members?.name || 'Media Club member',
+      role: attendee.members?.role || 'Member',
+      avatarUrl: attendee.members?.avatar_url || '',
+    })),
+  };
+}
+
 function normalizeGallery(item) {
   const directoryMember = state.members.find(member => member.id === item.member_id);
   const visitor = isVisitorSession();
@@ -601,7 +638,7 @@ function normalizeApplication(item) {
   };
 }
 
-const crewCenterDatasets = ['members', 'events', 'gallery', 'equipment', 'announcements', 'applications', 'notifications'];
+const crewCenterDatasets = ['members', 'events', 'meetings', 'gallery', 'equipment', 'announcements', 'applications', 'notifications'];
 const queuedDatasets = new Set();
 let dataLoadPromise = null;
 let realtimeLoadTimer = null;
@@ -621,6 +658,7 @@ function crewCenterDatasetRequest(dataset, visitor) {
   const requests = {
     members: () => supabaseClient.from('members').select('*').order('name'),
     events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
+    meetings: () => supabaseClient.from('meetings').select('*, meeting_attendees(id, member_id, response, responded_at, members(name, role, avatar_url))').order('starts_at', { ascending: true }),
     gallery: () => supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
     equipment: () => supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
     announcements: () => supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }).limit(30),
@@ -639,6 +677,10 @@ function applyCrewCenterDataset(dataset, rows) {
     const normalized = data.map(normalizeEvent);
     state.events = normalized.filter(event => !event.archivedAt);
     state.archivedEvents = normalized.filter(event => event.archivedAt);
+  } else if (dataset === 'meetings') {
+    const normalized = data.map(normalizeMeeting);
+    state.meetings = normalized.filter(meeting => !meeting.archivedAt);
+    state.archivedMeetings = normalized.filter(meeting => meeting.archivedAt);
   } else if (dataset === 'gallery') {
     state.gallery = data.map(normalizeGallery);
   } else if (dataset === 'equipment') {
@@ -761,7 +803,10 @@ function subscribeToCrewCenterChanges() {
   if (mode === 'visitor') return;
   const tableDatasets = {
     members: ['members', 'gallery'],
+    member_team_memberships: ['meetings'],
     events: ['events', 'equipment'],
+    meetings: ['meetings'],
+    meeting_attendees: ['meetings'],
     signups: ['events'],
     gallery: ['gallery'],
     equipment: ['equipment'],
@@ -782,6 +827,7 @@ function renderCurrentPage() {
   if (activePage === 'about') renderAboutRecentProjects();
   if (activePage === 'home') renderDashboard();
   if (activePage === 'events') renderEvents();
+  if (activePage === 'meetings') renderMeetings();
   if (activePage === 'signup') initSignupSheet();
   if (activePage === 'members') renderMembers();
   if (activePage === 'gallery') renderGallery();
@@ -791,12 +837,13 @@ function renderCurrentPage() {
 }
 
 const sidebarCategories = {
-  main: { label: 'Main', pages: ['home', 'events', 'signup', 'members'] },
+  main: { label: 'Main', pages: ['home', 'events', 'meetings', 'signup', 'members'] },
   content: { label: 'Content', pages: ['gallery', 'equipment', 'role-guide'] },
   club: { label: 'Club', pages: ['crew-deployment', 'equipment-status', 'join', 'about', 'admin'] },
 };
 
 function sidebarPageAvailable(page) {
+  if (page === 'meetings') return !isVisitorSession();
   if (page === 'admin') return canAccessAdminPanel();
   if (page === 'crew-deployment') return canAccessCrewSchedule();
   if (page === 'equipment-status') return canAccessEquipmentStatus();

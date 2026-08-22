@@ -105,11 +105,23 @@ async function addMember() {
     .select('*')
     .single();
   if (error) { showToast("Couldn't add member.", 'error'); return; }
+  let teamSyncError = null;
+  if (memberDirectoryTags(data.status).hasNewsTeam) {
+    const { error: membershipError } = await supabaseClient
+      .from('member_team_memberships')
+      .insert({ member_id: data.id, team_key: 'news_team' });
+    teamSyncError = membershipError;
+  }
   state.members.push(normalizeMember(data, state.members.length));
   closeModal('member-modal');
   ['mem-fname','mem-lname','mem-email','mem-spec'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('mem-grade').value = '';
-  showToast(`${fname} ${lname} added!`);
+  if (teamSyncError) {
+    console.error("Couldn't add News Team membership.", teamSyncError);
+    showToast(`${fname} ${lname} was added, but News Team meeting access was not synced. Run the latest Supabase SQL.`, 'error', 8000);
+  } else {
+    showToast(`${fname} ${lname} added!`);
+  }
   renderMembers();
   renderDashboard();
 }

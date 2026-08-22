@@ -12,5 +12,7 @@
   Cache-Control: no-store, max-age=0
 /signups
   Cache-Control: no-store, max-age=0
+/meetings
+  Cache-Control: no-store, max-age=0
 /signin
   Cache-Control: no-store, max-age=0

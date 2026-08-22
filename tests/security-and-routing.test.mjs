@@ -87,6 +87,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/ui.js',
     'scripts/dashboard.js',
     'scripts/events.js',
+    'scripts/meetings.js',
     'scripts/signups.js',
     'scripts/crew-schedule.js',
     'scripts/members.js',
@@ -161,11 +162,11 @@ test('primary content pages share the branded page hero', () => {
   assert.doesNotMatch(appStyles, /\.deployment-hero::after\s*\{/);
   assert.match(appStyles, /:root\[data-theme="dark"\] \.page-hero::before/);
 
-  for (const pageId of ['events', 'signup', 'members', 'gallery', 'equipment']) {
-    const start = indexHtml.indexOf(`<div id="page-${pageId}" class="page">`);
+  for (const pageId of ['events', 'meetings', 'signup', 'members', 'gallery', 'equipment']) {
+    const start = indexHtml.indexOf(`<div id="page-${pageId}"`);
     const end = indexHtml.indexOf('<!-- ──', start + 1);
     assert.ok(start > -1 && end > start, `Expected ${pageId} page markup`);
-    assert.match(indexHtml.slice(start, end), /<section class="page-hero">/);
+    assert.match(indexHtml.slice(start, end), /<section class="page-hero(?: [^"]+)?">/);
   }
 });
 
@@ -247,6 +248,7 @@ test('canonical routes and aliases survive static-host deep links', () => {
   assert.match(redirectsFile, /^\/\*\s+\/index\.html\s+200\s*$/m);
   assert.match(headersFile, /\/signup\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(headersFile, /\/signups\n\s+Cache-Control: no-store, max-age=0/);
+  assert.match(headersFile, /\/meetings\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(headersFile, /\/signin\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(authSource, /window\.location\.pathname !== "\/signin"[\s\S]*?history\.replaceState\(\{ page: "signin" \}, "", "\/signin"\)/);
   assert.match(authSource, /window\.location\.pathname === "\/signin"[\s\S]*?defaultRoute[\s\S]*?history\.replaceState/);
@@ -254,10 +256,10 @@ test('canonical routes and aliases survive static-host deep links', () => {
 
 test('navigation tabs use native deep links and restore state from the URL', () => {
   const roleTabs = [...indexHtml.matchAll(/<(a|button)\b[^>]*role="tab"[^>]*>/g)].map(match => match[0]);
-  assert.equal(roleTabs.length, 14);
+  assert.equal(roleTabs.length, 16);
   roleTabs.forEach(tab => {
     assert.match(tab, /^<a\b/);
-    assert.match(tab, /href="\/(?:gallery|profile|admin)\?tab=[a-z-]+"/);
+    assert.match(tab, /href="\/(?:meetings|gallery|profile|admin)\?tab=[a-z-]+"/);
     assert.match(tab, /aria-selected="(?:true|false)"/);
     assert.match(tab, /aria-controls="[^"]+"/);
     assert.doesNotMatch(tab, /onclick=/);
@@ -265,13 +267,14 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.doesNotMatch(indexHtml, /<button\b[^>]*role="tab"/);
 
   const sidebarLinks = [...indexHtml.matchAll(/<a\b[^>]*class="nav-item[^>]*data-page="[^"]+"[^>]*>/g)].map(match => match[0]);
-  assert.equal(sidebarLinks.length, 12);
+  assert.equal(sidebarLinks.length, 13);
   sidebarLinks.forEach(link => {
     assert.match(link, /href="\/[^"]+"/);
     assert.doesNotMatch(link, /onclick=/);
   });
 
   assert.match(appSource, /tabValueFromUrl\(Object\.keys\(galleryTabFilters\), 'all'\)/);
+  assert.match(appSource, /tabValueFromUrl\(\['upcoming', 'past'\], 'upcoming'\)/);
   assert.match(appSource, /tabValueFromUrl\(\['profile', 'appearance', 'dashboard', 'sidebar', 'notifications', 'tutorials'\], 'profile'\)/);
   assert.match(appSource, /showAdminTab\(tabValueFromUrl\(\['pending', 'manage-events', 'announcements'\], 'pending'\)\)/);
   assert.match(appSource, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
@@ -300,13 +303,14 @@ test('visitor route allowlist exposes only public pages', () => {
   assert.ok(match, 'visitor route allowlist must remain explicit');
   const routes = vm.runInNewContext(match[1]);
   assert.deepEqual([...routes], ['about', 'home', 'events', 'gallery', 'equipment', 'role-guide', 'join']);
-  for (const privatePage of ['signup', 'members', 'equipment-status', 'crew-deployment', 'profile', 'admin']) {
+  for (const privatePage of ['meetings', 'signup', 'members', 'equipment-status', 'crew-deployment', 'profile', 'admin']) {
     assert.equal(routes.includes(privatePage), false, `${privatePage} must remain private`);
   }
   assert.match(authSource, /await revealDashboard\(data\.user\);\s*if \(window\.CREW_CENTER_IS_VISITOR[\s\S]*?window\.navigate\("about"/);
   assert.match(authSource, /const allowedPages = new Set\(\["about", "home", "events", "gallery", "equipment", "role-guide", "join"\]\)/);
   assert.match(authSource, /\.nav-item\[data-page="signup"\]/);
   assert.match(authSource, /\.nav-item\[data-page="members"\]/);
+  assert.match(authSource, /\.nav-item\[data-page="meetings"\]/);
   assert.doesNotMatch(authSource, /\.nav-item\[onclick\*="(?:signup|members)"\]/);
 });
 

@@ -8,6 +8,7 @@ const appSource = [...indexHtml.matchAll(/<script src="(scripts\/[^"]+)"><\/scri
   .map(match => readFileSync(new URL(`../${match[1]}`, import.meta.url), 'utf8'))
   .join('\n');
 const uiSource = readFileSync(new URL('../scripts/ui.js', import.meta.url), 'utf8');
+const meetingsSource = readFileSync(new URL('../scripts/meetings.js', import.meta.url), 'utf8');
 const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const policiesSql = readFileSync(new URL('../supabase-auth-policies.sql', import.meta.url), 'utf8');
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
@@ -84,6 +85,54 @@ test('News Team is a canonical secondary member tag before specialisations', () 
   });
   assert.match(appSource, /hasNewsTeam \? '<span class="badge badge-teal">News Team<\/span>'/);
   assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
+});
+
+test('Meetings use normalized team membership and audience-scoped RLS', () => {
+  const meetingAccess = extractSqlFunction('can_read_meeting');
+  assert.match(schemaSql, /create table if not exists public\.member_team_memberships/);
+  assert.match(schemaSql, /team_key text not null check \(team_key in \('news_team'\)\)/);
+  assert.match(schemaSql, /insert into public\.member_team_memberships[\s\S]*?student\[\[:space:\]\]\+\)\?news/);
+  assert.match(schemaSql, /create table if not exists public\.meetings[\s\S]*?audience in \('general', 'news_team', 'leadership'\)/);
+  assert.match(schemaSql, /create table if not exists public\.meeting_attendees[\s\S]*?unique \(meeting_id, member_id\)/);
+  assert.match(meetingAccess, /not public\.is_approved_member\(\)/);
+  assert.match(meetingAccess, /target_audience = 'general'/);
+  assert.match(meetingAccess, /public\.is_crew_operations_user\(\)/);
+  assert.match(meetingAccess, /target_audience = 'news_team' and public\.is_member_of_team\('news_team'\)/);
+  assert.doesNotMatch(meetingAccess, /members\.status|member\.status/);
+  assert.match(policiesSql, /create policy "Audience members can read meetings"[\s\S]*?public\.can_read_meeting\(id\)/);
+  assert.match(policiesSql, /create policy "Audience members can read meeting attendees"[\s\S]*?public\.can_read_meeting\(meeting_id\)/);
+});
+
+test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', () => {
+  for (const name of ['create_meeting', 'update_meeting', 'set_meeting_archived', 'get_meeting_delete_impact', 'permanently_delete_meeting']) {
+    assert.match(policiesSql, new RegExp(`create or replace function public\\.${name}\\(`));
+  }
+  assert.match(extractSqlFunction('create_meeting'), /if not public\.is_crew_operations_user\(\)/);
+  assert.match(extractSqlFunction('update_meeting'), /if not public\.is_crew_operations_user\(\)/);
+  assert.match(extractSqlFunction('permanently_delete_meeting'), /if not public\.is_auth_admin\(\)/);
+  assert.match(policiesSql, /create policy "Members can add own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)[\s\S]*?meeting\.ends_at > now\(\)/);
+  assert.match(policiesSql, /create policy "Members can update own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)/);
+  assert.match(policiesSql, /create policy "Members can remove own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)/);
+  assert.match(appSource, /supabaseClient\.rpc\('create_meeting'/);
+  assert.match(appSource, /supabaseClient\.rpc\('update_meeting'/);
+  assert.match(appSource, /from\('meeting_attendees'\)\.upsert\([\s\S]*?onConflict: 'meeting_id,member_id'/);
+  assert.match(appSource, /from\('meeting_attendees'\)\.delete\(\)\.eq\('meeting_id', id\)\.eq\('member_id', member\.id\)/);
+});
+
+test('Meetings remain a private deep-linked page with a themed watermark hero', () => {
+  assert.match(indexHtml, /href="\/meetings" class="nav-item" data-page="meetings"/);
+  assert.match(indexHtml, /id="page-meetings" class="page meetings-page"/);
+  assert.match(appSource, /meetings: '\/meetings'/);
+  assert.match(appSource, /if \(page === 'meetings' && isVisitorSession\(\)\)/);
+  assert.match(appStyles, /\.meetings-hero::before[\s\S]*?assets\/fis-logo\.png/);
+  assert.match(appStyles, /\.meetings-hero::after[\s\S]*?linear-gradient/);
+  assert.match(appStyles, /--meeting-accent: var\(--teal\)/);
+  assert.match(appStyles, /@media \(max-width: 768px\)[\s\S]*?\.meeting-card \{ grid-template-columns: 54px minmax\(0, 1fr\)/);
+  assert.match(schemaSql, /sidebar_items text\[\] not null default array\[[^\]]*'events','meetings','signup'[^\]]*\]::text\[\]/);
+  assert.match(policiesSql, /where item = any\(array\[[^\]]*'events','meetings','signup'[^\]]*\]::text\[\]\)/);
+  assert.match(appSource, /meeting_attendees\(id, member_id, response, responded_at, members\(name, role, avatar_url\)\)/);
+  assert.doesNotMatch(meetingsSource, /attendee\.email|organizer.*email|auth.*email/i);
+  assert.match(meetingsSource, /safeExternalUrl\(meeting\.meetingLink\)/);
 });
 
 test('only Auth Admin and Faculty can create event signups for another member', () => {
@@ -303,9 +352,9 @@ test('phone-width tables and dashboard equipment bars retain responsive affordan
 });
 
 test('default sidebar includes About Media Club while customized choices remain authoritative', () => {
-  const functions = ['sidebarPageAvailable', 'availableSidebarPages', 'currentSidebarPreferences'];
+  const functions = ['isVisitorSession', 'sidebarPageAvailable', 'availableSidebarPages', 'currentSidebarPreferences'];
   const sidebarCategories = {
-    main: { pages: ['home', 'events', 'signup', 'members'] },
+    main: { pages: ['home', 'events', 'meetings', 'signup', 'members'] },
     content: { pages: ['gallery', 'equipment', 'role-guide'] },
     club: { pages: ['crew-deployment', 'equipment-status', 'join', 'about', 'admin'] },
   };
@@ -326,6 +375,7 @@ test('default sidebar includes About Media Club while customized choices remain 
   const oldDefault = preferences({ sidebarCustomized: false, sidebarItems: ['home', 'gallery', 'join'] });
   assert.equal(oldDefault.customized, false);
   assert.equal(oldDefault.items.includes('about'), true, 'About should appear on the default sidebar');
+  assert.equal(oldDefault.items.includes('meetings'), true, 'Meetings should appear on the default member sidebar');
 
   const manuallyHidden = preferences({ sidebarCustomized: true, sidebarItems: ['home', 'gallery', 'join'] });
   assert.equal(manuallyHidden.customized, true);

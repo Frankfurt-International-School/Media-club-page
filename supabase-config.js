@@ -434,6 +434,7 @@ function applyAdminControls() {
   ];
   const crewOperationsSelectors = [
     'button[onclick*="event-modal"]',
+    '.meeting-operations-only',
     'button[onclick*="equip-add-modal"]',
     'button[onclick*="addEquipment"]',
     'button[onclick*="addEvent"]',
@@ -470,6 +471,7 @@ function applyAdminControls() {
     el.style.display = hasCrewScheduleAccess && !isVisitor ? "flex" : "none";
   });
   const visitorHiddenSelectors = [
+    '.nav-item[data-page="meetings"]',
     '.nav-item[data-page="signup"]',
     '.nav-item[data-page="members"]',
     '.sidebar-footer',

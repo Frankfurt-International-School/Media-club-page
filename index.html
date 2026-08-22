@@ -29,6 +29,10 @@
       <span class="nav-label">Events</span>
       <span class="nav-badge" style="display:none;"></span>
     </a>
+    <a href="/meetings" class="nav-item" data-page="meetings" data-category="main" data-label="Meetings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="9" r="1.5"/><circle cx="16" cy="15" r="1.5"/><path d="M10 12h3M14.5 10l-3 1.5M14.5 14l-3-1.5"/></svg>
+      <span class="nav-label">Meetings</span>
+    </a>
     <a href="/signups" class="nav-item" data-page="signup" data-category="main" data-label="Sign-up Sheets">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       <span class="nav-label">Sign-up Sheets</span>
@@ -279,6 +283,33 @@
     <section class="archived-panel" id="archived-events-panel" hidden>
       <div><div class="section-head" style="margin:0;">Archived events</div><div class="text-muted">Hidden from schedules and signup sheets, with signups and reservation history preserved.</div></div>
       <div id="archived-events-list"></div>
+    </section>
+  </div>
+
+  <!-- ── MEETINGS ── -->
+  <div id="page-meetings" class="page meetings-page">
+    <section class="page-hero meetings-hero">
+      <div class="page-hero-copy">
+        <div class="page-kicker">Crew signal / private workspace</div>
+        <div class="page-title">Meetings</div>
+        <div class="page-sub">Plan together, capture decisions, and keep the right crew aligned.</div>
+        <div class="meetings-hero-status"><span></span> Member-secured workspace</div>
+      </div>
+      <div class="page-hero-actions"><button class="btn btn-accent meeting-operations-only" id="meeting-add-button" style="display:none;" onclick="openMeetingEditor()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Schedule meeting
+      </button></div>
+    </section>
+    <div class="meeting-command-grid" id="meeting-command-grid" aria-label="Meeting overview"></div>
+    <div class="tab-row meeting-tabs" role="tablist" aria-label="Meeting views">
+      <div class="tab-slider"></div>
+      <a href="/meetings?tab=upcoming" class="tab active" data-meeting-tab="upcoming" role="tab" aria-selected="true" tabindex="0" aria-controls="meetings-list" onkeydown="handleTabKeydown(event)">Upcoming</a>
+      <a href="/meetings?tab=past" class="tab" data-meeting-tab="past" role="tab" aria-selected="false" tabindex="-1" aria-controls="meetings-list" onkeydown="handleTabKeydown(event)">Past meetings</a>
+    </div>
+    <div id="meetings-list" class="meetings-list"></div>
+    <section class="archived-panel" id="archived-meetings-panel" hidden>
+      <div><div class="section-head" style="margin:0;">Archived meetings</div><div class="text-muted">Hidden from member calendars while RSVP and decision history stays preserved.</div></div>
+      <div id="archived-meetings-list"></div>
     </section>
   </div>
 
@@ -835,6 +866,33 @@
   </div>
 </div>
 
+<!-- Meeting Editor Modal -->
+<div class="modal-backdrop" id="meeting-modal">
+  <div class="modal meeting-editor-modal" style="position:relative;">
+    <button type="button" class="modal-close" onclick="closeMeetingEditor()" aria-label="Close meeting editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="meeting-editor-kicker">Meeting protocol</div>
+    <div class="modal-title" id="meeting-modal-title">Schedule meeting</div>
+    <div class="modal-sub" id="meeting-modal-sub">Choose who needs the meeting, when it happens, and what the crew should prepare.</div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label" for="meeting-title">Title *</label><input class="form-input" id="meeting-title" maxlength="120" placeholder="Weekly news planning" /></div>
+      <div class="form-group"><label class="form-label" for="meeting-audience">Audience *</label><select class="form-select" id="meeting-audience"><option value="general">General · all approved members</option><option value="news_team">News Team</option><option value="leadership">Leadership</option></select></div>
+    </div>
+    <div class="form-row3 meeting-time-grid">
+      <div class="form-group"><label class="form-label" for="meeting-date">Date *</label><input class="form-input" id="meeting-date" type="date" /></div>
+      <div class="form-group"><label class="form-label" for="meeting-start">Start *</label><input class="form-input" id="meeting-start" type="time" /></div>
+      <div class="form-group"><label class="form-label" for="meeting-end">End *</label><input class="form-input" id="meeting-end" type="time" /></div>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label" for="meeting-location">Location</label><input class="form-input" id="meeting-location" placeholder="Media room" /></div>
+      <div class="form-group"><label class="form-label" for="meeting-link">Online meeting link</label><input class="form-input" id="meeting-link" type="url" inputmode="url" placeholder="https://…" /><div class="text-muted" style="font-size:11px;margin-top:6px;">Use an HTTPS link intended for the selected audience.</div></div>
+    </div>
+    <div class="form-group"><label class="form-label" for="meeting-related-event">Related production <span class="text-muted">(optional)</span></label><select class="form-select" id="meeting-related-event"><option value="">No linked production</option></select></div>
+    <div class="form-group"><label class="form-label" for="meeting-agenda">Agenda</label><textarea class="form-textarea" id="meeting-agenda" placeholder="Topics, preparation, and decisions needed…"></textarea></div>
+    <div class="form-group" id="meeting-notes-group" hidden><label class="form-label" for="meeting-notes">Minutes and decisions</label><textarea class="form-textarea" id="meeting-notes" placeholder="Capture decisions, follow-ups, and important context…"></textarea></div>
+    <button class="btn btn-accent" id="meeting-save-button" style="width:100%;justify-content:center;" onclick="saveMeeting()">Schedule meeting</button>
+  </div>
+</div>
+
 <!-- Add Member Modal -->
 <div class="modal-backdrop" id="member-modal">
   <div class="modal" style="position:relative;">
@@ -1001,6 +1059,7 @@
 <script src="scripts/ui.js"></script>
 <script src="scripts/dashboard.js"></script>
 <script src="scripts/events.js"></script>
+<script src="scripts/meetings.js"></script>
 <script src="scripts/signups.js"></script>
 <script src="scripts/crew-schedule.js"></script>
 <script src="scripts/members.js"></script>
