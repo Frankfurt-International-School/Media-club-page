@@ -237,6 +237,11 @@ async function addSignupRow() {
     showToast('Choose two different reserve roles in priority order.', 'error');
     return;
   }
+  if (isStudentSupervisor && [reserveRole1, reserveRole2].some(reserveRole => !availableReserveRoleLabels().includes(reserveRole))) {
+    showToast('Student Supervisors cannot use Photographer as a reserve role.', 'error', 6000);
+    updateReserveRoleFields();
+    return;
+  }
   const eventStart = timeValue(ev.date, ev.setupStart || ev.game1Start || ev.time);
   const eventEnd = timeValue(ev.date, ev.takedownEnd || ev.game4End || ev.game3End || ev.game2End || ev.game1End || '23:59');
   if (attendance.type === 'custom' && (attendance.start < eventStart || attendance.end > eventEnd)) {

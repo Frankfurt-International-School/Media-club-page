@@ -1495,7 +1495,12 @@ with check (
     )
   )
   and (
-    (signup_role = 'Student Supervisor' and reserve_role_1 is not null and reserve_role_2 is not null and reserve_role_1 <> reserve_role_2)
+    (
+      signup_role = 'Student Supervisor'
+      and reserve_role_1 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
+      and reserve_role_2 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
+      and reserve_role_1 <> reserve_role_2
+    )
     or (signup_role <> 'Student Supervisor' and reserve_role_1 is null and reserve_role_2 is null)
     or (signup_role is null and reserve_role_1 is null and reserve_role_2 is null)
   )

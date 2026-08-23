@@ -357,6 +357,26 @@ test('active student supervisor reserves preserve the supervisor label and show 
   assert.doesNotMatch(appSource, /<td>\$\{displayRole \? escapeHtml\(displayRole\)/);
 });
 
+test('Student Supervisor reserve priorities exclude Photographer in the UI and database', () => {
+  assert.match(appSource, /\['adult_supervisor', 'student_supervisor', 'photographer'\]\.includes\(key\)/);
+  assert.match(appSource, /Student Supervisors cannot use Photographer as a reserve role\./);
+  assert.match(indexHtml, /Photography is excluded because the supervisor must remain in the stream area\./);
+
+  const reserveConstraintStart = schemaSql.indexOf('add constraint signups_student_supervisor_reserves_check');
+  const reserveConstraint = schemaSql.slice(reserveConstraintStart, schemaSql.indexOf('do $$', reserveConstraintStart));
+  assert.doesNotMatch(reserveConstraint, /Photographer/);
+  assert.match(reserveConstraint, /\) not valid;/);
+  assert.match(schemaSql, /where signup_role = 'Student Supervisor'[\s\S]*?reserve_role_1 = 'Photographer' or reserve_role_2 = 'Photographer'[\s\S]*?validate constraint signups_student_supervisor_reserves_check/);
+
+  const signupPolicy = policiesSql.slice(
+    policiesSql.indexOf('create policy "Signed-in users can add signups"'),
+    policiesSql.indexOf('create policy "Users can delete own signups and Auth Admins any"'),
+  );
+  assert.match(signupPolicy, /reserve_role_1 in \('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 \(optional\)', 'Wireless'\)/);
+  assert.match(signupPolicy, /reserve_role_2 in \('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 \(optional\)', 'Wireless'\)/);
+  assert.doesNotMatch(signupPolicy, /reserve_role_[12][\s\S]*?Photographer/);
+});
+
 test('Crew Schedule defaults to unfinished productions and keeps completed events in read-only past logs', () => {
   const dates = ['2026-08-18', '2026-08-21', '2026-09-02'];
   assert.equal(runFunctions(['defaultCrewDeploymentDate'], {}, `defaultCrewDeploymentDate(${JSON.stringify(dates)}, 'upcoming')`), '2026-08-18');

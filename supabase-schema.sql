@@ -255,12 +255,23 @@ alter table public.signups drop constraint if exists signups_student_supervisor_
 alter table public.signups add constraint signups_student_supervisor_reserves_check check (
   (
     signup_role = 'Student Supervisor'
-    and reserve_role_1 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer')
-    and reserve_role_2 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer')
+    and reserve_role_1 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
+    and reserve_role_2 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
     and reserve_role_1 <> reserve_role_2
   )
   or (reserve_role_1 is null and reserve_role_2 is null)
-);
+) not valid;
+do $$
+begin
+  if not exists (
+    select 1
+    from public.signups
+    where signup_role = 'Student Supervisor'
+      and (reserve_role_1 = 'Photographer' or reserve_role_2 = 'Photographer')
+  ) then
+    alter table public.signups validate constraint signups_student_supervisor_reserves_check;
+  end if;
+end $$;
 alter table public.signups drop constraint if exists signups_photographer_equipment_check;
 alter table public.signups add constraint signups_photographer_equipment_check check (
   (

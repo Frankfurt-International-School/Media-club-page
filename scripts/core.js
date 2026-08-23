@@ -285,7 +285,7 @@ function renderSignupRoleOptions(ev) {
 
 function availableReserveRoleLabels() {
   return currentUserSignupRoleKeys()
-    .filter(key => !['adult_supervisor', 'student_supervisor'].includes(key))
+    .filter(key => !['adult_supervisor', 'student_supervisor', 'photographer'].includes(key))
     .map(key => signupRoleLabels[key]);
 }
 
