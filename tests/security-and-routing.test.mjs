@@ -18,9 +18,10 @@ const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.u
 const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
 const mediaClubLogo = readFileSync(new URL('../assets/media-club-logo.png', import.meta.url));
 const aboutImageNames = [
-  'tech-show-crew.webp',
+  'tech-show-crew-portrait.webp',
+  'tech-show-crew-portrait-mobile.webp',
   'stroth-control-room.webp',
-  'camera-operator.webp',
+  'tech-show-fieldwork.webp',
   'tech-show-anchors.webp',
   'tech-show-team.webp',
 ];
@@ -180,6 +181,8 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   assert.match(aboutMarkup, /id="about-recent-projects"/);
   assert.match(aboutMarkup, /href="\/gallery"/);
   assert.match(aboutMarkup, /href="\/join"/);
+  assert.match(aboutMarkup, /<picture class="about-hero-media">[\s\S]*?tech-show-crew-portrait-mobile\.webp[\s\S]*?tech-show-crew-portrait\.webp/);
+  assert.match(aboutMarkup, /tech-show-fieldwork\.webp/);
   assert.doesNotMatch(aboutMarkup, /<script|https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)/i);
 
   for (const file of aboutImageNames) {
