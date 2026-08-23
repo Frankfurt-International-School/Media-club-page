@@ -214,6 +214,10 @@ test('Media Role Guide includes the approved stream expectations', () => {
   assert.match(expectations, /when their camera is live or is about to go live/);
   assert.match(expectations, /Do not show injuries on stream/);
   assert.match(expectations, /Use a neutral wide shot/);
+  const photographerCard = indexHtml.slice(indexHtml.indexOf('<h3>Photographer</h3>'), indexHtml.indexOf('</article>', indexHtml.indexOf('<h3>Photographer</h3>')));
+  assert.match(photographerCard, /Media Club loan camera or the personal camera selected in their signup/);
+  assert.match(photographerCard, /Personal equipment is optional and is brought and used at the owner’s own risk/);
+  assert.match(photographerCard, /Loan equipment must be returned after the event/);
 });
 
 test('gallery projects support an optional production date and link guidance', () => {
