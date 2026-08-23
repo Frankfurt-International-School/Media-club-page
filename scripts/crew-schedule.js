@@ -206,7 +206,7 @@ function renderCrewDeployment() {
         const attendanceTaken = event.signups.filter(signup => signup.attendanceStatus !== 'not_taken').length;
         const blocks = deploymentGameBlocks(event);
         return `<article class="deployment-event${pastLog ? ' past-log' : ''}">
-          <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(event.time || 'TBC')}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}${pastLog ? ' logged' : ''}">${pastLog ? `Logged ${attendanceTaken}/${event.signups.length}` : attendanceOpen ? `Attendance ${attendanceTaken}/${event.signups.length}` : `Opens ${escapeHtml(berlinTimeLabel(eventStart - 10 * 60 * 1000))}`}</span></div>
+          <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(eventScheduleTimeLabel(event))}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}${pastLog ? ' logged' : ''}">${pastLog ? `Logged ${attendanceTaken}/${event.signups.length}` : attendanceOpen ? `Attendance ${attendanceTaken}/${event.signups.length}` : `Opens ${escapeHtml(berlinTimeLabel(eventStart - 10 * 60 * 1000))}`}</span></div>
           ${blocks.map(block => {
             const crew = event.signups.filter(signup => signupCoversDeploymentBlock(signup, block));
             return `<div class="deployment-game"><div class="deployment-game-head"><span>${block.label}</span><span>${block.start}–${block.end}</span></div>${crew.length ? crew.map(signup => {

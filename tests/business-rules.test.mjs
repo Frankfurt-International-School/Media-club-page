@@ -193,6 +193,28 @@ test('signup windows use half-open boundaries', () => {
   assert.ok(halfOpenSignupRanges.length >= 3, 'database signup exclusions must use the same [start, end) boundary');
 });
 
+test('live-cut events support an optional end time across creation and crew scheduling', () => {
+  const updateCategoryFields = extractFunction('updateLivestreamSetupField');
+  const addEvent = extractFunction('addEvent');
+  const attendanceWindow = extractFunction('selectedAttendanceWindow');
+
+  assert.match(indexHtml, /id="ev-live-cut-end-group" style="display:none;"[\s\S]*?id="ev-end-time" type="time"/);
+  assert.match(updateCategoryFields, /category === 'Recording \(live cut\)'/);
+  assert.match(updateCategoryFields, /liveCutEndGroup\.style\.display/);
+  assert.match(addEvent, /liveCutEndTime && !startTime/);
+  assert.match(addEvent, /liveCutEndTime <= startTime/);
+  assert.match(addEvent, /liveCutEndTime \|\| '23:59'/);
+  assert.match(addEvent, /ends_at: new Date\(eventEnd\)\.toISOString\(\)/);
+  assert.match(appSource, /endTime: event\.ends_at \? berlinTimeLabel\(event\.ends_at\) : ''/);
+  assert.match(attendanceWindow, /ev\.game1End \|\| ev\.endTime \|\| '23:59'/);
+  assert.match(schemaSql, /alter table public\.events add column if not exists ends_at timestamptz/);
+
+  const label = event => runFunctions(['eventScheduleTimeLabel'], {}, `eventScheduleTimeLabel(${JSON.stringify(event)})`);
+  assert.equal(label({ cat: 'Recording (live cut)', time: '15:30', endTime: '18:00' }), '15:30–18:00');
+  assert.equal(label({ cat: 'Recording (live cut)', time: '15:30', endTime: '23:59' }), '15:30');
+  assert.equal(label({ cat: 'Event', time: '15:30', endTime: '18:00' }), '15:30');
+});
+
 test('equipment reservations use half-open boundaries and lifecycle states', () => {
   const overlaps = (start, end, otherStart, otherEnd) => runFunctions(
     ['reservationOverlaps'],

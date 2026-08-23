@@ -191,8 +191,14 @@ function formatBerlinCalendarDate(date, options = {}) {
 function eventEndTimestamp(event) {
   const explicitEnd = Date.parse(event?.endsAt || '');
   if (Number.isFinite(explicitEnd)) return explicitEnd;
-  const fallbackEnd = event?.takedownEnd || event?.game4End || event?.game3End || event?.game2End || event?.game1End || event?.time || '23:59';
+  const fallbackEnd = event?.takedownEnd || event?.game4End || event?.game3End || event?.game2End || event?.game1End || event?.endTime || event?.time || '23:59';
   return timeValue(event?.date, fallbackEnd);
+}
+
+function eventScheduleTimeLabel(event) {
+  const start = event?.time || 'TBC';
+  const hasLiveCutEnd = event?.cat === 'Recording (live cut)' && event?.endTime && event.endTime !== '23:59';
+  return hasLiveCutEnd ? `${start}–${event.endTime}` : start;
 }
 
 function isPastEvent(event, now = Date.now()) {
@@ -232,7 +238,7 @@ function selectedAttendanceWindow(ev) {
     shift_1: [ev.shift1Start, ev.shift1End],
     shift_2: [ev.shift2Start, ev.shift2End],
     takedown: [ev.takedownStart, ev.takedownEnd],
-    whole: [ev.game1Start || ev.time, ev.game4End || ev.game3End || ev.game2End || ev.game1End || '23:59'],
+    whole: [ev.game1Start || ev.time, ev.game4End || ev.game3End || ev.game2End || ev.game1End || ev.endTime || '23:59'],
     custom: [document.getElementById('signup-start-time')?.value, document.getElementById('signup-end-time')?.value],
   };
   const [startTime, endTime] = ranges[type] || [];
@@ -584,6 +590,7 @@ function normalizeEvent(event) {
     shift2End: event.shift_2_end?.slice(0, 5) || '',
     takedownStart: event.takedown_start?.slice(0, 5) || '',
     takedownEnd: event.takedown_end?.slice(0, 5) || '',
+    endTime: event.ends_at ? berlinTimeLabel(event.ends_at) : '',
     endsAt: event.ends_at || '',
     archivedAt: event.archived_at || '',
     archivedByName: event.archived_by_name || '',

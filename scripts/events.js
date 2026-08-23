@@ -30,7 +30,7 @@ function renderEvents(filter) {
             <div style="display:flex;gap:6px;"><span class="badge badge-${catColor(ev.cat)}">${escapeHtml(ev.cat)}</span>${past ? '<span class="badge badge-gray">Past</span>' : ''}</div>
           </div>
           <div class="event-meta">
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${escapeHtml(ev.time || 'TBC')}</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${escapeHtml(eventScheduleTimeLabel(ev))}</span>
             <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(ev.loc || 'TBC')}</span>
             ${ev.slots ? `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${ev.signups.length} / ${ev.slots} slots</span>` : ''}
           </div>
@@ -97,7 +97,11 @@ function updateLivestreamSetupField() {
   const category = document.getElementById('ev-cat').value;
   const group = document.getElementById('ev-livestream-setup-group');
   const setupDate = document.getElementById('ev-livestream-setup-date');
+  const liveCutEndGroup = document.getElementById('ev-live-cut-end-group');
+  const liveCutEndTime = document.getElementById('ev-end-time');
   group.style.display = category === 'Livestream' ? '' : 'none';
+  liveCutEndGroup.style.display = category === 'Recording (live cut)' ? '' : 'none';
+  if (category !== 'Recording (live cut)') liveCutEndTime.value = '';
   document.getElementById('ev-sports-group').style.display = category === 'Livestream' ? '' : 'none';
   document.getElementById('ev-festival-group').style.display = category === 'Event' ? '' : 'none';
   if (category !== 'Livestream') {
@@ -157,8 +161,19 @@ async function addEvent() {
   const title = document.getElementById('ev-title').value.trim();
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
-  const isSports = document.getElementById('ev-cat').value === 'Livestream' && document.getElementById('ev-sports').checked;
-  const isIsst = document.getElementById('ev-cat').value === 'Livestream' && document.getElementById('ev-isst').checked;
+  const category = document.getElementById('ev-cat').value;
+  const startTime = document.getElementById('ev-time').value;
+  const liveCutEndTime = category === 'Recording (live cut)' ? document.getElementById('ev-end-time').value : '';
+  if (liveCutEndTime && !startTime) {
+    showToast('Add a start time before setting the live-cut end time.', 'error');
+    return;
+  }
+  if (liveCutEndTime && liveCutEndTime <= startTime) {
+    showToast('The live-cut end time must be after its start time.', 'error');
+    return;
+  }
+  const isSports = category === 'Livestream' && document.getElementById('ev-sports').checked;
+  const isIsst = category === 'Livestream' && document.getElementById('ev-isst').checked;
   const gameTimes = ['ev-game1-start', 'ev-game1-end', 'ev-game2-start', 'ev-game2-end'].map(id => document.getElementById(id).value);
   const isstTimes = ['ev-game3-start', 'ev-game3-end', 'ev-game4-start', 'ev-game4-end'].map(id => document.getElementById(id).value);
   const isFestival = document.getElementById('ev-festival').checked;
@@ -197,7 +212,7 @@ async function addEvent() {
     showToast('Festival schedule times must be in order and cannot overlap.', 'error');
     return;
   }
-  const eventStartTime = isFestival ? festivalTimes[0] : (isSports || isIsst) ? gameTimes[0] : document.getElementById('ev-time').value || '12:00';
+  const eventStartTime = isFestival ? festivalTimes[0] : (isSports || isIsst) ? gameTimes[0] : startTime || '12:00';
   const eventDate = berlinTimestamp(date, eventStartTime);
   const eventEndTime = isFestival
     ? festivalTimes[7]
@@ -205,7 +220,7 @@ async function addEvent() {
       ? isstTimes[3] || isstTimes[1]
       : isSports
         ? gameTimes[3]
-        : '23:59';
+        : liveCutEndTime || '23:59';
   const eventEnd = berlinTimestamp(date, eventEndTime);
   if (eventDate === null || eventEnd === null || eventEnd <= eventDate) {
     showToast('This Berlin date/time is invalid. Check the schedule, especially around daylight-saving changes.', 'error', 7000);
@@ -218,8 +233,8 @@ async function addEvent() {
       date: new Date(eventDate).toISOString(),
       location: document.getElementById('ev-loc').value,
       description: document.getElementById('ev-desc').value,
-      category: document.getElementById('ev-cat').value,
-      livestream_setup_date: document.getElementById('ev-cat').value === 'Livestream'
+      category,
+      livestream_setup_date: category === 'Livestream'
         ? document.getElementById('ev-livestream-setup-date').value || null
         : null,
       is_sports: isSports,
@@ -250,7 +265,7 @@ async function addEvent() {
   state.events.push(ev);
   state.events.sort((a, b) => a.date.localeCompare(b.date));
   closeModal('event-modal');
-  ['ev-title','ev-date','ev-time','ev-loc','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end','ev-game3-start','ev-game3-end','ev-game4-start','ev-game4-end','ev-setup-start','ev-setup-end','ev-shift1-start','ev-shift1-end','ev-shift2-start','ev-shift2-end','ev-takedown-start','ev-takedown-end'].forEach(id => document.getElementById(id).value = '');
+  ['ev-title','ev-date','ev-time','ev-end-time','ev-loc','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end','ev-game3-start','ev-game3-end','ev-game4-start','ev-game4-end','ev-setup-start','ev-setup-end','ev-shift1-start','ev-shift1-end','ev-shift2-start','ev-shift2-end','ev-takedown-start','ev-takedown-end'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('ev-sports').checked = false;
   document.getElementById('ev-isst').checked = false;
   document.getElementById('ev-festival').checked = false;
