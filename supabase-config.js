@@ -409,13 +409,14 @@ window.crewCenterSupabase = window.supabase?.createClient(
 );
 
 const authStartupTimeoutMs = 8000;
-const authOperationTimeoutMs = 12000;
-const memberApprovalTimeoutMs = 5000;
+const authOperationTimeoutMs = 8000;
+const memberApprovalTimeoutMs = 3000;
 let authActivationPromise = null;
 let authActivationUserId = "";
 let authActivationSequence = 0;
 let authStartupSettled = false;
 let signOutRequested = false;
+let initialDataEpoch = -1;
 window.CREW_CENTER_AUTH_EPOCH = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
 
 function withCrewCenterTimeout(operation, timeoutMs, message) {
@@ -710,6 +711,37 @@ function applySignedInUser(user) {
   applyAdminControls();
 }
 
+function finishCrewCenterStartup() {
+  const user = window.CREW_CENTER_AUTH_USER;
+  if (!user || signOutRequested || !document.body.classList.contains("auth-ready")) return false;
+  applySignedInUser(user);
+  const authEpoch = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
+  const loadInitialData = window.loadCrewCenterInitialData || window.loadCrewCenterData;
+  if (typeof loadInitialData === "function" && initialDataEpoch !== authEpoch) {
+    initialDataEpoch = authEpoch;
+    Promise.resolve(loadInitialData()).catch(error => {
+      if (initialDataEpoch === authEpoch) initialDataEpoch = -1;
+      console.error("Couldn't finish the initial Crew Center refresh.", error);
+    });
+  }
+  if (typeof window.subscribeToCrewCenterChanges === "function") {
+    window.subscribeToCrewCenterChanges();
+  }
+  return true;
+}
+
+window.finishCrewCenterStartup = finishCrewCenterStartup;
+
+function releasePendingSidebar(authEpoch) {
+  setTimeout(() => {
+    if (authEpoch !== Number(window.CREW_CENTER_AUTH_EPOCH || 0)) return;
+    if (!document.body.classList.contains("auth-ready")) return;
+    if (!document.documentElement.classList.contains("sidebar-pending")) return;
+    if (typeof window.applySidebarPreferences === "function") window.applySidebarPreferences();
+    else document.documentElement.classList.remove("sidebar-pending");
+  }, 2500);
+}
+
 function revealDashboard(user) {
   const previousUserId = window.CREW_CENTER_AUTH_USER?.id || "";
   applySignedInUser(user);
@@ -725,19 +757,9 @@ function revealDashboard(user) {
   document.body.classList.add("auth-ready");
   setTimeout(() => applySignedInUser(user), 0);
   setTimeout(() => applySignedInUser(user), 250);
-  const loadInitialData = window.loadCrewCenterInitialData || window.loadCrewCenterData;
-  if (typeof loadInitialData === "function") {
-    Promise.resolve().then(() => loadInitialData()).catch(error => {
-      console.error("Couldn't finish the initial Crew Center refresh.", error);
-    });
-  }
-  const startLiveUpdates = () => {
-    if (typeof window.subscribeToCrewCenterChanges === "function") {
-      window.subscribeToCrewCenterChanges();
-    }
-  };
-  startLiveUpdates();
-  setTimeout(startLiveUpdates, 0);
+  const authEpoch = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
+  finishCrewCenterStartup();
+  releasePendingSidebar(authEpoch);
 }
 
 async function allowCrewCenterUser(user) {
@@ -746,7 +768,7 @@ async function allowCrewCenterUser(user) {
   const normalizedEmail = String(user?.email || "").trim().toLowerCase();
   if (normalizedEmail) {
     let lastError = null;
-    for (const delay of [0, 500]) {
+    for (const delay of [0, 250]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
       let approvedMember;
       let error;

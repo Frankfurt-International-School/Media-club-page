@@ -1015,6 +1015,8 @@ function applySidebarPreferences() {
   document.documentElement.classList.remove('sidebar-pending');
 }
 
+window.applySidebarPreferences = applySidebarPreferences;
+
 function renderSidebarSettings() {
   const toggle = document.getElementById('sidebar-customize-enabled');
   const groups = document.getElementById('sidebar-choice-groups');

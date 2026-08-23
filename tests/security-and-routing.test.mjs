@@ -145,7 +145,8 @@ test('dark mode includes the signed-out authentication surface', () => {
 
 test('authentication startup and sign-out remain responsive during upstream stalls', () => {
   assert.match(authSource, /const authStartupTimeoutMs = 8000/);
-  assert.match(authSource, /const authOperationTimeoutMs = 12000/);
+  assert.match(authSource, /const authOperationTimeoutMs = 8000/);
+  assert.match(authSource, /const memberApprovalTimeoutMs = 3000/);
   assert.match(authSource, /auth\.onAuthStateChange\(\(event, session\) => \{\s*setTimeout\(\(\) => \{/);
   assert.match(authSource, /\["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"\]\.includes\(event\)/);
   assert.match(authSource, /auth\.signOut\(\{ scope: "local" \}\)/);
@@ -159,6 +160,15 @@ test('authentication startup and sign-out remain responsive during upstream stal
   assert.match(coreSource, /async function loadCrewCenterInitialData\(\)/);
   assert.match(coreSource, /if \(!visitor\) await loadCrewCenterData\(\{ datasets: \['members'\] \}\)/);
   assert.match(coreSource, /setTimeout\(\(\) => loadCrewCenterData\(\{ datasets: backgroundDatasets, silent: true \}\), 0\)/);
+  assert.match(authSource, /function finishCrewCenterStartup\(\)/);
+  assert.match(authSource, /document\.body\.classList\.contains\("auth-ready"\)[\s\S]*?applySignedInUser\(user\);/);
+  assert.match(authSource, /initialDataEpoch !== authEpoch/);
+  assert.doesNotMatch(authSource, /setTimeout\(finishCrewCenterStartup, 0\)/);
+  assert.match(authSource, /function releasePendingSidebar\(authEpoch\)/);
+  assert.match(coreSource, /window\.applySidebarPreferences = applySidebarPreferences/);
+  assert.match(authSource, /document\.documentElement\.classList\.remove\("sidebar-pending"\)/);
+  assert.match(authSource, /}, 2500\);/);
+  assert.match(initSource, /window\.finishCrewCenterStartup\?\.\(\);/);
 });
 
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {

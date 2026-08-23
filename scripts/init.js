@@ -14,3 +14,4 @@ document.getElementById('ev-date').addEventListener('change', () => {
   }
 });
 updateLivestreamSetupField();
+window.finishCrewCenterStartup?.();
