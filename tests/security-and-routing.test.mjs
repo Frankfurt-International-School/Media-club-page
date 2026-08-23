@@ -24,6 +24,8 @@ const aboutImageNames = [
   'tech-show-fieldwork.webp',
   'tech-show-anchors.webp',
   'tech-show-team.webp',
+  'crew-center-field-operator.webp',
+  'crew-center-field-operator-mobile.webp',
 ];
 
 function globalHeaders() {
@@ -183,6 +185,8 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   assert.match(aboutMarkup, /href="\/join"/);
   assert.match(aboutMarkup, /<picture class="about-hero-media">[\s\S]*?tech-show-crew-portrait-mobile\.webp[\s\S]*?tech-show-crew-portrait\.webp/);
   assert.match(aboutMarkup, /tech-show-fieldwork\.webp/);
+  assert.match(aboutMarkup, /<picture class="about-platform-media">[\s\S]*?crew-center-field-operator-mobile\.webp[\s\S]*?crew-center-field-operator\.webp/);
+  assert.match(aboutMarkup, /first FIS service club to operate through its own fully personalised Crew Center/);
   assert.doesNotMatch(aboutMarkup, /<script|https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)/i);
 
   for (const file of aboutImageNames) {
