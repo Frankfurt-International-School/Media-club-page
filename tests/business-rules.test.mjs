@@ -481,6 +481,7 @@ test('visitor reads use narrow RPCs and direct operational table reads stay bloc
 test('realtime changes refresh only affected datasets and coalesce bursts', () => {
   const queue = extractFunction('queueRealtimeDataLoad');
   const subscribe = extractFunction('subscribeToCrewCenterChanges');
+  const stop = extractFunction('stopCrewCenterLiveUpdates');
   assert.match(queue, /pendingRealtimeDatasets\.add/);
   assert.match(queue, /setTimeout\([\s\S]*?250\)/);
   assert.match(queue, /loadCrewCenterData\(\{ datasets: pending, silent: true \}\)/);
@@ -489,6 +490,9 @@ test('realtime changes refresh only affected datasets and coalesce bursts', () =
   assert.match(subscribe, /equipment_reservations: \['equipment'\]/);
   assert.match(subscribe, /if \(mode === 'visitor'\) return/);
   assert.doesNotMatch(subscribe, /loadCrewCenterData\)\s*\.on/);
+  assert.match(stop, /removeChannel\(window\.CREW_CENTER_REALTIME_CHANNEL\)/);
+  assert.match(stop, /queuedDatasets\.clear\(\)/);
+  assert.match(stop, /pendingRealtimeDatasets\.clear\(\)/);
 });
 
 test('visitor dashboard avoids member metrics and loading failures remain retryable', () => {

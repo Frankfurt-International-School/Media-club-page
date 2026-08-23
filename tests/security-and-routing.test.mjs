@@ -10,6 +10,8 @@ const appSource = crewCenterScriptPaths
   .map(path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'))
   .join('\n');
 const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
+const coreSource = readFileSync(new URL('../scripts/core.js', import.meta.url), 'utf8');
+const initSource = readFileSync(new URL('../scripts/init.js', import.meta.url), 'utf8');
 const headersFile = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
 const redirectsFile = readFileSync(new URL('../_redirects', import.meta.url), 'utf8');
 const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url), 'utf8');
@@ -139,6 +141,24 @@ test('dark mode includes the signed-out authentication surface', () => {
   assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate-card\s*\{/);
   assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate-input\s*\{/);
   assert.match(authSource, /:root\[data-theme="dark"\] \.auth-visitor-button\s*\{/);
+});
+
+test('authentication startup and sign-out remain responsive during upstream stalls', () => {
+  assert.match(authSource, /const authStartupTimeoutMs = 8000/);
+  assert.match(authSource, /const authOperationTimeoutMs = 12000/);
+  assert.match(authSource, /auth\.onAuthStateChange\(\(event, session\) => \{\s*setTimeout\(\(\) => \{/);
+  assert.match(authSource, /\["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"\]\.includes\(event\)/);
+  assert.match(authSource, /auth\.signOut\(\{ scope: "local" \}\)/);
+  const signOutStart = authSource.indexOf('async function signOutCrewCenterSession()');
+  const signOutEnd = authSource.indexOf('\nauthLookupRetry.addEventListener', signOutStart);
+  const signOutSource = authSource.slice(signOutStart, signOutEnd);
+  assert.ok(signOutSource.indexOf('showSignIn();') < signOutSource.indexOf('auth.signOut({ scope: "local" })'));
+  assert.match(signOutSource, /clearStoredCrewCenterSession\(\)/);
+  assert.doesNotMatch(initSource, /loadCrewCenterData\(\)/);
+  assert.match(coreSource, /function withCrewCenterDataTimeout\(operation, dataset\)/);
+  assert.match(coreSource, /async function loadCrewCenterInitialData\(\)/);
+  assert.match(coreSource, /if \(!visitor\) await loadCrewCenterData\(\{ datasets: \['members'\] \}\)/);
+  assert.match(coreSource, /setTimeout\(\(\) => loadCrewCenterData\(\{ datasets: backgroundDatasets, silent: true \}\), 0\)/);
 });
 
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
@@ -317,7 +337,7 @@ test('visitor route allowlist exposes only public pages', () => {
   for (const privatePage of ['meetings', 'signup', 'members', 'equipment-status', 'crew-deployment', 'profile', 'admin']) {
     assert.equal(routes.includes(privatePage), false, `${privatePage} must remain private`);
   }
-  assert.match(authSource, /await revealDashboard\(data\.user\);\s*if \(window\.CREW_CENTER_IS_VISITOR[\s\S]*?window\.navigate\("about"/);
+  assert.match(authSource, /await activateCrewCenterUser\(data\.user\);\s*if \(window\.CREW_CENTER_IS_VISITOR[\s\S]*?window\.navigate\("about"/);
   assert.match(authSource, /const allowedPages = new Set\(\["about", "home", "events", "gallery", "equipment", "role-guide", "join"\]\)/);
   assert.match(authSource, /\.nav-item\[data-page="signup"\]/);
   assert.match(authSource, /\.nav-item\[data-page="members"\]/);
@@ -338,5 +358,6 @@ test('visitor portals default to a compact desktop sidebar without changing memb
   assert.match(appSource, /Boolean\(window\.CREW_CENTER_IS_VISITOR\) \|\| localStorage\.getItem\('crew-center-sidebar-compact'\) === 'true'/);
   assert.match(appSource, /setSidebarCollapsed\(!document\.body\.classList\.contains\('sidebar-collapsed'\), \{ persist: !window\.CREW_CENTER_IS_VISITOR \}\)/);
   assert.match(appSource, /Boolean\(collapsed\) && window\.innerWidth > 900/);
-  assert.match(authSource, /applySignedInUser\(user\);\s*window\.syncSidebarCollapsePreference\?\.\(\);/);
+  assert.match(authSource, /applySignedInUser\(user\);[\s\S]*?window\.syncSidebarCollapsePreference\?\.\(\);/);
+  assert.match(authSource, /previousUserId !== user\.id[\s\S]*?CREW_CENTER_AUTH_EPOCH \+= 1/);
 });

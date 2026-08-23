@@ -378,6 +378,7 @@ const authLookupActions = document.getElementById("auth-lookup-actions");
 const authLookupRetry = document.getElementById("auth-lookup-retry");
 let pendingApprovalCheckUser = null;
 const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite";
+let inviteSetupComplete = false;
 const rememberPreferenceKey = "crew-center-remember-session";
 const shouldRememberSession = () => localStorage.getItem(rememberPreferenceKey) !== "false";
 const authStorage = {
@@ -406,6 +407,47 @@ window.crewCenterSupabase = window.supabase?.createClient(
   window.CREW_CENTER_SUPABASE.anonKey,
   { auth: { persistSession: true, storage: authStorage } }
 );
+
+const authStartupTimeoutMs = 8000;
+const authOperationTimeoutMs = 12000;
+const memberApprovalTimeoutMs = 5000;
+let authActivationPromise = null;
+let authActivationUserId = "";
+let authActivationSequence = 0;
+let authStartupSettled = false;
+let signOutRequested = false;
+window.CREW_CENTER_AUTH_EPOCH = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
+
+function withCrewCenterTimeout(operation, timeoutMs, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(message);
+      error.name = "CrewCenterTimeoutError";
+      reject(error);
+    }, timeoutMs);
+  });
+  return Promise.race([Promise.resolve(operation), timeout]).finally(() => clearTimeout(timer));
+}
+
+function clearStoredCrewCenterSession() {
+  let projectRef = "";
+  try {
+    projectRef = new URL(window.CREW_CENTER_SUPABASE.url).hostname.split(".")[0];
+  } catch (error) {
+    console.warn("Couldn't resolve the Supabase project storage key.", error);
+  }
+  if (!projectRef) return;
+  const authKey = `sb-${projectRef}-auth-token`;
+  [localStorage, sessionStorage].forEach(storage => {
+    const matchingKeys = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key === authKey || key?.startsWith(`${authKey}-`)) matchingKeys.push(key);
+    }
+    matchingKeys.forEach(key => storage.removeItem(key));
+  });
+}
 
 function setAuthError(message = "") {
   authError.textContent = message;
@@ -668,8 +710,10 @@ function applySignedInUser(user) {
   applyAdminControls();
 }
 
-async function revealDashboard(user) {
+function revealDashboard(user) {
+  const previousUserId = window.CREW_CENTER_AUTH_USER?.id || "";
   applySignedInUser(user);
+  if (previousUserId !== user.id) window.CREW_CENTER_AUTH_EPOCH += 1;
   window.syncSidebarCollapsePreference?.();
   if (window.location.pathname === "/signin") {
     const defaultPage = window.CREW_CENTER_IS_VISITOR ? "about" : "home";
@@ -681,8 +725,11 @@ async function revealDashboard(user) {
   document.body.classList.add("auth-ready");
   setTimeout(() => applySignedInUser(user), 0);
   setTimeout(() => applySignedInUser(user), 250);
-  if (typeof window.loadCrewCenterData === "function") {
-    await window.loadCrewCenterData();
+  const loadInitialData = window.loadCrewCenterInitialData || window.loadCrewCenterData;
+  if (typeof loadInitialData === "function") {
+    Promise.resolve().then(() => loadInitialData()).catch(error => {
+      console.error("Couldn't finish the initial Crew Center refresh.", error);
+    });
   }
   const startLiveUpdates = () => {
     if (typeof window.subscribeToCrewCenterChanges === "function") {
@@ -699,20 +746,29 @@ async function allowCrewCenterUser(user) {
   const normalizedEmail = String(user?.email || "").trim().toLowerCase();
   if (normalizedEmail) {
     let lastError = null;
-    for (const delay of [0, 350, 900]) {
+    for (const delay of [0, 500]) {
       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
-      const { data: approvedMember, error } = await window.crewCenterSupabase
-        .from("members")
-        .select("id")
-        .ilike("email", normalizedEmail)
-        .limit(1)
-        .maybeSingle();
+      let approvedMember;
+      let error;
+      try {
+        ({ data: approvedMember, error } = await withCrewCenterTimeout(
+          window.crewCenterSupabase
+            .from("members")
+            .select("id")
+            .ilike("email", normalizedEmail)
+            .limit(1)
+            .maybeSingle(),
+          memberApprovalTimeoutMs,
+          "The approved-member check timed out."
+        ));
+      } catch (requestError) {
+        error = requestError;
+      }
       if (!error) {
         pendingApprovalCheckUser = null;
         authLookupActions.classList.remove("visible");
         if (approvedMember) return true;
-        await window.crewCenterSupabase.auth.signOut();
-        showSignIn();
+        await signOutCrewCenterSession();
         setAuthError("This email is not linked to an approved Media Club account. New students must apply with their school alias email.");
         return false;
       }
@@ -724,13 +780,13 @@ async function allowCrewCenterUser(user) {
     setAuthError(`We couldn't verify your approved member record because the connection failed. Your session is still active. Retry when the connection is available.${lastError?.message ? ` (${lastError.message})` : ""}`);
     return false;
   }
-  await window.crewCenterSupabase.auth.signOut();
-  showSignIn();
+  await signOutCrewCenterSession();
   setAuthError("This email is not linked to an approved Media Club account. New students must apply with their school alias email.");
   return false;
 }
 
 function showSignIn() {
+  if (window.CREW_CENTER_AUTH_USER) window.CREW_CENTER_AUTH_EPOCH += 1;
   window.CREW_CENTER_AUTH_USER = null;
   window.CREW_CENTER_IS_ADMIN = false;
   window.CREW_CENTER_IS_VISITOR = false;
@@ -738,10 +794,67 @@ function showSignIn() {
   document.body.classList.remove("auth-ready");
   document.getElementById("auth-visitor-exit")?.classList.remove("visible");
   document.getElementById("auth-visitor-option").style.display = "block";
+  window.stopCrewCenterLiveUpdates?.();
   if (!inviteFlow && window.location.pathname !== "/signin") {
     history.replaceState({ page: "signin" }, "", "/signin");
   }
   setAuthBusy(false);
+}
+
+async function activateCrewCenterUser(user, options = {}) {
+  if (!user || signOutRequested) return false;
+  const showInviteSetup = options.showInviteSetup === true;
+  const force = options.force === true;
+  if (!force && authActivationUserId === user.id && authActivationPromise) return authActivationPromise;
+  if (!force && authActivationUserId === user.id && document.body.classList.contains("auth-ready")) {
+    applySignedInUser(user);
+    return true;
+  }
+
+  const activationSequence = ++authActivationSequence;
+  authActivationUserId = user.id;
+  authActivationPromise = (async () => {
+    if (!await allowCrewCenterUser(user)) return false;
+    if (signOutRequested || activationSequence !== authActivationSequence) return false;
+    if (showInviteSetup) showPasswordSetup();
+    else revealDashboard(user);
+    return true;
+  })();
+  try {
+    return await authActivationPromise;
+  } finally {
+    if (activationSequence === authActivationSequence) authActivationPromise = null;
+  }
+}
+
+async function signOutCrewCenterSession() {
+  signOutRequested = true;
+  authStartupSettled = true;
+  authActivationSequence += 1;
+  authActivationPromise = null;
+  authActivationUserId = "";
+  pendingApprovalCheckUser = null;
+  authLookupActions.classList.remove("visible");
+  authPassword.value = "";
+  showSignIn();
+  if (!window.crewCenterSupabase) {
+    clearStoredCrewCenterSession();
+    return false;
+  }
+  try {
+    const { error } = await withCrewCenterTimeout(
+      window.crewCenterSupabase.auth.signOut({ scope: "local" }),
+      4000,
+      "Local sign-out timed out."
+    );
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    clearStoredCrewCenterSession();
+    console.warn("Supabase sign-out did not finish; the stored browser session was cleared.", error);
+    setAuthError("You have been signed out on this browser. Refresh once if the sign-in form does not respond.");
+    return false;
+  }
 }
 
 authLookupRetry.addEventListener("click", async () => {
@@ -750,16 +863,14 @@ authLookupRetry.addEventListener("click", async () => {
   authLookupRetry.textContent = "Checking...";
   setAuthError("");
   const user = pendingApprovalCheckUser;
-  if (await allowCrewCenterUser(user)) await revealDashboard(user);
+  signOutRequested = false;
+  await activateCrewCenterUser(user, { force: true });
   authLookupRetry.disabled = false;
   authLookupRetry.textContent = "Retry account check";
 });
 
 document.getElementById("auth-lookup-signout").addEventListener("click", async () => {
-  pendingApprovalCheckUser = null;
-  authLookupActions.classList.remove("visible");
-  await window.crewCenterSupabase?.auth.signOut();
-  showSignIn();
+  await signOutCrewCenterSession();
 });
 
 function showPasswordSetup() {
@@ -782,16 +893,26 @@ passwordSetupForm.addEventListener("submit", async event => {
   const button = document.getElementById("auth-password-setup-submit");
   button.disabled = true;
   button.textContent = "Saving...";
-  const { data, error } = await window.crewCenterSupabase.auth.updateUser({ password });
-  if (error) {
+  signOutRequested = false;
+  try {
+    const { data, error } = await withCrewCenterTimeout(
+      window.crewCenterSupabase.auth.updateUser({ password }),
+      authOperationTimeoutMs,
+      "Password setup timed out."
+    );
+    if (error) throw error;
+    history.replaceState({}, "", window.location.pathname);
+    passwordSetupForm.style.display = "none";
+    inviteSetupComplete = true;
+    await activateCrewCenterUser(data.user, { force: true });
+  } catch (error) {
+    setAuthError(error.name === "CrewCenterTimeoutError"
+      ? "Password setup is taking too long because authentication is temporarily unavailable. Please try again."
+      : error.message || "Could not set the password.");
+  } finally {
     button.disabled = false;
     button.textContent = "Set password";
-    setAuthError(error.message || "Could not set the password.");
-    return;
   }
-  history.replaceState({}, "", window.location.pathname);
-  passwordSetupForm.style.display = "none";
-  await revealDashboard(data.user);
 });
 
 authForm.addEventListener("submit", async event => {
@@ -804,20 +925,25 @@ authForm.addEventListener("submit", async event => {
     return;
   }
   setAuthBusy(true);
+  signOutRequested = false;
 
   const email = document.getElementById("auth-gate-email").value.trim().toLowerCase();
   const password = authPassword.value;
-  const { data, error } = await window.crewCenterSupabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
+  try {
+    const { data, error } = await withCrewCenterTimeout(
+      window.crewCenterSupabase.auth.signInWithPassword({ email, password }),
+      authOperationTimeoutMs,
+      "Sign-in timed out."
+    );
+    if (error) throw error;
+    await activateCrewCenterUser(data.user);
+  } catch (error) {
+    setAuthError(error.name === "CrewCenterTimeoutError"
+      ? "Authentication is taking too long. Supabase Auth may be temporarily unavailable; please try again."
+      : error.message || "Sign in failed. Check the email and password.");
+  } finally {
     setAuthBusy(false);
-    setAuthError(error.message || "Sign in failed. Check the email and password.");
-    return;
   }
-
-  if (!await allowCrewCenterUser(data.user)) return;
-  await revealDashboard(data.user);
-  setAuthBusy(false);
 });
 
 visitorSubmit.addEventListener("click", async () => {
@@ -827,48 +953,75 @@ visitorSubmit.addEventListener("click", async () => {
     return;
   }
   setAuthBusy(true);
+  signOutRequested = false;
   visitorSubmit.innerHTML = 'Opening visitor access...<span>Please wait</span>';
-  const { data, error } = await window.crewCenterSupabase.auth.signInAnonymously();
-  if (error) {
+  try {
+    const { data, error } = await withCrewCenterTimeout(
+      window.crewCenterSupabase.auth.signInAnonymously(),
+      authOperationTimeoutMs,
+      "Visitor sign-in timed out."
+    );
+    if (error) throw error;
+    await activateCrewCenterUser(data.user);
+    if (window.CREW_CENTER_IS_VISITOR && typeof window.navigate === "function") {
+      window.navigate("about", window.navItemForPage?.("about"));
+    }
+  } catch (error) {
+    setAuthError(error.name === "CrewCenterTimeoutError"
+      ? "Visitor access is taking too long because authentication is temporarily unavailable. Please try again."
+      : error.message || "Visitor access is not available right now.");
+  } finally {
     setAuthBusy(false);
     visitorSubmit.innerHTML = 'First time here?<span>Explore the Crew Center with limited access</span>';
-    setAuthError(error.message || "Visitor access is not available right now.");
-    return;
   }
-  await revealDashboard(data.user);
-  if (window.CREW_CENTER_IS_VISITOR && typeof window.navigate === "function") {
-    window.navigate("about", window.navItemForPage?.("about"));
-  }
-  setAuthBusy(false);
-  visitorSubmit.innerHTML = 'First time here?<span>Explore the Crew Center with limited access</span>';
 });
 
 document.getElementById("auth-signout").addEventListener("click", async () => {
-  if (!window.crewCenterSupabase) return;
-  await window.crewCenterSupabase.auth.signOut();
-  pendingApprovalCheckUser = null;
-  authLookupActions.classList.remove("visible");
-  authPassword.value = "";
-  showSignIn();
+  await signOutCrewCenterSession();
 });
 
 document.getElementById("auth-visitor-exit").addEventListener("click", async () => {
-  if (!window.crewCenterSupabase) return;
-  await window.crewCenterSupabase.auth.signOut();
-  showSignIn();
+  await signOutCrewCenterSession();
 });
 
 if (window.crewCenterSupabase) {
-  window.crewCenterSupabase.auth.getSession().then(async ({ data }) => {
-    const user = data.session?.user;
-    if (user) {
-      if (await allowCrewCenterUser(user)) {
-        if (inviteFlow) showPasswordSetup();
-        else revealDashboard(user);
+  window.crewCenterSupabase.auth.onAuthStateChange((event, session) => {
+    setTimeout(() => {
+      authStartupSettled = true;
+      const user = session?.user;
+      if (event === "SIGNED_OUT" || !user) {
+        showSignIn();
+        return;
       }
-    } else {
-      showSignIn();
-    }
+      if (signOutRequested) return;
+      if (["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
+        activateCrewCenterUser(user, { showInviteSetup: inviteFlow && !inviteSetupComplete }).catch(error => {
+          console.error("Couldn't apply the authentication state.", error);
+          showSignIn();
+          setAuthError("Your session was found, but the Crew Center could not finish opening. Please try again.");
+        });
+      }
+    }, 0);
+  });
+
+  withCrewCenterTimeout(
+    window.crewCenterSupabase.auth.getSession(),
+    authStartupTimeoutMs,
+    "Session startup timed out."
+  ).then(({ data, error }) => {
+    if (authStartupSettled) return;
+    if (error) throw error;
+    authStartupSettled = true;
+    const user = data.session?.user;
+    if (user) activateCrewCenterUser(user, { showInviteSetup: inviteFlow && !inviteSetupComplete });
+    else showSignIn();
+  }).catch(error => {
+    if (authStartupSettled) return;
+    authStartupSettled = true;
+    showSignIn();
+    setAuthError(error.name === "CrewCenterTimeoutError"
+      ? "Authentication is taking longer than expected. You can retry signing in while the connection recovers."
+      : "The saved session could not be restored. Please sign in again.");
   });
 } else {
   showSignIn();

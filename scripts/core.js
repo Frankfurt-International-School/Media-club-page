@@ -701,10 +701,24 @@ function normalizeApplication(item) {
 }
 
 const crewCenterDatasets = ['members', 'events', 'meetings', 'gallery', 'equipment', 'announcements', 'applications', 'notifications'];
+const crewCenterPublicDatasets = ['events', 'gallery', 'equipment', 'announcements'];
+const crewCenterDataTimeoutMs = 10000;
 const queuedDatasets = new Set();
 let dataLoadPromise = null;
 let realtimeLoadTimer = null;
 const pendingRealtimeDatasets = new Set();
+
+function withCrewCenterDataTimeout(operation, dataset) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${datasetLabels[dataset] || dataset} took too long to load.`);
+      error.name = 'CrewCenterDataTimeoutError';
+      reject(error);
+    }, crewCenterDataTimeoutMs);
+  });
+  return Promise.race([Promise.resolve(operation), timeout]).finally(() => clearTimeout(timer));
+}
 
 function crewCenterDatasetRequest(dataset, visitor) {
   if (visitor) {
@@ -760,13 +774,15 @@ function applyCrewCenterDataset(dataset, rows) {
 
 async function loadCrewCenterDatasetBatch(datasets, silent) {
   const visitor = isVisitorSession();
+  const authEpoch = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
   const results = await Promise.all(datasets.map(async dataset => {
     try {
-      return [dataset, await crewCenterDatasetRequest(dataset, visitor)];
+      return [dataset, await withCrewCenterDataTimeout(crewCenterDatasetRequest(dataset, visitor), dataset)];
     } catch (error) {
       return [dataset, { data: null, error }];
     }
   }));
+  if (authEpoch !== Number(window.CREW_CENTER_AUTH_EPOCH || 0)) return;
   const failed = [];
   results.forEach(([dataset, result]) => {
     if (result?.error) {
@@ -829,6 +845,39 @@ async function loadCrewCenterData(options = {}) {
   }
 }
 
+async function loadCrewCenterInitialData() {
+  const visitor = isVisitorSession();
+  const page = typeof pageFromPath === 'function' ? pageFromPath() : 'home';
+  const pageDatasets = {
+    about: ['gallery'],
+    home: ['events', 'gallery', 'equipment', 'announcements'],
+    events: ['events'],
+    meetings: ['meetings'],
+    signup: ['events', 'equipment'],
+    members: [],
+    gallery: ['gallery'],
+    equipment: ['equipment'],
+    'equipment-status': ['equipment'],
+    'crew-deployment': ['events'],
+    profile: ['notifications'],
+    join: [],
+    admin: ['applications'],
+  }[page] || [];
+  if (!visitor) await loadCrewCenterData({ datasets: ['members'] });
+  const eligibleDatasets = visitor
+    ? crewCenterPublicDatasets
+    : crewCenterDatasets.filter(dataset => dataset !== 'applications' || canAccessAdminPanel());
+  const primaryDatasets = [...new Set(pageDatasets)].filter(dataset => eligibleDatasets.includes(dataset));
+  if (primaryDatasets.length) await loadCrewCenterData({ datasets: primaryDatasets });
+  const loadedDatasets = new Set(visitor ? primaryDatasets : ['members', ...primaryDatasets]);
+  const backgroundDatasets = eligibleDatasets.filter(dataset => !loadedDatasets.has(dataset));
+  if (backgroundDatasets.length) {
+    setTimeout(() => loadCrewCenterData({ datasets: backgroundDatasets, silent: true }), 0);
+  }
+}
+
+window.loadCrewCenterInitialData = loadCrewCenterInitialData;
+
 function queueRealtimeDataLoad(...datasets) {
   if (isVisitorSession()) return;
   datasets.forEach(dataset => pendingRealtimeDatasets.add(dataset));
@@ -883,6 +932,20 @@ function subscribeToCrewCenterChanges() {
   });
   window.CREW_CENTER_REALTIME_CHANNEL = channel.subscribe();
 }
+
+function stopCrewCenterLiveUpdates() {
+  if (realtimeLoadTimer) clearTimeout(realtimeLoadTimer);
+  realtimeLoadTimer = null;
+  queuedDatasets.clear();
+  pendingRealtimeDatasets.clear();
+  if (window.CREW_CENTER_REALTIME_CHANNEL) {
+    supabaseClient?.removeChannel(window.CREW_CENTER_REALTIME_CHANNEL);
+    window.CREW_CENTER_REALTIME_CHANNEL = null;
+  }
+  window.CREW_CENTER_REALTIME_READY = null;
+}
+
+window.stopCrewCenterLiveUpdates = stopCrewCenterLiveUpdates;
 
 function renderCurrentPage() {
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
