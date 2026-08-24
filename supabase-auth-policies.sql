@@ -35,6 +35,8 @@ drop policy if exists "Production staff can add events" on public.events;
 drop policy if exists "Production staff can delete events" on public.events;
 drop policy if exists "Audience members can read meetings" on public.meetings;
 drop policy if exists "Audience members can read meeting attendees" on public.meeting_attendees;
+drop policy if exists "Approved members can read meetings" on public.meetings;
+drop policy if exists "Approved members can read meeting attendees" on public.meeting_attendees;
 drop policy if exists "Members can add own meeting RSVP" on public.meeting_attendees;
 drop policy if exists "Members can update own meeting RSVP" on public.meeting_attendees;
 drop policy if exists "Members can remove own meeting RSVP" on public.meeting_attendees;
@@ -217,6 +219,28 @@ security definer
 set search_path = public
 as $$
 declare
+  target_archived_at timestamptz;
+begin
+  if not public.is_approved_member() then return false; end if;
+
+  select meeting.archived_at
+  into target_archived_at
+  from public.meetings meeting
+  where meeting.id = p_meeting_id;
+
+  if not found then return false; end if;
+  return target_archived_at is null or public.is_crew_operations_user();
+end;
+$$;
+
+create or replace function public.can_rsvp_meeting(p_meeting_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
   target_audience text;
   target_archived_at timestamptz;
 begin
@@ -227,8 +251,7 @@ begin
   from public.meetings meeting
   where meeting.id = p_meeting_id;
 
-  if target_audience is null then return false; end if;
-  if target_archived_at is not null and not public.is_crew_operations_user() then return false; end if;
+  if not found or target_archived_at is not null then return false; end if;
   if target_audience = 'general' then return true; end if;
   if public.is_crew_operations_user() then return true; end if;
   return target_audience = 'news_team' and public.is_member_of_team('news_team');
@@ -238,9 +261,11 @@ $$;
 revoke all on function public.current_member_id() from public;
 revoke all on function public.is_member_of_team(text) from public;
 revoke all on function public.can_read_meeting(uuid) from public;
+revoke all on function public.can_rsvp_meeting(uuid) from public;
 grant execute on function public.current_member_id() to authenticated;
 grant execute on function public.is_member_of_team(text) to authenticated;
 grant execute on function public.can_read_meeting(uuid) to authenticated;
+grant execute on function public.can_rsvp_meeting(uuid) to authenticated;
 
 drop function if exists public.get_public_member_directory();
 
@@ -1405,12 +1430,12 @@ on public.events for insert
 to authenticated
 with check (public.is_crew_operations_user());
 
-create policy "Audience members can read meetings"
+create policy "Approved members can read meetings"
 on public.meetings for select
 to authenticated
 using (public.can_read_meeting(id));
 
-create policy "Audience members can read meeting attendees"
+create policy "Approved members can read meeting attendees"
 on public.meeting_attendees for select
 to authenticated
 using (public.can_read_meeting(meeting_id));
@@ -1420,7 +1445,7 @@ on public.meeting_attendees for insert
 to authenticated
 with check (
   member_id = public.current_member_id()
-  and public.can_read_meeting(meeting_id)
+  and public.can_rsvp_meeting(meeting_id)
   and exists (
     select 1 from public.meetings meeting
     where meeting.id = meeting_attendees.meeting_id
@@ -1434,11 +1459,11 @@ on public.meeting_attendees for update
 to authenticated
 using (
   member_id = public.current_member_id()
-  and public.can_read_meeting(meeting_id)
+  and public.can_rsvp_meeting(meeting_id)
 )
 with check (
   member_id = public.current_member_id()
-  and public.can_read_meeting(meeting_id)
+  and public.can_rsvp_meeting(meeting_id)
   and exists (
     select 1 from public.meetings meeting
     where meeting.id = meeting_attendees.meeting_id
@@ -1452,7 +1477,7 @@ on public.meeting_attendees for delete
 to authenticated
 using (
   member_id = public.current_member_id()
-  and public.can_read_meeting(meeting_id)
+  and public.can_rsvp_meeting(meeting_id)
   and exists (
     select 1 from public.meetings meeting
     where meeting.id = meeting_attendees.meeting_id

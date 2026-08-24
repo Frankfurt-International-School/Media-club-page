@@ -59,6 +59,14 @@ function ownMeetingResponse(meeting) {
   return memberId ? meeting.attendees.find(attendee => attendee.memberId === memberId)?.response || '' : '';
 }
 
+function canRsvpMeeting(meeting) {
+  const member = currentMemberRecord();
+  if (!member || !meeting || meeting.archivedAt) return false;
+  if (meeting.audience === 'general') return true;
+  if (canManageCrewOperations()) return true;
+  return meeting.audience === 'news_team' && (member.teamKeys || []).includes('news_team');
+}
+
 function meetingAvatar(attendee) {
   const parts = splitName(attendee.name);
   const avatarUrl = safeExternalUrl(attendee.avatarUrl);
@@ -75,6 +83,9 @@ function renderMeetingCommandGrid(meetings) {
   const ownUpcomingResponses = upcoming.map(ownMeetingResponse);
   const responded = ownUpcomingResponses.filter(Boolean).length;
   const nextResponse = next ? ownMeetingResponse(next) : '';
+  const nextCanRsvp = next ? canRsvpMeeting(next) : false;
+  const nextSignal = nextResponse && nextCanRsvp ? meetingResponse(nextResponse).label : nextCanRsvp ? 'Response needed' : next ? 'View only' : 'Standing by';
+  const nextSignalDetail = next ? nextCanRsvp ? `For ${escapeHtml(next.title)}` : `RSVP is limited to ${escapeHtml(meetingAudience(next.audience).label)}.` : 'No RSVP is currently required.';
   target.innerHTML = `
     <article class="meeting-command-card">
       <span class="meeting-command-code">NEXT</span>
@@ -83,8 +94,8 @@ function renderMeetingCommandGrid(meetings) {
     </article>
     <article class="meeting-command-card">
       <span class="meeting-command-code">SIGNAL</span>
-      <strong>${nextResponse ? escapeHtml(meetingResponse(nextResponse).label) : next ? 'Response needed' : 'Standing by'}</strong>
-      <span>${next ? `For ${escapeHtml(next.title)}` : 'No RSVP is currently required.'}</span>
+      <strong>${escapeHtml(nextSignal)}</strong>
+      <span>${nextSignalDetail}</span>
     </article>
     <article class="meeting-command-card">
       <span class="meeting-command-code">QUEUE</span>
@@ -106,6 +117,9 @@ function renderMeetingRoster(meeting) {
 
 function renderMeetingRsvp(meeting) {
   if (meetingIsPast(meeting) || !currentMemberRecord()) return '';
+  if (!canRsvpMeeting(meeting)) {
+    return `<div class="meeting-rsvp locked"><span class="meeting-rsvp-label">View only</span><span class="meeting-rsvp-note">This meeting is visible to every approved member. RSVP is reserved for the ${escapeHtml(meetingAudience(meeting.audience).label)} audience.</span></div>`;
+  }
   const selected = ownMeetingResponse(meeting);
   return `<div class="meeting-rsvp" role="group" aria-label="Your RSVP for ${escapeHtml(meeting.title)}">
     <span class="meeting-rsvp-label">Your response</span>
@@ -178,7 +192,7 @@ function renderMeetings() {
   meetings.sort((a, b) => tab === 'past' ? b.startsAt.localeCompare(a.startsAt) : a.startsAt.localeCompare(b.startsAt));
   const target = document.getElementById('meetings-list');
   if (!meetings.length) {
-    target.innerHTML = `<div class="empty-state meeting-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="9" r="1.5"/><circle cx="16" cy="15" r="1.5"/><path d="M10 12h3M14.5 10l-3 1.5M14.5 14l-3-1.5"/></svg><p>${tab === 'past' ? 'No past meeting records are available.' : 'No meetings are currently scheduled for you.'}</p>${canCreateMeetings() && tab === 'upcoming' ? '<button type="button" class="btn btn-accent btn-sm" onclick="openMeetingEditor()">Schedule the first meeting</button>' : ''}</div>`;
+    target.innerHTML = `<div class="empty-state meeting-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="9" r="1.5"/><circle cx="16" cy="15" r="1.5"/><path d="M10 12h3M14.5 10l-3 1.5M14.5 14l-3-1.5"/></svg><p>${tab === 'past' ? 'No past meeting records are available.' : 'No meetings are currently scheduled.'}</p>${canCreateMeetings() && tab === 'upcoming' ? '<button type="button" class="btn btn-accent btn-sm" onclick="openMeetingEditor()">Schedule the first meeting</button>' : ''}</div>`;
     return;
   }
   target.innerHTML = meetings.map(renderMeetingCard).join('');
@@ -276,6 +290,7 @@ async function setMeetingRsvp(id, response) {
   const meeting = meetingById(id);
   const member = currentMemberRecord();
   if (!meeting || meeting.archivedAt || meetingIsPast(meeting) || !member || !meetingResponseCatalog[response]) return;
+  if (!canRsvpMeeting(meeting)) { showToast('This meeting is visible to you, but RSVP is limited to its intended audience.', 'error'); return; }
   const { error } = await supabaseClient.from('meeting_attendees').upsert({
     meeting_id: id,
     member_id: member.id,
@@ -291,6 +306,7 @@ async function clearMeetingRsvp(id) {
   const member = currentMemberRecord();
   const meeting = meetingById(id);
   if (!member || !meeting || meetingIsPast(meeting)) return;
+  if (!canRsvpMeeting(meeting)) { showToast('This meeting is visible to you, but RSVP is limited to its intended audience.', 'error'); return; }
   const { error } = await supabaseClient.from('meeting_attendees').delete().eq('meeting_id', id).eq('member_id', member.id);
   if (error) { showToast(error.message || "Couldn't clear your RSVP.", 'error', 7000); return; }
   await loadCrewCenterData({ datasets: ['meetings'], silent: true });

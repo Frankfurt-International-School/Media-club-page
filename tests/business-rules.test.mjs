@@ -90,20 +90,38 @@ test('News Team is a canonical secondary member tag before specialisations', () 
   assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
 });
 
-test('Meetings use normalized team membership and audience-scoped RLS', () => {
-  const meetingAccess = extractSqlFunction('can_read_meeting');
+test('Meetings are visible to approved members while RSVP remains audience-scoped', () => {
+  const meetingReadAccess = extractSqlFunction('can_read_meeting');
+  const meetingRsvpAccess = extractSqlFunction('can_rsvp_meeting');
   assert.match(schemaSql, /create table if not exists public\.member_team_memberships/);
   assert.match(schemaSql, /team_key text not null check \(team_key in \('news_team'\)\)/);
   assert.match(schemaSql, /insert into public\.member_team_memberships[\s\S]*?student\[\[:space:\]\]\+\)\?news/);
   assert.match(schemaSql, /create table if not exists public\.meetings[\s\S]*?audience in \('general', 'news_team', 'leadership'\)/);
   assert.match(schemaSql, /create table if not exists public\.meeting_attendees[\s\S]*?unique \(meeting_id, member_id\)/);
-  assert.match(meetingAccess, /not public\.is_approved_member\(\)/);
-  assert.match(meetingAccess, /target_audience = 'general'/);
-  assert.match(meetingAccess, /public\.is_crew_operations_user\(\)/);
-  assert.match(meetingAccess, /target_audience = 'news_team' and public\.is_member_of_team\('news_team'\)/);
-  assert.doesNotMatch(meetingAccess, /members\.status|member\.status/);
-  assert.match(policiesSql, /create policy "Audience members can read meetings"[\s\S]*?public\.can_read_meeting\(id\)/);
-  assert.match(policiesSql, /create policy "Audience members can read meeting attendees"[\s\S]*?public\.can_read_meeting\(meeting_id\)/);
+  assert.match(meetingReadAccess, /not public\.is_approved_member\(\)/);
+  assert.doesNotMatch(meetingReadAccess, /target_audience|is_member_of_team/);
+  assert.match(meetingRsvpAccess, /target_audience = 'general'/);
+  assert.match(meetingRsvpAccess, /public\.is_crew_operations_user\(\)/);
+  assert.match(meetingRsvpAccess, /target_audience = 'news_team' and public\.is_member_of_team\('news_team'\)/);
+  assert.doesNotMatch(meetingRsvpAccess, /members\.status|member\.status/);
+  assert.match(policiesSql, /create policy "Approved members can read meetings"[\s\S]*?public\.can_read_meeting\(id\)/);
+  assert.match(policiesSql, /create policy "Approved members can read meeting attendees"[\s\S]*?public\.can_read_meeting\(meeting_id\)/);
+  assert.match(appSource, /members'\)\.select\('\*, member_team_memberships\(team_key\)'\)/);
+  assert.match(appSource, /teamKeys: \(member\.member_team_memberships \|\| \[\]\)/);
+
+  const frontendRsvpAllowed = (audience, role = 'Member', teamKeys = []) => runFunctions(
+    ['normalizeRoleName', 'currentMemberRecord', 'canAccessAdminPanel', 'canManageCrewOperations', 'canRsvpMeeting'],
+    {
+      state: { currentUser: { email: 'test@fis.edu', role, isAdmin: false }, members: [{ id: 'member-1', email: 'test@fis.edu', role, teamKeys }] },
+      window: { CREW_CENTER_AUTH_USER: { email: 'test@fis.edu' }, CREW_CENTER_IS_ADMIN: false },
+    },
+    `canRsvpMeeting({ audience: ${JSON.stringify(audience)}, archivedAt: '' })`,
+  );
+  assert.equal(frontendRsvpAllowed('general'), true);
+  assert.equal(frontendRsvpAllowed('news_team'), false);
+  assert.equal(frontendRsvpAllowed('news_team', 'Member', ['news_team']), true);
+  assert.equal(frontendRsvpAllowed('leadership'), false);
+  assert.equal(frontendRsvpAllowed('leadership', 'Leader'), true);
 });
 
 test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', () => {
@@ -121,6 +139,7 @@ test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', ()
   assert.match(policiesSql, /create policy "Members can add own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)[\s\S]*?meeting\.ends_at > now\(\)/);
   assert.match(policiesSql, /create policy "Members can update own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)/);
   assert.match(policiesSql, /create policy "Members can remove own meeting RSVP"[\s\S]*?member_id = public\.current_member_id\(\)/);
+  assert.equal((policiesSql.match(/public\.can_rsvp_meeting\(meeting_id\)/g) || []).length, 4);
   assert.match(appSource, /supabaseClient\.rpc\('create_meeting',[\s\S]*?p_faculty_authorized: facultyAuthorized/);
   assert.match(indexHtml, /id="meeting-faculty-authorization"[\s\S]*?id="meeting-faculty-authorization-confirmed"/);
   assert.match(appSource, /Confirm that a Faculty member authorized this meeting before scheduling it/);
@@ -128,6 +147,8 @@ test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', ()
   assert.match(appSource, /supabaseClient\.rpc\('update_meeting'/);
   assert.match(appSource, /from\('meeting_attendees'\)\.upsert\([\s\S]*?onConflict: 'meeting_id,member_id'/);
   assert.match(appSource, /from\('meeting_attendees'\)\.delete\(\)\.eq\('meeting_id', id\)\.eq\('member_id', member\.id\)/);
+  assert.match(meetingsSource, /class="meeting-rsvp locked"[\s\S]*?RSVP is reserved for the/);
+  assert.match(meetingsSource, /if \(!canRsvpMeeting\(meeting\)\) \{ showToast\('This meeting is visible to you, but RSVP is limited to its intended audience\.'/);
 });
 
 test('sidebar identity omits Auth Admin and Member account labels', () => {

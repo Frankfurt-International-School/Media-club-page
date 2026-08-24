@@ -945,6 +945,9 @@
   .meeting-roster-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; color: var(--text3); font-size: 9px; }
   .meeting-rsvp { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 10px 11px; border: 1px solid rgba(78,240,196,.2); border-radius: 10px; background: rgba(78,240,196,.055); }
   .meeting-rsvp-label { color: var(--text2); font-size: 10px; font-weight: 600; }
+  .meeting-rsvp.locked { border-color: var(--border); background: var(--bg3); }
+  .meeting-rsvp.locked .meeting-rsvp-label { flex: 0 0 auto; color: var(--text3); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .meeting-rsvp-note { color: var(--text2); font-size: 10px; line-height: 1.5; text-align: right; }
   .meeting-rsvp-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
   .meeting-rsvp-button, .meeting-rsvp-clear { padding: 5px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg2); color: var(--text3); font: inherit; font-size: 9px; cursor: pointer; }
   .meeting-rsvp-button:hover { border-color: rgba(78,240,196,.4); color: var(--text); }
@@ -1743,6 +1746,7 @@
     .meeting-card-badges { justify-content: flex-start; }
     .meeting-link-row, .meeting-roster, .meeting-rsvp { align-items: stretch; flex-direction: column; }
     .meeting-roster-counts, .meeting-rsvp-actions { justify-content: flex-start; }
+    .meeting-rsvp-note { text-align: left; }
     .meeting-link-row .btn { width: 100%; justify-content: center; }
     .form-row3 { grid-template-columns: 1fr; }
     .form-row2 { grid-template-columns: 1fr; }
