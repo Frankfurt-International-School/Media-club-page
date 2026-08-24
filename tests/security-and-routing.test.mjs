@@ -217,6 +217,8 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   assert.match(aboutMarkup, /tech-show-fieldwork\.webp/);
   assert.match(aboutMarkup, /<picture class="about-platform-media">[\s\S]*?crew-center-field-operator-mobile\.webp[\s\S]*?crew-center-field-operator\.webp/);
   assert.match(aboutMarkup, /first FIS service club to operate through its own fully personalised Crew Center/);
+  assert.match(aboutMarkup, /class="about-platform-credit"[\s\S]*?Made by Shenghan Lang/);
+  assert.equal((indexHtml.match(/Made by Shenghan Lang/g) || []).length, 1, 'Crew Center creator credit should appear on one page only');
   assert.doesNotMatch(aboutMarkup, /<script|https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)/i);
 
   for (const file of aboutImageNames) {
