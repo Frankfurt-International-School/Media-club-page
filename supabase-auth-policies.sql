@@ -219,17 +219,21 @@ security definer
 set search_path = public
 as $$
 declare
+  target_audience text;
   target_archived_at timestamptz;
 begin
   if not public.is_approved_member() then return false; end if;
 
-  select meeting.archived_at
-  into target_archived_at
+  select meeting.audience, meeting.archived_at
+  into target_audience, target_archived_at
   from public.meetings meeting
   where meeting.id = p_meeting_id;
 
   if not found then return false; end if;
-  return target_archived_at is null or public.is_crew_operations_user();
+  if target_archived_at is not null and not public.is_crew_operations_user() then return false; end if;
+  if target_audience = 'general' then return true; end if;
+  if target_audience = 'news_team' then return public.is_member_of_team('news_team'); end if;
+  return target_audience = 'leadership' and public.is_crew_operations_user();
 end;
 $$;
 

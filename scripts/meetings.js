@@ -3,7 +3,7 @@
 // ══════════════════════════════
 const meetingAudienceCatalog = {
   general: { label: 'General', color: 'blue', description: 'All approved Media Club members' },
-  news_team: { label: 'News Team', color: 'teal', description: 'News Team members only · other approved members may view' },
+  news_team: { label: 'News Team', color: 'teal', description: 'Visible only to current News Team members' },
   leadership: { label: 'Leadership', color: 'amber', description: 'Faculty and crew-operations leadership' },
 };
 
@@ -59,12 +59,16 @@ function ownMeetingResponse(meeting) {
   return memberId ? meeting.attendees.find(attendee => attendee.memberId === memberId)?.response || '' : '';
 }
 
-function canRsvpMeeting(meeting) {
+function canViewMeeting(meeting) {
   const member = currentMemberRecord();
-  if (!member || !meeting || meeting.archivedAt) return false;
-  if (meeting.audience === 'general') return true;
-  if (meeting.audience === 'news_team') return (member.teamKeys || []).includes('news_team');
+  if (!meeting || isVisitorSession()) return false;
+  if (meeting.audience === 'general') return Boolean(member || canAccessAdminPanel());
+  if (meeting.audience === 'news_team') return Boolean(member && (member.teamKeys || []).includes('news_team'));
   return meeting.audience === 'leadership' && canManageCrewOperations();
+}
+
+function canRsvpMeeting(meeting) {
+  return Boolean(currentMemberRecord()) && canViewMeeting(meeting) && !meeting.archivedAt;
 }
 
 function meetingAvatar(attendee) {
@@ -83,9 +87,8 @@ function renderMeetingCommandGrid(meetings) {
   const ownUpcomingResponses = upcoming.map(ownMeetingResponse);
   const responded = ownUpcomingResponses.filter(Boolean).length;
   const nextResponse = next ? ownMeetingResponse(next) : '';
-  const nextCanRsvp = next ? canRsvpMeeting(next) : false;
-  const nextSignal = nextResponse && nextCanRsvp ? meetingResponse(nextResponse).label : nextCanRsvp ? 'Response needed' : next ? 'View only' : 'Standing by';
-  const nextSignalDetail = next ? nextCanRsvp ? `For ${escapeHtml(next.title)}` : `RSVP is limited to ${escapeHtml(meetingAudience(next.audience).label)}.` : 'No RSVP is currently required.';
+  const nextSignal = nextResponse ? meetingResponse(nextResponse).label : next ? 'Response needed' : 'Standing by';
+  const nextSignalDetail = next ? `For ${escapeHtml(next.title)}` : 'No RSVP is currently required.';
   target.innerHTML = `
     <article class="meeting-command-card">
       <span class="meeting-command-code">NEXT</span>
@@ -117,9 +120,7 @@ function renderMeetingRoster(meeting) {
 
 function renderMeetingRsvp(meeting) {
   if (meetingIsPast(meeting) || !currentMemberRecord()) return '';
-  if (!canRsvpMeeting(meeting)) {
-    return `<div class="meeting-rsvp locked"><span class="meeting-rsvp-label">View only</span><span class="meeting-rsvp-note">This meeting is visible to every approved member. RSVP is reserved for the ${escapeHtml(meetingAudience(meeting.audience).label)} audience.</span></div>`;
-  }
+  if (!canRsvpMeeting(meeting)) return '';
   const selected = ownMeetingResponse(meeting);
   return `<div class="meeting-rsvp" role="group" aria-label="Your RSVP for ${escapeHtml(meeting.title)}">
     <span class="meeting-rsvp-label">Your response</span>
@@ -168,9 +169,10 @@ function renderArchivedMeetings() {
   const panel = document.getElementById('archived-meetings-panel');
   const list = document.getElementById('archived-meetings-list');
   if (!panel || !list) return;
-  panel.hidden = !canManageCrewOperations() || !state.archivedMeetings.length;
+  const visibleArchivedMeetings = state.archivedMeetings.filter(canViewMeeting);
+  panel.hidden = !canManageCrewOperations() || !visibleArchivedMeetings.length;
   if (panel.hidden) { list.innerHTML = ''; return; }
-  list.innerHTML = state.archivedMeetings.slice().sort((a, b) => b.startsAt.localeCompare(a.startsAt)).map(meeting => `<div class="archived-row">
+  list.innerHTML = visibleArchivedMeetings.slice().sort((a, b) => b.startsAt.localeCompare(a.startsAt)).map(meeting => `<div class="archived-row">
     <div><strong>${escapeHtml(meeting.title)}</strong><div class="text-muted">${escapeHtml(meetingDateLabel(meeting.startsAt))} · ${meeting.attendees.length} preserved response(s)</div></div>
     <div class="archived-row-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="restoreArchivedMeeting('${meeting.id}')">Restore</button>${canAddMembers() ? `<button type="button" class="btn btn-danger btn-sm" onclick="requestPermanentDeleteMeeting('${meeting.id}')">Delete everything</button>` : ''}</div>
   </div>`).join('');
@@ -186,9 +188,10 @@ function renderMeetings() {
     link.tabIndex = active ? 0 : -1;
   });
   requestAnimationFrame(() => updateSlidingTab(document.querySelector('#page-meetings .tab-row')));
-  renderMeetingCommandGrid(state.meetings);
+  const visibleMeetings = state.meetings.filter(canViewMeeting);
+  renderMeetingCommandGrid(visibleMeetings);
   renderArchivedMeetings();
-  const meetings = state.meetings.filter(meeting => tab === 'past' ? meetingIsPast(meeting) : !meetingIsPast(meeting));
+  const meetings = visibleMeetings.filter(meeting => tab === 'past' ? meetingIsPast(meeting) : !meetingIsPast(meeting));
   meetings.sort((a, b) => tab === 'past' ? b.startsAt.localeCompare(a.startsAt) : a.startsAt.localeCompare(b.startsAt));
   const target = document.getElementById('meetings-list');
   if (!meetings.length) {
@@ -229,8 +232,8 @@ function updateMeetingAudienceHelp() {
   if (!help) return;
   help.textContent = {
     general: 'Every approved member is invited and can RSVP.',
-    news_team: 'Only current News Team members receive an invitation and can RSVP. Other approved members can view the meeting but are not invited.',
-    leadership: 'Faculty, Leaders, Co-Leaders, and Moderators are invited and can RSVP.',
+    news_team: 'Only current News Team members receive an invitation, see this meeting, and can RSVP.',
+    leadership: 'Only Auth Admins, Faculty, Leaders, Co-Leaders, and Moderators see this meeting and can RSVP.',
   }[audience] || '';
 }
 
@@ -305,7 +308,7 @@ async function setMeetingRsvp(id, response) {
   const meeting = meetingById(id);
   const member = currentMemberRecord();
   if (!meeting || meeting.archivedAt || meetingIsPast(meeting) || !member || !meetingResponseCatalog[response]) return;
-  if (!canRsvpMeeting(meeting)) { showToast('This meeting is visible to you, but RSVP is limited to its intended audience.', 'error'); return; }
+  if (!canRsvpMeeting(meeting)) { showToast('This meeting is not available to your audience.', 'error'); return; }
   const { error } = await supabaseClient.from('meeting_attendees').upsert({
     meeting_id: id,
     member_id: member.id,
@@ -321,7 +324,7 @@ async function clearMeetingRsvp(id) {
   const member = currentMemberRecord();
   const meeting = meetingById(id);
   if (!member || !meeting || meetingIsPast(meeting)) return;
-  if (!canRsvpMeeting(meeting)) { showToast('This meeting is visible to you, but RSVP is limited to its intended audience.', 'error'); return; }
+  if (!canRsvpMeeting(meeting)) { showToast('This meeting is not available to your audience.', 'error'); return; }
   const { error } = await supabaseClient.from('meeting_attendees').delete().eq('meeting_id', id).eq('member_id', member.id);
   if (error) { showToast(error.message || "Couldn't clear your RSVP.", 'error', 7000); return; }
   await loadCrewCenterData({ datasets: ['meetings'], silent: true });

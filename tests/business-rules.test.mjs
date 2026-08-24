@@ -90,7 +90,7 @@ test('News Team is a canonical secondary member tag before specialisations', () 
   assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
 });
 
-test('Meetings are visible to approved members while RSVP remains audience-scoped', () => {
+test('Meeting visibility and RSVP both follow the selected audience', () => {
   const meetingReadAccess = extractSqlFunction('can_read_meeting');
   const meetingRsvpAccess = extractSqlFunction('can_rsvp_meeting');
   assert.match(schemaSql, /create table if not exists public\.member_team_memberships/);
@@ -99,7 +99,9 @@ test('Meetings are visible to approved members while RSVP remains audience-scope
   assert.match(schemaSql, /create table if not exists public\.meetings[\s\S]*?audience in \('general', 'news_team', 'leadership'\)/);
   assert.match(schemaSql, /create table if not exists public\.meeting_attendees[\s\S]*?unique \(meeting_id, member_id\)/);
   assert.match(meetingReadAccess, /not public\.is_approved_member\(\)/);
-  assert.doesNotMatch(meetingReadAccess, /target_audience|is_member_of_team/);
+  assert.match(meetingReadAccess, /target_audience = 'general'/);
+  assert.match(meetingReadAccess, /target_audience = 'news_team' then return public\.is_member_of_team\('news_team'\)/);
+  assert.match(meetingReadAccess, /target_audience = 'leadership' and public\.is_crew_operations_user\(\)/);
   assert.match(meetingRsvpAccess, /target_audience = 'general'/);
   assert.match(meetingRsvpAccess, /target_audience = 'news_team' then return public\.is_member_of_team\('news_team'\)/);
   assert.match(meetingRsvpAccess, /target_audience = 'leadership' and public\.is_crew_operations_user\(\)/);
@@ -110,14 +112,23 @@ test('Meetings are visible to approved members while RSVP remains audience-scope
   assert.match(appSource, /members'\)\.select\('\*, member_team_memberships\(team_key\)'\)/);
   assert.match(appSource, /teamKeys: \(member\.member_team_memberships \|\| \[\]\)/);
 
-  const frontendRsvpAllowed = (audience, role = 'Member', teamKeys = []) => runFunctions(
-    ['normalizeRoleName', 'currentMemberRecord', 'canAccessAdminPanel', 'canManageCrewOperations', 'canRsvpMeeting'],
+  const frontendAudienceAllowed = (functionName, audience, role = 'Member', teamKeys = [], isAdmin = false) => runFunctions(
+    ['normalizeRoleName', 'currentMemberRecord', 'canAccessAdminPanel', 'isVisitorSession', 'canManageCrewOperations', 'canViewMeeting', 'canRsvpMeeting'],
     {
-      state: { currentUser: { email: 'test@fis.edu', role, isAdmin: false }, members: [{ id: 'member-1', email: 'test@fis.edu', role, teamKeys }] },
-      window: { CREW_CENTER_AUTH_USER: { email: 'test@fis.edu' }, CREW_CENTER_IS_ADMIN: false },
+      state: { currentUser: { email: 'test@fis.edu', role, isAdmin, isVisitor: false }, members: [{ id: 'member-1', email: 'test@fis.edu', role, teamKeys }] },
+      window: { CREW_CENTER_AUTH_USER: { email: 'test@fis.edu' }, CREW_CENTER_IS_ADMIN: isAdmin, CREW_CENTER_IS_VISITOR: false },
     },
-    `canRsvpMeeting({ audience: ${JSON.stringify(audience)}, archivedAt: '' })`,
+    `${functionName}({ audience: ${JSON.stringify(audience)}, archivedAt: '' })`,
   );
+  const frontendVisible = (audience, role = 'Member', teamKeys = [], isAdmin = false) => frontendAudienceAllowed('canViewMeeting', audience, role, teamKeys, isAdmin);
+  const frontendRsvpAllowed = (audience, role = 'Member', teamKeys = [], isAdmin = false) => frontendAudienceAllowed('canRsvpMeeting', audience, role, teamKeys, isAdmin);
+  assert.equal(frontendVisible('general'), true);
+  assert.equal(frontendVisible('news_team'), false);
+  assert.equal(frontendVisible('news_team', 'Member', ['news_team']), true);
+  assert.equal(frontendVisible('news_team', 'Member', [], true), false, 'Auth Admin status alone must not expose a News Team meeting');
+  assert.equal(frontendVisible('leadership'), false);
+  assert.equal(frontendVisible('leadership', 'Leader'), true);
+  assert.equal(frontendVisible('leadership', 'Member', [], true), true);
   assert.equal(frontendRsvpAllowed('general'), true);
   assert.equal(frontendRsvpAllowed('news_team'), false);
   assert.equal(frontendRsvpAllowed('news_team', 'Member', ['news_team']), true);
@@ -125,7 +136,10 @@ test('Meetings are visible to approved members while RSVP remains audience-scope
   assert.equal(frontendRsvpAllowed('news_team', 'Leader', ['news_team']), true);
   assert.equal(frontendRsvpAllowed('leadership'), false);
   assert.equal(frontendRsvpAllowed('leadership', 'Leader'), true);
-  assert.match(meetingsSource, /news_team: \{ label: 'News Team',[^\n]*description: 'News Team members only/);
+  assert.match(meetingsSource, /const visibleMeetings = state\.meetings\.filter\(canViewMeeting\)/);
+  assert.match(meetingsSource, /const visibleArchivedMeetings = state\.archivedMeetings\.filter\(canViewMeeting\)/);
+  assert.doesNotMatch(meetingsSource, /visible to every approved member|other approved members may view/i);
+  assert.match(meetingsSource, /news_team: \{ label: 'News Team',[^\n]*description: 'Visible only to current News Team members'/);
   assert.match(indexHtml, /value="news_team">News Team only<\/option>/);
 });
 
@@ -180,8 +194,8 @@ test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', ()
   assert.match(appSource, /supabaseClient\.rpc\('update_meeting'/);
   assert.match(appSource, /from\('meeting_attendees'\)\.upsert\([\s\S]*?onConflict: 'meeting_id,member_id'/);
   assert.match(appSource, /from\('meeting_attendees'\)\.delete\(\)\.eq\('meeting_id', id\)\.eq\('member_id', member\.id\)/);
-  assert.match(meetingsSource, /class="meeting-rsvp locked"[\s\S]*?RSVP is reserved for the/);
-  assert.match(meetingsSource, /if \(!canRsvpMeeting\(meeting\)\) \{ showToast\('This meeting is visible to you, but RSVP is limited to its intended audience\.'/);
+  assert.doesNotMatch(meetingsSource, /class="meeting-rsvp locked"|RSVP is reserved for the/);
+  assert.match(meetingsSource, /if \(!canRsvpMeeting\(meeting\)\) \{ showToast\('This meeting is not available to your audience\.'/);
 });
 
 test('sidebar identity omits Auth Admin and Member account labels', () => {
