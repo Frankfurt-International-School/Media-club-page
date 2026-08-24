@@ -253,8 +253,8 @@ begin
 
   if not found or target_archived_at is not null then return false; end if;
   if target_audience = 'general' then return true; end if;
-  if public.is_crew_operations_user() then return true; end if;
-  return target_audience = 'news_team' and public.is_member_of_team('news_team');
+  if target_audience = 'news_team' then return public.is_member_of_team('news_team'); end if;
+  return target_audience = 'leadership' and public.is_crew_operations_user();
 end;
 $$;
 

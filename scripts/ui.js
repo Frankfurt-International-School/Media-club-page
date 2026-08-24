@@ -446,7 +446,7 @@ function renderNotificationCenter() {
     const startsAt = timeValue(event.date, event.setupStart || event.game1Start || event.time || '00:00');
     return signup.confirmationStatus === 'confirmed' && startsAt > now && startsAt - now <= 24 * 60 * 60 * 1000;
   }) : [];
-  const storedItems = preferences.event_created ? state.notifications : [];
+  const storedItems = state.notifications.filter(item => item.notification_type === 'meeting_invite' || preferences.event_created);
   const unread = storedItems.filter(item => !item.read_at).length + maybeItems.length + upcomingItems.length;
   badge.textContent = unread > 99 ? '99+' : unread;
   badge.classList.toggle('visible', unread > 0);

@@ -317,17 +317,26 @@ create unique index if not exists signups_active_event_member_idx on public.sign
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   member_id uuid not null references public.members(id) on delete cascade,
-  notification_type text not null check (notification_type in ('event_created')),
+  notification_type text not null check (notification_type in ('event_created', 'meeting_invite')),
   title text not null,
   message text not null,
   page text not null default 'events',
   related_event_id uuid references public.events(id) on delete cascade,
+  related_meeting_id uuid references public.meetings(id) on delete cascade,
   read_at timestamptz,
   created_at timestamptz not null default now(),
   unique (member_id, notification_type, related_event_id)
 );
 
+alter table public.notifications add column if not exists related_meeting_id uuid references public.meetings(id) on delete cascade;
+alter table public.notifications drop constraint if exists notifications_notification_type_check;
+alter table public.notifications add constraint notifications_notification_type_check
+check (notification_type in ('event_created', 'meeting_invite'));
+
 create index if not exists notifications_member_created_idx on public.notifications (member_id, created_at desc);
+create unique index if not exists notifications_member_meeting_invite_idx
+on public.notifications (member_id, notification_type, related_meeting_id)
+where notification_type = 'meeting_invite' and related_meeting_id is not null;
 
 do $$
 begin
@@ -355,6 +364,137 @@ $$;
 
 drop trigger if exists events_notify_members_after_insert on public.events;
 create trigger events_notify_members_after_insert after insert on public.events for each row execute function public.notify_members_of_new_event();
+
+create or replace function public.sync_news_team_meeting_notifications()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.notifications notification
+  where notification.notification_type = 'meeting_invite'
+    and notification.related_meeting_id = new.id;
+
+  if new.audience <> 'news_team' or new.archived_at is not null or new.ends_at <= now() then
+    return new;
+  end if;
+
+  insert into public.notifications (
+    member_id, notification_type, title, message, page, related_meeting_id
+  )
+  select
+    membership.member_id,
+    'meeting_invite',
+    'News Team meeting invitation',
+    new.title || ' is scheduled for '
+      || to_char(new.starts_at at time zone 'Europe/Berlin', 'FMDD Mon YYYY, HH24:MI')
+      || ' Berlin time'
+      || case when nullif(btrim(new.location), '') is null then '' else ' at ' || btrim(new.location) end
+      || '. Open Meetings to RSVP.',
+    'meetings',
+    new.id
+  from public.member_team_memberships membership
+  where membership.team_key = 'news_team'
+  on conflict (member_id, notification_type, related_meeting_id)
+    where notification_type = 'meeting_invite' and related_meeting_id is not null
+  do nothing;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.sync_news_team_meeting_notifications() from public;
+
+drop trigger if exists meetings_sync_news_team_notifications on public.meetings;
+create trigger meetings_sync_news_team_notifications
+after insert or update of audience, title, starts_at, ends_at, location, archived_at
+on public.meetings
+for each row execute function public.sync_news_team_meeting_notifications();
+
+create or replace function public.sync_news_team_membership_notifications()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_member_id uuid;
+begin
+  if tg_op = 'DELETE' then
+    if old.team_key = 'news_team' then
+      delete from public.notifications notification
+      where notification.member_id = old.member_id
+        and notification.notification_type = 'meeting_invite';
+    end if;
+    return old;
+  end if;
+
+  if tg_op = 'UPDATE' and old.team_key = 'news_team'
+    and (old.member_id <> new.member_id or old.team_key <> new.team_key) then
+    delete from public.notifications notification
+    where notification.member_id = old.member_id
+      and notification.notification_type = 'meeting_invite';
+  end if;
+
+  if new.team_key <> 'news_team' then return new; end if;
+  target_member_id := new.member_id;
+
+  insert into public.notifications (
+    member_id, notification_type, title, message, page, related_meeting_id
+  )
+  select
+    target_member_id,
+    'meeting_invite',
+    'News Team meeting invitation',
+    meeting.title || ' is scheduled for '
+      || to_char(meeting.starts_at at time zone 'Europe/Berlin', 'FMDD Mon YYYY, HH24:MI')
+      || ' Berlin time'
+      || case when nullif(btrim(meeting.location), '') is null then '' else ' at ' || btrim(meeting.location) end
+      || '. Open Meetings to RSVP.',
+    'meetings',
+    meeting.id
+  from public.meetings meeting
+  where meeting.audience = 'news_team'
+    and meeting.archived_at is null
+    and meeting.ends_at > now()
+  on conflict (member_id, notification_type, related_meeting_id)
+    where notification_type = 'meeting_invite' and related_meeting_id is not null
+  do nothing;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.sync_news_team_membership_notifications() from public;
+
+drop trigger if exists news_team_memberships_sync_notifications on public.member_team_memberships;
+create trigger news_team_memberships_sync_notifications
+after insert or update or delete on public.member_team_memberships
+for each row execute function public.sync_news_team_membership_notifications();
+
+insert into public.notifications (
+  member_id, notification_type, title, message, page, related_meeting_id
+)
+select
+  membership.member_id,
+  'meeting_invite',
+  'News Team meeting invitation',
+  meeting.title || ' is scheduled for '
+    || to_char(meeting.starts_at at time zone 'Europe/Berlin', 'FMDD Mon YYYY, HH24:MI')
+    || ' Berlin time'
+    || case when nullif(btrim(meeting.location), '') is null then '' else ' at ' || btrim(meeting.location) end
+    || '. Open Meetings to RSVP.',
+  'meetings',
+  meeting.id
+from public.meetings meeting
+join public.member_team_memberships membership on membership.team_key = 'news_team'
+where meeting.audience = 'news_team'
+  and meeting.archived_at is null
+  and meeting.ends_at > now()
+on conflict (member_id, notification_type, related_meeting_id)
+  where notification_type = 'meeting_invite' and related_meeting_id is not null
+do nothing;
 
 create or replace function public.expire_unconfirmed_signups()
 returns integer

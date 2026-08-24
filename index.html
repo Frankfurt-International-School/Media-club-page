@@ -937,7 +937,7 @@
     <div class="modal-sub" id="meeting-modal-sub">Choose who needs the meeting, when it happens, and what the crew should prepare.</div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label" for="meeting-title">Title *</label><input class="form-input" id="meeting-title" maxlength="120" placeholder="Weekly news planning" /></div>
-      <div class="form-group"><label class="form-label" for="meeting-audience">Audience *</label><select class="form-select" id="meeting-audience"><option value="general">General · all approved members</option><option value="news_team">News Team</option><option value="leadership">Leadership</option></select></div>
+      <div class="form-group"><label class="form-label" for="meeting-audience">Audience *</label><select class="form-select" id="meeting-audience" onchange="updateMeetingAudienceHelp()"><option value="general">General · all approved members</option><option value="news_team">News Team only</option><option value="leadership">Leadership</option></select><div class="text-muted" id="meeting-audience-help" style="font-size:11px;margin-top:6px;" aria-live="polite">Every approved member is invited and can RSVP.</div></div>
     </div>
     <div class="form-row3 meeting-time-grid">
       <div class="form-group"><label class="form-label" for="meeting-date">Date *</label><input class="form-input" id="meeting-date" type="date" /></div>

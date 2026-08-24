@@ -3,7 +3,7 @@
 // ══════════════════════════════
 const meetingAudienceCatalog = {
   general: { label: 'General', color: 'blue', description: 'All approved Media Club members' },
-  news_team: { label: 'News Team', color: 'teal', description: 'News Team members and crew leadership' },
+  news_team: { label: 'News Team', color: 'teal', description: 'News Team members only · other approved members may view' },
   leadership: { label: 'Leadership', color: 'amber', description: 'Faculty and crew-operations leadership' },
 };
 
@@ -63,8 +63,8 @@ function canRsvpMeeting(meeting) {
   const member = currentMemberRecord();
   if (!member || !meeting || meeting.archivedAt) return false;
   if (meeting.audience === 'general') return true;
-  if (canManageCrewOperations()) return true;
-  return meeting.audience === 'news_team' && (member.teamKeys || []).includes('news_team');
+  if (meeting.audience === 'news_team') return (member.teamKeys || []).includes('news_team');
+  return meeting.audience === 'leadership' && canManageCrewOperations();
 }
 
 function meetingAvatar(attendee) {
@@ -219,7 +219,19 @@ function setMeetingEditorValues(meeting) {
   document.getElementById('meeting-agenda').value = meeting?.agenda || '';
   document.getElementById('meeting-notes').value = meeting?.notes || '';
   document.getElementById('meeting-notes-group').hidden = !meeting;
+  updateMeetingAudienceHelp();
   renderMeetingEventOptions(meeting?.relatedEventId || '');
+}
+
+function updateMeetingAudienceHelp() {
+  const audience = document.getElementById('meeting-audience')?.value || 'general';
+  const help = document.getElementById('meeting-audience-help');
+  if (!help) return;
+  help.textContent = {
+    general: 'Every approved member is invited and can RSVP.',
+    news_team: 'Only current News Team members receive an invitation and can RSVP. Other approved members can view the meeting but are not invited.',
+    leadership: 'Faculty, Leaders, Co-Leaders, and Moderators are invited and can RSVP.',
+  }[audience] || '';
 }
 
 function openMeetingEditor(id = '') {
@@ -281,9 +293,12 @@ async function saveMeeting() {
   button.textContent = editingMeetingId ? 'Save meeting changes' : 'Schedule meeting';
   if (error || !data) { showToast(error?.message || "Couldn't save the meeting.", 'error', 8000); return; }
   const wasEditing = Boolean(editingMeetingId);
+  const audience = payload.p_audience;
   closeMeetingEditor();
-  await loadCrewCenterData({ datasets: ['meetings'], silent: true });
-  showToast(wasEditing ? 'Meeting updated.' : 'Meeting scheduled.');
+  await loadCrewCenterData({ datasets: ['meetings', 'notifications'], silent: true });
+  showToast(audience === 'news_team'
+    ? (wasEditing ? 'Meeting updated. News Team invitations refreshed.' : 'News Team meeting scheduled. Invitations sent only to current News Team members.')
+    : (wasEditing ? 'Meeting updated.' : 'Meeting scheduled.'));
 }
 
 async function setMeetingRsvp(id, response) {

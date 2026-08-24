@@ -101,8 +101,9 @@ test('Meetings are visible to approved members while RSVP remains audience-scope
   assert.match(meetingReadAccess, /not public\.is_approved_member\(\)/);
   assert.doesNotMatch(meetingReadAccess, /target_audience|is_member_of_team/);
   assert.match(meetingRsvpAccess, /target_audience = 'general'/);
-  assert.match(meetingRsvpAccess, /public\.is_crew_operations_user\(\)/);
-  assert.match(meetingRsvpAccess, /target_audience = 'news_team' and public\.is_member_of_team\('news_team'\)/);
+  assert.match(meetingRsvpAccess, /target_audience = 'news_team' then return public\.is_member_of_team\('news_team'\)/);
+  assert.match(meetingRsvpAccess, /target_audience = 'leadership' and public\.is_crew_operations_user\(\)/);
+  assert.doesNotMatch(meetingRsvpAccess, /if public\.is_crew_operations_user\(\) then return true/);
   assert.doesNotMatch(meetingRsvpAccess, /members\.status|member\.status/);
   assert.match(policiesSql, /create policy "Approved members can read meetings"[\s\S]*?public\.can_read_meeting\(id\)/);
   assert.match(policiesSql, /create policy "Approved members can read meeting attendees"[\s\S]*?public\.can_read_meeting\(meeting_id\)/);
@@ -120,8 +121,40 @@ test('Meetings are visible to approved members while RSVP remains audience-scope
   assert.equal(frontendRsvpAllowed('general'), true);
   assert.equal(frontendRsvpAllowed('news_team'), false);
   assert.equal(frontendRsvpAllowed('news_team', 'Member', ['news_team']), true);
+  assert.equal(frontendRsvpAllowed('news_team', 'Leader'), false, 'leadership alone must not grant a News Team invitation');
+  assert.equal(frontendRsvpAllowed('news_team', 'Leader', ['news_team']), true);
   assert.equal(frontendRsvpAllowed('leadership'), false);
   assert.equal(frontendRsvpAllowed('leadership', 'Leader'), true);
+  assert.match(meetingsSource, /news_team: \{ label: 'News Team',[^\n]*description: 'News Team members only/);
+  assert.match(indexHtml, /value="news_team">News Team only<\/option>/);
+});
+
+test('News Team meeting invitations are generated only for current team memberships', () => {
+  const start = schemaSql.indexOf('create or replace function public.sync_news_team_meeting_notifications()');
+  const end = schemaSql.indexOf('\n$$;', start);
+  const meetingNotificationSync = schemaSql.slice(start, end + 4);
+  const membershipStart = schemaSql.indexOf('create or replace function public.sync_news_team_membership_notifications()');
+  const membershipEnd = schemaSql.indexOf('\n$$;', membershipStart);
+  const membershipNotificationSync = schemaSql.slice(membershipStart, membershipEnd + 4);
+
+  assert.ok(start >= 0 && end > start, 'meeting notification trigger function must exist');
+  assert.ok(membershipStart >= 0 && membershipEnd > membershipStart, 'team membership notification sync must exist');
+  assert.match(schemaSql, /notification_type text not null check \(notification_type in \('event_created', 'meeting_invite'\)\)/);
+  assert.match(schemaSql, /related_meeting_id uuid references public\.meetings\(id\) on delete cascade/);
+  assert.match(schemaSql, /create unique index if not exists notifications_member_meeting_invite_idx/);
+  assert.match(meetingNotificationSync, /from public\.member_team_memberships membership[\s\S]*?membership\.team_key = 'news_team'/);
+  assert.doesNotMatch(meetingNotificationSync, /member\.role|member\.status|is_crew_operations_user|leader|moderator/);
+  assert.match(meetingNotificationSync, /new\.audience <> 'news_team'/);
+  assert.match(meetingNotificationSync, /new\.archived_at is not null/);
+  assert.match(meetingNotificationSync, /'meetings',[\s\S]*?new\.id/);
+  assert.match(schemaSql, /create trigger meetings_sync_news_team_notifications[\s\S]*?after insert or update of audience, title, starts_at, ends_at, location, archived_at/);
+  assert.match(membershipNotificationSync, /tg_op = 'DELETE'[\s\S]*?notification\.notification_type = 'meeting_invite'/);
+  assert.match(membershipNotificationSync, /meeting\.audience = 'news_team'[\s\S]*?meeting\.ends_at > now\(\)/);
+  assert.match(membershipNotificationSync, /tg_op = 'UPDATE'[\s\S]*?old\.member_id <> new\.member_id/);
+  assert.match(schemaSql, /create trigger news_team_memberships_sync_notifications[\s\S]*?after insert or update or delete on public\.member_team_memberships/);
+  assert.match(schemaSql, /insert into public\.notifications[\s\S]*?join public\.member_team_memberships membership on membership\.team_key = 'news_team'[\s\S]*?meeting\.ends_at > now\(\)/);
+  assert.match(uiSource, /state\.notifications\.filter\(item => item\.notification_type === 'meeting_invite' \|\| preferences\.event_created\)/);
+  assert.match(policiesSql, /create policy "Members can read own notifications"[\s\S]*?member\.id = notifications\.member_id/);
 });
 
 test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', () => {
