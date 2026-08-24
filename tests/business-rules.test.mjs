@@ -193,6 +193,58 @@ test('Equipment Status restrictions are enforced in the UI and server workflows'
   assert.match(appSource, /supabaseClient\.rpc\('set_equipment_operational_status'/);
 });
 
+test('camera visuals are lightweight, model-matched, and isolated to the ordinary Equipment page', () => {
+  const profiles = JSON.parse(JSON.stringify(runFunctions(
+    ['equipmentDeviceVisual'],
+    {},
+    `[
+      { name: 'Canon EOS R6' },
+      { name: 'Canon 700D camera' },
+      { name: 'Canon 70D #2' },
+      { name: 'Canon 600d' },
+      { name: 'EOS 450 D' },
+      { name: 'Panasonic Lumix GH6' },
+      { name: 'Camera body', detail: 'Canon EOS R6' },
+      { name: 'General camera', detail: 'Canon 70D and Canon 700D' },
+      { name: 'Sony PXW' },
+    ].map(item => {
+      const device = equipmentDeviceVisual(item);
+      return device ? { slug: device.slug, brand: device.brand, model: device.model, src: device.src } : null;
+    })`,
+  )));
+
+  assert.deepEqual(profiles.map(profile => profile?.slug || null), [
+    'canon-r6',
+    'canon-700d',
+    'canon-70d',
+    'canon-600d',
+    'canon-450d',
+    'lumix-gh6',
+    'canon-r6',
+    null,
+    null,
+  ]);
+
+  const assetNames = ['canon-r6.webp', 'canon-70d.webp', 'canon-700d.webp', 'canon-600d.webp', 'canon-450d.webp', 'lumix-gh6.webp'];
+  for (const assetName of assetNames) {
+    const asset = readFileSync(new URL(`../assets/equipment/${assetName}`, import.meta.url));
+    assert.equal(asset.subarray(0, 4).toString(), 'RIFF', `${assetName} must use a WebP RIFF container`);
+    assert.equal(asset.subarray(8, 12).toString(), 'WEBP', `${assetName} must be a WebP image`);
+    assert.ok(asset.length <= 160 * 1024, `${assetName} must remain at or below 160 KB`);
+  }
+
+  const ordinaryEquipment = appSource.slice(appSource.indexOf('function renderEquipment()'), appSource.indexOf('function renderEquipmentStatus()'));
+  const equipmentStatus = appSource.slice(appSource.indexOf('function renderEquipmentStatus()'), appSource.indexOf('function requestCancelEquipmentReservation('));
+  assert.match(ordinaryEquipment, /class="equipment-device-visual brand-\$\{device\.brandKey\}"/);
+  assert.match(ordinaryEquipment, /loading="lazy" decoding="async"/);
+  assert.match(ordinaryEquipment, /openEquipmentDeviceView/);
+  assert.doesNotMatch(equipmentStatus, /equipmentDeviceVisual|equipment-device-visual|openEquipmentDeviceView/);
+  assert.match(indexHtml, /id="equipment-device-modal"[\s\S]*?id="equipment-device-image"[\s\S]*?id="equipment-device-reserve"/);
+  assert.doesNotMatch(indexHtml, /id="equipment-device-image"[^>]*\ssrc=/, 'the hidden console must not eagerly download a camera image');
+  assert.match(appStyles, /\.equipment-device-modal[\s\S]*?#equipment-device-modal\[data-brand="lumix"\]/);
+  assert.match(appStyles, /@media \(max-width: 768px\)[\s\S]*?\.equipment-device-modal \{ grid-template-columns: 1fr/);
+});
+
 test('Crew Schedule and attendance are Auth Admin-only in the UI and database', () => {
   const crewScheduleAccess = extractSqlFunction('is_crew_schedule_user');
   assert.match(appSource, /function canAccessCrewSchedule\(\) \{\s*return canAddMembers\(\);\s*\}/);

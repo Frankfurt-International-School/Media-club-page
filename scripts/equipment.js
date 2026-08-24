@@ -41,6 +41,23 @@ function equipmentById(id) {
   return [...state.equipment, ...state.archivedEquipment].find(item => item.id === id);
 }
 
+function equipmentDeviceVisual(item) {
+  const catalog = [
+    { slug: 'canon-r6', brand: 'Canon', brandKey: 'canon', model: 'EOS R6', src: 'assets/equipment/canon-r6.webp', width: 419, height: 303, match: /\b(?:canon\s+)?(?:eos\s+)?r\s*6\b/i },
+    { slug: 'canon-700d', brand: 'Canon', brandKey: 'canon', model: 'EOS 700D', src: 'assets/equipment/canon-700d.webp', width: 652, height: 517, match: /\b(?:canon\s+)?(?:eos\s+)?700\s*d\b/i },
+    { slug: 'canon-70d', brand: 'Canon', brandKey: 'canon', model: 'EOS 70D', src: 'assets/equipment/canon-70d.webp', width: 645, height: 505, match: /\b(?:canon\s+)?(?:eos\s+)?70\s*d\b/i },
+    { slug: 'canon-600d', brand: 'Canon', brandKey: 'canon', model: 'EOS 600D', src: 'assets/equipment/canon-600d.webp', width: 364, height: 279, match: /\b(?:canon\s+)?(?:eos\s+)?600\s*d\b/i },
+    { slug: 'canon-450d', brand: 'Canon', brandKey: 'canon', model: 'EOS 450D', src: 'assets/equipment/canon-450d.webp', width: 420, height: 395, match: /\b(?:canon\s+)?(?:eos\s+)?450\s*d\b/i },
+    { slug: 'lumix-gh6', brand: 'Lumix', brandKey: 'lumix', model: 'GH6', src: 'assets/equipment/lumix-gh6.webp', width: 534, height: 370, match: /\b(?:(?:panasonic|lumix)\s+)?gh\s*6\b/i },
+  ];
+  const normalize = value => String(value || '').normalize('NFKC').replace(/[™®©]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const name = normalize(item?.name);
+  const directMatch = catalog.find(device => device.match.test(name));
+  if (directMatch) return directMatch;
+  const detailMatches = catalog.filter(device => device.match.test(normalize(item?.detail)));
+  return detailMatches.length === 1 ? detailMatches[0] : null;
+}
+
 function renderArchivedEquipment() {
   const panel = document.getElementById('archived-equipment-panel');
   const list = document.getElementById('archived-equipment-list');
@@ -98,17 +115,26 @@ function renderEquipment() {
   }
   const equipmentCard = e => {
     const liveStatus = equipmentDisplayStatus(e);
+    const device = equipmentDeviceVisual(e);
     const activeReservation = activeEquipmentReservation(e);
     const reservations = e.reservations
       .filter(reservation => reservationLifecycleStatus(reservation) === 'scheduled')
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     return `
-      <div class="equipment-card">
-        <div class="equip-icon" style="background:var(--accent-dim);">
+      <div class="equipment-card equipment-catalog-card${device ? ' has-device-visual' : ''}">
+        ${device ? `<button type="button" class="equipment-device-visual brand-${device.brandKey}" onclick="openEquipmentDeviceView('${e.id}')" aria-label="Open the ${escapeHtml(e.name)} device view">
+          <span class="equipment-device-scanline" aria-hidden="true"></span>
+          <span class="equipment-device-visual-label"><span class="equipment-device-signal-dot"></span>Inventory visual</span>
+          <img src="${device.src}" width="${device.width}" height="${device.height}" alt="${escapeHtml(e.name)} camera" loading="lazy" decoding="async">
+          <span class="equipment-device-brand"><strong>${device.brand}</strong><small>${device.model}</small></span>
+          <span class="equipment-device-open">View device <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
+        </button>` : ''}
+        <div class="equipment-card-content">
+        ${device ? '' : `<div class="equip-icon" style="background:var(--accent-dim);">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" style="width:20px;height:20px;">
             <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
           </svg>
-        </div>
+        </div>`}
         <div class="equip-name">${escapeHtml(e.name)}</div>
         <div class="equip-detail">${escapeHtml(e.category)} · ${escapeHtml(e.detail)}</div>
         <div class="equip-status">
@@ -121,6 +147,7 @@ function renderEquipment() {
           <button class="btn btn-accent btn-sm" ${liveStatus !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>
           ${canManageCrewOperations() ? `${liveStatus === 'checked_out' && canAccessEquipmentStatus() ? '<span class="text-muted">Manage return through Equipment Status</span>' : ''}<button class="btn btn-ghost btn-sm" onclick="requestArchiveEquipment('${e.id}')">Archive</button>` : ''}
           ${canAddMembers() ? `<button class="btn btn-danger btn-sm" onclick="requestPermanentDeleteEquipment('${e.id}')">Delete everything</button>` : ''}
+        </div>
         </div>
       </div>`;
   };
@@ -137,6 +164,46 @@ function renderEquipment() {
       <div class="catalog-equipment-grid">${items.map(equipmentCard).join('')}</div>
     </section>`;
   }).join('');
+}
+
+let equipmentDeviceViewId = null;
+
+function openEquipmentDeviceView(id) {
+  const item = state.equipment.find(equipment => equipment.id === id);
+  const device = equipmentDeviceVisual(item);
+  if (!item || !device) return;
+  equipmentDeviceViewId = id;
+  const liveStatus = equipmentDisplayStatus(item);
+  const upcomingReservations = item.reservations.filter(reservation => reservationLifecycleStatus(reservation) === 'scheduled').length;
+  const modal = document.getElementById('equipment-device-modal');
+  const image = document.getElementById('equipment-device-image');
+  modal.dataset.brand = device.brandKey;
+  image.src = device.src;
+  image.width = device.width;
+  image.height = device.height;
+  image.alt = `${item.name} camera`;
+  document.getElementById('equipment-device-brand').textContent = device.brand;
+  document.getElementById('equipment-device-model').textContent = device.model;
+  document.getElementById('equipment-device-title').textContent = item.name;
+  document.getElementById('equipment-device-subtitle').textContent = `Inventory profile for ${item.name}. Confirm the device before reserving it.`;
+  document.getElementById('equipment-device-category').textContent = item.category;
+  document.getElementById('equipment-device-status').textContent = equipmentStatusLabel(liveStatus);
+  document.getElementById('equipment-device-upcoming').textContent = String(upcomingReservations).padStart(2, '0');
+  document.getElementById('equipment-device-notes').textContent = item.detail || 'No equipment notes added.';
+  const signal = document.getElementById('equipment-device-signal');
+  signal.className = `equipment-device-console-signal status-${liveStatus}`;
+  signal.querySelector('span:last-child').textContent = equipmentStatusLabel(liveStatus);
+  const reserveButton = document.getElementById('equipment-device-reserve');
+  reserveButton.disabled = liveStatus !== 'available' || isVisitorSession();
+  reserveButton.textContent = isVisitorSession() ? 'Member sign-in required' : liveStatus === 'available' ? 'Reserve this device' : 'Currently unavailable';
+  openModal('equipment-device-modal');
+}
+
+function reserveEquipmentFromDeviceView() {
+  const id = equipmentDeviceViewId;
+  if (!id) return;
+  closeModal('equipment-device-modal');
+  openEquipmentReservation(id);
 }
 
 function renderEquipmentStatus() {
@@ -485,4 +552,3 @@ async function reserveEquipment() {
   renderEquipment();
   showToast(`${item.name} reserved.`);
 }
-

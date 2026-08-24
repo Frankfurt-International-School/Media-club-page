@@ -1049,6 +1049,36 @@
   </div>
 </div>
 
+<!-- Equipment Device View -->
+<div class="modal-backdrop" id="equipment-device-modal" aria-labelledby="equipment-device-title">
+  <div class="modal equipment-device-modal">
+    <button type="button" class="modal-close" onclick="closeModal('equipment-device-modal')" aria-label="Close device view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="equipment-device-console-topline">
+      <span><span class="equipment-device-signal-dot"></span>Device link / Crew inventory</span>
+      <span class="equipment-device-console-signal status-available" id="equipment-device-signal"><span></span><span>Available</span></span>
+    </div>
+    <div class="equipment-device-console-stage">
+      <span class="equipment-device-console-orbit" aria-hidden="true"></span>
+      <img id="equipment-device-image" width="419" height="303" alt="Camera device" decoding="async">
+      <div class="equipment-device-console-brand"><strong id="equipment-device-brand">Canon</strong><span id="equipment-device-model">EOS R6</span></div>
+    </div>
+    <div class="equipment-device-console-body">
+      <div class="modal-title" id="equipment-device-title">Camera</div>
+      <div class="modal-sub" id="equipment-device-subtitle">Inventory-linked device profile.</div>
+      <div class="equipment-device-readouts" aria-label="Device details">
+        <div><span>Category</span><strong id="equipment-device-category">Camera</strong></div>
+        <div><span>Signal</span><strong id="equipment-device-status">Available</strong></div>
+        <div><span>Upcoming</span><strong id="equipment-device-upcoming">00</strong></div>
+      </div>
+      <div class="equipment-device-notes"><span>Inventory notes</span><p id="equipment-device-notes">No equipment notes added.</p></div>
+      <div class="equipment-device-console-actions">
+        <button type="button" class="btn btn-accent" id="equipment-device-reserve" onclick="reserveEquipmentFromDeviceView()">Reserve this device</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal('equipment-device-modal')">Back to equipment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Reserve Equipment Modal -->
 <div class="modal-backdrop" id="equip-reserve-modal">
   <div class="modal" style="position:relative;">
