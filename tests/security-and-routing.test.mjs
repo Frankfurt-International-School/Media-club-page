@@ -212,7 +212,8 @@ test('About Media Club is a local, privacy-conscious brochure page', () => {
   assert.match(aboutMarkup, /Grades 6–12/);
   assert.match(aboutMarkup, /id="about-recent-projects"/);
   assert.match(aboutMarkup, /href="\/gallery"/);
-  assert.match(aboutMarkup, /href="\/join"/);
+  assert.equal((aboutMarkup.match(/href="\/join"/g) || []).length, 1, 'About should keep only the final visitor application link');
+  assert.doesNotMatch(aboutMarkup, />Join the club<\/a>/);
   assert.match(aboutMarkup, /<picture class="about-hero-media">[\s\S]*?tech-show-crew-portrait-mobile\.webp[\s\S]*?tech-show-crew-portrait\.webp/);
   assert.match(aboutMarkup, /tech-show-fieldwork\.webp/);
   assert.match(aboutMarkup, /<picture class="about-platform-media">[\s\S]*?crew-center-field-operator-mobile\.webp[\s\S]*?crew-center-field-operator\.webp/);
