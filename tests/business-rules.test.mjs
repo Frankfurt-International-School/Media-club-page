@@ -168,7 +168,8 @@ test('News Team meeting invitations are generated only for current team membersh
   assert.match(schemaSql, /create trigger news_team_memberships_sync_notifications[\s\S]*?after insert or update or delete on public\.member_team_memberships/);
   assert.match(schemaSql, /insert into public\.notifications[\s\S]*?join public\.member_team_memberships membership on membership\.team_key = 'news_team'[\s\S]*?meeting\.ends_at > now\(\)/);
   assert.match(uiSource, /state\.notifications\.filter\(item => item\.notification_type === 'meeting_invite' \|\| preferences\.event_created\)/);
-  assert.match(policiesSql, /create policy "Members can read own notifications"[\s\S]*?member\.id = notifications\.member_id/);
+  assert.match(policiesSql, /create policy "Members can read own notifications"[\s\S]*?notifications\.member_id = public\.current_member_id\(\)/);
+  assert.doesNotMatch(policiesSql, /create policy "Members can read own notifications"[\s\S]{0,240}?member\.email/);
 });
 
 test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', () => {
@@ -280,7 +281,7 @@ test('Meetings remain a private deep-linked page with a themed watermark hero', 
 test('only Auth Admin and Faculty can create event signups for another member', () => {
   assert.match(appSource, /function canSignupForOtherMembers\(\) \{\s*return canAccessAdminPanel\(\);\s*\}/);
   assert.equal((appSource.match(/const canChooseMember = canSignupForOtherMembers\(\);/g) || []).length, 2);
-  assert.match(policiesSql, /create policy "Signed-in users can add signups"[\s\S]*?and \(\s*public\.is_admin_panel_user\(\)\s*or exists \([\s\S]*?member\.id = signups\.member_id[\s\S]*?lower\(member\.email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can add signups"[\s\S]*?and \(\s*public\.is_admin_panel_user\(\)\s*or signups\.member_id = public\.current_member_id\(\)/);
 });
 
 test('Equipment Status restrictions are enforced in the UI and server workflows', () => {
@@ -390,6 +391,64 @@ test('live-cut events support an optional end time across creation and crew sche
   assert.equal(label({ cat: 'Event', time: '15:30', endTime: '18:00' }), '15:30');
 });
 
+test('production staff can edit events without replacing linked records or lifecycle fields', () => {
+  const openEditor = extractFunction('openEventEditor');
+  const saveEvent = extractFunction('addEvent');
+  const updateGrant = policiesSql.match(/grant update \(([\s\S]*?)\) on table public\.events to authenticated/)?.[1] || '';
+  const renderEventCard = canManage => runFunctions(
+    ['renderEvents'],
+    {
+      state: {
+        eventFilter: 'all',
+        showPastEvents: false,
+        events: [{ id: 'event-1', title: 'Test event', date: '2026-09-18', time: '17:30', loc: 'Studio', cat: 'Event', signups: [], slots: 0 }],
+      },
+      renderArchivedEvents() {},
+      isPastEvent: () => false,
+      fmtMonth: () => 'SEP',
+      fmtDay: () => '18',
+      eventScheduleTimeLabel: () => '17:30',
+      escapeHtml: value => String(value),
+      pageUrl: () => '/signup?event=event-1',
+      catColor: () => 'purple',
+      sportsScheduleCaption: () => '',
+      isstScheduleCaption: () => '',
+      festivalScheduleCaption: () => '',
+      livestreamSetupCaption: () => '',
+      isVisitorSession: () => false,
+      canManageCrewOperations: () => canManage,
+      canAddMembers: () => false,
+      document: {
+        nodes: {
+          'past-events-toggle': { textContent: '', classList: { toggle() {} }, setAttribute() {} },
+          'events-list': { innerHTML: '' },
+        },
+        getElementById(id) { return this.nodes[id]; },
+      },
+    },
+    "renderEvents(); document.nodes['events-list'].innerHTML",
+  );
+
+  assert.match(indexHtml, /onclick="openEventEditor\(\)"[\s\S]*?Add event/);
+  assert.match(appSource, /onclick="openEventEditor\('\$\{ev\.id\}'\)"[^>]*>Edit event<\/button>/);
+  assert.match(renderEventCard(true), /Edit event/);
+  assert.doesNotMatch(renderEventCard(false), /Edit event/);
+  assert.match(openEditor, /if \(!canManageCrewOperations\(\)\)/);
+  assert.match(openEditor, /document\.getElementById\('ev-title'\)\.value = event\.title/);
+  assert.match(openEditor, /document\.getElementById\('ev-date'\)\.value = event\.date/);
+  assert.match(openEditor, /document\.getElementById\('ev-cat'\)\.value = event\.cat/);
+  assert.match(saveEvent, /supabaseClient\.from\('events'\)\.update\(payload\)\.eq\('id', editingEvent\.id\)/);
+  assert.match(saveEvent, /state\.events = state\.events\.map\(event => event\.id === ev\.id \? ev : event\)/);
+  assert.match(indexHtml, /Existing signups and equipment reservations remain on this event/);
+  assert.match(authSource, /openEventEditor: "manage events"/);
+  assert.match(policiesSql, /create policy "Production staff can update events"[\s\S]*?using \(public\.is_crew_operations_user\(\)\)[\s\S]*?with check \(public\.is_crew_operations_user\(\)\)/);
+  assert.match(policiesSql, /revoke update on table public\.events from anon, authenticated/);
+  assert.match(updateGrant, /title/);
+  assert.match(updateGrant, /ends_at/);
+  assert.doesNotMatch(updateGrant, /archived|created_at/);
+  assert.doesNotMatch(policiesSql, /create policy "Admins can update events"/);
+});
+
 test('equipment reservations use half-open boundaries and lifecycle states', () => {
   const overlaps = (start, end, otherStart, otherEnd) => runFunctions(
     ['reservationOverlaps'],
@@ -431,7 +490,7 @@ test('reservation policies require approved ownership and limit cancellation', (
   assert.match(policiesSql, /create or replace function public\.can_create_equipment_reservation/);
   assert.match(policiesSql, /lower\(member\.email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
   assert.match(policiesSql, /create policy "Users can cancel equipment reservations"[\s\S]*?reservation_status = 'scheduled'[\s\S]*?starts_at > now\(\)[\s\S]*?public\.is_auth_admin\(\)/);
-  assert.match(policiesSql, /public\.is_auth_admin\(\)[\s\S]*?member\.id = equipment_reservations\.member_id/);
+  assert.match(policiesSql, /public\.is_auth_admin\(\)[\s\S]*?equipment_reservations\.member_id = public\.current_member_id\(\)/);
 });
 
 test('dashboard preferences are owner-scoped and bounded', () => {
@@ -447,6 +506,7 @@ test('dashboard preferences are owner-scoped and bounded', () => {
 
 test('personal cameras are owner-scoped and snapshotted only for Photographer signups', () => {
   const updatePreferences = extractSqlFunction('update_own_personal_equipment_preferences');
+  const cameraPermission = extractSqlFunction('can_use_personal_camera');
   assert.match(schemaSql, /personal_equipment_preferences jsonb not null default '\{"camera_name":"","auto_use_camera":false\}'::jsonb/);
   assert.match(schemaSql, /equipment_source text not null default 'club'/);
   assert.match(schemaSql, /signups_photographer_equipment_check[\s\S]*?equipment_source = 'own'[\s\S]*?signup_role = 'Photographer'[\s\S]*?char_length\(own_camera_name\) between 1 and 80/);
@@ -455,7 +515,9 @@ test('personal cameras are owner-scoped and snapshotted only for Photographer si
   assert.match(updatePreferences, /where lower\(email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
   assert.match(policiesSql, /revoke all on function public\.update_own_personal_equipment_preferences\(jsonb\) from public/);
   assert.match(policiesSql, /grant execute on function public\.update_own_personal_equipment_preferences\(jsonb\) to authenticated/);
-  assert.match(policiesSql, /equipment_source = 'own'[\s\S]*?camera_owner\.id = signups\.member_id[\s\S]*?personal_equipment_preferences ->> 'camera_name'/);
+  assert.match(cameraPermission, /p_member_id = public\.current_member_id\(\)[\s\S]*?or public\.is_admin_panel_user\(\)/);
+  assert.match(cameraPermission, /member\.personal_equipment_preferences ->> 'camera_name'/);
+  assert.match(policiesSql, /equipment_source = 'own'[\s\S]*?public\.can_use_personal_camera\(signups\.member_id, own_camera_name\)/);
   assert.match(indexHtml, /href="\/profile\?tab=personalisation" id="settings-tab-personalisation"/);
   assert.match(indexHtml, /id="settings-panel-personalisation"[\s\S]*?id="personal-camera-name"[\s\S]*?id="personal-camera-auto-use"/);
   assert.match(indexHtml, /id="signup-camera-source"[\s\S]*?id="signup-camera-source-select"/);

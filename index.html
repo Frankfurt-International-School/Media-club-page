@@ -290,7 +290,7 @@
         <div class="page-title">Events</div>
         <div class="page-sub">Upcoming Media Club activities. Past events are available on request.</div>
       </div>
-      <div class="page-hero-actions"><button class="btn btn-accent" onclick="openModal('event-modal')">
+      <div class="page-hero-actions"><button class="btn btn-accent" onclick="openEventEditor()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add event
         </button></div>
@@ -830,12 +830,13 @@
 
 <!-- ── MODALS ── -->
 
-<!-- Add Event Modal -->
+<!-- Event Editor Modal -->
 <div class="modal-backdrop" id="event-modal">
   <div class="modal" style="position:relative;max-width:620px;">
-    <button class="modal-close" onclick="closeModal('event-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    <div class="modal-title">New event</div>
-    <div class="modal-sub">Create the event first, then members can choose an available signup window and production role.</div>
+    <button type="button" class="modal-close" onclick="closeEventEditor()" aria-label="Close event editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title" id="event-modal-title">New event</div>
+    <div class="modal-sub" id="event-modal-sub">Create the event first, then members can choose an available signup window and production role.</div>
+    <div class="event-edit-continuity-note" id="event-edit-continuity-note" hidden><strong>Linked records stay attached.</strong> Existing signups and equipment reservations remain on this event. If you change its schedule, review their individual time windows afterwards.</div>
     <section class="event-form-section">
       <div class="event-form-section-title"><span>1</span> Event details</div>
       <div class="form-group"><label class="form-label">Event title *</label><input class="form-input" id="ev-title" placeholder="Short film workshop" /></div>
@@ -924,7 +925,7 @@
       <div class="event-form-section-title"><span>3</span> Description</div>
       <div class="form-group" style="margin-bottom:0;"><label class="form-label">Event notes</label><textarea class="form-textarea" id="ev-desc" placeholder="What will happen, where should the crew meet, and what should they bring?"></textarea></div>
     </section>
-    <button class="btn btn-accent" style="width:100%;" onclick="addEvent()">Create event</button>
+    <button class="btn btn-accent" id="event-save-button" style="width:100%;" onclick="addEvent()">Create event</button>
   </div>
 </div>
 

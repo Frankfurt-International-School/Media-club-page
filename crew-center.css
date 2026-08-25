@@ -707,6 +707,7 @@
   }
   .event-meta span { display: flex; align-items: center; gap: 4px; }
   .event-meta svg { width: 12px; height: 12px; }
+  .event-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
   .progress-bar {
     background: var(--bg4);
     border-radius: 20px;
@@ -1417,6 +1418,9 @@
     margin-bottom: 4px;
   }
   .modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+  .event-edit-continuity-note { margin: -6px 0 18px; padding: 11px 13px; border: 1px solid rgba(164,1,52,.2); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--accent-dim2); color: var(--text2); font-size: 11px; line-height: 1.5; }
+  .event-edit-continuity-note[hidden] { display: none; }
+  .event-edit-continuity-note strong { color: var(--text); }
   .confirmation-impact { display: grid; gap: 7px; margin: 0 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg3); color: var(--text2); font-size: 12px; line-height: 1.5; }
   .confirmation-impact.danger { border-color: rgba(255,123,94,.32); background: var(--coral-dim); }
   .confirmation-ack { display: flex; align-items: flex-start; gap: 9px; margin: 0 0 16px; color: var(--text2); font-size: 12px; line-height: 1.45; }

@@ -31,6 +31,7 @@ drop policy if exists "Authenticated users can delete events" on public.events;
 drop policy if exists "Signed-in users can read events" on public.events;
 drop policy if exists "Admins can manage events" on public.events;
 drop policy if exists "Admins can update events" on public.events;
+drop policy if exists "Production staff can update events" on public.events;
 drop policy if exists "Production staff can add events" on public.events;
 drop policy if exists "Production staff can delete events" on public.events;
 drop policy if exists "Audience members can read meetings" on public.meetings;
@@ -196,6 +197,26 @@ as $$
   limit 1;
 $$;
 
+create or replace function public.can_use_personal_camera(p_member_id uuid, p_camera_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (
+    p_member_id = public.current_member_id()
+    or public.is_admin_panel_user()
+  )
+  and nullif(btrim(p_camera_name), '') is not null
+  and exists (
+    select 1
+    from public.members member
+    where member.id = p_member_id
+      and btrim(coalesce(member.personal_equipment_preferences ->> 'camera_name', '')) = btrim(p_camera_name)
+  );
+$$;
+
 create or replace function public.is_member_of_team(p_team_key text)
 returns boolean
 language sql
@@ -263,10 +284,12 @@ end;
 $$;
 
 revoke all on function public.current_member_id() from public;
+revoke all on function public.can_use_personal_camera(uuid, text) from public;
 revoke all on function public.is_member_of_team(text) from public;
 revoke all on function public.can_read_meeting(uuid) from public;
 revoke all on function public.can_rsvp_meeting(uuid) from public;
 grant execute on function public.current_member_id() to authenticated;
+grant execute on function public.can_use_personal_camera(uuid, text) to authenticated;
 grant execute on function public.is_member_of_team(text) to authenticated;
 grant execute on function public.can_read_meeting(uuid) to authenticated;
 grant execute on function public.can_rsvp_meeting(uuid) to authenticated;
@@ -1518,11 +1541,43 @@ using (
   and (archived_at is null or public.is_crew_operations_user())
 );
 
-create policy "Admins can update events"
+-- Event editors may change event details but cannot bypass the guarded archive
+-- workflow by writing lifecycle columns such as archived_at directly.
+revoke update on table public.events from anon, authenticated;
+grant update (
+  title,
+  date,
+  location,
+  description,
+  category,
+  livestream_setup_date,
+  is_sports,
+  is_isst,
+  game_1_start,
+  game_1_end,
+  game_2_start,
+  game_2_end,
+  game_3_start,
+  game_3_end,
+  game_4_start,
+  game_4_end,
+  is_festival,
+  setup_start,
+  setup_end,
+  shift_1_start,
+  shift_1_end,
+  shift_2_start,
+  shift_2_end,
+  takedown_start,
+  takedown_end,
+  ends_at
+) on table public.events to authenticated;
+
+create policy "Production staff can update events"
 on public.events for update
 to authenticated
-using (public.is_admin_panel_user())
-with check (public.is_admin_panel_user());
+using (public.is_crew_operations_user())
+with check (public.is_crew_operations_user());
 
 create policy "Production staff can add events"
 on public.events for insert
@@ -1610,12 +1665,7 @@ with check (
     or (
       equipment_source = 'own'
       and signup_role = 'Photographer'
-      and exists (
-        select 1
-        from public.members camera_owner
-        where camera_owner.id = signups.member_id
-          and btrim(coalesce(camera_owner.personal_equipment_preferences ->> 'camera_name', '')) = own_camera_name
-      )
+      and public.can_use_personal_camera(signups.member_id, own_camera_name)
     )
   )
   and (
@@ -1630,12 +1680,7 @@ with check (
   )
   and (
     public.is_admin_panel_user()
-    or exists (
-      select 1
-      from public.members member
-      where member.id = signups.member_id
-        and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-    )
+    or signups.member_id = public.current_member_id()
   )
 );
 
@@ -1644,23 +1689,14 @@ on public.signups for delete
 to authenticated
 using (
   public.is_auth_admin()
-  or exists (
-    select 1
-    from public.members member
-    where member.id = signups.member_id
-      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
+  or signups.member_id = public.current_member_id()
 );
 
 create policy "Members can read own notifications"
 on public.notifications for select
 to authenticated
 using (
-  exists (
-    select 1 from public.members member
-    where member.id = notifications.member_id
-      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
+  notifications.member_id = public.current_member_id()
 );
 
 create policy "Signed-in users can read equipment"
@@ -1711,11 +1747,7 @@ using (
   and starts_at > now()
   and (
     public.is_auth_admin()
-    or exists (
-      select 1 from public.members member
-      where member.id = equipment_reservations.member_id
-        and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-    )
+    or equipment_reservations.member_id = public.current_member_id()
   )
 );
 
@@ -1730,12 +1762,7 @@ to authenticated
 with check (
   not public.is_visitor_session()
   and coalesce(nullif(btrim(image_url), ''), nullif(btrim(project_url), ''), '') <> ''
-  and exists (
-    select 1
-    from public.members member
-    where member.id = gallery.member_id
-      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
+  and gallery.member_id = public.current_member_id()
 );
 
 create policy "Admins can update gallery"
@@ -1749,12 +1776,7 @@ on public.gallery for delete
 to authenticated
 using (
   lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin'
-  or exists (
-    select 1
-    from public.members member
-    where member.id = gallery.member_id
-      and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  )
+  or gallery.member_id = public.current_member_id()
 );
 
 create policy "Signed-in users can read announcements"

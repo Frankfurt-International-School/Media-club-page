@@ -477,7 +477,7 @@ function applyAdminControls() {
     'button[onclick*="renderManageEvents"]',
   ];
   const crewOperationsSelectors = [
-    'button[onclick*="event-modal"]',
+    'button[onclick*="openEventEditor"]',
     'button[onclick*="equip-add-modal"]',
     'button[onclick*="addEquipment"]',
     'button[onclick*="addEvent"]',
@@ -563,7 +563,8 @@ function installAdminFunctionGuards() {
     requestPermanentDeleteEquipment: "permanently delete equipment",
   };
   const crewOperationsGuarded = {
-    addEvent: "add events",
+    openEventEditor: "manage events",
+    addEvent: "save events",
     addEquipment: "add equipment",
     requestArchiveEvent: "archive events",
     restoreArchivedEvent: "restore events",

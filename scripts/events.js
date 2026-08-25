@@ -40,13 +40,13 @@ function renderEvents(filter) {
           ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(festivalScheduleCaption(ev))}</div>` : ''}
           ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
-          <div style="margin-top:10px;display:flex;gap:8px;">
+          <div class="event-card-actions">
             ${past
               ? '<span class="text-muted">This event has ended.</span>'
               : isVisitorSession()
               ? '<span class="text-muted">Visitors can view events only.</span>'
               : `<a class="btn btn-accent btn-sm" href="${escapeHtml(pageUrl('signup', { event: ev.id }))}">Sign up</a>`}
-            ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="requestArchiveEvent('${ev.id}')">Archive</button>` : ''}
+            ${canManageCrewOperations() ? `<button class="btn btn-ghost btn-sm" onclick="openEventEditor('${ev.id}')">Edit event</button><button class="btn btn-ghost btn-sm" onclick="requestArchiveEvent('${ev.id}')">Archive</button>` : ''}
             ${canAddMembers() ? `<button class="btn btn-danger btn-sm" onclick="requestPermanentDeleteEvent('${ev.id}')">Delete everything</button>` : ''}
           </div>
         </div>
@@ -91,6 +91,86 @@ function dateBefore(date) {
   const value = new Date(`${date}T00:00:00Z`);
   value.setUTCDate(value.getUTCDate() - 1);
   return value.toISOString().slice(0, 10);
+}
+
+const eventEditorFieldIds = [
+  'ev-title', 'ev-date', 'ev-time', 'ev-end-time', 'ev-loc', 'ev-desc',
+  'ev-livestream-setup-date', 'ev-game1-start', 'ev-game1-end', 'ev-game2-start',
+  'ev-game2-end', 'ev-game3-start', 'ev-game3-end', 'ev-game4-start', 'ev-game4-end',
+  'ev-setup-start', 'ev-setup-end', 'ev-shift1-start', 'ev-shift1-end',
+  'ev-shift2-start', 'ev-shift2-end', 'ev-takedown-start', 'ev-takedown-end',
+];
+let editingEventId = '';
+
+function resetEventEditor() {
+  eventEditorFieldIds.forEach(id => { document.getElementById(id).value = ''; });
+  ['ev-sports', 'ev-isst', 'ev-festival'].forEach(id => { document.getElementById(id).checked = false; });
+  document.getElementById('ev-cat').value = 'Event';
+  editingEventId = '';
+  updateLivestreamSetupField();
+  document.getElementById('event-modal-title').textContent = 'New event';
+  document.getElementById('event-modal-sub').textContent = 'Create the event first, then members can choose an available signup window and production role.';
+  document.getElementById('event-edit-continuity-note').hidden = true;
+  const saveButton = document.getElementById('event-save-button');
+  saveButton.disabled = false;
+  saveButton.textContent = 'Create event';
+}
+
+function openEventEditor(id = '') {
+  if (!canManageCrewOperations()) {
+    showToast('Production staff access is required to manage events.', 'error');
+    return;
+  }
+  resetEventEditor();
+  const event = id ? eventById(id) : null;
+  if (id && (!event || event.archivedAt)) {
+    showToast("Couldn't open that event for editing.", 'error');
+    return;
+  }
+  if (event) {
+    editingEventId = event.id;
+    document.getElementById('ev-title').value = event.title;
+    document.getElementById('ev-date').value = event.date;
+    document.getElementById('ev-time').value = event.time;
+    document.getElementById('ev-loc').value = event.loc === 'TBC' ? '' : event.loc;
+    document.getElementById('ev-desc').value = event.desc;
+    document.getElementById('ev-cat').value = event.cat;
+    updateLivestreamSetupField();
+    document.getElementById('ev-end-time').value = event.cat === 'Recording (live cut)' ? event.endTime : '';
+    document.getElementById('ev-livestream-setup-date').value = event.livestreamSetupDate;
+    document.getElementById('ev-sports').checked = event.isSports;
+    document.getElementById('ev-isst').checked = event.isIsst;
+    document.getElementById('ev-festival').checked = event.isFestival;
+    document.getElementById('ev-game1-start').value = event.game1Start;
+    document.getElementById('ev-game1-end').value = event.game1End;
+    document.getElementById('ev-game2-start').value = event.game2Start;
+    document.getElementById('ev-game2-end').value = event.game2End;
+    document.getElementById('ev-game3-start').value = event.game3Start;
+    document.getElementById('ev-game3-end').value = event.game3End;
+    document.getElementById('ev-game4-start').value = event.game4Start;
+    document.getElementById('ev-game4-end').value = event.game4End;
+    document.getElementById('ev-setup-start').value = event.setupStart;
+    document.getElementById('ev-setup-end').value = event.setupEnd;
+    document.getElementById('ev-shift1-start').value = event.shift1Start;
+    document.getElementById('ev-shift1-end').value = event.shift1End;
+    document.getElementById('ev-shift2-start').value = event.shift2Start;
+    document.getElementById('ev-shift2-end').value = event.shift2End;
+    document.getElementById('ev-takedown-start').value = event.takedownStart;
+    document.getElementById('ev-takedown-end').value = event.takedownEnd;
+    updateSportsFields();
+    updateIsstFields();
+    updateFestivalFields();
+    document.getElementById('event-modal-title').textContent = 'Edit event';
+    document.getElementById('event-modal-sub').textContent = `Update “${event.title}” without removing its signups or reservation history.`;
+    document.getElementById('event-edit-continuity-note').hidden = false;
+    document.getElementById('event-save-button').textContent = 'Save changes';
+  }
+  openModal('event-modal');
+}
+
+function closeEventEditor() {
+  closeModal('event-modal');
+  resetEventEditor();
 }
 
 function updateLivestreamSetupField() {
@@ -158,6 +238,15 @@ function updateFestivalFields() {
 }
 
 async function addEvent() {
+  if (!canManageCrewOperations()) {
+    showToast('Production staff access is required to manage events.', 'error');
+    return;
+  }
+  const editingEvent = editingEventId ? eventById(editingEventId) : null;
+  if (editingEventId && (!editingEvent || editingEvent.archivedAt)) {
+    showToast("Couldn't save changes to that event.", 'error');
+    return;
+  }
   const title = document.getElementById('ev-title').value.trim();
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
@@ -226,53 +315,60 @@ async function addEvent() {
     showToast('This Berlin date/time is invalid. Check the schedule, especially around daylight-saving changes.', 'error', 7000);
     return;
   }
-  const { data, error } = await supabaseClient
-    .from('events')
-    .insert({
-      title,
-      date: new Date(eventDate).toISOString(),
-      location: document.getElementById('ev-loc').value,
-      description: document.getElementById('ev-desc').value,
-      category,
-      livestream_setup_date: category === 'Livestream'
-        ? document.getElementById('ev-livestream-setup-date').value || null
-        : null,
-      is_sports: isSports,
-      is_isst: isIsst,
-      game_1_start: isSports || isIsst ? gameTimes[0] : null,
-      game_1_end: isSports || isIsst ? gameTimes[1] : null,
-      game_2_start: isSports || isIsst ? gameTimes[2] : null,
-      game_2_end: isSports || isIsst ? gameTimes[3] : null,
-      game_3_start: isIsst ? isstTimes[0] : null,
-      game_3_end: isIsst ? isstTimes[1] : null,
-      game_4_start: isIsst ? isstTimes[2] || null : null,
-      game_4_end: isIsst ? isstTimes[3] || null : null,
-      is_festival: isFestival,
-      setup_start: isFestival ? festivalTimes[0] : null,
-      setup_end: isFestival ? festivalTimes[1] : null,
-      shift_1_start: isFestival ? festivalTimes[2] : null,
-      shift_1_end: isFestival ? festivalTimes[3] : null,
-      shift_2_start: isFestival ? festivalTimes[4] : null,
-      shift_2_end: isFestival ? festivalTimes[5] : null,
-      takedown_start: isFestival ? festivalTimes[6] : null,
-      takedown_end: isFestival ? festivalTimes[7] : null,
-      ends_at: new Date(eventEnd).toISOString(),
-    })
+  const payload = {
+    title,
+    date: new Date(eventDate).toISOString(),
+    location: document.getElementById('ev-loc').value,
+    description: document.getElementById('ev-desc').value,
+    category,
+    livestream_setup_date: category === 'Livestream'
+      ? document.getElementById('ev-livestream-setup-date').value || null
+      : null,
+    is_sports: isSports,
+    is_isst: isIsst,
+    game_1_start: isSports || isIsst ? gameTimes[0] : null,
+    game_1_end: isSports || isIsst ? gameTimes[1] : null,
+    game_2_start: isSports || isIsst ? gameTimes[2] : null,
+    game_2_end: isSports || isIsst ? gameTimes[3] : null,
+    game_3_start: isIsst ? isstTimes[0] : null,
+    game_3_end: isIsst ? isstTimes[1] : null,
+    game_4_start: isIsst ? isstTimes[2] || null : null,
+    game_4_end: isIsst ? isstTimes[3] || null : null,
+    is_festival: isFestival,
+    setup_start: isFestival ? festivalTimes[0] : null,
+    setup_end: isFestival ? festivalTimes[1] : null,
+    shift_1_start: isFestival ? festivalTimes[2] : null,
+    shift_1_end: isFestival ? festivalTimes[3] : null,
+    shift_2_start: isFestival ? festivalTimes[4] : null,
+    shift_2_end: isFestival ? festivalTimes[5] : null,
+    takedown_start: isFestival ? festivalTimes[6] : null,
+    takedown_end: isFestival ? festivalTimes[7] : null,
+    ends_at: new Date(eventEnd).toISOString(),
+  };
+  const saveButton = document.getElementById('event-save-button');
+  saveButton.disabled = true;
+  saveButton.textContent = editingEvent ? 'Saving changes...' : 'Creating event...';
+  const eventMutation = editingEvent
+    ? supabaseClient.from('events').update(payload).eq('id', editingEvent.id)
+    : supabaseClient.from('events').insert(payload);
+  const { data, error } = await eventMutation
     .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))')
     .single();
-  if (error) { showToast("Couldn't create event.", 'error'); return; }
+  if (error) {
+    saveButton.disabled = false;
+    saveButton.textContent = editingEvent ? 'Save changes' : 'Create event';
+    showToast(editingEvent ? "Couldn't update event." : "Couldn't create event.", 'error');
+    return;
+  }
   const ev = normalizeEvent(data);
-  state.events.push(ev);
+  if (editingEvent) {
+    state.events = state.events.map(event => event.id === ev.id ? ev : event);
+  } else {
+    state.events.push(ev);
+  }
   state.events.sort((a, b) => a.date.localeCompare(b.date));
-  closeModal('event-modal');
-  ['ev-title','ev-date','ev-time','ev-end-time','ev-loc','ev-desc','ev-livestream-setup-date','ev-game1-start','ev-game1-end','ev-game2-start','ev-game2-end','ev-game3-start','ev-game3-end','ev-game4-start','ev-game4-end','ev-setup-start','ev-setup-end','ev-shift1-start','ev-shift1-end','ev-shift2-start','ev-shift2-end','ev-takedown-start','ev-takedown-end'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('ev-sports').checked = false;
-  document.getElementById('ev-isst').checked = false;
-  document.getElementById('ev-festival').checked = false;
-  document.getElementById('ev-cat').value = 'Event';
-  updateLivestreamSetupField();
-  updateFestivalFields();
-  showToast(`Event "${ev.title}" created!`);
+  closeEventEditor();
+  showToast(editingEvent ? `Event “${ev.title}” updated.` : `Event “${ev.title}” created!`);
   renderEvents();
   renderDashboard();
 }
