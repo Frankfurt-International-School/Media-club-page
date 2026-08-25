@@ -1152,6 +1152,9 @@
   }
   .equipment-device-visual.brand-canon { --device-rgb: 213, 14, 48; }
   .equipment-device-visual.brand-lumix { --device-rgb: 45, 137, 235; }
+  .equipment-device-visual.brand-sigma { --device-rgb: 28, 28, 32; }
+  .equipment-device-visual.brand-leica { --device-rgb: 230, 31, 38; }
+  .equipment-device-visual.brand-olympus { --device-rgb: 34, 82, 160; }
   .equipment-device-visual::before {
     content: "";
     position: absolute;
@@ -1189,6 +1192,8 @@
     transform: translate(-50%, -48%);
     transition: transform .34s ease, filter .34s ease;
   }
+  .equipment-device-visual.is-lens img { width: min(63%, 225px); height: 158px; }
+  .equipment-lens-lock { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 9px; border: 1px solid rgba(164,1,52,.18); border-radius: 8px; background: var(--accent-dim2); color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
   .equipment-device-visual:hover img,
   .equipment-device-visual:focus-visible img { filter: drop-shadow(0 22px 22px rgba(0,0,0,.33)); transform: translate(-50%, -52%) scale(1.035); }
   .equipment-device-visual:focus-visible { outline: 2px solid rgba(var(--device-rgb), .8); outline-offset: -3px; }
@@ -1257,6 +1262,9 @@
   }
   #equipment-device-modal[data-brand="canon"] .equipment-device-modal { --device-rgb: 213, 14, 48; }
   #equipment-device-modal[data-brand="lumix"] .equipment-device-modal { --device-rgb: 45, 137, 235; }
+  #equipment-device-modal[data-brand="sigma"] .equipment-device-modal { --device-rgb: 128, 128, 136; }
+  #equipment-device-modal[data-brand="leica"] .equipment-device-modal { --device-rgb: 230, 31, 38; }
+  #equipment-device-modal[data-brand="olympus"] .equipment-device-modal { --device-rgb: 57, 108, 194; }
   .equipment-device-modal .modal-close { z-index: 8; color: #fff; background: rgba(10,11,15,.58); border-color: rgba(255,255,255,.16); backdrop-filter: blur(8px); }
   .equipment-device-modal .modal-close:hover { color: #fff; background: rgba(var(--device-rgb), .72); }
   .equipment-device-console-topline {
@@ -1288,6 +1296,7 @@
       radial-gradient(circle at 48% 48%, rgba(var(--device-rgb), .34), transparent 37%),
       radial-gradient(circle at 85% 12%, rgba(var(--device-rgb), .18), transparent 34%),
       linear-gradient(145deg, #161821, #08090c 72%);
+    background-color: #08090c;
   }
   .equipment-device-console-stage::before {
     content: "";
@@ -1316,6 +1325,9 @@
     white-space: nowrap;
   }
   #equipment-device-modal[data-brand="lumix"] .equipment-device-console-stage::after { content: "LUMIX"; }
+  #equipment-device-modal[data-brand="sigma"] .equipment-device-console-stage::after { content: "SIGMA"; }
+  #equipment-device-modal[data-brand="leica"] .equipment-device-console-stage::after { content: "LEICA"; }
+  #equipment-device-modal[data-brand="olympus"] .equipment-device-console-stage::after { content: "OLYMPUS"; }
   .equipment-device-console-orbit {
     position: absolute;
     z-index: 1;
@@ -1343,6 +1355,7 @@
     transform: translate(-50%, -50%);
     animation: equipmentDeviceEnter .42s ease both;
   }
+  #equipment-device-modal[data-device-kind="lens"] .equipment-device-console-stage img { width: min(72%, 330px); height: 330px; }
   .equipment-device-console-brand {
     position: absolute;
     z-index: 4;
@@ -1367,6 +1380,36 @@
   .equipment-device-notes p { color: var(--text2); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
   .equipment-device-console-actions { display: grid; gap: 8px; margin-top: 16px; }
   .equipment-device-console-actions .btn { width: 100%; justify-content: center; }
+  .modal.equipment-reservation-modal { max-width: 680px; }
+  .reservation-lens-system { position: relative; isolation: isolate; margin-bottom: 16px; padding: 14px; overflow: hidden; border: 1px solid rgba(164,1,52,.22); border-radius: 13px; background: linear-gradient(145deg, var(--accent-dim2), var(--bg3)); }
+  .reservation-lens-system[hidden] { display: none; }
+  .reservation-lens-system::after { content: "OPTICS"; position: absolute; z-index: -1; right: -8px; top: -9px; color: rgba(164,1,52,.045); font-family: var(--font-head); font-size: 66px; letter-spacing: .06em; }
+  .reservation-lens-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+  .reservation-lens-heading > div { display: flex; align-items: center; gap: 7px; }
+  .reservation-lens-heading strong { color: var(--text); font-size: 12px; }
+  .reservation-lens-heading > span { color: var(--accent); font: 700 8px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-align: right; }
+  .reservation-lens-signal { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 11px rgba(164,1,52,.6); }
+  .reservation-lens-system > p { margin-bottom: 11px; color: var(--text3); font-size: 10px; line-height: 1.45; }
+  .reservation-lens-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .reservation-lens-choice { position: relative; display: grid; grid-template-columns: 58px minmax(0, 1fr); min-width: 0; min-height: 76px; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); cursor: pointer; transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
+  .reservation-lens-choice:hover:not(.unavailable) { transform: translateY(-1px); border-color: rgba(164,1,52,.32); }
+  .reservation-lens-choice.selected { border-color: rgba(164,1,52,.46); box-shadow: 0 0 0 2px rgba(164,1,52,.08); }
+  .reservation-lens-choice.selected::after { content: ""; position: absolute; top: 8px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(164,1,52,.6); }
+  .reservation-lens-choice.unavailable { opacity: .52; cursor: not-allowed; }
+  .reservation-lens-choice > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .reservation-lens-thumb { display: grid; place-items: center; min-width: 0; background: radial-gradient(circle, rgba(164,1,52,.13), transparent 68%), var(--bg3); }
+  .reservation-lens-thumb.brand-lumix, .reservation-lens-thumb.brand-olympus, .reservation-lens-thumb.brand-leica { background: radial-gradient(circle, rgba(51,112,197,.15), transparent 68%), var(--bg3); }
+  .reservation-lens-thumb img { width: 50px; height: 62px; object-fit: contain; filter: drop-shadow(0 8px 7px rgba(0,0,0,.2)); }
+  .reservation-lens-copy { display: grid; align-content: center; gap: 3px; min-width: 0; padding: 10px 20px 10px 10px; }
+  .reservation-lens-copy strong { overflow: hidden; color: var(--text); font-size: 9px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  .reservation-lens-copy small { display: -webkit-box; overflow: hidden; color: var(--text3); font-size: 8px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .reservation-lens-copy > span { color: var(--coral); font: 700 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-transform: uppercase; }
+  .reservation-lens-copy > span.available { color: var(--green); }
+  .reservation-lens-choice.no-lens { display: grid; grid-template-columns: 1fr; align-content: center; gap: 2px; padding: 11px; border-style: dashed; }
+  .reservation-lens-choice.no-lens strong { color: var(--text); font-size: 10px; }
+  .reservation-lens-choice.no-lens small { color: var(--text3); font-size: 8px; }
+  .reservation-lens-admin { color: var(--accent); font: 700 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+  .reservation-lens-empty { grid-column: 1 / -1; padding: 14px; border: 1px dashed var(--border2); border-radius: 10px; color: var(--text3); font-size: 10px; line-height: 1.5; }
   @keyframes equipmentDeviceEnter {
     from { opacity: 0; transform: translate(-50%, -45%) scale(.965); }
     to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -1483,6 +1526,32 @@
   }
   .event-schedule-option > .checkbox-label { margin-bottom: 0; }
   .event-schedule-option:has(.checkbox-label.checked) { border-color: rgba(164,1,52,0.35); background: var(--accent-dim2); }
+  .event-role-setup[hidden], .event-single-role-slots[hidden] { display: none; }
+  .event-role-setup { position: relative; overflow: hidden; background: linear-gradient(145deg, var(--bg), var(--accent-dim2)); }
+  .event-role-setup::after { content: "ROLE"; position: absolute; top: 24px; right: -8px; color: rgba(164,1,52,.045); font-family: var(--font-head); font-size: 78px; line-height: 1; letter-spacing: .08em; pointer-events: none; }
+  .event-role-setup-head { position: relative; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 13px; }
+  .event-role-setup-head strong { display: block; color: var(--text); font-size: 12px; }
+  .event-role-setup-head p { margin-top: 3px; color: var(--text3); font-size: 10px; line-height: 1.45; }
+  .event-role-setup-signal { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; color: var(--accent); font: 700 8px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+  .event-role-setup-signal > span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px rgba(164,1,52,.5); }
+  .event-role-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .event-role-option { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg2); color: var(--text2); cursor: pointer; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+  .event-role-option:hover { border-color: rgba(164,1,52,.3); transform: translateY(-1px); }
+  .event-role-option:has(input:checked) { border-color: rgba(164,1,52,.34); background: var(--accent-dim); color: var(--text); }
+  .event-role-option.is-photography:has(input:checked) { box-shadow: inset 3px 0 var(--accent); }
+  .event-role-option input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .event-role-option-index { color: var(--text3); font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .event-role-option > span:nth-of-type(2) { overflow: hidden; font-size: 10px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .event-role-option small { color: var(--text3); font-size: 8px; text-transform: uppercase; }
+  .event-role-option:has(input:checked)::after { content: ""; position: absolute; top: 7px; right: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 7px rgba(164,1,52,.55); }
+  .event-single-role-slots { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 10px; padding: 12px; border: 1px solid rgba(164,1,52,.22); border-radius: 10px; background: var(--bg2); }
+  .event-single-role-slots strong { color: var(--text); font-size: 11px; }
+  .event-single-role-slots p { margin-top: 3px; color: var(--text3); font-size: 9px; }
+  .event-single-role-slots label { display: grid; gap: 4px; flex: 0 0 116px; color: var(--text3); font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .event-single-role-slots input { width: 100%; }
+  .event-role-setup-note { position: relative; z-index: 1; margin-top: 9px; color: var(--text3); font-size: 9px; line-height: 1.45; }
+  .event-open-role-caption { display: inline-flex; align-items: center; gap: 6px; margin: 1px 0 9px; padding: 5px 8px; border: 1px solid rgba(164,1,52,.18); border-radius: 999px; background: var(--accent-dim2); color: var(--accent); font-size: 9px; font-weight: 700; }
+  .event-open-role-caption > span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 7px rgba(164,1,52,.5); }
 
   /* ── TOAST ── */
   .toast-container {
@@ -2028,6 +2097,12 @@
     .equipment-device-console-topline { align-items: flex-start; flex-direction: column; gap: 5px; padding: 12px 50px 11px 14px; }
     .equipment-device-visual { min-height: 184px; }
     .equipment-device-visual img { height: 138px; }
+    .equipment-device-visual.is-lens img { height: 145px; }
+    #equipment-device-modal[data-device-kind="lens"] .equipment-device-console-stage img { height: 205px; }
+    .event-role-grid, .reservation-lens-grid { grid-template-columns: 1fr; }
+    .event-role-setup-head, .reservation-lens-heading { align-items: flex-start; flex-direction: column; }
+    .event-single-role-slots { align-items: stretch; flex-direction: column; }
+    .event-single-role-slots label { flex-basis: auto; }
     .equipment-device-readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .equipment-device-readouts > div:last-child { grid-column: 1 / -1; }
     .signup-sheet-summary, .equipment-register-card > .flex-between { align-items: flex-start; flex-direction: column; gap: 10px; }

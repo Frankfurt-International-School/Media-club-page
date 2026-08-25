@@ -1,6 +1,13 @@
 // ══════════════════════════════
 // EVENTS
 // ══════════════════════════════
+function eventRoleSetupCaption(event) {
+  if (!eventCategorySupportsRoleSetup(event?.cat)) return '';
+  const roles = eventOpenRoleLabels(event);
+  if (roles.length === 1) return `${roles[0]} · ${eventRoleCapacity(event, roles[0])} concurrent ${eventRoleCapacity(event, roles[0]) === 1 ? 'slot' : 'slots'}`;
+  return `${roles.length} open crew roles`;
+}
+
 function renderEvents(filter) {
   if (filter !== undefined) state.eventFilter = filter;
   renderArchivedEvents();
@@ -39,6 +46,7 @@ function renderEvents(filter) {
           ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(isstScheduleCaption(ev))}</div>` : ''}
           ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(festivalScheduleCaption(ev))}</div>` : ''}
           ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
+          ${eventRoleSetupCaption(ev) ? `<div class="event-open-role-caption"><span></span>${escapeHtml(eventRoleSetupCaption(ev))}</div>` : ''}
           ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
           <div class="event-card-actions">
             ${past
@@ -102,10 +110,44 @@ const eventEditorFieldIds = [
 ];
 let editingEventId = '';
 
+function selectedEventSignupRoles() {
+  return [...document.querySelectorAll('#ev-open-role-grid input[type="checkbox"]:checked')].map(input => input.value);
+}
+
+function setEventSignupRoles(roles = signupRoleDisplayOrder) {
+  const selected = new Set(roles.filter(role => signupRoleDisplayOrder.includes(role)));
+  const grid = document.getElementById('ev-open-role-grid');
+  grid.innerHTML = signupRoleDisplayOrder.map((role, index) => `<label class="event-role-option${role === signupRoleLabels.photographer ? ' is-photography' : ''}">
+    <input type="checkbox" value="${escapeHtml(role)}" ${selected.has(role) ? 'checked' : ''} onchange="updateEventRoleSlotControls()">
+    <span class="event-role-option-index">${String(index + 1).padStart(2, '0')}</span><span>${escapeHtml(role)}</span><small>${role === signupRoleLabels.photographer ? 'Photo coverage' : role.includes('Supervisor') ? 'Supervision' : 'Production'}</small>
+  </label>`).join('');
+  updateEventRoleSlotControls();
+}
+
+function updateEventRoleSlotControls() {
+  const category = document.getElementById('ev-cat')?.value || '';
+  const supportsSetup = eventCategorySupportsRoleSetup(category);
+  const section = document.getElementById('ev-role-setup');
+  const slotPanel = document.getElementById('ev-single-role-slots');
+  if (!section || !slotPanel) return;
+  section.hidden = !supportsSetup;
+  const selectedRoles = selectedEventSignupRoles();
+  const singleRole = supportsSetup && selectedRoles.length === 1 ? selectedRoles[0] : '';
+  slotPanel.hidden = !singleRole;
+  if (singleRole) {
+    document.getElementById('ev-single-role-title').textContent = `${singleRole} capacity`;
+    document.getElementById('ev-single-role-help').textContent = singleRole === signupRoleLabels.photographer
+      ? 'Choose how many photographers may cover the event at the same time.'
+      : `Choose how many members may hold ${singleRole} at the same time.`;
+  }
+}
+
 function resetEventEditor() {
   eventEditorFieldIds.forEach(id => { document.getElementById(id).value = ''; });
   ['ev-sports', 'ev-isst', 'ev-festival'].forEach(id => { document.getElementById(id).checked = false; });
   document.getElementById('ev-cat').value = 'Event';
+  document.getElementById('ev-single-role-slot-limit').value = '1';
+  setEventSignupRoles(signupRoleDisplayOrder);
   editingEventId = '';
   updateLivestreamSetupField();
   document.getElementById('event-modal-title').textContent = 'New event';
@@ -136,6 +178,9 @@ function openEventEditor(id = '') {
     document.getElementById('ev-desc').value = event.desc;
     document.getElementById('ev-cat').value = event.cat;
     updateLivestreamSetupField();
+    setEventSignupRoles(event.openSignupRoles);
+    document.getElementById('ev-single-role-slot-limit').value = String(event.singleRoleSlotLimit || 1);
+    updateEventRoleSlotControls();
     document.getElementById('ev-end-time').value = event.cat === 'Recording (live cut)' ? event.endTime : '';
     document.getElementById('ev-livestream-setup-date').value = event.livestreamSetupDate;
     document.getElementById('ev-sports').checked = event.isSports;
@@ -192,6 +237,7 @@ function updateLivestreamSetupField() {
   updateSportsFields();
   updateIsstFields();
   updateFestivalFields();
+  updateEventRoleSlotControls();
   if (category === 'Livestream' && !setupDate.value) {
     setupDate.value = dateBefore(document.getElementById('ev-date').value);
   }
@@ -251,6 +297,24 @@ async function addEvent() {
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
   const category = document.getElementById('ev-cat').value;
+  const openSignupRoles = eventCategorySupportsRoleSetup(category) ? selectedEventSignupRoles() : signupRoleDisplayOrder.slice();
+  if (!openSignupRoles.length) {
+    showToast('Open at least one crew role for this event.', 'error');
+    return;
+  }
+  if (openSignupRoles.includes(signupRoleLabels.student_supervisor)) {
+    const reserveRoles = openSignupRoles.filter(role => ![signupRoleLabels.adult_supervisor, signupRoleLabels.student_supervisor, signupRoleLabels.photographer].includes(role));
+    if (reserveRoles.length < 2) {
+      showToast('Student Supervisor requires at least two other open production roles for reserve priorities.', 'error', 7000);
+      return;
+    }
+  }
+  const requestedSlotLimit = Number(document.getElementById('ev-single-role-slot-limit').value);
+  const singleRoleSlotLimit = openSignupRoles.length === 1 ? Math.trunc(requestedSlotLimit) : 1;
+  if (!Number.isInteger(singleRoleSlotLimit) || singleRoleSlotLimit < 1 || singleRoleSlotLimit > 20) {
+    showToast('Concurrent slots must be a whole number from 1 to 20.', 'error');
+    return;
+  }
   const startTime = document.getElementById('ev-time').value;
   const liveCutEndTime = category === 'Recording (live cut)' ? document.getElementById('ev-end-time').value : '';
   if (liveCutEndTime && !startTime) {
@@ -321,6 +385,8 @@ async function addEvent() {
     location: document.getElementById('ev-loc').value,
     description: document.getElementById('ev-desc').value,
     category,
+    open_signup_roles: openSignupRoles,
+    single_role_slot_limit: singleRoleSlotLimit,
     livestream_setup_date: category === 'Livestream'
       ? document.getElementById('ev-livestream-setup-date').value || null
       : null,
@@ -352,7 +418,7 @@ async function addEvent() {
     ? supabaseClient.from('events').update(payload).eq('id', editingEvent.id)
     : supabaseClient.from('events').insert(payload);
   const { data, error } = await eventMutation
-    .select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))')
+    .select('*, signups(id, member_id, signup_role, role_slot, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))')
     .single();
   if (error) {
     saveButton.disabled = false;

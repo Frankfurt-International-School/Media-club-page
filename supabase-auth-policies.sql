@@ -1209,6 +1209,11 @@ as $$
     from public.events event
     where event.id = p_event_id
       and p_attendance_end > p_attendance_start
+      and (
+        event.category not in ('Event', 'Recording (live cut)')
+        or p_signup_role is null
+        or p_signup_role = any(event.open_signup_roles)
+      )
       and (p_attendance_start at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
       and (p_attendance_end at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
       and (
@@ -1284,6 +1289,36 @@ as $$
   );
 $$;
 
+create or replace function public.are_event_reserve_roles_open(
+  p_event_id uuid,
+  p_signup_role text,
+  p_reserve_role_1 text,
+  p_reserve_role_2 text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_signup_role is distinct from 'Student Supervisor'
+    or exists (
+      select 1
+      from public.events event
+      where event.id = p_event_id
+        and (
+          event.category not in ('Event', 'Recording (live cut)')
+          or (
+            p_reserve_role_1 = any(event.open_signup_roles)
+            and p_reserve_role_2 = any(event.open_signup_roles)
+          )
+        )
+    );
+$$;
+
+revoke all on function public.are_event_reserve_roles_open(uuid, text, text, text) from public;
+grant execute on function public.are_event_reserve_roles_open(uuid, text, text, text) to authenticated;
+
 create or replace function public.can_create_equipment_reservation(
   p_equipment_id uuid,
   p_member_id uuid,
@@ -1308,7 +1343,10 @@ as $$
     )
     and exists (
       select 1 from public.equipment item
-      where item.id = p_equipment_id and item.status = 'available'
+      where item.id = p_equipment_id
+        and item.status = 'available'
+        and item.archived_at is null
+        and item.category not in ('Camera', 'Recording Cameras', 'Lens')
     )
     and not exists (
       select 1
@@ -1348,6 +1386,201 @@ as $$
       )
     );
 $$;
+
+create or replace function public.create_camera_kit_reservation(
+  p_camera_id uuid,
+  p_lens_id uuid,
+  p_event_id uuid,
+  p_reservation_type text,
+  p_purpose text,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  reserving_member_id uuid := public.current_member_id();
+  camera_item public.equipment%rowtype;
+  lens_item public.equipment%rowtype;
+  kit_group_id uuid := gen_random_uuid();
+  member_grade integer;
+  result jsonb;
+begin
+  if public.is_visitor_session() or reserving_member_id is null then
+    raise exception 'Approved member access is required.';
+  end if;
+  if p_ends_at is null or p_starts_at is null or p_ends_at <= p_starts_at then
+    raise exception 'The reservation end time must be after its start time.';
+  end if;
+  if not (
+    (p_reservation_type = 'event' and p_event_id is not null)
+    or (p_reservation_type = 'non_event' and p_event_id is null and nullif(btrim(p_purpose), '') is not null)
+  ) then
+    raise exception 'Choose a valid event or provide a non-event purpose.';
+  end if;
+
+  select * into camera_item
+  from public.equipment item
+  where item.id = p_camera_id
+  for update;
+  if not found or camera_item.category not in ('Camera', 'Recording Cameras') or camera_item.archived_at is not null then
+    raise exception 'Choose an active camera body.';
+  end if;
+  if camera_item.status <> 'available' then
+    raise exception 'This camera is currently unavailable.';
+  end if;
+  if camera_item.compatibility_group is null then
+    raise exception 'This camera does not have a lens compatibility profile yet.';
+  end if;
+
+  if p_lens_id is null then
+    if not public.is_auth_admin() then
+      raise exception 'A compatible lens is required with every camera reservation.';
+    end if;
+  else
+    select * into lens_item
+    from public.equipment item
+    where item.id = p_lens_id
+    for update;
+    if not found or lens_item.category <> 'Lens' or lens_item.archived_at is not null then
+      raise exception 'Choose an active lens.';
+    end if;
+    if lens_item.status <> 'available' then
+      raise exception 'This lens is currently unavailable.';
+    end if;
+    if lens_item.compatibility_group is distinct from camera_item.compatibility_group then
+      raise exception 'That lens is not compatible with the selected camera.';
+    end if;
+  end if;
+
+  if p_reservation_type = 'non_event' then
+    select case
+      when coalesce(member.grade_level, '') ~ '[0-9]+'
+        then substring(member.grade_level from '[0-9]+')::integer
+      else null
+    end into member_grade
+    from public.members member
+    where member.id = reserving_member_id;
+    if member_grade is null or member_grade not in (11, 12) then
+      raise exception 'Only Grade 11 and Grade 12 members can borrow cameras outside an event.';
+    end if;
+  end if;
+
+  if not public.is_admin_panel_user() and exists (
+    select 1
+    from public.events event
+    where (event.category in ('Livestream', 'Event') or event.is_festival)
+      and tstzrange(
+        event.date,
+        coalesce(event.ends_at, (date_trunc('day', event.date at time zone 'Europe/Berlin') + interval '1 day') at time zone 'Europe/Berlin'),
+        '[)'
+      ) && tstzrange(p_starts_at, p_ends_at, '[)')
+      and not exists (
+        select 1 from public.signups signup
+        where signup.event_id = event.id
+          and signup.member_id = reserving_member_id
+          and signup.signup_role = 'Photographer'
+          and signup.attendance_start <= p_starts_at
+          and signup.attendance_end >= p_ends_at
+      )
+  ) then
+    raise exception 'Sign up as Photographer and reserve only within your signup time.';
+  end if;
+
+  insert into public.equipment_reservations (
+    reservation_group_id, equipment_id, member_id, event_id, reservation_type, purpose, starts_at, ends_at
+  ) values (
+    kit_group_id, camera_item.id, reserving_member_id, p_event_id, p_reservation_type, nullif(btrim(p_purpose), ''), p_starts_at, p_ends_at
+  );
+
+  if p_lens_id is not null then
+    insert into public.equipment_reservations (
+      reservation_group_id, equipment_id, member_id, event_id, reservation_type, purpose, starts_at, ends_at
+    ) values (
+      kit_group_id, lens_item.id, reserving_member_id, p_event_id, p_reservation_type, nullif(btrim(p_purpose), ''), p_starts_at, p_ends_at
+    );
+  end if;
+
+  select jsonb_build_object(
+    'group_id', kit_group_id,
+    'reservations', jsonb_agg(jsonb_build_object(
+      'id', reservation.id,
+      'reservation_group_id', reservation.reservation_group_id,
+      'equipment_id', reservation.equipment_id,
+      'equipment_name', item.name,
+      'member_id', reservation.member_id,
+      'member_name', member.name,
+      'event_id', reservation.event_id,
+      'event_title', event.title,
+      'reservation_type', reservation.reservation_type,
+      'purpose', reservation.purpose,
+      'starts_at', reservation.starts_at,
+      'ends_at', reservation.ends_at,
+      'reservation_status', reservation.reservation_status,
+      'checked_out_at', reservation.checked_out_at,
+      'returned_at', reservation.returned_at,
+      'returned_by', reservation.returned_by,
+      'returned_by_name', reservation.returned_by_name,
+      'auto_released_at', reservation.auto_released_at
+    ) order by case when item.category in ('Camera', 'Recording Cameras') then 0 else 1 end)
+  ) into result
+  from public.equipment_reservations reservation
+  join public.equipment item on item.id = reservation.equipment_id
+  join public.members member on member.id = reservation.member_id
+  left join public.events event on event.id = reservation.event_id
+  where reservation.reservation_group_id = kit_group_id;
+
+  return result;
+exception
+  when exclusion_violation then
+    raise exception 'The camera or lens is already reserved during that time.';
+end;
+$$;
+
+revoke all on function public.create_camera_kit_reservation(uuid, uuid, uuid, text, text, timestamptz, timestamptz) from public;
+grant execute on function public.create_camera_kit_reservation(uuid, uuid, uuid, text, text, timestamptz, timestamptz) to authenticated;
+
+create or replace function public.cancel_equipment_reservation_group(p_reservation_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_reservation public.equipment_reservations%rowtype;
+  deleted_count integer := 0;
+begin
+  select * into target_reservation
+  from public.equipment_reservations reservation
+  where reservation.id = p_reservation_id;
+
+  if not found
+    or target_reservation.reservation_status <> 'scheduled'
+    or target_reservation.starts_at <= now()
+    or (not public.is_auth_admin() and target_reservation.member_id is distinct from public.current_member_id()) then
+    return false;
+  end if;
+
+  delete from public.equipment_reservations reservation
+  where reservation.reservation_status = 'scheduled'
+    and reservation.starts_at > now()
+    and (
+      reservation.id = target_reservation.id
+      or (
+        target_reservation.reservation_group_id is not null
+        and reservation.reservation_group_id = target_reservation.reservation_group_id
+      )
+    );
+  get diagnostics deleted_count = row_count;
+  return deleted_count > 0;
+end;
+$$;
+
+revoke all on function public.cancel_equipment_reservation_group(uuid) from public;
+grant execute on function public.cancel_equipment_reservation_group(uuid) to authenticated;
 
 create or replace function public.set_equipment_operational_status(
   p_equipment_id uuid,
@@ -1390,7 +1623,8 @@ security definer
 set search_path = public
 as $$
 declare
-  affected_equipment_id uuid;
+  target_group_id uuid;
+  affected_equipment_ids uuid[];
   returning_member_name text;
 begin
   if not public.can_access_equipment_status() then
@@ -1403,30 +1637,40 @@ begin
   limit 1;
   returning_member_name := coalesce(returning_member_name, auth.jwt() ->> 'email', 'Auth Admin');
 
-  update public.equipment_reservations
+  select reservation.reservation_group_id into target_group_id
+  from public.equipment_reservations reservation
+  where reservation.id = p_reservation_id;
+
+  with returned_reservations as (
+    update public.equipment_reservations reservation
   set reservation_status = 'returned',
       returned_at = now(),
       returned_by = auth.uid(),
       returned_by_name = returning_member_name
-  where id = p_reservation_id
+    where (
+        reservation.id = p_reservation_id
+        or (target_group_id is not null and reservation.reservation_group_id = target_group_id)
+      )
     and (
       reservation_status = 'checked_out'
       or reservation_status = 'auto_released'
       or (reservation_status = 'scheduled' and starts_at <= now())
     )
-  returning equipment_id into affected_equipment_id;
+    returning equipment_id
+  )
+  select array_agg(equipment_id) into affected_equipment_ids from returned_reservations;
 
-  if affected_equipment_id is null then
+  if affected_equipment_ids is null then
     return false;
   end if;
 
-  update public.equipment
+  update public.equipment item
   set status = 'available'
-  where id = affected_equipment_id
-    and status = 'checked_out'
+  where item.id = any(affected_equipment_ids)
+    and item.status = 'checked_out'
     and not exists (
       select 1 from public.equipment_reservations reservation
-      where reservation.equipment_id = affected_equipment_id
+      where reservation.equipment_id = item.id
         and reservation.reservation_status = 'checked_out'
     );
 
@@ -1550,6 +1794,8 @@ grant update (
   location,
   description,
   category,
+  open_signup_roles,
+  single_role_slot_limit,
   livestream_setup_date,
   is_sports,
   is_isst,
@@ -1659,6 +1905,7 @@ with check (
   and attendance_marked_by_name is null
   and confirmation_status in ('confirmed', 'maybe')
   and public.is_valid_event_signup(event_id, signup_role, attendance_type, attendance_start, attendance_end)
+  and public.are_event_reserve_roles_open(event_id, signup_role, reserve_role_1, reserve_role_2)
   and (signup_role <> 'Student Supervisor' or public.is_crew_operations_user())
   and (
     (equipment_source = 'club' and own_camera_name is null)
@@ -1731,6 +1978,7 @@ with check (
     equipment_id, member_id, event_id, reservation_type, starts_at, ends_at
   )
   and (reservation_type <> 'non_event' or nullif(btrim(purpose), '') is not null)
+  and reservation_group_id is null
   and reservation_status = 'scheduled'
   and checked_out_at is null
   and returned_at is null
@@ -1739,17 +1987,9 @@ with check (
   and auto_released_at is null
 );
 
-create policy "Users can cancel equipment reservations"
-on public.equipment_reservations for delete
-to authenticated
-using (
-  reservation_status = 'scheduled'
-  and starts_at > now()
-  and (
-    public.is_auth_admin()
-    or equipment_reservations.member_id = public.current_member_id()
-  )
-);
+-- Reservation cancellation must go through cancel_equipment_reservation_group()
+-- so a camera and its mandatory lens cannot be separated by a direct delete.
+revoke delete on table public.equipment_reservations from anon, authenticated;
 
 create policy "Signed-in users can read gallery"
 on public.gallery for select

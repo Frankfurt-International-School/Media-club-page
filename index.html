@@ -469,7 +469,7 @@
       <div class="page-hero-copy">
         <div class="page-kicker">Production inventory</div>
         <div class="page-title">Equipment</div>
-        <div class="page-sub">Browse availability and reserve cameras, audio, and production equipment.</div>
+        <div class="page-sub">Browse availability and reserve camera-and-lens kits, audio, and production equipment.</div>
       </div>
       <div class="page-hero-actions"><button class="btn btn-accent" id="add-equipment-btn" onclick="openModal('equip-add-modal')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -479,7 +479,7 @@
     <div class="filter-row" id="equipment-filters">
       <input class="form-input" id="equipment-search" style="max-width:260px;" placeholder="Search equipment" oninput="renderEquipment()" />
       <select class="form-select" id="equipment-category-filter" style="max-width:220px;" onchange="renderEquipment()">
-        <option value="all">All categories</option><option>Recording Cameras</option><option>Camera</option><option>Tripod</option><option>Microphone</option><option>Accessories</option><option>Other</option>
+        <option value="all">All categories</option><option>Recording Cameras</option><option>Camera</option><option>Lens</option><option>Tripod</option><option>Microphone</option><option>Accessories</option><option>Other</option>
       </select>
       <select class="form-select" id="equipment-status-filter" style="max-width:190px;" onchange="renderEquipment()">
         <option value="all">All statuses</option><option value="available">Available</option><option value="checked_out">Checked out</option><option value="unavailable">Unavailable</option>
@@ -636,7 +636,7 @@
         <article class="role-guide-card camera">
           <div class="role-guide-number">08</div><div class="role-guide-tag">Independent</div>
           <h3>Photographer</h3>
-          <p>Photographers independently decide which parts of the action to capture. They may use a Media Club loan camera or the personal camera selected in their signup. <strong>Loan equipment must be returned after the event. Personal equipment is optional and is brought and used at the owner’s own risk, so keep it supervised and protected.</strong> Typical club cameras include the Canon 70/450/600/700D, with R6 and GH6 bodies reserved for experienced users or special occasions with adult approval.</p>
+          <p>Photographers independently decide which parts of the action to capture. They may use a Media Club loan camera or the personal camera selected in their signup. <strong>Club camera reservations include a compatible lens and the complete kit must be returned after the event. Personal equipment is optional and is brought and used at the owner’s own risk, so keep it supervised and protected.</strong> Typical club cameras include the Canon 70/450/600/700D, with R6 and GH6 bodies reserved for experienced users or special occasions with adult approval.</p>
         </article>
       </div>
     </section>
@@ -921,8 +921,21 @@
       </div>
       </div>
     </section>
+    <section class="event-form-section event-role-setup" id="ev-role-setup" hidden>
+      <div class="event-form-section-title"><span>3</span> Open crew positions</div>
+      <div class="event-role-setup-head">
+        <div><strong>Choose roles members may claim</strong><p>Available for Event and Recording (live cut). Existing signups stay attached if a role is later closed.</p></div>
+        <span class="event-role-setup-signal"><span></span>ROLE MATRIX</span>
+      </div>
+      <div class="event-role-grid" id="ev-open-role-grid"></div>
+      <div class="event-single-role-slots" id="ev-single-role-slots" hidden>
+        <div><strong id="ev-single-role-title">Single-role capacity</strong><p id="ev-single-role-help">Set how many members may hold this role at the same time.</p></div>
+        <label for="ev-single-role-slot-limit"><span>Concurrent slots</span><input class="form-input" id="ev-single-role-slot-limit" type="number" min="1" max="20" value="1" inputmode="numeric"></label>
+      </div>
+      <div class="event-role-setup-note">Slot limits are checked by Supabase when a signup is saved, including simultaneous requests.</div>
+    </section>
     <section class="event-form-section">
-      <div class="event-form-section-title"><span>3</span> Description</div>
+      <div class="event-form-section-title"><span>4</span> Description</div>
       <div class="form-group" style="margin-bottom:0;"><label class="form-label">Event notes</label><textarea class="form-textarea" id="ev-desc" placeholder="What will happen, where should the crew meet, and what should they bring?"></textarea></div>
     </section>
     <button class="btn btn-accent" id="event-save-button" style="width:100%;" onclick="addEvent()">Create event</button>
@@ -1042,9 +1055,14 @@
     <div class="modal-sub">Create an equipment record for future admin management.</div>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Item name *</label><input class="form-input" id="equip-name" placeholder="Sony A7 III" /></div>
-      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="equip-cat" onchange="updateEquipmentOtherCategory()"><option>Recording Cameras</option><option>Camera</option><option>Tripod</option><option>Microphone</option><option>Accessories</option><option>Other</option></select></div>
+      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="equip-cat" onchange="updateEquipmentOtherCategory()"><option>Recording Cameras</option><option>Camera</option><option>Lens</option><option>Tripod</option><option>Microphone</option><option>Accessories</option><option>Other</option></select></div>
     </div>
     <div class="form-group" id="equip-other-category-group" style="display:none;"><label class="form-label">Other category *</label><input class="form-input" id="equip-other-category" placeholder="Type the equipment category" /></div>
+    <div class="form-group" id="equip-compatibility-group">
+      <label class="form-label" for="equip-compatibility">Lens system</label>
+      <select class="form-select" id="equip-compatibility"><option value="">Not lens-paired</option><option value="canon-r6">Canon R6 system</option><option value="lumix-gh6">Lumix GH6 system</option><option value="canon-aps-c">Canon APS-C DSLR system</option></select>
+      <div class="text-muted" style="font-size:11px;margin-top:6px;">Required for camera bodies and lenses that should appear in the compatible-kit selector.</div>
+    </div>
     <div class="form-group"><label class="form-label">Details</label><input class="form-input" id="equip-detail" placeholder="Full-frame mirrorless, 4K video..." /></div>
     <button class="btn btn-accent" style="width:100%;" onclick="addEquipment()">Add equipment</button>
   </div>
@@ -1082,19 +1100,24 @@
 
 <!-- Reserve Equipment Modal -->
 <div class="modal-backdrop" id="equip-reserve-modal">
-  <div class="modal" style="position:relative;">
+  <div class="modal equipment-reservation-modal" style="position:relative;">
     <button class="modal-close" onclick="closeModal('equip-reserve-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     <div class="modal-title">Reserve equipment</div>
     <div class="modal-sub" id="reserve-equipment-name">Choose when you need this item.</div>
     <div class="form-group"><label class="form-label">Use</label><select class="form-select" id="reserve-type" onchange="updateReservationFields()"><option value="event">During an event</option><option value="non_event">Not during an event</option></select></div>
     <div class="form-group" id="reserve-event-group"><label class="form-label">Event</label><select class="form-select" id="reserve-event" onchange="prefillEventReservationTimes()"></select></div>
-    <div class="form-group" id="reserve-date-group" style="display:none;"><label class="form-label">Date</label><input class="form-input" id="reserve-date" type="date" /></div>
+    <div class="form-group" id="reserve-date-group" style="display:none;"><label class="form-label">Date</label><input class="form-input" id="reserve-date" type="date" onchange="renderReservationLensOptions()" /></div>
     <div class="form-group" id="reserve-purpose-group" style="display:none;"><label class="form-label">Purpose *</label><textarea class="form-textarea" id="reserve-purpose" placeholder="Explain what the equipment will be used for"></textarea></div>
+    <section class="reservation-lens-system" id="reserve-lens-system" hidden>
+      <div class="reservation-lens-heading"><div><span class="reservation-lens-signal"></span><strong>Compatible lens required</strong></div><span id="reserve-lens-compatibility">CAMERA LINK</span></div>
+      <p id="reserve-lens-help">Select one available lens matched to this camera body.</p>
+      <div class="reservation-lens-grid" id="reserve-lens-grid"></div>
+    </section>
     <div class="form-row2">
-      <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="reserve-start" type="time" /></div>
-      <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="reserve-end" type="time" /></div>
+      <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="reserve-start" type="time" onchange="renderReservationLensOptions()" /></div>
+      <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="reserve-end" type="time" onchange="renderReservationLensOptions()" /></div>
     </div>
-    <button class="btn btn-accent" style="width:100%;" onclick="reserveEquipment()">Reserve</button>
+    <button class="btn btn-accent" id="reserve-equipment-submit" style="width:100%;" onclick="reserveEquipment()">Reserve</button>
   </div>
 </div>
 

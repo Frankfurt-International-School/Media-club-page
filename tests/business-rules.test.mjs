@@ -296,7 +296,7 @@ test('Equipment Status restrictions are enforced in the UI and server workflows'
   assert.match(appSource, /supabaseClient\.rpc\('set_equipment_operational_status'/);
 });
 
-test('camera visuals are lightweight, model-matched, and isolated to the ordinary Equipment page', () => {
+test('camera and lens visuals are lightweight, model-matched, and isolated to the ordinary Equipment page', () => {
   const profiles = JSON.parse(JSON.stringify(runFunctions(
     ['equipmentDeviceVisual'],
     {},
@@ -328,6 +328,29 @@ test('camera visuals are lightweight, model-matched, and isolated to the ordinar
     null,
   ]);
 
+  const lensProfiles = JSON.parse(JSON.stringify(runFunctions(
+    ['equipmentDeviceVisual'],
+    {},
+    `[
+      { name: 'Canon EF-S 18–135mm f/3.5–5.6 IS USM' },
+      { name: 'Canon EF-S 18–55mm f/3.5–5.6 IS II' },
+      { name: 'Canon EF-S 24mm f/2.8 STM' },
+      { name: 'Canon EF-S 50mm f/1.8 STM' },
+      { name: 'Canon EF-S 55–250mm f/4–5.6 IS STM' },
+      { name: 'Sigma 24–70mm f/2.8 DG DN Art' },
+      { name: 'Leica DG Vario-Elmarit 12–60mm f/2.8–4' },
+      { name: 'Olympus M.Zuiko Digital ED 40–150mm f/2.8 PRO' },
+    ].map(item => {
+      const device = equipmentDeviceVisual(item);
+      return device ? { slug: device.slug, kind: device.kind, src: device.src } : null;
+    })`,
+  )));
+  assert.deepEqual(lensProfiles.map(profile => profile?.slug || null), [
+    'canon-ef-s-18-135', 'canon-ef-s-18-55', 'canon-ef-s-24', 'canon-ef-50',
+    'canon-ef-s-55-250', 'sigma-24-70', 'leica-dg-12-60', 'olympus-40-150',
+  ]);
+  assert.ok(lensProfiles.every(profile => profile?.kind === 'lens'));
+
   const assetNames = ['canon-r6.webp', 'canon-70d.webp', 'canon-700d.webp', 'canon-600d.webp', 'canon-450d.webp', 'lumix-gh6.webp'];
   for (const assetName of assetNames) {
     const asset = readFileSync(new URL(`../assets/equipment/${assetName}`, import.meta.url));
@@ -336,15 +359,30 @@ test('camera visuals are lightweight, model-matched, and isolated to the ordinar
     assert.ok(asset.length <= 160 * 1024, `${assetName} must remain at or below 160 KB`);
   }
 
+  const lensAssetNames = [
+    'canon-ef-s-18-135.webp', 'canon-ef-s-18-55.webp', 'canon-ef-s-24.webp', 'canon-ef-50.webp',
+    'canon-ef-s-55-250.webp', 'sigma-24-70.webp', 'leica-dg-12-60.webp', 'olympus-40-150.webp',
+  ];
+  let totalLensBytes = 0;
+  for (const assetName of lensAssetNames) {
+    const asset = readFileSync(new URL(`../assets/equipment/lenses/${assetName}`, import.meta.url));
+    totalLensBytes += asset.length;
+    assert.equal(asset.subarray(0, 4).toString(), 'RIFF', `${assetName} must use a WebP RIFF container`);
+    assert.equal(asset.subarray(8, 12).toString(), 'WEBP', `${assetName} must be a WebP image`);
+    assert.ok(asset.length <= 80 * 1024, `${assetName} must remain at or below 80 KB`);
+  }
+  assert.ok(totalLensBytes <= 240 * 1024, 'the complete lens image set must remain lightweight');
+
   const ordinaryEquipment = appSource.slice(appSource.indexOf('function renderEquipment()'), appSource.indexOf('function renderEquipmentStatus()'));
   const equipmentStatus = appSource.slice(appSource.indexOf('function renderEquipmentStatus()'), appSource.indexOf('function requestCancelEquipmentReservation('));
-  assert.match(ordinaryEquipment, /class="equipment-device-visual brand-\$\{device\.brandKey\}"/);
+  assert.match(ordinaryEquipment, /class="equipment-device-visual brand-\$\{device\.brandKey\}\$\{device\.kind === 'lens'/);
   assert.match(ordinaryEquipment, /loading="lazy" decoding="async"/);
   assert.match(ordinaryEquipment, /openEquipmentDeviceView/);
   assert.doesNotMatch(equipmentStatus, /equipmentDeviceVisual|equipment-device-visual|openEquipmentDeviceView/);
   assert.match(indexHtml, /id="equipment-device-modal"[\s\S]*?id="equipment-device-image"[\s\S]*?id="equipment-device-reserve"/);
   assert.doesNotMatch(indexHtml, /id="equipment-device-image"[^>]*\ssrc=/, 'the hidden console must not eagerly download a camera image');
   assert.match(appStyles, /\.equipment-device-modal[\s\S]*?#equipment-device-modal\[data-brand="lumix"\]/);
+  assert.match(appStyles, /#equipment-device-modal\[data-brand="sigma"\][\s\S]*?#equipment-device-modal\[data-brand="olympus"\]/);
   assert.match(appStyles, /@media \(max-width: 768px\)[\s\S]*?\.equipment-device-modal \{ grid-template-columns: 1fr/);
 });
 
@@ -391,6 +429,40 @@ test('live-cut events support an optional end time across creation and crew sche
   assert.equal(label({ cat: 'Event', time: '15:30', endTime: '18:00' }), '15:30');
 });
 
+test('Event and live-cut role matrices enforce open roles and concurrent single-role slots', () => {
+  const allRoles = ['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer'];
+  const roleConfig = event => JSON.parse(JSON.stringify(runFunctions(
+    ['eventCategorySupportsRoleSetup', 'eventOpenRoleLabels', 'eventRoleCapacity'],
+    { configurableSignupCategories: ['Event', 'Recording (live cut)'], signupRoleDisplayOrder: allRoles },
+    `({ roles: eventOpenRoleLabels(${JSON.stringify(event)}), photographerSlots: eventRoleCapacity(${JSON.stringify(event)}, 'Photographer') })`,
+  )));
+
+  assert.deepEqual(roleConfig({ cat: 'Event', openSignupRoles: ['Photographer'], singleRoleSlotLimit: 4 }), { roles: ['Photographer'], photographerSlots: 4 });
+  assert.deepEqual(roleConfig({ cat: 'Recording (live cut)', openSignupRoles: ['OBS', 'Photographer'], singleRoleSlotLimit: 8 }), { roles: ['OBS', 'Photographer'], photographerSlots: 1 });
+  assert.deepEqual(roleConfig({ cat: 'Livestream', openSignupRoles: ['Photographer'], singleRoleSlotLimit: 8 }), { roles: allRoles, photographerSlots: 1 });
+
+  assert.match(indexHtml, /id="ev-role-setup" hidden[\s\S]*?id="ev-open-role-grid"[\s\S]*?id="ev-single-role-slot-limit"/);
+  assert.match(appSource, /open_signup_roles: openSignupRoles/);
+  assert.match(appSource, /single_role_slot_limit: singleRoleSlotLimit/);
+  assert.match(appSource, /setEventSignupRoles\(event\.openSignupRoles\)/);
+  assert.match(appSource, /overlappingRoleSignups\.length >= roleCapacity/);
+  assert.match(schemaSql, /open_signup_roles text\[\] not null default/);
+  assert.match(schemaSql, /single_role_slot_limit smallint not null default 1/);
+  assert.match(schemaSql, /role_slot smallint not null default 1/);
+  assert.match(schemaSql, /create or replace function public\.assign_signup_role_slot\(\)[\s\S]*?for update[\s\S]*?No signup slots are available/);
+  assert.match(schemaSql, /signup_role with =,\s*role_slot with =,\s*tstzrange\(attendance_start, attendance_end, '\[\)'\) with &&/);
+  const validSignup = extractSqlFunction('is_valid_event_signup');
+  assert.match(validSignup, /event\.category not in \('Event', 'Recording \(live cut\)'\)[\s\S]*?p_signup_role = any\(event\.open_signup_roles\)/);
+  const validReserveRoles = extractSqlFunction('are_event_reserve_roles_open');
+  assert.match(validReserveRoles, /p_signup_role is distinct from 'Student Supervisor'[\s\S]*?p_reserve_role_1 = any\(event\.open_signup_roles\)[\s\S]*?p_reserve_role_2 = any\(event\.open_signup_roles\)/);
+  assert.match(policiesSql, /public\.are_event_reserve_roles_open\(event_id, signup_role, reserve_role_1, reserve_role_2\)/);
+  assert.match(policiesSql, /grant execute on function public\.are_event_reserve_roles_open\(uuid, text, text, text\) to authenticated/);
+  assert.match(appSource, /filter\(role => role && openRoles\.includes\(role\)\)/);
+  const updateGrant = policiesSql.match(/grant update \(([\s\S]*?)\) on table public\.events to authenticated/)?.[1] || '';
+  assert.match(updateGrant, /open_signup_roles/);
+  assert.match(updateGrant, /single_role_slot_limit/);
+});
+
 test('production staff can edit events without replacing linked records or lifecycle fields', () => {
   const openEditor = extractFunction('openEventEditor');
   const saveEvent = extractFunction('addEvent');
@@ -415,6 +487,7 @@ test('production staff can edit events without replacing linked records or lifec
       isstScheduleCaption: () => '',
       festivalScheduleCaption: () => '',
       livestreamSetupCaption: () => '',
+      eventRoleSetupCaption: () => '',
       isVisitorSession: () => false,
       canManageCrewOperations: () => canManage,
       canAddMembers: () => false,
@@ -475,7 +548,7 @@ test('equipment reservations use half-open boundaries and lifecycle states', () 
 
 test('outside-event camera eligibility remains Grade 11 or 12 only', () => {
   const allowed = (category, gradeLevel) => runFunctions(
-    ['memberGradeNumber', 'canReserveOutsideEvent'],
+    ['isCameraEquipment', 'memberGradeNumber', 'canReserveOutsideEvent'],
     {},
     `canReserveOutsideEvent(${JSON.stringify({ category })}, ${JSON.stringify({ gradeLevel })})`,
   );
@@ -486,11 +559,27 @@ test('outside-event camera eligibility remains Grade 11 or 12 only', () => {
   assert.equal(allowed('Audio', 'Grade 9'), true);
 });
 
-test('reservation policies require approved ownership and limit cancellation', () => {
+test('reservation policies require approved ownership and keep camera-lens kits atomic', () => {
+  const kitReservation = extractSqlFunction('create_camera_kit_reservation');
+  const groupCancellation = extractSqlFunction('cancel_equipment_reservation_group');
   assert.match(policiesSql, /create or replace function public\.can_create_equipment_reservation/);
   assert.match(policiesSql, /lower\(member\.email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
-  assert.match(policiesSql, /create policy "Users can cancel equipment reservations"[\s\S]*?reservation_status = 'scheduled'[\s\S]*?starts_at > now\(\)[\s\S]*?public\.is_auth_admin\(\)/);
-  assert.match(policiesSql, /public\.is_auth_admin\(\)[\s\S]*?equipment_reservations\.member_id = public\.current_member_id\(\)/);
+  assert.match(policiesSql, /item\.category not in \('Camera', 'Recording Cameras', 'Lens'\)/);
+  assert.match(kitReservation, /camera_item\.category not in \('Camera', 'Recording Cameras'\)/);
+  assert.match(kitReservation, /if not public\.is_auth_admin\(\)[\s\S]*?A compatible lens is required/);
+  assert.match(kitReservation, /lens_item\.compatibility_group is distinct from camera_item\.compatibility_group/);
+  assert.match(kitReservation, /reservation_group_id, equipment_id[\s\S]*?kit_group_id, camera_item\.id[\s\S]*?kit_group_id, lens_item\.id/);
+  assert.match(groupCancellation, /public\.is_auth_admin\(\)[\s\S]*?public\.current_member_id\(\)/);
+  assert.match(groupCancellation, /reservation\.reservation_group_id = target_reservation\.reservation_group_id/);
+  assert.match(policiesSql, /revoke delete on table public\.equipment_reservations from anon, authenticated/);
+  assert.doesNotMatch(policiesSql, /create policy "Users can cancel equipment reservations"/);
+  assert.match(appSource, /supabaseClient\.rpc\('create_camera_kit_reservation'/);
+  assert.match(appSource, /supabaseClient\.rpc\('cancel_equipment_reservation_group'/);
+  assert.match(indexHtml, /id="reserve-lens-system" hidden[\s\S]*?id="reserve-lens-grid"/);
+  assert.match(schemaSql, /compatibility_group in \('canon-r6', 'lumix-gh6', 'canon-aps-c'\)/);
+  assert.match(schemaSql, /'Sigma 24–70mm f\/2\.8 DG DN Art', 'canon-r6'/);
+  assert.match(schemaSql, /'Leica DG Vario-Elmarit 12–60mm f\/2\.8–4', 'lumix-gh6'/);
+  assert.match(schemaSql, /'Canon EF-S 55–250mm f\/4–5\.6 IS STM', 'canon-aps-c'/);
 });
 
 test('dashboard preferences are owner-scoped and bounded', () => {
@@ -633,7 +722,6 @@ test('Student Supervisor reserve priorities exclude Photographer in the UI and d
   );
   assert.match(signupPolicy, /reserve_role_1 in \('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 \(optional\)', 'Wireless'\)/);
   assert.match(signupPolicy, /reserve_role_2 in \('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 \(optional\)', 'Wireless'\)/);
-  assert.doesNotMatch(signupPolicy, /reserve_role_[12][\s\S]*?Photographer/);
 });
 
 test('Crew Schedule defaults to unfinished productions and keeps completed events in read-only past logs', () => {

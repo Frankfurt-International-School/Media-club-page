@@ -80,6 +80,8 @@ create table if not exists public.events (
   game_3_end time,
   game_4_start time,
   game_4_end time,
+  open_signup_roles text[] not null default array['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer']::text[],
+  single_role_slot_limit smallint not null default 1,
   ends_at timestamptz
 );
 
@@ -99,6 +101,15 @@ alter table public.events add column if not exists game_3_start time;
 alter table public.events add column if not exists game_3_end time;
 alter table public.events add column if not exists game_4_start time;
 alter table public.events add column if not exists game_4_end time;
+alter table public.events add column if not exists open_signup_roles text[] not null default array['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer']::text[];
+alter table public.events add column if not exists single_role_slot_limit smallint not null default 1;
+alter table public.events drop constraint if exists events_open_signup_roles_check;
+alter table public.events add constraint events_open_signup_roles_check check (
+  cardinality(open_signup_roles) between 1 and 10
+  and open_signup_roles <@ array['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer']::text[]
+);
+alter table public.events drop constraint if exists events_single_role_slot_limit_check;
+alter table public.events add constraint events_single_role_slot_limit_check check (single_role_slot_limit between 1 and 20);
 alter table public.events add column if not exists ends_at timestamptz;
 alter table public.events add column if not exists is_festival boolean not null default false;
 alter table public.events add column if not exists setup_start time;
@@ -212,6 +223,7 @@ create table if not exists public.signups (
   event_id uuid not null references public.events(id) on delete cascade,
   member_id uuid not null references public.members(id) on delete cascade,
   signup_role text,
+  role_slot smallint not null default 1,
   reserve_role_1 text,
   reserve_role_2 text,
   equipment_source text not null default 'club',
@@ -228,6 +240,9 @@ create table if not exists public.signups (
 );
 
 alter table public.signups add column if not exists signup_role text;
+alter table public.signups add column if not exists role_slot smallint not null default 1;
+alter table public.signups drop constraint if exists signups_role_slot_check;
+alter table public.signups add constraint signups_role_slot_check check (role_slot between 1 and 20);
 alter table public.signups add column if not exists reserve_role_1 text;
 alter table public.signups add column if not exists reserve_role_2 text;
 alter table public.signups add column if not exists equipment_source text not null default 'club';
@@ -290,6 +305,7 @@ alter table public.signups add constraint signups_role_attendance_no_overlap
 exclude using gist (
   event_id with =,
   signup_role with =,
+  role_slot with =,
   tstzrange(attendance_start, attendance_end, '[)') with &&
 )
 where (confirmation_status <> 'expired' and signup_role is not null and signup_role <> 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
@@ -299,9 +315,72 @@ alter table public.signups add constraint signups_student_supervisor_attendance_
 exclude using gist (
   event_id with =,
   signup_role with =,
+  role_slot with =,
   tstzrange(attendance_start, attendance_end, '[)') with &&
 )
 where (confirmation_status <> 'expired' and signup_role = 'Student Supervisor' and attendance_start is not null and attendance_end is not null);
+
+create or replace function public.assign_signup_role_slot()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_event public.events%rowtype;
+  slot_limit integer := 1;
+  candidate_slot integer;
+begin
+  if new.signup_role is null then
+    new.role_slot := 1;
+    return new;
+  end if;
+
+  select * into target_event
+  from public.events event
+  where event.id = new.event_id
+  for update;
+
+  if not found then
+    raise exception 'Event not found.';
+  end if;
+
+  if target_event.category in ('Event', 'Recording (live cut)') then
+    if not new.signup_role = any(target_event.open_signup_roles) then
+      raise exception 'This role is not open for the selected event.';
+    end if;
+    if cardinality(target_event.open_signup_roles) = 1 then
+      slot_limit := target_event.single_role_slot_limit;
+    end if;
+  end if;
+
+  for candidate_slot in 1..slot_limit loop
+    if not exists (
+      select 1
+      from public.signups signup
+      where signup.event_id = new.event_id
+        and signup.signup_role = new.signup_role
+        and signup.role_slot = candidate_slot
+        and signup.confirmation_status <> 'expired'
+        and signup.attendance_start is not null
+        and signup.attendance_end is not null
+        and tstzrange(signup.attendance_start, signup.attendance_end, '[)')
+          && tstzrange(new.attendance_start, new.attendance_end, '[)')
+    ) then
+      new.role_slot := candidate_slot;
+      return new;
+    end if;
+  end loop;
+
+  raise exception 'No signup slots are available for this role during the selected time.';
+end;
+$$;
+
+revoke all on function public.assign_signup_role_slot() from public;
+drop trigger if exists signups_assign_role_slot_before_insert on public.signups;
+create trigger signups_assign_role_slot_before_insert
+before insert on public.signups
+for each row execute function public.assign_signup_role_slot();
 
 alter table public.signups drop constraint if exists signups_member_cross_event_no_overlap;
 alter table public.signups add constraint signups_member_cross_event_no_overlap
@@ -546,18 +625,48 @@ create table if not exists public.equipment (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   category text not null default 'Other',
+  compatibility_group text,
   status text not null default 'available',
   assigned_to uuid references public.members(id) on delete set null,
   notes text
 );
 
 alter table public.equipment add column if not exists category text not null default 'Other';
+alter table public.equipment add column if not exists compatibility_group text;
+alter table public.equipment drop constraint if exists equipment_compatibility_group_check;
+alter table public.equipment add constraint equipment_compatibility_group_check check (
+  compatibility_group is null or compatibility_group in ('canon-r6', 'lumix-gh6', 'canon-aps-c')
+);
 alter table public.equipment add column if not exists archived_at timestamptz;
 alter table public.equipment add column if not exists archived_by uuid references auth.users(id) on delete set null;
 alter table public.equipment add column if not exists archived_by_name text;
 
+update public.equipment set compatibility_group = 'canon-r6'
+where compatibility_group is null and category in ('Camera', 'Recording Cameras') and lower(name) ~ '(^|[^a-z0-9])(eos[[:space:]]*)?r[[:space:]]*6([^0-9]|$)';
+update public.equipment set compatibility_group = 'lumix-gh6'
+where compatibility_group is null and category in ('Camera', 'Recording Cameras') and lower(name) ~ '(^|[^a-z0-9])gh[[:space:]]*6([^0-9]|$)';
+update public.equipment set compatibility_group = 'canon-aps-c'
+where compatibility_group is null and category in ('Camera', 'Recording Cameras') and lower(name) ~ '(^|[^0-9])(450|600|700|70)[[:space:]]*d([^0-9]|$)';
+
+insert into public.equipment (name, category, compatibility_group, status, notes)
+select seed.name, 'Lens', seed.compatibility_group, 'available', seed.notes
+from (values
+  ('Canon EF-S 18–55mm f/3.5–5.6 IS II', 'canon-aps-c', 'Everyday wide-to-standard zoom · image stabilisation · Canon APS-C DSLR kit'),
+  ('Canon EF-S 18–135mm f/3.5–5.6 IS USM', 'canon-aps-c', 'All-round event zoom · flexible framing · Canon APS-C DSLR kit'),
+  ('Canon EF-S 24mm f/2.8 STM', 'canon-aps-c', 'Compact wide prime · brighter indoor option · Canon APS-C DSLR kit'),
+  ('Canon EF-S 50mm f/1.8 STM', 'canon-aps-c', 'Fast portrait prime · shallow depth and low light · Canon APS-C DSLR kit'),
+  ('Canon EF-S 55–250mm f/4–5.6 IS STM', 'canon-aps-c', 'Telephoto reach · sports and distant action · Canon APS-C DSLR kit'),
+  ('Sigma 24–70mm f/2.8 DG DN Art', 'canon-r6', 'Fast standard zoom · event and low-light coverage · Canon R6 kit only'),
+  ('Leica DG Vario-Elmarit 12–60mm f/2.8–4', 'lumix-gh6', 'Versatile wide-to-tele zoom · run-and-gun coverage · Lumix GH6 kit only'),
+  ('Olympus M.Zuiko Digital ED 40–150mm f/2.8 PRO', 'lumix-gh6', 'Fast telephoto zoom · sports and stage coverage · Lumix GH6 kit only')
+) as seed(name, compatibility_group, notes)
+where not exists (
+  select 1 from public.equipment item where lower(item.name) = lower(seed.name)
+);
+
 create table if not exists public.equipment_reservations (
   id uuid primary key default gen_random_uuid(),
+  reservation_group_id uuid,
   equipment_id uuid not null references public.equipment(id) on delete cascade,
   member_id uuid not null references public.members(id) on delete cascade,
   event_id uuid references public.events(id) on delete cascade,
@@ -576,6 +685,8 @@ create table if not exists public.equipment_reservations (
 );
 
 alter table public.equipment_reservations add column if not exists purpose text;
+alter table public.equipment_reservations add column if not exists reservation_group_id uuid;
+create index if not exists equipment_reservations_group_idx on public.equipment_reservations (reservation_group_id) where reservation_group_id is not null;
 alter table public.equipment_reservations add column if not exists reservation_status text not null default 'scheduled';
 alter table public.equipment_reservations add column if not exists checked_out_at timestamptz;
 alter table public.equipment_reservations add column if not exists returned_at timestamptz;

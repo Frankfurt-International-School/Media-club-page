@@ -54,6 +54,26 @@ const memberSignupRoles = ['mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2
 const supervisorSignupRoles = ['student_supervisor', ...memberSignupRoles];
 const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2', 'handheld_3', 'wireless', 'photographer'];
 const signupRoleDisplayOrder = adminSignupRoles.map(key => signupRoleLabels[key]);
+const configurableSignupCategories = ['Event', 'Recording (live cut)'];
+
+function eventCategorySupportsRoleSetup(category = '') {
+  return configurableSignupCategories.includes(category);
+}
+
+function eventOpenRoleLabels(event) {
+  if (!eventCategorySupportsRoleSetup(event?.cat)) return signupRoleDisplayOrder.slice();
+  const configured = Array.isArray(event?.openSignupRoles) ? event.openSignupRoles : [];
+  return configured.filter(role => signupRoleDisplayOrder.includes(role));
+}
+
+function eventRoleCapacity(event, role) {
+  const openRoles = eventOpenRoleLabels(event);
+  if (!openRoles.includes(role)) return 0;
+  if (eventCategorySupportsRoleSetup(event?.cat) && openRoles.length === 1) {
+    return Math.max(1, Math.min(20, Number(event?.singleRoleSlotLimit) || 1));
+  }
+  return 1;
+}
 
 function normalizeRoleName(role = '') {
   return role.toLowerCase().trim().replace(/\s+/g, '-');
@@ -268,23 +288,31 @@ function renderSignupRoleOptions(ev) {
   }
   const selected = select.value;
   const attendance = selectedAttendanceWindow(ev);
-  select.innerHTML = currentUserSignupRoleKeys().map(key => {
+  const openRoles = eventOpenRoleLabels(ev);
+  const availableRoleKeys = currentUserSignupRoleKeys().filter(key => openRoles.includes(signupRoleLabels[key]));
+  select.innerHTML = availableRoleKeys.map(key => {
     const label = signupRoleLabels[key];
     const sameRole = (ev?.signups || []).filter(signup => signup.role === label);
     const overlapping = sameRole.filter(signup => signupOverlaps(signup, attendance));
-    const occupied = overlapping.length > 0;
+    const capacity = eventRoleCapacity(ev, label);
+    const occupied = overlapping.length >= capacity;
     const latestEnd = sameRole.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
     const occupiedUntil = overlapping.map(signup => signup.attendanceEnd).filter(Boolean).sort().at(-1);
     const disabled = occupied ? ' disabled' : '';
     const suffix = occupied
       ? occupiedUntil
-        ? ` - occupied until ${berlinTimeLabel(occupiedUntil)}`
-        : ' - slot occupied'
+        ? ` - ${capacity > 1 ? 'all slots occupied' : 'occupied'} until ${berlinTimeLabel(occupiedUntil)}`
+        : ` - ${capacity > 1 ? 'all slots occupied' : 'slot occupied'}`
+      : capacity > 1
+        ? ` - ${capacity - overlapping.length} of ${capacity} slots open`
       : latestEnd
         ? ' - available for selected time'
         : '';
     return `<option value="${label}"${disabled}>${label}${suffix}</option>`;
   }).join('');
+  if (!availableRoleKeys.length) {
+    select.innerHTML = '<option value="" disabled selected>No roles are open to this account</option>';
+  }
   if ([...select.options].some(option => option.value === selected && !option.disabled)) {
     select.value = selected;
   }
@@ -292,9 +320,12 @@ function renderSignupRoleOptions(ev) {
 }
 
 function availableReserveRoleLabels() {
+  const event = state.events.find(candidate => candidate.id === document.getElementById('sheet-event-select')?.value);
+  const openRoles = eventOpenRoleLabels(event);
   return currentUserSignupRoleKeys()
     .filter(key => !['adult_supervisor', 'student_supervisor', 'photographer'].includes(key))
-    .map(key => signupRoleLabels[key]);
+    .map(key => signupRoleLabels[key])
+    .filter(role => openRoles.includes(role));
 }
 
 function updateReserveRoleFields() {
@@ -305,6 +336,12 @@ function updateReserveRoleFields() {
     const first = document.getElementById('signup-reserve-role-1');
     const second = document.getElementById('signup-reserve-role-2');
     const roles = availableReserveRoleLabels();
+    if (roles.length < 2) {
+      fields.classList.remove('visible');
+      showToast('This event does not have two open production roles for Student Supervisor reserve priorities.', 'error', 6000);
+      renderSignupCameraSource();
+      return;
+    }
     const previousFirst = first.value;
     const previousSecond = second.value;
     first.innerHTML = roles.map(role => `<option value="${role}">${role}</option>`).join('');
@@ -541,6 +578,7 @@ function normalizeSignup(signup) {
     memberId: signup.member_id,
     name: signup.members?.name || 'Unknown member',
     role: signup.signup_role || '',
+    roleSlot: Number(signup.role_slot) || 1,
     reserveRole1: signup.reserve_role_1 || '',
     reserveRole2: signup.reserve_role_2 || '',
     equipmentSource: signup.equipment_source === 'own' ? 'own' : 'club',
@@ -601,6 +639,10 @@ function normalizeEvent(event) {
     archivedAt: event.archived_at || '',
     archivedByName: event.archived_by_name || '',
     slots: 0,
+    openSignupRoles: Array.isArray(event.open_signup_roles)
+      ? event.open_signup_roles.filter(role => signupRoleDisplayOrder.includes(role))
+      : signupRoleDisplayOrder.slice(),
+    singleRoleSlotLimit: Math.max(1, Math.min(20, Number(event.single_role_slot_limit) || 1)),
     desc: event.description || '',
     signups: (event.signups || []).filter(signup => signup.confirmation_status !== 'expired').map(normalizeSignup),
     expiredSignups: (event.signups || []).filter(signup => signup.confirmation_status === 'expired').map(normalizeSignup),
@@ -663,10 +705,12 @@ function normalizeEquipment(item) {
     status: item.status || 'available',
     assignedName: item.members?.name || 'Unassigned',
     detail: item.notes || 'No notes',
+    compatibilityGroup: item.compatibility_group || '',
     archivedAt: item.archived_at || '',
     archivedByName: item.archived_by_name || '',
     reservations: (item.equipment_reservations || []).map(reservation => ({
       id: reservation.id,
+      groupId: reservation.reservation_group_id || '',
       memberId: reservation.member_id,
       memberName: reservation.members?.name || 'Unknown member',
       eventId: reservation.event_id,
@@ -746,10 +790,10 @@ function crewCenterDatasetRequest(dataset, visitor) {
   }
   const requests = {
     members: () => supabaseClient.rpc('get_member_directory'),
-    events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
+    events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, role_slot, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
     meetings: () => supabaseClient.from('meetings').select('*, meeting_attendees(id, member_id, response, responded_at, members(name, role, avatar_url))').order('starts_at', { ascending: true }),
     gallery: () => supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
-    equipment: () => supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
+    equipment: () => supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, reservation_group_id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
     announcements: () => supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }).limit(30),
     applications: () => supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
     notifications: () => supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),

@@ -62,12 +62,13 @@ function activeSupervisorReserves(ev, now = Date.now()) {
   const assignments = new Map();
   const activationAt = reserveActivationAt(ev);
   if (!activationAt || now < activationAt) return assignments;
+  const openRoles = eventOpenRoleLabels(ev);
   const supervisors = ev.signups
     .filter(signup => signup.role === signupRoleLabels.student_supervisor)
     .sort((a, b) => (a.signedUpAt || '').localeCompare(b.signedUpAt || '') || a.id.localeCompare(b.id));
   const claimed = [];
   supervisors.forEach(supervisor => {
-    const choices = [supervisor.reserveRole1, supervisor.reserveRole2].filter(Boolean);
+    const choices = [supervisor.reserveRole1, supervisor.reserveRole2].filter(role => role && openRoles.includes(role));
     const selected = choices.find(role => {
       const realSignupExists = ev.signups.some(signup => signup.role === role && signupWindowsOverlap(signup, supervisor));
       const reserveAlreadyAssigned = claimed.some(signup => signup.role === role && signupWindowsOverlap(signup, supervisor));
@@ -223,6 +224,11 @@ async function addSignupRow() {
   const matchedMember = matchingMembers[0];
   if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
   const role = document.getElementById('signup-role').value;
+  if (role && eventRoleCapacity(ev, role) === 0) {
+    showToast('That role is not open for this event.', 'error');
+    renderSignupSheet();
+    return;
+  }
   const isStudentSupervisor = role === signupRoleLabels.student_supervisor;
   const reserveRole1 = isStudentSupervisor ? document.getElementById('signup-reserve-role-1').value : null;
   const reserveRole2 = isStudentSupervisor ? document.getElementById('signup-reserve-role-2').value : null;
@@ -253,8 +259,10 @@ async function addSignupRow() {
     showToast('Maybe signups close two hours before the event starts. Please confirm now or leave the role open.', 'error', 6000);
     return;
   }
-  if (!roleFreeAttendance && ev.signups.some(signup => signup.role === role && signupOverlaps(signup, attendance))) {
-    showToast(`Slot occupied: ${role} is already assigned during that time.`, 'error');
+  const overlappingRoleSignups = ev.signups.filter(signup => signup.role === role && signupOverlaps(signup, attendance));
+  const roleCapacity = eventRoleCapacity(ev, role);
+  if (!roleFreeAttendance && overlappingRoleSignups.length >= roleCapacity) {
+    showToast(`${roleCapacity > 1 ? 'All slots are' : 'Slot is'} occupied for ${role} during that time.`, 'error');
     renderSignupSheet();
     return;
   }
@@ -299,7 +307,7 @@ async function addSignupRow() {
       attendance_end: new Date(attendance.end).toISOString(),
       confirmation_status: confirmationStatus,
     })
-    .select('id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role)')
+    .select('id, member_id, signup_role, role_slot, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role)')
     .single();
   if (error) {
     if (error.code === '23505' || error.code === '23P01') {
@@ -308,7 +316,8 @@ async function addSignupRow() {
       await loadCrewCenterData();
       return;
     }
-    showToast("Couldn't save signup.", 'error');
+    const safeMessage = /role is not open|signup slots are available/i.test(error.message || '') ? error.message : "Couldn't save signup.";
+    showToast(safeMessage, 'error', 6000);
     return;
   }
   ev.signups.push({
@@ -316,6 +325,7 @@ async function addSignupRow() {
     memberId: signup.member_id,
     name: signup.members?.name || member.name,
     role: signup.signup_role || '',
+    roleSlot: Number(signup.role_slot) || 1,
     reserveRole1: signup.reserve_role_1 || '',
     reserveRole2: signup.reserve_role_2 || '',
     equipmentSource: signup.equipment_source === 'own' ? 'own' : 'club',
