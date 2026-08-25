@@ -96,6 +96,23 @@ as $$
   select lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin';
 $$;
 
+create or replace function public.is_faculty()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.members member
+    where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and replace(lower(member.role), ' ', '-') = 'faculty'
+  );
+$$;
+
+revoke all on function public.is_faculty() from public;
+
 create or replace function public.is_crew_operations_user()
 returns boolean
 language sql
@@ -1437,7 +1454,7 @@ begin
   end if;
 
   if p_lens_id is null then
-    if not public.is_auth_admin() then
+    if not public.is_faculty() then
       raise exception 'A compatible lens is required with every camera reservation.';
     end if;
   else

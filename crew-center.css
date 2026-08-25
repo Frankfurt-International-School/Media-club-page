@@ -1408,7 +1408,7 @@
   .reservation-lens-choice.no-lens { display: grid; grid-template-columns: 1fr; align-content: center; gap: 2px; padding: 11px; border-style: dashed; }
   .reservation-lens-choice.no-lens strong { color: var(--text); font-size: 10px; }
   .reservation-lens-choice.no-lens small { color: var(--text3); font-size: 8px; }
-  .reservation-lens-admin { color: var(--accent); font: 700 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+  .reservation-lens-faculty { color: var(--accent); font: 700 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
   .reservation-lens-empty { grid-column: 1 / -1; padding: 14px; border: 1px dashed var(--border2); border-radius: 10px; color: var(--text3); font-size: 10px; line-height: 1.5; }
   @keyframes equipmentDeviceEnter {
     from { opacity: 0; transform: translate(-50%, -45%) scale(.965); }

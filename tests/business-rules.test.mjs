@@ -369,6 +369,8 @@ test('camera and lens visuals are lightweight, model-matched, and isolated to th
     totalLensBytes += asset.length;
     assert.equal(asset.subarray(0, 4).toString(), 'RIFF', `${assetName} must use a WebP RIFF container`);
     assert.equal(asset.subarray(8, 12).toString(), 'WEBP', `${assetName} must be a WebP image`);
+    assert.equal(asset.subarray(12, 16).toString(), 'VP8X', `${assetName} must use extended WebP for transparency`);
+    assert.ok(asset[20] & 0x10, `${assetName} must include a transparent alpha channel`);
     assert.ok(asset.length <= 80 * 1024, `${assetName} must remain at or below 80 KB`);
   }
   assert.ok(totalLensBytes <= 240 * 1024, 'the complete lens image set must remain lightweight');
@@ -566,7 +568,11 @@ test('reservation policies require approved ownership and keep camera-lens kits 
   assert.match(policiesSql, /lower\(member\.email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
   assert.match(policiesSql, /item\.category not in \('Camera', 'Recording Cameras', 'Lens'\)/);
   assert.match(kitReservation, /camera_item\.category not in \('Camera', 'Recording Cameras'\)/);
-  assert.match(kitReservation, /if not public\.is_auth_admin\(\)[\s\S]*?A compatible lens is required/);
+  assert.match(policiesSql, /create or replace function public\.is_faculty\(\)[\s\S]*?replace\(lower\(member\.role\), ' ', '-'\) = 'faculty'/);
+  assert.match(kitReservation, /if not public\.is_faculty\(\)[\s\S]*?A compatible lens is required/);
+  assert.match(appSource, /function canReserveCameraWithoutLens\(\)[\s\S]*?=== 'faculty'/);
+  assert.match(appSource, /FACULTY EXCEPTION/);
+  assert.doesNotMatch(appSource, /AUTH ADMIN EXCEPTION/);
   assert.match(kitReservation, /lens_item\.compatibility_group is distinct from camera_item\.compatibility_group/);
   assert.match(kitReservation, /reservation_group_id, equipment_id[\s\S]*?kit_group_id, camera_item\.id[\s\S]*?kit_group_id, lens_item\.id/);
   assert.match(groupCancellation, /public\.is_auth_admin\(\)[\s\S]*?public\.current_member_id\(\)/);

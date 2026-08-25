@@ -45,6 +45,10 @@ function isCameraEquipment(item) {
   return ['Camera', 'Recording Cameras'].includes(item?.category);
 }
 
+function canReserveCameraWithoutLens() {
+  return normalizeRoleName(currentMemberRecord()?.role || '') === 'faculty';
+}
+
 function equipmentCompatibilityLabel(group) {
   return {
     'canon-r6': 'Canon R6 system',
@@ -532,24 +536,25 @@ function renderReservationLensOptions() {
     const status = conflicts ? 'Reserved for this time' : equipmentDisplayStatus(lens) === 'available' ? 'Available' : equipmentStatusLabel(equipmentDisplayStatus(lens));
     return { lens, device, available, status };
   });
-  const preferred = previous === '' && canAddMembers()
+  const facultyCanSkipLens = canReserveCameraWithoutLens();
+  const preferred = previous === '' && facultyCanSkipLens
     ? ''
     : options.some(option => option.available && option.lens.id === previous)
       ? previous
       : options.find(option => option.available)?.lens.id || '';
-  const adminNoLens = canAddMembers() ? `<label class="reservation-lens-choice no-lens${preferred === '' ? ' selected' : ''}">
+  const facultyNoLens = facultyCanSkipLens ? `<label class="reservation-lens-choice no-lens${preferred === '' ? ' selected' : ''}">
     <input type="radio" name="reserve-lens" value="" ${preferred === '' ? 'checked' : ''} onchange="renderReservationLensOptions()">
-    <span class="reservation-lens-admin">AUTH ADMIN EXCEPTION</span><strong>No lens</strong><small>Reserve the camera body only</small>
+    <span class="reservation-lens-faculty">FACULTY EXCEPTION</span><strong>No lens</strong><small>Reserve the camera body only</small>
   </label>` : '';
-  grid.innerHTML = options.length || adminNoLens ? `${options.map(({ lens, device, available, status }) => `<label class="reservation-lens-choice${lens.id === preferred ? ' selected' : ''}${available ? '' : ' unavailable'}">
+  grid.innerHTML = options.length || facultyNoLens ? `${options.map(({ lens, device, available, status }) => `<label class="reservation-lens-choice${lens.id === preferred ? ' selected' : ''}${available ? '' : ' unavailable'}">
     <input type="radio" name="reserve-lens" value="${lens.id}" ${lens.id === preferred ? 'checked' : ''} ${available ? '' : 'disabled'} onchange="renderReservationLensOptions()">
     ${device ? `<span class="reservation-lens-thumb brand-${device.brandKey}"><img src="${device.src}" width="${device.width}" height="${device.height}" alt="" loading="lazy" decoding="async"></span>` : ''}
     <span class="reservation-lens-copy"><strong>${escapeHtml(lens.name)}</strong><small>${escapeHtml(lens.detail)}</small><span class="${available ? 'available' : ''}">${escapeHtml(status)}</span></span>
-  </label>`).join('')}${adminNoLens}` : '<div class="reservation-lens-empty">No compatible lenses are configured for this camera yet. Ask a production lead to check its lens system.</div>';
+  </label>`).join('')}${facultyNoLens}` : '<div class="reservation-lens-empty">No compatible lenses are configured for this camera yet. Ask a production lead to check its lens system.</div>';
   const availableCount = options.filter(option => option.available).length;
   document.getElementById('reserve-lens-help').textContent = availableCount
     ? `Select one of ${availableCount} compatible ${availableCount === 1 ? 'lens' : 'lenses'} available for this time.`
-    : canAddMembers() ? 'No compatible lens is available for this time. Auth Admins may use the body-only exception.' : 'No compatible lens is available for this time.';
+    : facultyCanSkipLens ? 'No compatible lens is available for this time. Faculty may use the body-only exception.' : 'No compatible lens is available for this time.';
 }
 
 function openEquipmentReservation(id) {
@@ -668,7 +673,7 @@ async function reserveEquipment() {
   const camera = isCameraEquipment(item);
   const selectedLensId = camera ? document.querySelector('input[name="reserve-lens"]:checked')?.value || '' : '';
   const lens = selectedLensId ? state.equipment.find(candidate => candidate.id === selectedLensId) : null;
-  if (camera && !lens && !canAddMembers()) {
+  if (camera && !lens && !canReserveCameraWithoutLens()) {
     showToast('Select an available compatible lens for this camera reservation.', 'error', 6000);
     renderReservationLensOptions();
     return;
