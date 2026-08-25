@@ -60,6 +60,8 @@ function normalizeRoleName(role = '') {
 }
 
 function currentMemberRecord() {
+  const ownRecord = state.members.find(member => member.isCurrentUser);
+  if (ownRecord) return ownRecord;
   const email = (window.CREW_CENTER_AUTH_USER?.email || state.currentUser.email || '').toLowerCase();
   if (email) {
     const byEmail = state.members.find(member => (member.email || '').toLowerCase() === email);
@@ -503,10 +505,13 @@ function normalizeMember(member, index = 0) {
     lname,
     name: member.name,
     email: member.email || '',
+    isCurrentUser: Boolean(member.is_current_user),
     gradeLevel: member.grade_level || '',
     role: member.role || 'Member',
     spec: member.status || 'active',
-    teamKeys: (member.member_team_memberships || []).map(membership => membership.team_key).filter(Boolean),
+    teamKeys: Array.isArray(member.team_keys)
+      ? member.team_keys.filter(Boolean)
+      : (member.member_team_memberships || []).map(membership => membership.team_key).filter(Boolean),
     avatarUrl: member.avatar_url || '',
     avatarPath: member.avatar_path || '',
     sidebarCustomized: Boolean(member.sidebar_customized),
@@ -740,7 +745,7 @@ function crewCenterDatasetRequest(dataset, visitor) {
     return Promise.resolve({ data: [], error: null });
   }
   const requests = {
-    members: () => supabaseClient.from('members').select('*, member_team_memberships(team_key)').order('name'),
+    members: () => supabaseClient.rpc('get_member_directory'),
     events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
     meetings: () => supabaseClient.from('meetings').select('*, meeting_attendees(id, member_id, response, responded_at, members(name, role, avatar_url))').order('starts_at', { ascending: true }),
     gallery: () => supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
@@ -898,7 +903,12 @@ function queueRealtimeDataLoad(...datasets) {
 }
 
 function refreshVisitorDataForPage(page) {
-  if (!isVisitorSession()) return;
+  if (!isVisitorSession()) {
+    if (page === 'members' && (!state.dataUpdatedAt.members || Date.now() - state.dataUpdatedAt.members > 120000)) {
+      loadCrewCenterData({ datasets: ['members'], silent: true });
+    }
+    return;
+  }
   const pageDatasets = {
     about: ['gallery'],
     home: ['events', 'gallery', 'equipment', 'announcements'],
@@ -921,8 +931,7 @@ function subscribeToCrewCenterChanges() {
   window.CREW_CENTER_REALTIME_READY = mode;
   if (mode === 'visitor') return;
   const tableDatasets = {
-    members: ['members', 'gallery'],
-    member_team_memberships: ['meetings'],
+    member_team_memberships: ['members', 'meetings'],
     events: ['events', 'equipment'],
     meetings: ['meetings'],
     meeting_attendees: ['meetings'],

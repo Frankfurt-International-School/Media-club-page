@@ -258,10 +258,7 @@ async function addSignupRow() {
     renderSignupSheet();
     return;
   }
-  const authEmail = (window.CREW_CENTER_AUTH_USER?.email || state.currentUser.email || '').toLowerCase();
-  const signedInMember = authEmail
-    ? state.members.find(m => (m.email || '').toLowerCase() === authEmail)
-    : currentMemberRecord();
+  const signedInMember = currentMemberRecord();
   nameInput.value = matchedMember.name;
   const member = canChooseMember ? matchedMember : signedInMember;
   if (!member) {

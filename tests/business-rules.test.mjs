@@ -109,8 +109,8 @@ test('Meeting visibility and RSVP both follow the selected audience', () => {
   assert.doesNotMatch(meetingRsvpAccess, /members\.status|member\.status/);
   assert.match(policiesSql, /create policy "Approved members can read meetings"[\s\S]*?public\.can_read_meeting\(id\)/);
   assert.match(policiesSql, /create policy "Approved members can read meeting attendees"[\s\S]*?public\.can_read_meeting\(meeting_id\)/);
-  assert.match(appSource, /members'\)\.select\('\*, member_team_memberships\(team_key\)'\)/);
-  assert.match(appSource, /teamKeys: \(member\.member_team_memberships \|\| \[\]\)/);
+  assert.match(appSource, /members: \(\) => supabaseClient\.rpc\('get_member_directory'\)/);
+  assert.match(appSource, /Array\.isArray\(member\.team_keys\)/);
 
   const frontendAudienceAllowed = (functionName, audience, role = 'Member', teamKeys = [], isAdmin = false) => runFunctions(
     ['normalizeRoleName', 'currentMemberRecord', 'canAccessAdminPanel', 'isVisitorSession', 'canManageCrewOperations', 'canViewMeeting', 'canRsvpMeeting'],
@@ -202,6 +202,61 @@ test('sidebar identity omits Auth Admin and Member account labels', () => {
   assert.doesNotMatch(indexHtml, /id="sidebar-user-role"/);
   assert.doesNotMatch(uiSource, /sidebar-user-role/);
   assert.doesNotMatch(authSource, /sidebar-user-role/);
+});
+
+test('member directory email access is limited to Auth Admin and Faculty server-side', () => {
+  const memberDirectory = extractSqlFunction('get_member_directory');
+  const ownMemberId = extractSqlFunction('get_own_member_id');
+  const currentMember = extractFunction('currentMemberRecord');
+  const normalize = extractFunction('normalizeMember');
+
+  assert.match(memberDirectory, /case when public\.is_admin_panel_user\(\) then member\.email else null end/);
+  assert.match(memberDirectory, /lower\(member\.email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
+  assert.match(memberDirectory, /member\.notification_preferences else null end/);
+  assert.match(memberDirectory, /member\.personal_equipment_preferences else null end/);
+  assert.match(memberDirectory, /select array_agg\(membership\.team_key order by membership\.team_key\)/);
+  assert.match(policiesSql, /revoke select on table public\.members from anon, authenticated/);
+  const safeColumnGrant = policiesSql.match(/grant select \(([^)]+)\) on table public\.members to authenticated/)?.[1] || '';
+  assert.ok(safeColumnGrant, 'authenticated members must receive an explicit safe-column grant');
+  assert.doesNotMatch(safeColumnGrant, /\bemail\b|sidebar|notification|dashboard|tutorial|equipment/i);
+  assert.match(policiesSql, /alter publication supabase_realtime drop table public\.members/);
+  assert.match(policiesSql, /grant execute on function public\.get_member_directory\(\) to authenticated/);
+  assert.match(ownMemberId, /where lower\(member\.email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
+  assert.match(authSource, /crewCenterSupabase\.rpc\("get_own_member_id"\)/);
+  assert.doesNotMatch(authSource, /\.from\("members"\)[\s\S]{0,180}\.ilike\("email"/);
+  assert.match(appSource, /members: \(\) => supabaseClient\.rpc\('get_member_directory'\)/);
+  assert.match(currentMember, /state\.members\.find\(member => member\.isCurrentUser\)/);
+  assert.match(normalize, /isCurrentUser: Boolean\(member\.is_current_user\)/);
+  assert.match(appSource, /const profileDetails = \[canAccessAdminPanel\(\) \? m\.email : '', m\.gradeLevel\]/);
+  assert.doesNotMatch(appSource, /<div class="member-role">\$\{escapeHtml\(m\.email\)\}/);
+
+  const renderDirectory = privileged => runFunctions(
+    ['normalizeRoleName', 'memberRankPriority', 'memberRoleColor', 'memberDirectoryTags', 'renderMembers'],
+    {
+      state: { members: [{ id: 'member-1', fname: 'Test', lname: 'Student', name: 'Test Student', email: 'ts1234@fis.edu', gradeLevel: 'Grade 11', role: 'Member', spec: 'Photography', color: '#fff', avatarUrl: '', joined_date: '2026-01-01' }] },
+      canAccessAdminPanel: () => privileged,
+      memberColor: () => ['#fff', '#111'],
+      safeExternalUrl: () => '',
+      escapeHtml: value => String(value),
+      initials: () => 'TS',
+      document: {
+        nodes: {
+          'member-search': { value: '' },
+          'member-role-filter': { value: '' },
+          'members-grid': { innerHTML: '' },
+          'members-count': { textContent: '' },
+        },
+        getElementById(id) { return this.nodes[id]; },
+      },
+    },
+    "renderMembers(); document.nodes['members-grid'].innerHTML",
+  );
+  const ordinaryHtml = renderDirectory(false);
+  const privilegedHtml = renderDirectory(true);
+  assert.match(ordinaryHtml, /Test Student/);
+  assert.match(ordinaryHtml, /Grade 11/);
+  assert.doesNotMatch(ordinaryHtml, /ts1234@fis\.edu/);
+  assert.match(privilegedHtml, /ts1234@fis\.edu/);
 });
 
 test('Meetings remain a private deep-linked page with a themed watermark hero', () => {
@@ -627,7 +682,8 @@ test('realtime changes refresh only affected datasets and coalesce bursts', () =
   assert.match(queue, /pendingRealtimeDatasets\.add/);
   assert.match(queue, /setTimeout\([\s\S]*?250\)/);
   assert.match(queue, /loadCrewCenterData\(\{ datasets: pending, silent: true \}\)/);
-  assert.match(subscribe, /members: \['members', 'gallery'\]/);
+  assert.doesNotMatch(subscribe, /\n\s*members:\s*\[/);
+  assert.match(subscribe, /member_team_memberships: \['members', 'meetings'\]/);
   assert.match(subscribe, /signups: \['events'\]/);
   assert.match(subscribe, /equipment_reservations: \['equipment'\]/);
   assert.match(subscribe, /if \(mode === 'visitor'\) return/);

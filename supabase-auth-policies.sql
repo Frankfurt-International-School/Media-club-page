@@ -271,6 +271,95 @@ grant execute on function public.is_member_of_team(text) to authenticated;
 grant execute on function public.can_read_meeting(uuid) to authenticated;
 grant execute on function public.can_rsvp_meeting(uuid) to authenticated;
 
+drop function if exists public.get_member_directory();
+
+create or replace function public.get_member_directory()
+returns table (
+  id uuid,
+  name text,
+  role text,
+  email text,
+  grade_level text,
+  status text,
+  joined_date date,
+  avatar_url text,
+  avatar_path text,
+  sidebar_customized boolean,
+  sidebar_items text[],
+  notification_preferences jsonb,
+  dashboard_preferences jsonb,
+  tutorial_progress jsonb,
+  personal_equipment_preferences jsonb,
+  equipment_status_access boolean,
+  team_keys text[],
+  is_current_user boolean
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    member.id,
+    member.name,
+    member.role,
+    case when public.is_admin_panel_user() then member.email else null end,
+    member.grade_level,
+    member.status,
+    member.joined_date,
+    member.avatar_url,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.avatar_path else null end,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.sidebar_customized else null end,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.sidebar_items else null end,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.notification_preferences else null end,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.dashboard_preferences else null end,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.tutorial_progress else null end,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.personal_equipment_preferences else null end,
+    case when lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', '')) then member.equipment_status_access else null end,
+    coalesce((
+      select array_agg(membership.team_key order by membership.team_key)
+      from public.member_team_memberships membership
+      where membership.member_id = member.id
+    ), array[]::text[]),
+    lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  from public.members member
+  where public.is_approved_member()
+  order by member.name;
+$$;
+
+create or replace function public.get_own_member_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select member.id
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+$$;
+
+create or replace function public.get_own_tutorial_progress()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select member.tutorial_progress
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+$$;
+
+revoke all on function public.get_member_directory() from public;
+revoke all on function public.get_own_member_id() from public;
+revoke all on function public.get_own_tutorial_progress() from public;
+grant execute on function public.get_member_directory() to authenticated;
+grant execute on function public.get_own_member_id() to authenticated;
+grant execute on function public.get_own_tutorial_progress() to authenticated;
+
 drop function if exists public.get_public_member_directory();
 
 create or replace function public.get_public_events()
@@ -1377,6 +1466,12 @@ $$;
 revoke all on function public.mark_signup_attendance(uuid, text) from public;
 grant execute on function public.mark_signup_attendance(uuid, text) to authenticated;
 
+-- Direct table reads expose only columns needed by safe embedded relationships.
+-- The member directory itself must use get_member_directory() so email access is
+-- decided server-side for Auth Admin and Faculty accounts.
+revoke select on table public.members from anon, authenticated;
+grant select (id, name, role, grade_level, status, joined_date, avatar_url) on table public.members to authenticated;
+
 create policy "Signed-in users can read members"
 on public.members for select
 to authenticated
@@ -1691,8 +1786,12 @@ with check (public.is_admin_panel_user());
 
 do $$
 begin
-  alter publication supabase_realtime add table public.members;
-exception when duplicate_object then null;
+  if exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'members'
+  ) then
+    alter publication supabase_realtime drop table public.members;
+  end if;
 end $$;
 
 do $$

@@ -774,12 +774,7 @@ async function allowCrewCenterUser(user) {
       let error;
       try {
         ({ data: approvedMember, error } = await withCrewCenterTimeout(
-          window.crewCenterSupabase
-            .from("members")
-            .select("id")
-            .ilike("email", normalizedEmail)
-            .limit(1)
-            .maybeSingle(),
+          window.crewCenterSupabase.rpc("get_own_member_id"),
           memberApprovalTimeoutMs,
           "The approved-member check timed out."
         ));

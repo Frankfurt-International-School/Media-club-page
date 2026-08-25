@@ -40,6 +40,7 @@ function renderMembers() {
     const [bg, fg] = memberColor(m.color);
     const { hasNewsTeam, specialisations } = memberDirectoryTags(m.spec);
     const tags = `${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
+    const profileDetails = [canAccessAdminPanel() ? m.email : '', m.gradeLevel].filter(Boolean).map(value => escapeHtml(value)).join(' · ');
     const safeAvatarUrl = safeExternalUrl(m.avatarUrl);
     const avatarStyle = safeAvatarUrl
       ? `background:url(&quot;${escapeHtml(safeAvatarUrl)}&quot;) center/cover;color:transparent;`
@@ -49,7 +50,7 @@ function renderMembers() {
         <div class="member-avatar" style="${avatarStyle}">${safeAvatarUrl ? '' : escapeHtml(initials(m.fname, m.lname))}</div>
         <div style="flex:1;">
           <div class="member-name">${escapeHtml(m.fname)} ${escapeHtml(m.lname)}</div>
-          <div class="member-role">${escapeHtml(m.email)}${m.gradeLevel ? ` · ${escapeHtml(m.gradeLevel)}` : ''}</div>
+          ${profileDetails ? `<div class="member-role">${profileDetails}</div>` : ''}
           <div class="member-tags">
             <span class="badge badge-${memberRoleColor(m.role)}">${escapeHtml(m.role)}</span>
             ${tags}
@@ -88,6 +89,7 @@ async function addMember() {
   const lname = document.getElementById('mem-lname').value.trim();
   const email = document.getElementById('mem-email').value.trim().toLowerCase();
   const role = document.getElementById('mem-role').value;
+  const specialisation = document.getElementById('mem-spec').value || 'active';
   if (!fname || !lname) { showToast('Please fill in first and last name.', 'error'); return; }
   if (normalizeRoleName(role) === 'faculty' ? !window.isFisSchoolEmail(email) : !window.isFisAliasEmail(email)) {
     showToast(normalizeRoleName(role) === 'faculty' ? 'Faculty accounts must use an @fis.edu email address.' : window.FIS_ALIAS_EMAIL_MESSAGE, 'error', 7000);
@@ -100,19 +102,19 @@ async function addMember() {
       email,
       grade_level: document.getElementById('mem-grade').value || null,
       role,
-      status: document.getElementById('mem-spec').value || 'active',
+      status: specialisation,
     })
-    .select('*')
+    .select('id')
     .single();
   if (error) { showToast("Couldn't add member.", 'error'); return; }
   let teamSyncError = null;
-  if (memberDirectoryTags(data.status).hasNewsTeam) {
+  if (memberDirectoryTags(specialisation).hasNewsTeam) {
     const { error: membershipError } = await supabaseClient
       .from('member_team_memberships')
       .insert({ member_id: data.id, team_key: 'news_team' });
     teamSyncError = membershipError;
   }
-  state.members.push(normalizeMember(data, state.members.length));
+  await loadCrewCenterData({ datasets: ['members'], silent: true });
   closeModal('member-modal');
   ['mem-fname','mem-lname','mem-email','mem-spec'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('mem-grade').value = '';

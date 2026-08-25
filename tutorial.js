@@ -195,15 +195,10 @@
 
   async function loadTutorialProgress() {
     runtime.progress = readLocalProgress();
-    const email = window.CREW_CENTER_AUTH_USER?.email;
-    if (!email || typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    const { data, error } = await supabaseClient
-      .from('members')
-      .select('tutorial_progress')
-      .ilike('email', email)
-      .maybeSingle();
-    if (!error && data?.tutorial_progress) {
-      runtime.progress = sanitizeProgress(data.tutorial_progress);
+    if (!window.CREW_CENTER_AUTH_USER?.email || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    const { data, error } = await supabaseClient.rpc('get_own_tutorial_progress');
+    if (!error && data) {
+      runtime.progress = sanitizeProgress(data);
       writeLocalProgress();
     }
   }

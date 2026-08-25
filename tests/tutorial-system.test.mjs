@@ -49,6 +49,10 @@ test('tutorial progress is account-synced through an owner-only RPC', () => {
   assert.match(policiesSql, /where lower\(email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/);
   assert.match(policiesSql, /revoke all on function public\.update_own_tutorial_progress\(jsonb\) from public/);
   assert.match(policiesSql, /grant execute on function public\.update_own_tutorial_progress\(jsonb\) to authenticated/);
+  assert.match(policiesSql, /create or replace function public\.get_own_tutorial_progress\(\)/);
+  assert.match(policiesSql, /grant execute on function public\.get_own_tutorial_progress\(\) to authenticated/);
+  assert.match(tutorialSource, /supabaseClient\.rpc\('get_own_tutorial_progress'\)/);
+  assert.doesNotMatch(tutorialSource, /\.from\('members'\)[\s\S]{0,160}\.ilike\('email'/);
   assert.match(tutorialSource, /supabaseClient\.rpc\('update_own_tutorial_progress'/);
 });
 
