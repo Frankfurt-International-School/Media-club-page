@@ -15,15 +15,16 @@ on conflict (id) do update set
   status = excluded.status,
   joined_date = excluded.joined_date;
 
-insert into public.events (id, title, description, date, location) values
-  ('00000000-0000-0000-0001-000000000001', 'Short film workshop', 'Learn the fundamentals of short film production with our resident directors.', '2026-05-14 15:30:00+00', 'Room B12'),
-  ('00000000-0000-0000-0001-000000000002', 'Photography competition deadline', 'Submit your best photo series. Theme: urban life.', '2026-05-20 23:59:00+00', 'Online'),
-  ('00000000-0000-0000-0001-000000000003', 'Podcast recording session', 'Monthly episode recording for the Media Club podcast. All welcome.', '2026-05-28 13:00:00+00', 'Studio A'),
-  ('00000000-0000-0000-0001-000000000004', 'End-of-year screening night', 'Celebrate the year''s work with a screening of member films and photo exhibitions.', '2026-06-06 18:00:00+00', 'School hall')
+insert into public.events (id, title, description, date, ends_at, location) values
+  ('00000000-0000-0000-0001-000000000001', 'Short film workshop', 'Learn the fundamentals of short film production with our resident directors.', '2026-05-14 15:30:00+00', '2026-05-14 17:00:00+00', 'Room B12'),
+  ('00000000-0000-0000-0001-000000000002', 'Photography competition deadline', 'Submit your best photo series. Theme: urban life.', '2026-05-20 23:59:00+00', '2026-05-21 00:30:00+00', 'Online'),
+  ('00000000-0000-0000-0001-000000000003', 'Podcast recording session', 'Monthly episode recording for the Media Club podcast. All welcome.', '2026-05-28 13:00:00+00', '2026-05-28 15:00:00+00', 'Studio A'),
+  ('00000000-0000-0000-0001-000000000004', 'End-of-year screening night', 'Celebrate the year''s work with a screening of member films and photo exhibitions.', '2026-06-06 18:00:00+00', '2026-06-06 21:00:00+00', 'School hall')
 on conflict (id) do update set
   title = excluded.title,
   description = excluded.description,
   date = excluded.date,
+  ends_at = excluded.ends_at,
   location = excluded.location;
 
 insert into public.signups (id, event_id, member_id, signed_up_at) values

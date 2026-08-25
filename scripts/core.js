@@ -217,10 +217,15 @@ function eventEndTimestamp(event) {
   return timeValue(event?.date, fallbackEnd);
 }
 
+function eventApproximateEndMessage(event) {
+  const end = event?.endTime;
+  return end && end !== '23:59' ? `Approximate end time: ${end}` : '';
+}
+
 function eventScheduleTimeLabel(event) {
   const start = event?.time || 'TBC';
-  const hasLiveCutEnd = event?.cat === 'Recording (live cut)' && event?.endTime && event.endTime !== '23:59';
-  return hasLiveCutEnd ? `${start}–${event.endTime}` : start;
+  const endMessage = eventApproximateEndMessage(event);
+  return endMessage ? `${start} · ${endMessage}` : start;
 }
 
 function isPastEvent(event, now = Date.now()) {

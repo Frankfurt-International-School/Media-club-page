@@ -409,26 +409,34 @@ test('signup windows use half-open boundaries', () => {
   assert.ok(halfOpenSignupRanges.length >= 3, 'database signup exclusions must use the same [start, end) boundary');
 });
 
-test('live-cut events support an optional end time across creation and crew scheduling', () => {
-  const updateCategoryFields = extractFunction('updateLivestreamSetupField');
+test('all event categories require and display an approximate end time', () => {
+  const boundarySync = extractFunction('syncEventBoundaryFields');
+  const structuredBoundaries = extractFunction('eventStructuredBoundaryTimes');
   const addEvent = extractFunction('addEvent');
   const attendanceWindow = extractFunction('selectedAttendanceWindow');
 
-  assert.match(indexHtml, /id="ev-live-cut-end-group" style="display:none;"[\s\S]*?id="ev-end-time" type="time"/);
-  assert.match(updateCategoryFields, /category === 'Recording \(live cut\)'/);
-  assert.match(updateCategoryFields, /liveCutEndGroup\.style\.display/);
-  assert.match(addEvent, /liveCutEndTime && !startTime/);
-  assert.match(addEvent, /liveCutEndTime <= startTime/);
-  assert.match(addEvent, /liveCutEndTime \|\| '23:59'/);
+  assert.match(indexHtml, /id="ev-time" type="time" required/);
+  assert.match(indexHtml, /Approximate end time \*[\s\S]*?id="ev-end-time" type="time" required/);
+  assert.match(boundarySync, /Start and approximate end are synchronized/);
+  assert.match(boundarySync, /input\.readOnly = true/);
+  assert.match(structuredBoundaries, /ev-takedown-end/);
+  assert.match(structuredBoundaries, /ev-game4-end[\s\S]*?ev-game3-end/);
+  assert.match(structuredBoundaries, /ev-game2-end/);
+  assert.match(addEvent, /!hasStructuredSchedule && \(!startTime \|\| !approximateEndTime\)/);
+  assert.match(addEvent, /approximateEndTime <= startTime/);
   assert.match(addEvent, /ends_at: new Date\(eventEnd\)\.toISOString\(\)/);
   assert.match(appSource, /endTime: event\.ends_at \? berlinTimeLabel\(event\.ends_at\) : ''/);
   assert.match(attendanceWindow, /ev\.game1End \|\| ev\.endTime \|\| '23:59'/);
   assert.match(schemaSql, /alter table public\.events add column if not exists ends_at timestamptz/);
+  assert.match(schemaSql, /set ends_at = date \+ interval '1 hour'[\s\S]*?where ends_at <= date/);
+  assert.match(schemaSql, /alter table public\.events alter column ends_at set not null/);
+  assert.match(schemaSql, /events_end_window_check check \(ends_at > date\)/);
 
-  const label = event => runFunctions(['eventScheduleTimeLabel'], {}, `eventScheduleTimeLabel(${JSON.stringify(event)})`);
-  assert.equal(label({ cat: 'Recording (live cut)', time: '15:30', endTime: '18:00' }), '15:30–18:00');
+  const label = event => runFunctions(['eventApproximateEndMessage', 'eventScheduleTimeLabel'], {}, `eventScheduleTimeLabel(${JSON.stringify(event)})`);
+  assert.equal(label({ cat: 'Recording (live cut)', time: '15:30', endTime: '18:00' }), '15:30 · Approximate end time: 18:00');
   assert.equal(label({ cat: 'Recording (live cut)', time: '15:30', endTime: '23:59' }), '15:30');
-  assert.equal(label({ cat: 'Event', time: '15:30', endTime: '18:00' }), '15:30');
+  assert.equal(label({ cat: 'Event', time: '15:30', endTime: '18:00' }), '15:30 · Approximate end time: 18:00');
+  assert.equal(label({ cat: 'Livestream', time: '09:00', endTime: '16:30', isSports: true }), '09:00 · Approximate end time: 16:30');
 });
 
 test('Event and live-cut role matrices enforce open roles and concurrent single-role slots', () => {

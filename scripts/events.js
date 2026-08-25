@@ -144,6 +144,12 @@ function updateEventRoleSlotControls() {
 
 function resetEventEditor() {
   eventEditorFieldIds.forEach(id => { document.getElementById(id).value = ''; });
+  ['ev-time', 'ev-end-time'].forEach(id => {
+    const input = document.getElementById(id);
+    input.dataset.manualValue = '';
+    input.readOnly = false;
+    input.removeAttribute('aria-readonly');
+  });
   ['ev-sports', 'ev-isst', 'ev-festival'].forEach(id => { document.getElementById(id).checked = false; });
   document.getElementById('ev-cat').value = 'Event';
   document.getElementById('ev-single-role-slot-limit').value = '1';
@@ -174,6 +180,7 @@ function openEventEditor(id = '') {
     document.getElementById('ev-title').value = event.title;
     document.getElementById('ev-date').value = event.date;
     document.getElementById('ev-time').value = event.time;
+    document.getElementById('ev-time').dataset.manualValue = event.time;
     document.getElementById('ev-loc').value = event.loc === 'TBC' ? '' : event.loc;
     document.getElementById('ev-desc').value = event.desc;
     document.getElementById('ev-cat').value = event.cat;
@@ -181,7 +188,8 @@ function openEventEditor(id = '') {
     setEventSignupRoles(event.openSignupRoles);
     document.getElementById('ev-single-role-slot-limit').value = String(event.singleRoleSlotLimit || 1);
     updateEventRoleSlotControls();
-    document.getElementById('ev-end-time').value = event.cat === 'Recording (live cut)' ? event.endTime : '';
+    document.getElementById('ev-end-time').value = event.endTime;
+    document.getElementById('ev-end-time').dataset.manualValue = event.endTime;
     document.getElementById('ev-livestream-setup-date').value = event.livestreamSetupDate;
     document.getElementById('ev-sports').checked = event.isSports;
     document.getElementById('ev-isst').checked = event.isIsst;
@@ -222,11 +230,7 @@ function updateLivestreamSetupField() {
   const category = document.getElementById('ev-cat').value;
   const group = document.getElementById('ev-livestream-setup-group');
   const setupDate = document.getElementById('ev-livestream-setup-date');
-  const liveCutEndGroup = document.getElementById('ev-live-cut-end-group');
-  const liveCutEndTime = document.getElementById('ev-end-time');
   group.style.display = category === 'Livestream' ? '' : 'none';
-  liveCutEndGroup.style.display = category === 'Recording (live cut)' ? '' : 'none';
-  if (category !== 'Recording (live cut)') liveCutEndTime.value = '';
   document.getElementById('ev-sports-group').style.display = category === 'Livestream' ? '' : 'none';
   document.getElementById('ev-festival-group').style.display = category === 'Event' ? '' : 'none';
   if (category !== 'Livestream') {
@@ -254,6 +258,7 @@ function updateSportsFields() {
   document.getElementById('ev-sports-label').classList.toggle('sports-selected', selected);
   document.getElementById('ev-isst-label').classList.remove('sports-selected');
   updateFestivalFields();
+  syncEventBoundaryFields();
 }
 
 function updateIsstFields() {
@@ -267,6 +272,7 @@ function updateIsstFields() {
   document.getElementById('ev-isst-label').classList.toggle('sports-selected', selected);
   if (selected) document.getElementById('ev-sports-label').classList.remove('sports-selected');
   updateFestivalFields();
+  syncEventBoundaryFields();
 }
 
 function updateFestivalFields() {
@@ -281,6 +287,56 @@ function updateFestivalFields() {
   }
   document.getElementById('ev-festival-times').style.display = selected ? '' : 'none';
   document.getElementById('ev-festival-label').classList.toggle('sports-selected', selected);
+  syncEventBoundaryFields();
+}
+
+function eventStructuredBoundaryTimes() {
+  if (document.getElementById('ev-festival').checked) {
+    return {
+      start: document.getElementById('ev-setup-start').value,
+      end: document.getElementById('ev-takedown-end').value,
+      source: 'World Fest setup and takedown',
+    };
+  }
+  if (document.getElementById('ev-isst').checked) {
+    return {
+      start: document.getElementById('ev-game1-start').value,
+      end: document.getElementById('ev-game4-end').value || document.getElementById('ev-game3-end').value,
+      source: 'the first and final ISST games',
+    };
+  }
+  if (document.getElementById('ev-sports').checked) {
+    return {
+      start: document.getElementById('ev-game1-start').value,
+      end: document.getElementById('ev-game2-end').value,
+      source: 'the two game windows',
+    };
+  }
+  return null;
+}
+
+function syncEventBoundaryFields() {
+  const startInput = document.getElementById('ev-time');
+  const endInput = document.getElementById('ev-end-time');
+  const help = document.getElementById('ev-end-time-help');
+  const structured = eventStructuredBoundaryTimes();
+  if (structured) {
+    [startInput, endInput].forEach(input => {
+      if (!input.readOnly) input.dataset.manualValue = input.value;
+      input.readOnly = true;
+      input.setAttribute('aria-readonly', 'true');
+    });
+    startInput.value = structured.start;
+    endInput.value = structured.end;
+    help.textContent = `Start and approximate end are synchronized from ${structured.source}.`;
+    return;
+  }
+  [startInput, endInput].forEach(input => {
+    if (input.readOnly) input.value = input.dataset.manualValue || '';
+    input.readOnly = false;
+    input.removeAttribute('aria-readonly');
+  });
+  help.textContent = 'Shown to members as an estimate and used for signups, equipment reservations, and schedules.';
 }
 
 async function addEvent() {
@@ -316,21 +372,22 @@ async function addEvent() {
     return;
   }
   const startTime = document.getElementById('ev-time').value;
-  const liveCutEndTime = category === 'Recording (live cut)' ? document.getElementById('ev-end-time').value : '';
-  if (liveCutEndTime && !startTime) {
-    showToast('Add a start time before setting the live-cut end time.', 'error');
-    return;
-  }
-  if (liveCutEndTime && liveCutEndTime <= startTime) {
-    showToast('The live-cut end time must be after its start time.', 'error');
-    return;
-  }
+  const approximateEndTime = document.getElementById('ev-end-time').value;
   const isSports = category === 'Livestream' && document.getElementById('ev-sports').checked;
   const isIsst = category === 'Livestream' && document.getElementById('ev-isst').checked;
   const gameTimes = ['ev-game1-start', 'ev-game1-end', 'ev-game2-start', 'ev-game2-end'].map(id => document.getElementById(id).value);
   const isstTimes = ['ev-game3-start', 'ev-game3-end', 'ev-game4-start', 'ev-game4-end'].map(id => document.getElementById(id).value);
   const isFestival = document.getElementById('ev-festival').checked;
   const festivalTimes = ['ev-setup-start', 'ev-setup-end', 'ev-shift1-start', 'ev-shift1-end', 'ev-shift2-start', 'ev-shift2-end', 'ev-takedown-start', 'ev-takedown-end'].map(id => document.getElementById(id).value);
+  const hasStructuredSchedule = isSports || isIsst || isFestival;
+  if (!hasStructuredSchedule && (!startTime || !approximateEndTime)) {
+    showToast('Please add a start time and approximate end time.', 'error');
+    return;
+  }
+  if (!hasStructuredSchedule && approximateEndTime <= startTime) {
+    showToast('The approximate end time must be after the start time.', 'error');
+    return;
+  }
   if (isSports && gameTimes.some(value => !value)) {
     showToast('Please enter the start and end times for both games.', 'error');
     return;
@@ -373,7 +430,7 @@ async function addEvent() {
       ? isstTimes[3] || isstTimes[1]
       : isSports
         ? gameTimes[3]
-        : liveCutEndTime || '23:59';
+        : approximateEndTime;
   const eventEnd = berlinTimestamp(date, eventEndTime);
   if (eventDate === null || eventEnd === null || eventEnd <= eventDate) {
     showToast('This Berlin date/time is invalid. Check the schedule, especially around daylight-saving changes.', 'error', 7000);

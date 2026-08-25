@@ -1517,6 +1517,13 @@
     font-size: 10px;
     font-weight: 600;
   }
+  .event-form-section .form-input[readonly] {
+    border-style: dashed;
+    border-color: rgba(164,1,52,.3);
+    background: linear-gradient(135deg, var(--accent-dim2), var(--bg3));
+    color: var(--text2);
+    cursor: default;
+  }
   .event-schedule-option {
     padding: 12px;
     margin-top: 10px;

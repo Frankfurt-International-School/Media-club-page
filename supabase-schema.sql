@@ -82,7 +82,7 @@ create table if not exists public.events (
   game_4_end time,
   open_signup_roles text[] not null default array['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer']::text[],
   single_role_slot_limit smallint not null default 1,
-  ends_at timestamptz
+  ends_at timestamptz not null
 );
 
 alter table public.events add column if not exists category text not null default 'Event';
@@ -137,6 +137,12 @@ set ends_at = (
     )
 ) at time zone 'Europe/Berlin'
 where event.ends_at is null;
+update public.events
+set ends_at = date + interval '1 hour'
+where ends_at <= date;
+alter table public.events alter column ends_at set not null;
+alter table public.events drop constraint if exists events_end_window_check;
+alter table public.events add constraint events_end_window_check check (ends_at > date);
 update public.events set category = 'Event' where is_festival;
 alter table public.events drop constraint if exists events_isst_schedule_check;
 alter table public.events add constraint events_isst_schedule_check check (

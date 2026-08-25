@@ -840,15 +840,15 @@
     <section class="event-form-section">
       <div class="event-form-section-title"><span>1</span> Event details</div>
       <div class="form-group"><label class="form-label">Event title *</label><input class="form-input" id="ev-title" placeholder="Short film workshop" /></div>
-      <div class="form-row2">
-        <div class="form-group"><label class="form-label">Date *</label><input class="form-input" id="ev-date" type="date" /></div>
-        <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="ev-time" type="time" /></div>
+      <div class="form-row3">
+        <div class="form-group"><label class="form-label" for="ev-date">Date *</label><input class="form-input" id="ev-date" type="date" required /></div>
+        <div class="form-group"><label class="form-label" for="ev-time">Start time *</label><input class="form-input" id="ev-time" type="time" required /></div>
+        <div class="form-group" id="ev-end-time-group">
+          <label class="form-label" for="ev-end-time">Approximate end time *</label>
+          <input class="form-input" id="ev-end-time" type="time" required aria-describedby="ev-end-time-help" />
+        </div>
       </div>
-      <div class="form-group" id="ev-live-cut-end-group" style="display:none;">
-        <label class="form-label" for="ev-end-time">End time <span class="text-muted">(optional)</span></label>
-        <input class="form-input" id="ev-end-time" type="time" />
-        <div class="text-muted" style="margin-top:6px;">Sets the full live-cut production window for signups, equipment reservations, and schedules.</div>
-      </div>
+      <div class="text-muted" id="ev-end-time-help" style="margin-top:-8px;margin-bottom:14px;" aria-live="polite">Shown to members as an estimate and used for signups, equipment reservations, and schedules.</div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="ev-loc" placeholder="Room B12" /></div>
         <div class="form-group">
