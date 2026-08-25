@@ -926,8 +926,18 @@
         <div><strong>Choose roles members may claim</strong><p>Available for Event and Recording (live cut). Existing signups stay attached if a role is later closed.</p></div>
         <span class="event-role-setup-signal"><span></span>ROLE MATRIX</span>
       </div>
+      <div class="event-role-presets" aria-label="Crew role presets">
+        <div class="event-role-presets-label"><strong>Quick presets</strong><span>Apply, then fine-tune any role below.</span></div>
+        <button type="button" class="event-role-preset" data-event-role-preset="standard" aria-pressed="false" onclick="applyEventRolePreset('standard')"><span>Standard Crew</span><small>All except Wireless</small></button>
+        <button type="button" class="event-role-preset" data-event-role-preset="photography" aria-pressed="false" onclick="applyEventRolePreset('photography')"><span>Photography Only</span><small>Adult Supervisor + Photographer</small></button>
+        <button type="button" class="event-role-preset" data-event-role-preset="full" aria-pressed="false" onclick="applyEventRolePreset('full')"><span>Full Crew</span><small>Every role</small></button>
+      </div>
       <div class="event-role-grid" id="ev-open-role-grid"></div>
-      <div class="event-single-role-slots" id="ev-single-role-slots" hidden>
+      <div class="event-role-capacity event-photographer-slots" id="ev-photographer-slots" hidden>
+        <div><strong>Photography capacity</strong><p>Set the number of photographers, even when other crew roles are open.</p></div>
+        <label for="ev-photographer-slot-limit"><span>Photography slots</span><input class="form-input" id="ev-photographer-slot-limit" type="number" min="1" max="20" value="1" inputmode="numeric"></label>
+      </div>
+      <div class="event-role-capacity event-single-role-slots" id="ev-single-role-slots" hidden>
         <div><strong id="ev-single-role-title">Single-role capacity</strong><p id="ev-single-role-help">Set how many members may hold this role at the same time.</p></div>
         <label for="ev-single-role-slot-limit"><span>Concurrent slots</span><input class="form-input" id="ev-single-role-slot-limit" type="number" min="1" max="20" value="1" inputmode="numeric"></label>
       </div>

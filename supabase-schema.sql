@@ -82,6 +82,7 @@ create table if not exists public.events (
   game_4_end time,
   open_signup_roles text[] not null default array['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer']::text[],
   single_role_slot_limit smallint not null default 1,
+  photographer_slot_limit smallint not null default 1,
   ends_at timestamptz not null
 );
 
@@ -103,6 +104,15 @@ alter table public.events add column if not exists game_4_start time;
 alter table public.events add column if not exists game_4_end time;
 alter table public.events add column if not exists open_signup_roles text[] not null default array['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer']::text[];
 alter table public.events add column if not exists single_role_slot_limit smallint not null default 1;
+alter table public.events add column if not exists photographer_slot_limit smallint not null default 1;
+update public.events
+set photographer_slot_limit = single_role_slot_limit,
+    single_role_slot_limit = 1
+where category in ('Event', 'Recording (live cut)')
+  and cardinality(open_signup_roles) = 1
+  and 'Photographer' = any(open_signup_roles)
+  and photographer_slot_limit = 1
+  and single_role_slot_limit > 1;
 alter table public.events drop constraint if exists events_open_signup_roles_check;
 alter table public.events add constraint events_open_signup_roles_check check (
   cardinality(open_signup_roles) between 1 and 10
@@ -110,6 +120,8 @@ alter table public.events add constraint events_open_signup_roles_check check (
 );
 alter table public.events drop constraint if exists events_single_role_slot_limit_check;
 alter table public.events add constraint events_single_role_slot_limit_check check (single_role_slot_limit between 1 and 20);
+alter table public.events drop constraint if exists events_photographer_slot_limit_check;
+alter table public.events add constraint events_photographer_slot_limit_check check (photographer_slot_limit between 1 and 20);
 alter table public.events add column if not exists ends_at timestamptz;
 alter table public.events add column if not exists is_festival boolean not null default false;
 alter table public.events add column if not exists setup_start time;
@@ -355,7 +367,9 @@ begin
     if not new.signup_role = any(target_event.open_signup_roles) then
       raise exception 'This role is not open for the selected event.';
     end if;
-    if cardinality(target_event.open_signup_roles) = 1 then
+    if new.signup_role = 'Photographer' then
+      slot_limit := target_event.photographer_slot_limit;
+    elsif cardinality(target_event.open_signup_roles) = 1 then
       slot_limit := target_event.single_role_slot_limit;
     end if;
   end if;

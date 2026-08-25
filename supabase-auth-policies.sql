@@ -1813,6 +1813,7 @@ grant update (
   category,
   open_signup_roles,
   single_role_slot_limit,
+  photographer_slot_limit,
   livestream_setup_date,
   is_sports,
   is_isst,

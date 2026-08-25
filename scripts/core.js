@@ -69,6 +69,9 @@ function eventOpenRoleLabels(event) {
 function eventRoleCapacity(event, role) {
   const openRoles = eventOpenRoleLabels(event);
   if (!openRoles.includes(role)) return 0;
+  if (eventCategorySupportsRoleSetup(event?.cat) && role === signupRoleLabels.photographer) {
+    return Math.max(1, Math.min(20, Number(event?.photographerSlotLimit) || 1));
+  }
   if (eventCategorySupportsRoleSetup(event?.cat) && openRoles.length === 1) {
     return Math.max(1, Math.min(20, Number(event?.singleRoleSlotLimit) || 1));
   }
@@ -648,6 +651,7 @@ function normalizeEvent(event) {
       ? event.open_signup_roles.filter(role => signupRoleDisplayOrder.includes(role))
       : signupRoleDisplayOrder.slice(),
     singleRoleSlotLimit: Math.max(1, Math.min(20, Number(event.single_role_slot_limit) || 1)),
+    photographerSlotLimit: Math.max(1, Math.min(20, Number(event.photographer_slot_limit) || 1)),
     desc: event.description || '',
     signups: (event.signups || []).filter(signup => signup.confirmation_status !== 'expired').map(normalizeSignup),
     expiredSignups: (event.signups || []).filter(signup => signup.confirmation_status === 'expired').map(normalizeSignup),

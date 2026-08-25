@@ -439,27 +439,40 @@ test('all event categories require and display an approximate end time', () => {
   assert.equal(label({ cat: 'Livestream', time: '09:00', endTime: '16:30', isSports: true }), '09:00 · Approximate end time: 16:30');
 });
 
-test('Event and live-cut role matrices enforce open roles and concurrent single-role slots', () => {
+test('Event and live-cut role matrices enforce presets and independent Photographer capacity', () => {
   const allRoles = ['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer'];
   const roleConfig = event => JSON.parse(JSON.stringify(runFunctions(
     ['eventCategorySupportsRoleSetup', 'eventOpenRoleLabels', 'eventRoleCapacity'],
-    { configurableSignupCategories: ['Event', 'Recording (live cut)'], signupRoleDisplayOrder: allRoles },
-    `({ roles: eventOpenRoleLabels(${JSON.stringify(event)}), photographerSlots: eventRoleCapacity(${JSON.stringify(event)}, 'Photographer') })`,
+    { configurableSignupCategories: ['Event', 'Recording (live cut)'], signupRoleDisplayOrder: allRoles, signupRoleLabels: { photographer: 'Photographer' } },
+    `({ roles: eventOpenRoleLabels(${JSON.stringify(event)}), photographerSlots: eventRoleCapacity(${JSON.stringify(event)}, 'Photographer'), obsSlots: eventRoleCapacity(${JSON.stringify(event)}, 'OBS') })`,
+  )));
+  const preset = name => JSON.parse(JSON.stringify(runFunctions(
+    ['eventRolePresetRoles'],
+    { signupRoleDisplayOrder: allRoles, signupRoleLabels: { adult_supervisor: 'Adult Supervisor', photographer: 'Photographer', wireless: 'Wireless' } },
+    `eventRolePresetRoles('${name}')`,
   )));
 
-  assert.deepEqual(roleConfig({ cat: 'Event', openSignupRoles: ['Photographer'], singleRoleSlotLimit: 4 }), { roles: ['Photographer'], photographerSlots: 4 });
-  assert.deepEqual(roleConfig({ cat: 'Recording (live cut)', openSignupRoles: ['OBS', 'Photographer'], singleRoleSlotLimit: 8 }), { roles: ['OBS', 'Photographer'], photographerSlots: 1 });
-  assert.deepEqual(roleConfig({ cat: 'Livestream', openSignupRoles: ['Photographer'], singleRoleSlotLimit: 8 }), { roles: allRoles, photographerSlots: 1 });
+  assert.deepEqual(roleConfig({ cat: 'Event', openSignupRoles: ['Photographer'], photographerSlotLimit: 4 }), { roles: ['Photographer'], photographerSlots: 4, obsSlots: 0 });
+  assert.deepEqual(roleConfig({ cat: 'Recording (live cut)', openSignupRoles: ['OBS', 'Photographer'], photographerSlotLimit: 8 }), { roles: ['OBS', 'Photographer'], photographerSlots: 8, obsSlots: 1 });
+  assert.deepEqual(roleConfig({ cat: 'Event', openSignupRoles: ['OBS'], singleRoleSlotLimit: 3 }), { roles: ['OBS'], photographerSlots: 0, obsSlots: 3 });
+  assert.deepEqual(roleConfig({ cat: 'Livestream', openSignupRoles: ['Photographer'], photographerSlotLimit: 8 }), { roles: allRoles, photographerSlots: 1, obsSlots: 1 });
+  assert.deepEqual(preset('standard'), allRoles.filter(role => role !== 'Wireless'));
+  assert.deepEqual(preset('photography'), ['Adult Supervisor', 'Photographer']);
+  assert.deepEqual(preset('full'), allRoles);
 
-  assert.match(indexHtml, /id="ev-role-setup" hidden[\s\S]*?id="ev-open-role-grid"[\s\S]*?id="ev-single-role-slot-limit"/);
+  assert.match(indexHtml, /id="ev-role-setup" hidden[\s\S]*?data-event-role-preset="standard"[\s\S]*?data-event-role-preset="photography"[\s\S]*?data-event-role-preset="full"[\s\S]*?id="ev-open-role-grid"/);
+  assert.match(indexHtml, /id="ev-photographer-slots" hidden[\s\S]*?id="ev-photographer-slot-limit"[\s\S]*?id="ev-single-role-slot-limit"/);
+  assert.match(appSource, /for="ev-open-role-\$\{index \+ 1\}"[\s\S]*?id="ev-open-role-\$\{index \+ 1\}"/);
   assert.match(appSource, /open_signup_roles: openSignupRoles/);
   assert.match(appSource, /single_role_slot_limit: singleRoleSlotLimit/);
+  assert.match(appSource, /photographer_slot_limit: photographerSlotLimit/);
   assert.match(appSource, /setEventSignupRoles\(event\.openSignupRoles\)/);
   assert.match(appSource, /overlappingRoleSignups\.length >= roleCapacity/);
   assert.match(schemaSql, /open_signup_roles text\[\] not null default/);
   assert.match(schemaSql, /single_role_slot_limit smallint not null default 1/);
+  assert.match(schemaSql, /photographer_slot_limit smallint not null default 1/);
   assert.match(schemaSql, /role_slot smallint not null default 1/);
-  assert.match(schemaSql, /create or replace function public\.assign_signup_role_slot\(\)[\s\S]*?for update[\s\S]*?No signup slots are available/);
+  assert.match(schemaSql, /create or replace function public\.assign_signup_role_slot\(\)[\s\S]*?for update[\s\S]*?new\.signup_role = 'Photographer'[\s\S]*?target_event\.photographer_slot_limit[\s\S]*?No signup slots are available/);
   assert.match(schemaSql, /signup_role with =,\s*role_slot with =,\s*tstzrange\(attendance_start, attendance_end, '\[\)'\) with &&/);
   const validSignup = extractSqlFunction('is_valid_event_signup');
   assert.match(validSignup, /event\.category not in \('Event', 'Recording \(live cut\)'\)[\s\S]*?p_signup_role = any\(event\.open_signup_roles\)/);
@@ -471,6 +484,7 @@ test('Event and live-cut role matrices enforce open roles and concurrent single-
   const updateGrant = policiesSql.match(/grant update \(([\s\S]*?)\) on table public\.events to authenticated/)?.[1] || '';
   assert.match(updateGrant, /open_signup_roles/);
   assert.match(updateGrant, /single_role_slot_limit/);
+  assert.match(updateGrant, /photographer_slot_limit/);
 });
 
 test('production staff can edit events without replacing linked records or lifecycle fields', () => {

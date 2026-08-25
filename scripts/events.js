@@ -5,6 +5,10 @@ function eventRoleSetupCaption(event) {
   if (!eventCategorySupportsRoleSetup(event?.cat)) return '';
   const roles = eventOpenRoleLabels(event);
   if (roles.length === 1) return `${roles[0]} · ${eventRoleCapacity(event, roles[0])} concurrent ${eventRoleCapacity(event, roles[0]) === 1 ? 'slot' : 'slots'}`;
+  if (roles.includes(signupRoleLabels.photographer)) {
+    const photographerSlots = eventRoleCapacity(event, signupRoleLabels.photographer);
+    return `${roles.length} open crew roles · ${photographerSlots} photography ${photographerSlots === 1 ? 'slot' : 'slots'}`;
+  }
   return `${roles.length} open crew roles`;
 }
 
@@ -114,14 +118,41 @@ function selectedEventSignupRoles() {
   return [...document.querySelectorAll('#ev-open-role-grid input[type="checkbox"]:checked')].map(input => input.value);
 }
 
+function eventRolePresetRoles(presetName) {
+  if (presetName === 'standard') return signupRoleDisplayOrder.filter(role => role !== signupRoleLabels.wireless);
+  if (presetName === 'photography') return [signupRoleLabels.adult_supervisor, signupRoleLabels.photographer];
+  if (presetName === 'full') return signupRoleDisplayOrder.slice();
+  return [];
+}
+
+function updateEventRolePresetState() {
+  const selected = selectedEventSignupRoles();
+  document.querySelectorAll('[data-event-role-preset]').forEach(button => {
+    const presetRoles = eventRolePresetRoles(button.dataset.eventRolePreset);
+    const isActive = selected.length === presetRoles.length && selected.every(role => presetRoles.includes(role));
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function handleEventRoleSelectionChange() {
+  updateEventRoleSlotControls();
+  updateEventRolePresetState();
+}
+
+function applyEventRolePreset(presetName) {
+  const roles = eventRolePresetRoles(presetName);
+  if (roles.length) setEventSignupRoles(roles);
+}
+
 function setEventSignupRoles(roles = signupRoleDisplayOrder) {
   const selected = new Set(roles.filter(role => signupRoleDisplayOrder.includes(role)));
   const grid = document.getElementById('ev-open-role-grid');
-  grid.innerHTML = signupRoleDisplayOrder.map((role, index) => `<label class="event-role-option${role === signupRoleLabels.photographer ? ' is-photography' : ''}">
-    <input type="checkbox" value="${escapeHtml(role)}" ${selected.has(role) ? 'checked' : ''} onchange="updateEventRoleSlotControls()">
+  grid.innerHTML = signupRoleDisplayOrder.map((role, index) => `<label class="event-role-option${role === signupRoleLabels.photographer ? ' is-photography' : ''}" for="ev-open-role-${index + 1}">
+    <input id="ev-open-role-${index + 1}" type="checkbox" value="${escapeHtml(role)}" ${selected.has(role) ? 'checked' : ''} onchange="handleEventRoleSelectionChange()">
     <span class="event-role-option-index">${String(index + 1).padStart(2, '0')}</span><span>${escapeHtml(role)}</span><small>${role === signupRoleLabels.photographer ? 'Photo coverage' : role.includes('Supervisor') ? 'Supervision' : 'Production'}</small>
   </label>`).join('');
-  updateEventRoleSlotControls();
+  handleEventRoleSelectionChange();
 }
 
 function updateEventRoleSlotControls() {
@@ -129,16 +160,17 @@ function updateEventRoleSlotControls() {
   const supportsSetup = eventCategorySupportsRoleSetup(category);
   const section = document.getElementById('ev-role-setup');
   const slotPanel = document.getElementById('ev-single-role-slots');
-  if (!section || !slotPanel) return;
+  const photographerSlotPanel = document.getElementById('ev-photographer-slots');
+  if (!section || !slotPanel || !photographerSlotPanel) return;
   section.hidden = !supportsSetup;
   const selectedRoles = selectedEventSignupRoles();
-  const singleRole = supportsSetup && selectedRoles.length === 1 ? selectedRoles[0] : '';
+  const photographerSelected = supportsSetup && selectedRoles.includes(signupRoleLabels.photographer);
+  const singleRole = supportsSetup && selectedRoles.length === 1 && !photographerSelected ? selectedRoles[0] : '';
+  photographerSlotPanel.hidden = !photographerSelected;
   slotPanel.hidden = !singleRole;
   if (singleRole) {
     document.getElementById('ev-single-role-title').textContent = `${singleRole} capacity`;
-    document.getElementById('ev-single-role-help').textContent = singleRole === signupRoleLabels.photographer
-      ? 'Choose how many photographers may cover the event at the same time.'
-      : `Choose how many members may hold ${singleRole} at the same time.`;
+    document.getElementById('ev-single-role-help').textContent = `Choose how many members may hold ${singleRole} at the same time.`;
   }
 }
 
@@ -153,6 +185,7 @@ function resetEventEditor() {
   ['ev-sports', 'ev-isst', 'ev-festival'].forEach(id => { document.getElementById(id).checked = false; });
   document.getElementById('ev-cat').value = 'Event';
   document.getElementById('ev-single-role-slot-limit').value = '1';
+  document.getElementById('ev-photographer-slot-limit').value = '1';
   setEventSignupRoles(signupRoleDisplayOrder);
   editingEventId = '';
   updateLivestreamSetupField();
@@ -187,6 +220,7 @@ function openEventEditor(id = '') {
     updateLivestreamSetupField();
     setEventSignupRoles(event.openSignupRoles);
     document.getElementById('ev-single-role-slot-limit').value = String(event.singleRoleSlotLimit || 1);
+    document.getElementById('ev-photographer-slot-limit').value = String(event.photographerSlotLimit || 1);
     updateEventRoleSlotControls();
     document.getElementById('ev-end-time').value = event.endTime;
     document.getElementById('ev-end-time').dataset.manualValue = event.endTime;
@@ -365,10 +399,17 @@ async function addEvent() {
       return;
     }
   }
+  const isSingleNonPhotographyRole = openSignupRoles.length === 1 && !openSignupRoles.includes(signupRoleLabels.photographer);
   const requestedSlotLimit = Number(document.getElementById('ev-single-role-slot-limit').value);
-  const singleRoleSlotLimit = openSignupRoles.length === 1 ? Math.trunc(requestedSlotLimit) : 1;
+  const singleRoleSlotLimit = isSingleNonPhotographyRole ? Math.trunc(requestedSlotLimit) : 1;
   if (!Number.isInteger(singleRoleSlotLimit) || singleRoleSlotLimit < 1 || singleRoleSlotLimit > 20) {
     showToast('Concurrent slots must be a whole number from 1 to 20.', 'error');
+    return;
+  }
+  const requestedPhotographerSlotLimit = Number(document.getElementById('ev-photographer-slot-limit').value);
+  const photographerSlotLimit = openSignupRoles.includes(signupRoleLabels.photographer) ? Math.trunc(requestedPhotographerSlotLimit) : 1;
+  if (!Number.isInteger(photographerSlotLimit) || photographerSlotLimit < 1 || photographerSlotLimit > 20) {
+    showToast('Photography slots must be a whole number from 1 to 20.', 'error');
     return;
   }
   const startTime = document.getElementById('ev-time').value;
@@ -444,6 +485,7 @@ async function addEvent() {
     category,
     open_signup_roles: openSignupRoles,
     single_role_slot_limit: singleRoleSlotLimit,
+    photographer_slot_limit: photographerSlotLimit,
     livestream_setup_date: category === 'Livestream'
       ? document.getElementById('ev-livestream-setup-date').value || null
       : null,
