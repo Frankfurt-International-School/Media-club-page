@@ -337,6 +337,7 @@ test('camera and lens visuals are lightweight, model-matched, and isolated to th
       { name: 'Canon EF-S 24mm f/2.8 STM' },
       { name: 'Canon EF-S 50mm f/1.8 STM' },
       { name: 'Canon EF-S 55–250mm f/4–5.6 IS STM' },
+      { name: 'Canon EF-S 55–250mm f/4–5.6 IS STM · Unit 2' },
       { name: 'Sigma 24–70mm f/2.8 DG DN Art' },
       { name: 'Leica DG Vario-Elmarit 12–60mm f/2.8–4' },
       { name: 'Olympus M.Zuiko Digital ED 40–150mm f/2.8 PRO' },
@@ -347,7 +348,7 @@ test('camera and lens visuals are lightweight, model-matched, and isolated to th
   )));
   assert.deepEqual(lensProfiles.map(profile => profile?.slug || null), [
     'canon-ef-s-18-135', 'canon-ef-s-18-55', 'canon-ef-s-24', 'canon-ef-50',
-    'canon-ef-s-55-250', 'sigma-24-70', 'leica-dg-12-60', 'olympus-40-150',
+    'canon-ef-s-55-250', 'canon-ef-s-55-250', 'sigma-24-70', 'leica-dg-12-60', 'olympus-40-150',
   ]);
   assert.ok(lensProfiles.every(profile => profile?.kind === 'lens'));
 
@@ -608,6 +609,7 @@ test('reservation policies require approved ownership and keep camera-lens kits 
   assert.match(schemaSql, /'Sigma 24–70mm f\/2\.8 DG DN Art', 'canon-r6'/);
   assert.match(schemaSql, /'Leica DG Vario-Elmarit 12–60mm f\/2\.8–4', 'lumix-gh6'/);
   assert.match(schemaSql, /'Canon EF-S 55–250mm f\/4–5\.6 IS STM', 'canon-aps-c'/);
+  assert.match(schemaSql, /'Canon EF-S 55–250mm f\/4–5\.6 IS STM · Unit 2', 'canon-aps-c'/);
 });
 
 test('dashboard preferences are owner-scoped and bounded', () => {

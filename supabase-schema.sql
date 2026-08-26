@@ -676,6 +676,7 @@ from (values
   ('Canon EF-S 24mm f/2.8 STM', 'canon-aps-c', 'Compact wide prime · brighter indoor option · Canon APS-C DSLR kit'),
   ('Canon EF-S 50mm f/1.8 STM', 'canon-aps-c', 'Fast portrait prime · shallow depth and low light · Canon APS-C DSLR kit'),
   ('Canon EF-S 55–250mm f/4–5.6 IS STM', 'canon-aps-c', 'Telephoto reach · sports and distant action · Canon APS-C DSLR kit'),
+  ('Canon EF-S 55–250mm f/4–5.6 IS STM · Unit 2', 'canon-aps-c', 'Second telephoto unit · sports and distant action · Canon APS-C DSLR kit'),
   ('Sigma 24–70mm f/2.8 DG DN Art', 'canon-r6', 'Fast standard zoom · event and low-light coverage · Canon R6 kit only'),
   ('Leica DG Vario-Elmarit 12–60mm f/2.8–4', 'lumix-gh6', 'Versatile wide-to-tele zoom · run-and-gun coverage · Lumix GH6 kit only'),
   ('Olympus M.Zuiko Digital ED 40–150mm f/2.8 PRO', 'lumix-gh6', 'Fast telephoto zoom · sports and stage coverage · Lumix GH6 kit only')
