@@ -129,6 +129,25 @@ as $$
     );
 $$;
 
+create or replace function public.is_athletics_gallery_custodian()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin_panel_user()
+    or exists (
+      select 1
+      from public.members member
+      where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        and replace(lower(member.role), ' ', '-') = 'leader'
+    );
+$$;
+
+revoke all on function public.is_athletics_gallery_custodian() from public;
+grant execute on function public.is_athletics_gallery_custodian() to authenticated;
+
 create or replace function public.can_create_meetings()
 returns boolean
 language sql
@@ -2019,7 +2038,7 @@ using (
     gallery.project_scope = 'showcase'
     or gallery.member_id = public.current_member_id()
     or public.is_member_of_team('athletics')
-    or public.is_admin_panel_user()
+    or public.is_athletics_gallery_custodian()
   )
 );
 

@@ -82,7 +82,7 @@ using (
   and (
     (storage.foldername(name))[1] = auth.uid()::text
     or public.is_member_of_team('athletics')
-    or public.is_admin_panel_user()
+    or public.is_athletics_gallery_custodian()
   )
 );
 

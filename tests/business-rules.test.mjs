@@ -95,33 +95,42 @@ test('News Team and Athletics are canonical secondary member tags before special
 
 test('Athletics gallery access is separated from the public showcase end to end', () => {
   const publicGallery = extractSqlFunction('get_public_gallery');
+  const athleticsCustodian = extractSqlFunction('is_athletics_gallery_custodian');
   assert.match(schemaSql, /project_scope text not null default 'showcase' check \(project_scope in \('showcase', 'athletics'\)\)/);
   assert.match(schemaSql, /select member\.id, 'athletics'[\s\S]*?athletics\[\[:space:\]\]\+department/);
   assert.match(publicGallery, /where project\.project_scope = 'showcase'/);
-  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.member_id = public\.current_member_id\(\)[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_admin_panel_user\(\)/);
+  assert.match(athleticsCustodian, /public\.is_admin_panel_user\(\)/);
+  assert.match(athleticsCustodian, /replace\(lower\(member\.role\), ' ', '-'\) = 'leader'/);
+  assert.doesNotMatch(athleticsCustodian, /co-leader|moderator/);
+  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.member_id = public\.current_member_id\(\)[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_athletics_gallery_custodian\(\)/);
   assert.match(policiesSql, /create policy "Signed-in members can submit gallery projects"[\s\S]*?nullif\(btrim\(storage_path\), ''\)[\s\S]*?gallery\.project_scope = 'showcase' or gallery\.image_url is null/);
 
   assert.match(storagePoliciesSql, /'gallery-athletics',[\s\S]*?false,[\s\S]*?20971520/);
-  assert.match(storagePoliciesSql, /create policy "Athletics members can read Athletics gallery media"[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_admin_panel_user\(\)/);
+  assert.match(storagePoliciesSql, /create policy "Athletics members can read Athletics gallery media"[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_athletics_gallery_custodian\(\)/);
   assert.match(appSource, /from\('gallery-athletics'\)\.createSignedUrl\(project\.storagePath, 3600\)/);
   assert.match(appSource, /state\.gallery\.filter\(project => project\.scope === 'showcase'\)\.slice\(0, 3\)/);
   assert.match(appSource, /requestedView === 'athletics' && !athleticsAvailable[\s\S]*?history\.replaceState/);
   assert.match(appSource, /galleryScope\.value = state\.galleryView === 'athletics' \? 'athletics' : 'showcase'/);
+  assert.doesNotMatch(appSource, /Auth Admin or Faculty custodians/);
+  assert.match(appSource, /the uploader, Faculty, and Leaders/);
   assert.match(indexHtml, /data-gallery-view="athletics"[\s\S]*?Athletics library[\s\S]*?Restricted delivery/);
 
-  const access = ({ teamKeys = [], isAdmin = false, owns = false, visitor = false }) => runFunctions(
+  const access = ({ teamKeys = [], isAdmin = false, owns = false, visitor = false, role = 'Member' }) => runFunctions(
     ['canAccessAthleticsGallery'],
     {
       state: { gallery: owns ? [{ scope: 'athletics', memberId: 'member-1' }] : [] },
       isVisitorSession: () => visitor,
-      currentMemberRecord: () => ({ id: 'member-1', teamKeys }),
+      currentMemberRecord: () => ({ id: 'member-1', teamKeys, role }),
       canAccessAdminPanel: () => isAdmin,
+      normalizeRoleName: value => value.toLowerCase().replace(/\s+/g, '-'),
     },
     'canAccessAthleticsGallery()',
   );
   assert.equal(access({}), false);
   assert.equal(access({ teamKeys: ['athletics'] }), true);
   assert.equal(access({ isAdmin: true }), true);
+  assert.equal(access({ role: 'Leader' }), true);
+  assert.equal(access({ role: 'Co-Leader' }), false);
   assert.equal(access({ owns: true }), true);
   assert.equal(access({ teamKeys: ['athletics'], visitor: true }), false);
 });
@@ -887,7 +896,7 @@ test('visitor reads use narrow RPCs and direct operational table reads stay bloc
   }
   assert.match(policiesSql, /create policy "Signed-in users can read events"[\s\S]*?not public\.is_visitor_session\(\)/);
   assert.match(policiesSql, /create policy "Signed-in users can read equipment"[\s\S]*?not public\.is_visitor_session\(\)/);
-  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.project_scope = 'showcase'[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_admin_panel_user\(\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.project_scope = 'showcase'[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_athletics_gallery_custodian\(\)/);
   assert.match(policiesSql, /create policy "Signed-in users can read announcements"[\s\S]*?using \(not public\.is_visitor_session\(\)\)/);
 });
 

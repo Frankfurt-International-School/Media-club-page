@@ -19,6 +19,7 @@ function canAccessAthleticsGallery() {
   const member = currentMemberRecord();
   return Boolean(
     canAccessAdminPanel()
+    || normalizeRoleName(member?.role || '') === 'leader'
     || member?.teamKeys?.includes('athletics')
     || state.gallery.some(project => project.scope === 'athletics' && project.memberId === member?.id)
   );
@@ -112,7 +113,7 @@ function renderGallery() {
   if (accessNote) {
     accessNote.hidden = view !== 'athletics';
     accessNote.innerHTML = view === 'athletics'
-      ? '<strong>Restricted collection.</strong> Only Athletics-tagged members, the uploader, and Auth Admin or Faculty custodians can open these records. Uploaded files use expiring links.'
+      ? '<strong>Restricted collection.</strong> Only Athletics-tagged members, the uploader, Faculty, and Leaders can open these records. Uploaded files use expiring links.'
       : '';
   }
   updateSlidingTab(document.querySelector('#page-gallery .tab-row'));
@@ -186,7 +187,7 @@ function updateGalleryScopeHelp() {
   const uploadNote = document.getElementById('gallery-upload-note');
   const linkNote = document.getElementById('gallery-link-note');
   if (help) help.innerHTML = scope === 'athletics'
-    ? '<strong>Athletics library:</strong> hidden from visitors and non-Athletics members. The uploader and Auth Admin or Faculty custodians retain access.'
+    ? '<strong>Athletics library:</strong> hidden from visitors and non-Athletics members. The uploader, Faculty, and Leaders retain access.'
     : '<strong>Member showcase:</strong> visible to visitors on the public gallery and About page.';
   if (uploadNote) uploadNote.textContent = scope === 'athletics'
     ? 'The uploaded image is stored privately and opened through an expiring link.'
