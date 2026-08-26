@@ -377,8 +377,19 @@ const passwordSetupForm = document.getElementById("auth-password-setup-form");
 const authLookupActions = document.getElementById("auth-lookup-actions");
 const authLookupRetry = document.getElementById("auth-lookup-retry");
 let pendingApprovalCheckUser = null;
-const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type") === "invite";
-let inviteSetupComplete = false;
+const pendingPasswordSetupKey = "crew-center-pending-password-setup";
+const normalizePasswordSetupMode = mode => ["invite", "recovery"].includes(String(mode || "").toLowerCase())
+  ? String(mode).toLowerCase()
+  : "";
+const authLinkType = normalizePasswordSetupMode(
+  new URLSearchParams(window.location.hash.slice(1)).get("type")
+  || new URLSearchParams(window.location.search).get("type")
+);
+const storedPasswordSetupMode = normalizePasswordSetupMode(
+  sessionStorage.getItem(pendingPasswordSetupKey) || localStorage.getItem(pendingPasswordSetupKey)
+);
+let passwordSetupMode = authLinkType || storedPasswordSetupMode;
+let passwordSetupComplete = false;
 const rememberPreferenceKey = "crew-center-remember-session";
 const shouldRememberSession = () => localStorage.getItem(rememberPreferenceKey) !== "false";
 const authStorage = {
@@ -401,6 +412,26 @@ authRemember.checked = shouldRememberSession();
 authRemember.addEventListener("change", () => {
   localStorage.setItem(rememberPreferenceKey, String(authRemember.checked));
 });
+
+function passwordSetupRequired() {
+  return Boolean(passwordSetupMode && !passwordSetupComplete);
+}
+
+function rememberPendingPasswordSetup(mode) {
+  passwordSetupMode = normalizePasswordSetupMode(mode) || "invite";
+  sessionStorage.setItem(pendingPasswordSetupKey, passwordSetupMode);
+  localStorage.setItem(pendingPasswordSetupKey, passwordSetupMode);
+}
+
+function clearPendingPasswordSetup() {
+  passwordSetupMode = "";
+  sessionStorage.removeItem(pendingPasswordSetupKey);
+  localStorage.removeItem(pendingPasswordSetupKey);
+}
+
+function passwordSetupSubmitLabel() {
+  return passwordSetupMode === "recovery" ? "Save new password" : "Set password";
+}
 
 window.crewCenterSupabase = window.supabase?.createClient(
   window.CREW_CENTER_SUPABASE.url,
@@ -812,8 +843,10 @@ function showSignIn() {
   document.body.classList.remove("auth-ready");
   document.getElementById("auth-visitor-exit")?.classList.remove("visible");
   document.getElementById("auth-visitor-option").style.display = "block";
+  authForm.style.display = "block";
+  passwordSetupForm.style.display = "none";
   window.stopCrewCenterLiveUpdates?.();
-  if (!inviteFlow && window.location.pathname !== "/signin") {
+  if (!passwordSetupRequired() && window.location.pathname !== "/signin") {
     history.replaceState({ page: "signin" }, "", "/signin");
   }
   setAuthBusy(false);
@@ -821,10 +854,11 @@ function showSignIn() {
 
 async function activateCrewCenterUser(user, options = {}) {
   if (!user || signOutRequested) return false;
-  const showInviteSetup = options.showInviteSetup === true;
+  const requirePasswordSetup = options.requirePasswordSetup === true || passwordSetupRequired();
+  const requestedPasswordSetupMode = normalizePasswordSetupMode(options.passwordSetupMode) || passwordSetupMode;
   const force = options.force === true;
   if (!force && authActivationUserId === user.id && authActivationPromise) return authActivationPromise;
-  if (!force && authActivationUserId === user.id && document.body.classList.contains("auth-ready")) {
+  if (!force && !requirePasswordSetup && authActivationUserId === user.id && document.body.classList.contains("auth-ready")) {
     applySignedInUser(user);
     return true;
   }
@@ -834,7 +868,7 @@ async function activateCrewCenterUser(user, options = {}) {
   authActivationPromise = (async () => {
     if (!await allowCrewCenterUser(user)) return false;
     if (signOutRequested || activationSequence !== authActivationSequence) return false;
-    if (showInviteSetup) showPasswordSetup();
+    if (requirePasswordSetup) showPasswordSetup(requestedPasswordSetupMode);
     else revealDashboard(user);
     return true;
   })();
@@ -854,6 +888,8 @@ async function signOutCrewCenterSession() {
   pendingApprovalCheckUser = null;
   authLookupActions.classList.remove("visible");
   authPassword.value = "";
+  passwordSetupComplete = false;
+  clearPendingPasswordSetup();
   showSignIn();
   if (!window.crewCenterSupabase) {
     clearStoredCrewCenterSession();
@@ -891,15 +927,21 @@ document.getElementById("auth-lookup-signout").addEventListener("click", async (
   await signOutCrewCenterSession();
 });
 
-function showPasswordSetup() {
+function showPasswordSetup(mode = passwordSetupMode || "invite") {
+  const normalizedMode = normalizePasswordSetupMode(mode) || "invite";
+  rememberPendingPasswordSetup(normalizedMode);
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
   authForm.style.display = "none";
   document.getElementById("auth-visitor-option").style.display = "none";
   passwordSetupForm.style.display = "block";
-  document.getElementById("auth-gate-title").textContent = "Set your password";
-  document.querySelector(".auth-gate-sub").textContent = "Choose a password to finish creating your Media Club account.";
-  document.querySelector(".auth-gate-note").textContent = "Use at least 8 characters.";
+  const isRecovery = normalizedMode === "recovery";
+  document.getElementById("auth-gate-title").textContent = isRecovery ? "Reset your password" : "Set your password";
+  document.querySelector(".auth-gate-sub").textContent = isRecovery
+    ? "Choose a new password for your Media Club account."
+    : "Choose a password to finish creating your Media Club account.";
+  document.querySelector(".auth-gate-note").textContent = "Use at least 8 characters. You will use this password the next time you sign in.";
+  document.getElementById("auth-password-setup-submit").textContent = passwordSetupSubmitLabel();
 }
 
 passwordSetupForm.addEventListener("submit", async event => {
@@ -919,9 +961,10 @@ passwordSetupForm.addEventListener("submit", async event => {
       "Password setup timed out."
     );
     if (error) throw error;
+    passwordSetupComplete = true;
+    clearPendingPasswordSetup();
     history.replaceState({}, "", window.location.pathname);
     passwordSetupForm.style.display = "none";
-    inviteSetupComplete = true;
     await activateCrewCenterUser(data.user, { force: true });
   } catch (error) {
     setAuthError(error.name === "CrewCenterTimeoutError"
@@ -929,7 +972,7 @@ passwordSetupForm.addEventListener("submit", async event => {
       : error.message || "Could not set the password.");
   } finally {
     button.disabled = false;
-    button.textContent = "Set password";
+    button.textContent = passwordSetupSubmitLabel();
   }
 });
 
@@ -954,6 +997,8 @@ authForm.addEventListener("submit", async event => {
       "Sign-in timed out."
     );
     if (error) throw error;
+    passwordSetupComplete = false;
+    clearPendingPasswordSetup();
     await activateCrewCenterUser(data.user);
   } catch (error) {
     setAuthError(error.name === "CrewCenterTimeoutError"
@@ -980,6 +1025,8 @@ visitorSubmit.addEventListener("click", async () => {
       "Visitor sign-in timed out."
     );
     if (error) throw error;
+    passwordSetupComplete = false;
+    clearPendingPasswordSetup();
     await activateCrewCenterUser(data.user);
     if (window.CREW_CENTER_IS_VISITOR && typeof window.navigate === "function") {
       window.navigate("about", window.navItemForPage?.("about"));
@@ -1012,8 +1059,25 @@ if (window.crewCenterSupabase) {
         return;
       }
       if (signOutRequested) return;
+      if (event === "PASSWORD_RECOVERY") {
+        passwordSetupComplete = false;
+        rememberPendingPasswordSetup("recovery");
+        activateCrewCenterUser(user, {
+          force: true,
+          requirePasswordSetup: true,
+          passwordSetupMode: "recovery",
+        }).catch(error => {
+          console.error("Couldn't open the password recovery form.", error);
+          showSignIn();
+          setAuthError("Your recovery link was accepted, but the password form could not finish opening. Please try again.");
+        });
+        return;
+      }
       if (["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
-        activateCrewCenterUser(user, { showInviteSetup: inviteFlow && !inviteSetupComplete }).catch(error => {
+        activateCrewCenterUser(user, {
+          requirePasswordSetup: passwordSetupRequired(),
+          passwordSetupMode,
+        }).catch(error => {
           console.error("Couldn't apply the authentication state.", error);
           showSignIn();
           setAuthError("Your session was found, but the Crew Center could not finish opening. Please try again.");
@@ -1031,7 +1095,10 @@ if (window.crewCenterSupabase) {
     if (error) throw error;
     authStartupSettled = true;
     const user = data.session?.user;
-    if (user) activateCrewCenterUser(user, { showInviteSetup: inviteFlow && !inviteSetupComplete });
+    if (user) activateCrewCenterUser(user, {
+      requirePasswordSetup: passwordSetupRequired(),
+      passwordSetupMode,
+    });
     else showSignIn();
   }).catch(error => {
     if (authStartupSettled) return;

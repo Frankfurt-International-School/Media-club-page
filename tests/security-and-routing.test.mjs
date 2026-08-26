@@ -171,6 +171,67 @@ test('authentication startup and sign-out remain responsive during upstream stal
   assert.match(initSource, /window\.finishCrewCenterStartup\?\.\(\);/);
 });
 
+test('password recovery stays locked until the member saves a new password', () => {
+  assert.match(authSource, /const pendingPasswordSetupKey = "crew-center-pending-password-setup"/);
+  assert.match(authSource, /\["invite", "recovery"\]\.includes/);
+  assert.match(authSource, /new URLSearchParams\(window\.location\.hash\.slice\(1\)\)\.get\("type"\)[\s\S]*?new URLSearchParams\(window\.location\.search\)\.get\("type"\)/);
+
+  const rememberStart = authSource.indexOf('function rememberPendingPasswordSetup(mode)');
+  const rememberEnd = authSource.indexOf('\nfunction clearPendingPasswordSetup()', rememberStart);
+  const rememberSource = authSource.slice(rememberStart, rememberEnd);
+  assert.match(rememberSource, /sessionStorage\.setItem\(pendingPasswordSetupKey, passwordSetupMode\)/);
+  assert.match(rememberSource, /localStorage\.setItem\(pendingPasswordSetupKey, passwordSetupMode\)/);
+
+  const clearStart = rememberEnd + 1;
+  const clearEnd = authSource.indexOf('\nfunction passwordSetupSubmitLabel()', clearStart);
+  const clearSource = authSource.slice(clearStart, clearEnd);
+  assert.match(clearSource, /sessionStorage\.removeItem\(pendingPasswordSetupKey\)/);
+  assert.match(clearSource, /localStorage\.removeItem\(pendingPasswordSetupKey\)/);
+
+  const recoveryStart = authSource.indexOf('if (event === "PASSWORD_RECOVERY")');
+  const recoveryEnd = authSource.indexOf('\n      if (["INITIAL_SESSION"', recoveryStart);
+  const recoverySource = authSource.slice(recoveryStart, recoveryEnd);
+  assert.ok(recoveryStart > -1 && recoveryEnd > recoveryStart, 'Expected a dedicated recovery auth-event branch');
+  assert.match(recoverySource, /rememberPendingPasswordSetup\("recovery"\)/);
+  assert.match(recoverySource, /force: true/);
+  assert.match(recoverySource, /requirePasswordSetup: true/);
+  assert.match(recoverySource, /passwordSetupMode: "recovery"/);
+
+  const activationStart = authSource.indexOf('async function activateCrewCenterUser(user, options = {})');
+  const activationEnd = authSource.indexOf('\nasync function signOutCrewCenterSession()', activationStart);
+  const activationSource = authSource.slice(activationStart, activationEnd);
+  assert.match(activationSource, /options\.requirePasswordSetup === true \|\| passwordSetupRequired\(\)/);
+  assert.match(activationSource, /if \(requirePasswordSetup\) showPasswordSetup\(requestedPasswordSetupMode\);\s*else revealDashboard\(user\);/);
+
+  const setupStart = authSource.indexOf('function showPasswordSetup(');
+  const setupEnd = authSource.indexOf('\npasswordSetupForm.addEventListener', setupStart);
+  const setupSource = authSource.slice(setupStart, setupEnd);
+  assert.match(setupSource, /"Reset your password"/);
+  assert.match(setupSource, /"Choose a new password for your Media Club account\."/);
+  assert.match(authSource, /passwordSetupMode === "recovery" \? "Save new password" : "Set password"/);
+  assert.match(setupSource, /You will use this password the next time you sign in\./);
+
+  const submissionStart = setupEnd + 1;
+  const submissionEnd = authSource.indexOf('\nauthForm.addEventListener', submissionStart);
+  const submissionSource = authSource.slice(submissionStart, submissionEnd);
+  const updateIndex = submissionSource.indexOf('auth.updateUser({ password })');
+  const completeIndex = submissionSource.indexOf('passwordSetupComplete = true;');
+  const clearIndex = submissionSource.indexOf('clearPendingPasswordSetup();');
+  const activateIndex = submissionSource.indexOf('await activateCrewCenterUser(data.user, { force: true });');
+  assert.ok(updateIndex > -1 && updateIndex < completeIndex && completeIndex < clearIndex && clearIndex < activateIndex,
+    'The recovery lock must clear only after the password update succeeds and before the dashboard reopens');
+
+  const signInStart = authSource.indexOf('function showSignIn()');
+  const signInEnd = authSource.indexOf('\nasync function activateCrewCenterUser', signInStart);
+  const signInSource = authSource.slice(signInStart, signInEnd);
+  assert.match(signInSource, /authForm\.style\.display = "block"/);
+  assert.match(signInSource, /passwordSetupForm\.style\.display = "none"/);
+  assert.match(signInSource, /if \(!passwordSetupRequired\(\) && window\.location\.pathname !== "\/signin"\)/);
+  assert.match(authSource, /auth\.signInWithPassword\(\{ email, password \}\)[\s\S]*?if \(error\) throw error;\s*passwordSetupComplete = false;\s*clearPendingPasswordSetup\(\);\s*await activateCrewCenterUser\(data\.user\);/);
+  assert.match(authSource, /auth\.signInAnonymously\(\)[\s\S]*?if \(error\) throw error;\s*passwordSetupComplete = false;\s*clearPendingPasswordSetup\(\);\s*await activateCrewCenterUser\(data\.user\);/);
+  assert.doesNotMatch(authSource, /inviteFlow|inviteSetupComplete|showInviteSetup/);
+});
+
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
   assert.match(indexHtml, /id="route-announcer" aria-live="polite" aria-atomic="true"/);
   assert.match(appSource, /heading\.focus\(\{ preventScroll: false \}\)/);
