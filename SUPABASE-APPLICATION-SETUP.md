@@ -14,6 +14,8 @@ In Supabase, open **Authentication > URL Configuration**.
 - Add `https://media-club-page.pages.dev/**` to **Redirect URLs**
 
 The invitation link will return applicants to the Crew Center password setup screen.
+The login page's **Forgot password?** button uses Supabase Auth directly and returns
+members to `/signin` to choose a new password. It does not require an Edge Function.
 
 ## 3. Create the Edge Function
 
@@ -32,10 +34,11 @@ hosted Edge Functions by Supabase. Never put the service role key in frontend co
 
 ## 4. Configure the invitation email
 
-Approval emails use Supabase Auth's invitation template. You can edit that message in
-**Authentication > Email Templates > Invite user**. Rejected applications are recorded
-in Supabase and the reviewer is reminded to email the applicant manually; no custom
-email domain or Resend account is required.
+Approval emails use Supabase Auth's invitation template, while member password resets
+use its reset-password template. You can edit those messages in **Authentication >
+Email Templates > Invite user** and **Reset password**. Rejected applications are
+recorded in Supabase and the reviewer is reminded to email the applicant manually; no
+custom email domain or Resend account is required.
 
 ## 5. Publish and test
 
@@ -46,3 +49,5 @@ deployment. Submit a test application with an email address you control, then te
    invitation email arrives. Its link opens the Set Password screen.
 2. Reject: the admin must enter a reason. The application is marked rejected and a
    notification reminds the reviewer to email the applicant manually.
+3. Password reset: enter a member email on `/signin`, select **Forgot password?**, and
+   confirm that the email link opens the Reset Password screen before the dashboard.

@@ -232,6 +232,33 @@ test('password recovery stays locked until the member saves a new password', () 
   assert.doesNotMatch(authSource, /inviteFlow|inviteSetupComplete|showInviteSetup/);
 });
 
+test('the sign-in gate can request a privacy-safe password reset email', () => {
+  assert.match(authSource, /<button class="auth-password-reset" id="auth-password-reset" type="button">Forgot password\?<\/button>/);
+  assert.match(authSource, /\.auth-password-reset:focus-visible/);
+  assert.match(authSource, /:root\[data-theme="dark"\] \.auth-password-reset/);
+  assert.match(authSource, /id="auth-gate-error" role="alert" aria-live="polite"/);
+  assert.match(authSource, /authError\.classList\.toggle\("success", type === "success"\)/);
+  assert.match(authSource, /authError\.setAttribute\("role", type === "success" \? "status" : "alert"\)/);
+
+  const resetStart = authSource.indexOf('authPasswordReset.addEventListener("click", async () => {');
+  const resetEnd = authSource.indexOf('\nauthForm.addEventListener', resetStart);
+  const resetSource = authSource.slice(resetStart, resetEnd);
+  assert.ok(resetStart > -1 && resetEnd > resetStart, 'Expected a password-reset button handler');
+  assert.match(resetSource, /const email = authEmail\.value\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(resetSource, /if \(!authEmail\.checkValidity\(\)\) \{\s*authEmail\.reportValidity\(\);\s*return;/);
+  assert.match(resetSource, /const redirectTo = new URL\("\/signin", window\.location\.origin\)\.toString\(\)/);
+  assert.match(resetSource, /auth\.resetPasswordForEmail\(email, \{ redirectTo \}\)/);
+  assert.match(resetSource, /withCrewCenterTimeout\([\s\S]*?authOperationTimeoutMs/);
+  assert.match(resetSource, /If a Media Club account uses that email, a password reset link has been sent\./);
+  assert.match(resetSource, /setAuthMessage\([\s\S]*?"success"/);
+  assert.doesNotMatch(resetSource, /functions\.invoke|account does not exist|no account/i);
+  assert.match(authSource, /function setAuthBusy\(isBusy\)[\s\S]*?authPasswordReset\.disabled = isBusy/);
+
+  const setupGuide = readFileSync(new URL('../SUPABASE-APPLICATION-SETUP.md', import.meta.url), 'utf8');
+  assert.match(setupGuide, /Forgot password\?[\s\S]*?does not require an Edge Function/);
+  assert.match(setupGuide, /Email Templates > Invite user[\s\S]*?Reset password/);
+});
+
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
   assert.match(indexHtml, /id="route-announcer" aria-live="polite" aria-atomic="true"/);
   assert.match(appSource, /heading\.focus\(\{ preventScroll: false \}\)/);

@@ -106,6 +106,47 @@ authStyle.textContent = `
     margin-bottom: 16px;
   }
 
+  .auth-password-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .auth-password-heading .auth-gate-label {
+    margin-bottom: 0;
+  }
+
+  .auth-password-reset {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: #7e176f;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .auth-password-reset:hover {
+    color: #a40134;
+  }
+
+  .auth-password-reset:focus-visible {
+    border-radius: 4px;
+    outline: 3px solid rgba(234,122,244,0.22);
+    outline-offset: 2px;
+  }
+
+  .auth-password-reset:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
   .auth-remember {
     display: flex;
     align-items: center;
@@ -222,6 +263,12 @@ authStyle.textContent = `
     display: block;
   }
 
+  .auth-gate-error.success {
+    background: rgba(24,162,120,0.12);
+    border-color: rgba(24,162,120,0.24);
+    color: #116b51;
+  }
+
   .auth-gate-note {
     color: #6c757d;
     font-size: 12px;
@@ -288,6 +335,9 @@ authStyle.textContent = `
   :root[data-theme="dark"] .auth-gate-sub,
   :root[data-theme="dark"] .auth-gate-label,
   :root[data-theme="dark"] .auth-remember { color: #b9bdc7; }
+  :root[data-theme="dark"] .auth-password-reset { color: #f0a8f7; }
+  :root[data-theme="dark"] .auth-password-reset:hover { color: #ffffff; }
+  :root[data-theme="dark"] .auth-gate-error.success { color: #70dfba; }
   :root[data-theme="dark"] .auth-gate-input {
     background: #20212a;
     border-color: rgba(255,255,255,0.10);
@@ -322,7 +372,7 @@ document.body.insertAdjacentHTML("afterbegin", `
       </div>
       <h1 class="auth-gate-title" id="auth-gate-title">Sign in</h1>
       <p class="auth-gate-sub">Use the account created for you in Supabase to open the Media Club dashboard.</p>
-      <div class="auth-gate-error" id="auth-gate-error"></div>
+      <div class="auth-gate-error" id="auth-gate-error" role="alert" aria-live="polite"></div>
       <div class="auth-lookup-actions" id="auth-lookup-actions">
         <button class="auth-gate-button" id="auth-lookup-retry" type="button">Retry account check</button>
         <button class="auth-visitor-button" id="auth-lookup-signout" type="button">Sign out</button>
@@ -333,7 +383,10 @@ document.body.insertAdjacentHTML("afterbegin", `
           <input class="auth-gate-input" id="auth-gate-email" type="email" autocomplete="email" inputmode="email" placeholder="Your account email" required>
         </div>
         <div class="auth-gate-field">
-          <label class="auth-gate-label" for="auth-gate-password">Password</label>
+          <div class="auth-password-heading">
+            <label class="auth-gate-label" for="auth-gate-password">Password</label>
+            <button class="auth-password-reset" id="auth-password-reset" type="button">Forgot password?</button>
+          </div>
           <input class="auth-gate-input" id="auth-gate-password" type="password" autocomplete="current-password" placeholder="Password" required>
         </div>
         <label class="auth-remember" for="auth-remember-browser">
@@ -370,8 +423,10 @@ document.body.insertAdjacentHTML("afterbegin", `
 const authError = document.getElementById("auth-gate-error");
 const authForm = document.getElementById("auth-gate-form");
 const authSubmit = document.getElementById("auth-gate-submit");
+const authEmail = document.getElementById("auth-gate-email");
 const authPassword = document.getElementById("auth-gate-password");
 const authRemember = document.getElementById("auth-remember-browser");
+const authPasswordReset = document.getElementById("auth-password-reset");
 const visitorSubmit = document.getElementById("auth-visitor-submit");
 const passwordSetupForm = document.getElementById("auth-password-setup-form");
 const authLookupActions = document.getElementById("auth-lookup-actions");
@@ -481,14 +536,29 @@ function clearStoredCrewCenterSession() {
   });
 }
 
-function setAuthError(message = "") {
+function setAuthMessage(message = "", type = "error") {
   authError.textContent = message;
   authError.classList.toggle("visible", Boolean(message));
+  authError.classList.toggle("success", type === "success");
+  authError.setAttribute("role", type === "success" ? "status" : "alert");
+}
+
+function setAuthError(message = "") {
+  setAuthMessage(message, "error");
 }
 
 function setAuthBusy(isBusy) {
   authSubmit.disabled = isBusy;
   authSubmit.textContent = isBusy ? "Signing in..." : "Sign in";
+  visitorSubmit.disabled = isBusy;
+  authPasswordReset.disabled = isBusy;
+}
+
+function setPasswordResetBusy(isBusy) {
+  authPasswordReset.disabled = isBusy;
+  authPasswordReset.textContent = isBusy ? "Sending..." : "Forgot password?";
+  authEmail.disabled = isBusy;
+  authSubmit.disabled = isBusy;
   visitorSubmit.disabled = isBusy;
 }
 
@@ -976,6 +1046,43 @@ passwordSetupForm.addEventListener("submit", async event => {
   }
 });
 
+authPasswordReset.addEventListener("click", async () => {
+  setAuthError("");
+  if (!window.crewCenterSupabase) {
+    setAuthError("Supabase is not available yet. Check the connection and try again.");
+    return;
+  }
+
+  const email = authEmail.value.trim().toLowerCase();
+  authEmail.value = email;
+  if (!authEmail.checkValidity()) {
+    authEmail.reportValidity();
+    return;
+  }
+
+  setPasswordResetBusy(true);
+  try {
+    const redirectTo = new URL("/signin", window.location.origin).toString();
+    const { error } = await withCrewCenterTimeout(
+      window.crewCenterSupabase.auth.resetPasswordForEmail(email, { redirectTo }),
+      authOperationTimeoutMs,
+      "Password reset email timed out."
+    );
+    if (error) throw error;
+    setAuthMessage(
+      "If a Media Club account uses that email, a password reset link has been sent. Check your inbox and spam folder.",
+      "success"
+    );
+  } catch (error) {
+    console.warn("The password reset email could not be requested.", error);
+    setAuthError(error.name === "CrewCenterTimeoutError"
+      ? "The reset request is taking too long. Please check your connection and try again."
+      : "The reset email could not be requested right now. Please wait a moment and try again.");
+  } finally {
+    setPasswordResetBusy(false);
+  }
+});
+
 authForm.addEventListener("submit", async event => {
   event.preventDefault();
   pendingApprovalCheckUser = null;
@@ -988,7 +1095,7 @@ authForm.addEventListener("submit", async event => {
   setAuthBusy(true);
   signOutRequested = false;
 
-  const email = document.getElementById("auth-gate-email").value.trim().toLowerCase();
+  const email = authEmail.value.trim().toLowerCase();
   const password = authPassword.value;
   try {
     const { data, error } = await withCrewCenterTimeout(
