@@ -444,6 +444,7 @@ as $$
     project.id, project.project_name, project.project_type, project.description,
     project.image_url, project.project_url, project.produced_on, project.created_at
   from public.gallery project
+  where project.project_scope = 'showcase'
   order by project.created_at desc;
 $$;
 
@@ -2012,15 +2013,24 @@ revoke delete on table public.equipment_reservations from anon, authenticated;
 create policy "Signed-in users can read gallery"
 on public.gallery for select
 to authenticated
-using (not public.is_visitor_session());
+using (
+  not public.is_visitor_session()
+  and (
+    gallery.project_scope = 'showcase'
+    or gallery.member_id = public.current_member_id()
+    or public.is_member_of_team('athletics')
+    or public.is_admin_panel_user()
+  )
+);
 
 create policy "Signed-in members can submit gallery projects"
 on public.gallery for insert
 to authenticated
 with check (
   not public.is_visitor_session()
-  and coalesce(nullif(btrim(image_url), ''), nullif(btrim(project_url), ''), '') <> ''
+  and coalesce(nullif(btrim(image_url), ''), nullif(btrim(project_url), ''), nullif(btrim(storage_path), ''), '') <> ''
   and gallery.member_id = public.current_member_id()
+  and (gallery.project_scope = 'showcase' or gallery.image_url is null)
 );
 
 create policy "Admins can update gallery"

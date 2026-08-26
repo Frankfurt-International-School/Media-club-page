@@ -18,12 +18,14 @@ function memberRoleColor(role = '') {
   }[normalized] || 'gray';
 }
 
-function memberDirectoryTags(specialisation = '') {
+function memberDirectoryTags(specialisation = '', teamKeys = []) {
   const tags = String(specialisation).split(',').map(tag => tag.trim()).filter(Boolean);
   const isNewsTeam = tag => ['news team', 'student news team'].includes(tag.toLowerCase());
+  const isAthletics = tag => ['athletics', 'athletics department'].includes(tag.toLowerCase());
   return {
-    hasNewsTeam: tags.some(isNewsTeam),
-    specialisations: tags.filter(tag => !isNewsTeam(tag)),
+    hasNewsTeam: teamKeys.includes('news_team') || tags.some(isNewsTeam),
+    hasAthletics: teamKeys.includes('athletics') || tags.some(isAthletics),
+    specialisations: tags.filter(tag => !isNewsTeam(tag) && !isAthletics(tag)),
   };
 }
 
@@ -38,8 +40,8 @@ function renderMembers() {
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
   const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
-    const { hasNewsTeam, specialisations } = memberDirectoryTags(m.spec);
-    const tags = `${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
+    const { hasNewsTeam, hasAthletics, specialisations } = memberDirectoryTags(m.spec, m.teamKeys);
+    const tags = `${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${hasAthletics ? '<span class="badge badge-blue">Athletics</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
     const profileDetails = [canAccessAdminPanel() ? m.email : '', m.gradeLevel].filter(Boolean).map(value => escapeHtml(value)).join(' · ');
     const safeAvatarUrl = safeExternalUrl(m.avatarUrl);
     const avatarStyle = safeAvatarUrl
@@ -107,11 +109,13 @@ async function addMember() {
     .select('id')
     .single();
   if (error) { showToast("Couldn't add member.", 'error'); return; }
+  const directoryTags = memberDirectoryTags(specialisation);
+  const teamKeys = [directoryTags.hasNewsTeam ? 'news_team' : '', directoryTags.hasAthletics ? 'athletics' : ''].filter(Boolean);
   let teamSyncError = null;
-  if (memberDirectoryTags(specialisation).hasNewsTeam) {
+  if (teamKeys.length) {
     const { error: membershipError } = await supabaseClient
       .from('member_team_memberships')
-      .insert({ member_id: data.id, team_key: 'news_team' });
+      .insert(teamKeys.map(teamKey => ({ member_id: data.id, team_key: teamKey })));
     teamSyncError = membershipError;
   }
   await loadCrewCenterData({ datasets: ['members'], silent: true });
@@ -119,8 +123,8 @@ async function addMember() {
   ['mem-fname','mem-lname','mem-email','mem-spec'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('mem-grade').value = '';
   if (teamSyncError) {
-    console.error("Couldn't add News Team membership.", teamSyncError);
-    showToast(`${fname} ${lname} was added, but News Team meeting access was not synced. Run the latest Supabase SQL.`, 'error', 8000);
+    console.error("Couldn't add secondary team memberships.", teamSyncError);
+    showToast(`${fname} ${lname} was added, but team access was not fully synced. Run the latest Supabase SQL.`, 'error', 8000);
   } else {
     showToast(`${fname} ${lname} added!`);
   }

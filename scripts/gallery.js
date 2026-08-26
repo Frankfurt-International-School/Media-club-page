@@ -10,6 +10,32 @@ const galleryIcons = {
   Design: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
 };
 
+function galleryViewFromUrl() {
+  return new URLSearchParams(window.location.search).get('view') === 'athletics' ? 'athletics' : 'showcase';
+}
+
+function canAccessAthleticsGallery() {
+  if (isVisitorSession()) return false;
+  const member = currentMemberRecord();
+  return Boolean(
+    canAccessAdminPanel()
+    || member?.teamKeys?.includes('athletics')
+    || state.gallery.some(project => project.scope === 'athletics' && project.memberId === member?.id)
+  );
+}
+
+async function hydrateRestrictedGalleryMedia() {
+  const projects = state.gallery.filter(project => project.scope === 'athletics' && project.storagePath && !project.image_url && !project.mediaHydrationPending);
+  if (!projects.length || !supabaseClient || isVisitorSession()) return;
+  await Promise.all(projects.map(async project => {
+    project.mediaHydrationPending = true;
+    const { data, error } = await supabaseClient.storage.from('gallery-athletics').createSignedUrl(project.storagePath, 3600);
+    project.mediaHydrationPending = false;
+    if (!error && data?.signedUrl && state.gallery.includes(project)) project.image_url = data.signedUrl;
+  }));
+  if (pageFromPath() === 'gallery') renderGallery();
+}
+
 function renderGalleryAuthorField() {
   const input = document.getElementById('gal-author');
   if (!input) return;
@@ -32,7 +58,7 @@ function applyGalleryBackgrounds(grid) {
 function renderAboutRecentProjects() {
   const grid = document.getElementById('about-recent-projects');
   if (!grid) return;
-  const projects = state.gallery.slice(0, 3);
+  const projects = state.gallery.filter(project => project.scope === 'showcase').slice(0, 3);
   if (!projects.length) {
     grid.innerHTML = '<div class="about-project-empty"><strong>No projects are published yet.</strong><div class="text-muted" style="margin-top:5px;">Check back soon—the latest member work will appear here automatically.</div></div>';
     return;
@@ -49,27 +75,60 @@ function renderAboutRecentProjects() {
 }
 
 function renderGallery() {
+  const athleticsAvailable = canAccessAthleticsGallery();
+  const requestedView = galleryViewFromUrl();
+  const view = requestedView === 'athletics' && athleticsAvailable ? 'athletics' : 'showcase';
+  state.galleryView = view;
+  document.querySelector('#page-gallery .gallery-view-row')?.classList.toggle('single', !athleticsAvailable);
   const selectedTab = tabValueFromUrl(Object.keys(galleryTabFilters), 'all');
+  if (requestedView === 'athletics' && !athleticsAvailable) {
+    window.history.replaceState({ page: 'gallery' }, '', pageUrl('gallery', { tab: selectedTab === 'all' ? '' : selectedTab }));
+  }
   state.galleryFilter = galleryTabFilters[selectedTab];
   document.querySelectorAll('#page-gallery [data-gallery-tab]').forEach(tab => {
     const active = tab.dataset.galleryTab === selectedTab;
     tab.classList.toggle('active', active);
     tab.setAttribute('aria-selected', String(active));
     tab.tabIndex = active ? 0 : -1;
+    tab.href = pageUrl('gallery', { view: view === 'athletics' ? 'athletics' : '', tab: tab.dataset.galleryTab === 'all' ? '' : tab.dataset.galleryTab });
   });
+  document.querySelectorAll('#page-gallery [data-gallery-view]').forEach(tab => {
+    const tabView = tab.dataset.galleryView;
+    const visible = tabView !== 'athletics' || athleticsAvailable;
+    const active = tabView === view;
+    tab.hidden = !visible;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+    tab.href = pageUrl('gallery', { view: tabView === 'athletics' ? 'athletics' : '', tab: selectedTab === 'all' ? '' : selectedTab });
+  });
+  const galleryKicker = document.getElementById('gallery-kicker');
+  const gallerySub = document.getElementById('gallery-page-sub');
+  const accessNote = document.getElementById('gallery-access-note');
+  if (galleryKicker) galleryKicker.textContent = view === 'athletics' ? 'Department delivery / restricted archive' : 'Crew output / visual archive';
+  if (gallerySub) gallerySub.textContent = view === 'athletics'
+    ? 'Photos and project links prepared for the Athletics department.'
+    : 'Public showcase of films, photos, podcasts, and designs by club members.';
+  if (accessNote) {
+    accessNote.hidden = view !== 'athletics';
+    accessNote.innerHTML = view === 'athletics'
+      ? '<strong>Restricted collection.</strong> Only Athletics-tagged members, the uploader, and Auth Admin or Faculty custodians can open these records. Uploaded files use expiring links.'
+      : '';
+  }
   updateSlidingTab(document.querySelector('#page-gallery .tab-row'));
   const canSubmit = !isVisitorSession() && Boolean(currentMemberRecord());
   const submitButton = document.getElementById('gallery-submit-open');
   if (submitButton) submitButton.style.display = canSubmit ? '' : 'none';
   if (!canSubmit && document.getElementById('gallery-modal')?.classList.contains('open')) closeModal('gallery-modal');
   const f = state.galleryFilter;
-  const list = f === 'all' ? state.gallery : state.gallery.filter(g => g.type === f);
+  const viewProjects = state.gallery.filter(project => project.scope === view);
+  const list = f === 'all' ? viewProjects : viewProjects.filter(g => g.type === f);
   const grid = document.getElementById('gallery-grid');
   if (!list.length) {
     grid.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <p>No projects have been submitted yet.</p>
+        <p>${view === 'athletics' ? 'No Athletics projects are available yet.' : 'No showcase projects have been submitted yet.'}</p>
         ${canSubmit ? '<button class="btn btn-accent btn-sm" style="margin-top:14px;" onclick="openModal(\'gallery-modal\')">Submit project</button>' : '<div class="text-muted" style="margin-top:10px;">Approved members can submit projects after signing in.</div>'}
       </div>`;
     return;
@@ -79,11 +138,12 @@ function renderGallery() {
     const [gbg, gfg] = galleryColors[g.type] || ['#1a1a1d','#a09eb8'];
     const canDelete = state.currentUser.isAdmin || (currentMemberId && g.memberId === currentMemberId);
     const imageUrl = safeExternalUrl(g.image_url);
-    const projectUrl = safeExternalUrl(g.link);
+    const projectUrl = safeExternalUrl(g.link) || imageUrl;
     const producedLabel = g.producedOn ? formatBerlinCalendarDate(g.producedOn, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
     return `
       <article class="gallery-item${imageUrl ? ' has-img' : ''}" style="${imageUrl ? '' : `background:linear-gradient(145deg,${gbg},var(--bg3));`}" data-project-url="${escapeHtml(projectUrl)}"${imageUrl ? ` data-image-url="${escapeHtml(imageUrl)}"` : ''}>
         <button type="button" class="gallery-open-target" aria-label="Open ${escapeHtml(g.title)}" onclick="openGalleryProject(this.parentElement)"><span class="visually-hidden">Open ${escapeHtml(g.title)}</span></button>
+        ${g.scope === 'athletics' ? '<span class="gallery-scope-badge">Athletics · private</span>' : ''}
         ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
         ${imageUrl ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
         <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${producedLabel ? `<div class="gallery-card-date">Produced ${escapeHtml(producedLabel)}</div>` : ''}${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
@@ -118,6 +178,22 @@ function updateSlidingTab(row) {
   if (!active) return;
   indicator.style.width = `${active.offsetWidth}px`;
   indicator.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+
+function updateGalleryScopeHelp() {
+  const scope = document.getElementById('gal-scope')?.value === 'athletics' ? 'athletics' : 'showcase';
+  const help = document.getElementById('gallery-scope-help');
+  const uploadNote = document.getElementById('gallery-upload-note');
+  const linkNote = document.getElementById('gallery-link-note');
+  if (help) help.innerHTML = scope === 'athletics'
+    ? '<strong>Athletics library:</strong> hidden from visitors and non-Athletics members. The uploader and Auth Admin or Faculty custodians retain access.'
+    : '<strong>Member showcase:</strong> visible to visitors on the public gallery and About page.';
+  if (uploadNote) uploadNote.textContent = scope === 'athletics'
+    ? 'The uploaded image is stored privately and opened through an expiring link.'
+    : 'Preview happens locally before the file is uploaded to the public showcase.';
+  if (linkNote) linkNote.innerHTML = scope === 'athletics'
+    ? '<strong>External links:</strong> restrict sharing to the Athletics department or FIS accounts in Google Drive; the Crew Center cannot override permissions on another service.'
+    : '<strong>Public showcase:</strong> use a link that visitors are allowed to open.';
 }
 
 function initSlidingTabs() { document.querySelectorAll('.tab-row').forEach(updateSlidingTab); }
@@ -211,7 +287,8 @@ async function confirmDeleteGalleryProject() {
   const project = state.gallery.find(item => item.id === pendingGalleryDeleteId);
   if (!project) return;
   if (project.storagePath) {
-    const { error: storageError } = await supabaseClient.storage.from('gallery-media').remove([project.storagePath]);
+    const bucket = project.scope === 'athletics' ? 'gallery-athletics' : 'gallery-media';
+    const { error: storageError } = await supabaseClient.storage.from(bucket).remove([project.storagePath]);
     if (storageError) { showToast("Couldn't delete the uploaded image.", 'error'); return; }
   }
   const { error } = await supabaseClient.from('gallery').delete().eq('id', project.id);
@@ -239,6 +316,7 @@ async function submitProject() {
   const title = document.getElementById('gal-title').value.trim();
   const link = document.getElementById('gal-link').value.trim();
   const producedOn = document.getElementById('gal-produced-on').value || null;
+  const projectScope = document.getElementById('gal-scope').value === 'athletics' ? 'athletics' : 'showcase';
   const file = document.getElementById('gal-file').files?.[0] || null;
   const member = currentMemberRecord();
   if (!title) { showToast('Project title required.', 'error'); return; }
@@ -261,6 +339,8 @@ async function submitProject() {
   updateGallerySubmitCooldown();
   let imageUrl = link || null;
   let storagePath = null;
+  const storageBucket = projectScope === 'athletics' ? 'gallery-athletics' : 'gallery-media';
+  if (projectScope === 'athletics') imageUrl = null;
   if (file) {
     if (!GALLERY_ALLOWED_TYPES.has(file.type) || file.size > GALLERY_MAX_FILE_SIZE) {
       gallerySubmissionInFlight = false;
@@ -279,7 +359,7 @@ async function submitProject() {
     const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
     storagePath = `${authUser.id}/${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabaseClient.storage
-      .from('gallery-media')
+      .from(storageBucket)
       .upload(storagePath, file, { contentType: file.type, cacheControl: '3600', upsert: false });
     if (uploadError) {
       gallerySubmissionInFlight = false;
@@ -287,13 +367,14 @@ async function submitProject() {
       showToast("Couldn't upload the cover image. Check the Storage setup.", 'error');
       return;
     }
-    imageUrl = supabaseClient.storage.from('gallery-media').getPublicUrl(storagePath).data.publicUrl;
+    if (projectScope === 'showcase') imageUrl = supabaseClient.storage.from(storageBucket).getPublicUrl(storagePath).data.publicUrl;
   }
   const { data, error } = await supabaseClient
     .from('gallery')
     .insert({
       project_name: title,
       project_type: projectType,
+      project_scope: projectScope,
       member_id: member.id,
       description: document.getElementById('gal-desc').value.trim() || null,
       image_url: imageUrl,
@@ -305,7 +386,7 @@ async function submitProject() {
     .single();
   gallerySubmissionInFlight = false;
   if (error) {
-    if (storagePath) await supabaseClient.storage.from('gallery-media').remove([storagePath]);
+    if (storagePath) await supabaseClient.storage.from(storageBucket).remove([storagePath]);
     updateGallerySubmitCooldown();
     showToast("Couldn't submit project.", 'error');
     return;
@@ -313,10 +394,14 @@ async function submitProject() {
   lastGallerySubmissionAt = Date.now();
   updateGallerySubmitCooldown();
   state.gallery.unshift(normalizeGallery(data));
+  hydrateRestrictedGalleryMedia();
   closeModal('gallery-modal');
   ['gal-title','gal-desc','gal-link','gal-produced-on'].forEach(id => document.getElementById(id).value = '');
   clearGalleryFile();
   document.getElementById('gal-type').value = 'Photo';
+  document.getElementById('gal-scope').value = 'showcase';
+  updateGalleryScopeHelp();
+  if (projectScope === 'athletics') window.history.replaceState({}, '', pageUrl('gallery', { view: 'athletics' }));
   renderGalleryAuthorField();
   showToast(`Project "${title}" submitted!`);
   renderGallery();

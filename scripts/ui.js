@@ -3,7 +3,12 @@
 // ══════════════════════════════
 let modalReturnFocus = null;
 function openModal(id) {
-  if (id === 'gallery-modal') renderGalleryAuthorField();
+  if (id === 'gallery-modal') {
+    renderGalleryAuthorField();
+    const galleryScope = document.getElementById('gal-scope');
+    if (galleryScope) galleryScope.value = state.galleryView === 'athletics' ? 'athletics' : 'showcase';
+    updateGalleryScopeHelp();
+  }
   const backdrop = document.getElementById(id);
   if (!backdrop) return;
   modalReturnFocus = document.activeElement;

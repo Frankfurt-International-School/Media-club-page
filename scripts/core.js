@@ -33,6 +33,7 @@ const state = {
   eventFilter: "all",
   showPastEvents: false,
   galleryFilter: "all",
+  galleryView: "showcase",
 };
 
 const supabaseSettings = window.CREW_CENTER_SUPABASE || {};
@@ -695,6 +696,7 @@ function normalizeGallery(item) {
     id: item.id,
     title: item.project_name,
     type: item.project_type || 'Photo',
+    scope: item.project_scope === 'athletics' ? 'athletics' : 'showcase',
     memberId: visitor ? '' : item.member_id || '',
     author: visitor ? 'Media Club' : item.members?.name || directoryMember?.name || 'Media Club member',
     desc: item.description || '',
@@ -825,6 +827,7 @@ function applyCrewCenterDataset(dataset, rows) {
     state.archivedMeetings = normalized.filter(meeting => meeting.archivedAt);
   } else if (dataset === 'gallery') {
     state.gallery = data.map(normalizeGallery);
+    hydrateRestrictedGalleryMedia();
   } else if (dataset === 'equipment') {
     const normalized = data.map(normalizeEquipment);
     state.equipment = normalized.filter(item => !item.archivedAt);
@@ -984,7 +987,7 @@ function subscribeToCrewCenterChanges() {
   window.CREW_CENTER_REALTIME_READY = mode;
   if (mode === 'visitor') return;
   const tableDatasets = {
-    member_team_memberships: ['members', 'meetings'],
+    member_team_memberships: ['members', 'meetings', 'gallery'],
     events: ['events', 'equipment'],
     meetings: ['meetings'],
     meeting_attendees: ['meetings'],

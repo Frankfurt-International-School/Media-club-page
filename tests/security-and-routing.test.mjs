@@ -262,8 +262,10 @@ test('Media Role Guide includes the approved stream expectations', () => {
 
 test('gallery projects support an optional production date and link guidance', () => {
   assert.match(indexHtml, /id="gal-produced-on" type="date"/);
-  assert.match(indexHtml, /Access for FIS members only/);
+  assert.match(indexHtml, /id="gal-scope"[\s\S]*?value="athletics">Athletics library · restricted/);
+  assert.match(appSource, /restrict sharing to the Athletics department or FIS accounts/);
   assert.match(appSource, /produced_on: producedOn/);
+  assert.match(appSource, /project_scope: projectScope/);
   assert.match(appSource, /producedOn: item\.produced_on \|\| ''/);
   assert.match(appSource, /Produced \$\{escapeHtml\(producedLabel\)\}/);
 });
@@ -300,10 +302,10 @@ test('canonical routes and aliases survive static-host deep links', () => {
 
 test('navigation tabs use native deep links and restore state from the URL', () => {
   const roleTabs = [...indexHtml.matchAll(/<(a|button)\b[^>]*role="tab"[^>]*>/g)].map(match => match[0]);
-  assert.equal(roleTabs.length, 17);
+  assert.equal(roleTabs.length, 19);
   roleTabs.forEach(tab => {
     assert.match(tab, /^<a\b/);
-    assert.match(tab, /href="\/(?:meetings|gallery|profile|admin)\?tab=[a-z-]+"/);
+    assert.match(tab, /href="\/(?:meetings|gallery|profile|admin)(?:\?[^\"]+)?"/);
     assert.match(tab, /aria-selected="(?:true|false)"/);
     assert.match(tab, /aria-controls="[^"]+"/);
     assert.doesNotMatch(tab, /onclick=/);

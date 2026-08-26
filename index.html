@@ -443,15 +443,27 @@
   <div id="page-gallery" class="page">
     <section class="page-hero">
       <div class="page-hero-copy">
-        <div class="page-kicker">Crew output / visual archive</div>
+        <div class="page-kicker" id="gallery-kicker">Crew output / visual archive</div>
         <div class="page-title">Project Gallery</div>
-        <div class="page-sub">Showcase of films, photos, and podcasts by club members.</div>
+        <div class="page-sub" id="gallery-page-sub">Public showcase of films, photos, podcasts, and designs by club members.</div>
       </div>
       <div class="page-hero-actions"><button class="btn btn-accent" id="gallery-submit-open" onclick="openModal('gallery-modal')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Submit project
         </button></div>
     </section>
+    <div class="gallery-view-row" role="tablist" aria-label="Gallery collection">
+      <a href="/gallery" class="gallery-view-card active" data-gallery-view="showcase" role="tab" aria-selected="true" aria-controls="gallery-grid" onkeydown="handleTabKeydown(event)">
+        <span class="gallery-view-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18v13H3z"/><path d="M7 7l2-3h6l2 3"/><circle cx="12" cy="13" r="3"/></svg></span>
+        <span><strong>Member showcase</strong><small>Public portfolio and club highlights</small></span>
+      </a>
+      <a href="/gallery?view=athletics" class="gallery-view-card athletics" data-gallery-view="athletics" role="tab" aria-selected="false" aria-controls="gallery-grid" onkeydown="handleTabKeydown(event)" hidden>
+        <span class="gallery-view-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22a10 10 0 100-20 10 10 0 000 20z"/><path d="M4.9 4.9l14.2 14.2M2.6 15.5l4.1-1.1 2.4-3.5-.2-4.3M15.1 2.6l-.2 4.3 2.4 3.5 4.1 1.1M9.1 21.4l-.2-4.3 3.1-2.3 3.1 2.3-.2 4.3"/></svg></span>
+        <span><strong>Athletics library</strong><small>Restricted delivery for the Athletics department</small></span>
+        <span class="gallery-lock" aria-label="Restricted access">Private</span>
+      </a>
+    </div>
+    <div class="gallery-access-note" id="gallery-access-note" hidden></div>
     <div class="tab-row" role="tablist" aria-label="Gallery categories">
       <a href="/gallery?tab=all" class="tab active" data-gallery-tab="all" role="tab" aria-selected="true" tabindex="0" aria-controls="gallery-grid" onkeydown="handleTabKeydown(event)">All</a>
       <a href="/gallery?tab=photo" class="tab" data-gallery-tab="photo" role="tab" aria-selected="false" tabindex="-1" aria-controls="gallery-grid" onkeydown="handleTabKeydown(event)">Photography</a>
@@ -1004,7 +1016,7 @@
           <option>Member</option><option>Moderator</option><option>Co-Leader</option><option>Leader</option><option>Faculty</option>
         </select>
       </div>
-      <div class="form-group"><label class="form-label">Specialisation / team</label><input class="form-input" id="mem-spec" placeholder="News Team, Photography, Video..." /></div>
+      <div class="form-group"><label class="form-label">Specialisation / team</label><input class="form-input" id="mem-spec" placeholder="News Team, Athletics, Photography..." /></div>
     </div>
     <button class="btn btn-accent" style="width:100%;" onclick="addMember()">Add member</button>
   </div>
@@ -1014,9 +1026,17 @@
 <div class="modal-backdrop" id="gallery-modal">
   <div class="modal" style="position:relative;">
     <button class="modal-close" onclick="closeModal('gallery-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    <div class="modal-title">Submit a project</div>
-    <div class="modal-sub">Share your work with the club community.</div>
+    <div class="modal-title">Publish to the gallery</div>
+    <div class="modal-sub" id="gallery-modal-sub">Choose where the work belongs and who should be able to open it.</div>
     <div class="form-group"><label class="form-label">Project title *</label><input class="form-input" id="gal-title" placeholder="City at night" /></div>
+    <div class="form-group">
+      <label class="form-label" for="gal-scope">Destination *</label>
+      <select class="form-select" id="gal-scope" onchange="updateGalleryScopeHelp()">
+        <option value="showcase">Member showcase · public</option>
+        <option value="athletics">Athletics library · restricted</option>
+      </select>
+      <div class="gallery-scope-help" id="gallery-scope-help" aria-live="polite"></div>
+    </div>
     <div class="form-row2">
       <div class="form-group">
         <label class="form-label">Type</label>
@@ -1038,9 +1058,9 @@
         <img class="gallery-image-preview" id="gallery-image-preview" alt="Selected cover preview" />
         <div class="gallery-preview-bar" id="gallery-preview-bar"><span id="gallery-file-meta"></span><button class="gallery-file-remove" type="button" onclick="event.preventDefault();clearGalleryFile()">Remove</button></div>
       </label>
-      <div class="gallery-upload-note">Preview happens locally before the file is uploaded.</div>
+      <div class="gallery-upload-note" id="gallery-upload-note">Preview happens locally before the file is uploaded.</div>
     </div>
-    <div class="form-group"><label class="form-label">Project link <span class="text-muted">(optional when uploading an image)</span></label><input class="form-input" id="gal-link" type="url" placeholder="https://drive.google.com, YouTube, SoundCloud..." /><div class="gallery-link-note"><strong>Google Drive:</strong> “Access for FIS members only” is recommended.</div></div>
+    <div class="form-group"><label class="form-label">Project link <span class="text-muted">(optional when uploading an image)</span></label><input class="form-input" id="gal-link" type="url" placeholder="https://drive.google.com, YouTube, SoundCloud..." /><div class="gallery-link-note" id="gallery-link-note"><strong>Public showcase:</strong> use a link that visitors are allowed to open.</div></div>
     <button class="btn btn-accent" id="gallery-submit-button" style="width:100%;" onclick="submitProject()">Submit project</button>
   </div>
 </div>

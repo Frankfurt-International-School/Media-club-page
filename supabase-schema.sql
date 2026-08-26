@@ -43,10 +43,14 @@ alter table public.members add column if not exists equipment_status_access bool
 
 create table if not exists public.member_team_memberships (
   member_id uuid not null references public.members(id) on delete cascade,
-  team_key text not null check (team_key in ('news_team')),
+  team_key text not null check (team_key in ('news_team', 'athletics')),
   joined_at timestamptz not null default now(),
   primary key (member_id, team_key)
 );
+
+alter table public.member_team_memberships drop constraint if exists member_team_memberships_team_key_check;
+alter table public.member_team_memberships add constraint member_team_memberships_team_key_check
+check (team_key in ('news_team', 'athletics'));
 
 create index if not exists member_team_memberships_team_idx
 on public.member_team_memberships (team_key, member_id);
@@ -55,6 +59,12 @@ insert into public.member_team_memberships (member_id, team_key)
 select member.id, 'news_team'
 from public.members member
 where lower(coalesce(member.status, '')) ~ '(^|[[:space:]]*,[[:space:]])(student[[:space:]]+)?news[[:space:]]+team([[:space:]]*,|$)'
+on conflict (member_id, team_key) do nothing;
+
+insert into public.member_team_memberships (member_id, team_key)
+select member.id, 'athletics'
+from public.members member
+where lower(coalesce(member.status, '')) ~ '(^|[[:space:]]*,[[:space:]])(athletics|athletics[[:space:]]+department)([[:space:]]*,|$)'
 on conflict (member_id, team_key) do nothing;
 
 -- New member email rules are enforced by the Auth Admin insert policy. Keeping
@@ -788,6 +798,7 @@ create table if not exists public.gallery (
   image_url text,
   project_url text,
   storage_path text,
+  project_scope text not null default 'showcase' check (project_scope in ('showcase', 'athletics')),
   produced_on date,
   created_at timestamptz not null default now()
 );
@@ -796,6 +807,10 @@ alter table public.gallery add column if not exists project_type text not null d
 alter table public.gallery add column if not exists member_id uuid references public.members(id) on delete set null;
 alter table public.gallery add column if not exists project_url text;
 alter table public.gallery add column if not exists storage_path text;
+alter table public.gallery add column if not exists project_scope text not null default 'showcase';
+alter table public.gallery drop constraint if exists gallery_project_scope_check;
+alter table public.gallery add constraint gallery_project_scope_check
+check (project_scope in ('showcase', 'athletics'));
 alter table public.gallery add column if not exists produced_on date;
 update public.gallery set project_url = image_url where project_url is null and image_url is not null;
 

@@ -13,6 +13,7 @@ const authSource = readFileSync(new URL('../supabase-config.js', import.meta.url
 const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const policiesSql = readFileSync(new URL('../supabase-auth-policies.sql', import.meta.url), 'utf8');
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
+const storagePoliciesSql = readFileSync(new URL('../supabase-storage-policies.sql', import.meta.url), 'utf8');
 
 function extractFunction(name) {
   const start = appSource.indexOf(`function ${name}(`);
@@ -75,26 +76,61 @@ test('authority tiers preserve the Auth Admin and faculty distinction', () => {
   assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, createMeetings: false, facultyConfirmation: false, otherSignups: false, equipmentStatus: false, schedule: false });
 });
 
-test('News Team is a canonical secondary member tag before specialisations', () => {
+test('News Team and Athletics are canonical secondary member tags before specialisations', () => {
   const tags = JSON.parse(JSON.stringify(runFunctions(
     ['memberDirectoryTags'],
     {},
-    "memberDirectoryTags('Photography, student NEWS team, Video, News Team')",
+    "memberDirectoryTags('Photography, student NEWS team, Video, Athletics, News Team')",
   )));
 
   assert.deepEqual(tags, {
     hasNewsTeam: true,
+    hasAthletics: true,
     specialisations: ['Photography', 'Video'],
   });
   assert.match(appSource, /hasNewsTeam \? '<span class="badge badge-teal">News Team<\/span>'/);
+  assert.match(appSource, /hasAthletics \? '<span class="badge badge-blue">Athletics<\/span>'/);
   assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
+});
+
+test('Athletics gallery access is separated from the public showcase end to end', () => {
+  const publicGallery = extractSqlFunction('get_public_gallery');
+  assert.match(schemaSql, /project_scope text not null default 'showcase' check \(project_scope in \('showcase', 'athletics'\)\)/);
+  assert.match(schemaSql, /select member\.id, 'athletics'[\s\S]*?athletics\[\[:space:\]\]\+department/);
+  assert.match(publicGallery, /where project\.project_scope = 'showcase'/);
+  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.member_id = public\.current_member_id\(\)[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_admin_panel_user\(\)/);
+  assert.match(policiesSql, /create policy "Signed-in members can submit gallery projects"[\s\S]*?nullif\(btrim\(storage_path\), ''\)[\s\S]*?gallery\.project_scope = 'showcase' or gallery\.image_url is null/);
+
+  assert.match(storagePoliciesSql, /'gallery-athletics',[\s\S]*?false,[\s\S]*?20971520/);
+  assert.match(storagePoliciesSql, /create policy "Athletics members can read Athletics gallery media"[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_admin_panel_user\(\)/);
+  assert.match(appSource, /from\('gallery-athletics'\)\.createSignedUrl\(project\.storagePath, 3600\)/);
+  assert.match(appSource, /state\.gallery\.filter\(project => project\.scope === 'showcase'\)\.slice\(0, 3\)/);
+  assert.match(appSource, /requestedView === 'athletics' && !athleticsAvailable[\s\S]*?history\.replaceState/);
+  assert.match(appSource, /galleryScope\.value = state\.galleryView === 'athletics' \? 'athletics' : 'showcase'/);
+  assert.match(indexHtml, /data-gallery-view="athletics"[\s\S]*?Athletics library[\s\S]*?Restricted delivery/);
+
+  const access = ({ teamKeys = [], isAdmin = false, owns = false, visitor = false }) => runFunctions(
+    ['canAccessAthleticsGallery'],
+    {
+      state: { gallery: owns ? [{ scope: 'athletics', memberId: 'member-1' }] : [] },
+      isVisitorSession: () => visitor,
+      currentMemberRecord: () => ({ id: 'member-1', teamKeys }),
+      canAccessAdminPanel: () => isAdmin,
+    },
+    'canAccessAthleticsGallery()',
+  );
+  assert.equal(access({}), false);
+  assert.equal(access({ teamKeys: ['athletics'] }), true);
+  assert.equal(access({ isAdmin: true }), true);
+  assert.equal(access({ owns: true }), true);
+  assert.equal(access({ teamKeys: ['athletics'], visitor: true }), false);
 });
 
 test('Meeting visibility and RSVP both follow the selected audience', () => {
   const meetingReadAccess = extractSqlFunction('can_read_meeting');
   const meetingRsvpAccess = extractSqlFunction('can_rsvp_meeting');
   assert.match(schemaSql, /create table if not exists public\.member_team_memberships/);
-  assert.match(schemaSql, /team_key text not null check \(team_key in \('news_team'\)\)/);
+  assert.match(schemaSql, /team_key text not null check \(team_key in \('news_team', 'athletics'\)\)/);
   assert.match(schemaSql, /insert into public\.member_team_memberships[\s\S]*?student\[\[:space:\]\]\+\)\?news/);
   assert.match(schemaSql, /create table if not exists public\.meetings[\s\S]*?audience in \('general', 'news_team', 'leadership'\)/);
   assert.match(schemaSql, /create table if not exists public\.meeting_attendees[\s\S]*?unique \(meeting_id, member_id\)/);
@@ -851,7 +887,7 @@ test('visitor reads use narrow RPCs and direct operational table reads stay bloc
   }
   assert.match(policiesSql, /create policy "Signed-in users can read events"[\s\S]*?not public\.is_visitor_session\(\)/);
   assert.match(policiesSql, /create policy "Signed-in users can read equipment"[\s\S]*?not public\.is_visitor_session\(\)/);
-  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?using \(not public\.is_visitor_session\(\)\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.project_scope = 'showcase'[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_admin_panel_user\(\)/);
   assert.match(policiesSql, /create policy "Signed-in users can read announcements"[\s\S]*?using \(not public\.is_visitor_session\(\)\)/);
 });
 
@@ -863,7 +899,7 @@ test('realtime changes refresh only affected datasets and coalesce bursts', () =
   assert.match(queue, /setTimeout\([\s\S]*?250\)/);
   assert.match(queue, /loadCrewCenterData\(\{ datasets: pending, silent: true \}\)/);
   assert.doesNotMatch(subscribe, /\n\s*members:\s*\[/);
-  assert.match(subscribe, /member_team_memberships: \['members', 'meetings'\]/);
+  assert.match(subscribe, /member_team_memberships: \['members', 'meetings', 'gallery'\]/);
   assert.match(subscribe, /signups: \['events'\]/);
   assert.match(subscribe, /equipment_reservations: \['equipment'\]/);
   assert.match(subscribe, /if \(mode === 'visitor'\) return/);
