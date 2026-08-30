@@ -259,6 +259,19 @@ test('the sign-in gate can request a privacy-safe password reset email', () => {
   assert.match(setupGuide, /Email Templates > Invite user[\s\S]*?Reset password/);
 });
 
+test('production identity uses the custom domain across metadata and invitations', () => {
+  const setupGuide = readFileSync(new URL('../SUPABASE-APPLICATION-SETUP.md', import.meta.url), 'utf8');
+  const reviewApplicationSource = readFileSync(new URL('../supabase/functions/review-application/index.ts', import.meta.url), 'utf8');
+
+  assert.match(indexHtml, /<link rel="canonical" href="https:\/\/fismediaclub\.org\/">/);
+  assert.match(indexHtml, /<meta property="og:url" content="https:\/\/fismediaclub\.org\/">/);
+  assert.match(indexHtml, /<meta name="twitter:card" content="summary_large_image">/);
+  assert.match(reviewApplicationSource, /Deno\.env\.get\("SITE_URL"\) \|\| "https:\/\/fismediaclub\.org"/);
+  assert.match(setupGuide, /Set \*\*Site URL\*\* to `https:\/\/fismediaclub\.org`/);
+  assert.match(setupGuide, /SITE_URL=https:\/\/fismediaclub\.org/);
+  assert.match(setupGuide, /no-reply@auth\.fismediaclub\.org/);
+});
+
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
   assert.match(indexHtml, /id="route-announcer" aria-live="polite" aria-atomic="true"/);
   assert.match(appSource, /heading\.focus\(\{ preventScroll: false \}\)/);

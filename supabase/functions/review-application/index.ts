@@ -75,7 +75,7 @@ Deno.serve(async request => {
       return json({ error: `Member lookup failed: ${existingMemberError.message}` }, 500);
     }
 
-    const siteUrl = Deno.env.get("SITE_URL") || "https://media-club-page.pages.dev";
+    const siteUrl = Deno.env.get("SITE_URL") || "https://fismediaclub.org";
     const { data: invite, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(normalizedEmail, {
       redirectTo: siteUrl,
       data: { full_name: existingMember?.name || application.name, role: "Member" },
