@@ -279,6 +279,10 @@ test('branded auth email templates preserve secure Supabase links and safe email
     const template = readFileSync(new URL(`../email-templates/${templatePath}`, import.meta.url), 'utf8');
     assert.match(template, /href="\{\{ \.ConfirmationURL \}\}"/);
     assert.match(template, /https:\/\/fismediaclub\.org\/assets\/fis-logo\.png/);
+    assert.match(template, /https:\/\/fismediaclub\.org\/assets\/fonts\/bebas-neue-latin\.woff2/);
+    assert.match(template, /https:\/\/fismediaclub\.org\/assets\/fonts\/space-grotesk-latin\.woff2/);
+    assert.match(template, /font-family:'Bebas Neue','Arial Narrow',Arial,sans-serif/);
+    assert.match(template, /font-family:'Space Grotesk', Arial, Helvetica, sans-serif/);
     assert.match(template, /FIS Media Club/);
     assert.match(template, /role="presentation"/);
     assert.doesNotMatch(template, /<script|javascript:|tracking/i);
