@@ -44,9 +44,12 @@ its source code changes need to be applied to the live project.
 ## 4. Configure authentication email
 
 Approval emails use Supabase Auth's invitation template, while member password resets
-use its reset-password template. You can edit those messages in **Authentication >
-Email Templates > Invite user** and **Reset password**. Keep Supabase's secure
-`{{ .ConfirmationURL }}` variable in both templates.
+use its reset-password template. Paste the repository's branded
+`email-templates/invite-user.html` and `email-templates/reset-password.html` files
+into **Authentication > Emails > Templates > Invite user** and **Reset password**.
+The matching subjects and exact installation steps are in
+`email-templates/README.md`. Keep Supabase's secure `{{ .ConfirmationURL }}` variable
+in both templates.
 
 Production authentication email is sent through Resend using the verified
 `auth.fismediaclub.org` subdomain. In **Authentication > Emails > SMTP Settings**, use:
@@ -61,8 +64,11 @@ Production authentication email is sent through Resend using the verified
 
 Store the API key only in Supabase's SMTP settings. Never commit it or put it in
 frontend code. Keep Resend open and click tracking disabled so authentication links
-are not rewritten. Rejected applications are recorded in Supabase and the reviewer
-is reminded to email the applicant manually.
+are not rewritten. With this SMTP setup, Supabase owns the message template and
+Resend delivers it; creating a template only in Resend does not update Supabase.
+Using a Resend-hosted template would require a separate Supabase Send Email Hook.
+Rejected applications are recorded in Supabase and the reviewer is reminded to email
+the applicant manually.
 
 ## 5. Publish and test
 

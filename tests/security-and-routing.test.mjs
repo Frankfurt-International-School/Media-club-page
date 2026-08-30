@@ -256,7 +256,7 @@ test('the sign-in gate can request a privacy-safe password reset email', () => {
 
   const setupGuide = readFileSync(new URL('../SUPABASE-APPLICATION-SETUP.md', import.meta.url), 'utf8');
   assert.match(setupGuide, /Forgot password\?[\s\S]*?does not require an Edge Function/);
-  assert.match(setupGuide, /Email Templates > Invite user[\s\S]*?Reset password/);
+  assert.match(setupGuide, /Authentication > Emails > Templates > Invite user[\s\S]*?Reset password/);
 });
 
 test('production identity uses the custom domain across metadata and invitations', () => {
@@ -270,6 +270,24 @@ test('production identity uses the custom domain across metadata and invitations
   assert.match(setupGuide, /Set \*\*Site URL\*\* to `https:\/\/fismediaclub\.org`/);
   assert.match(setupGuide, /SITE_URL=https:\/\/fismediaclub\.org/);
   assert.match(setupGuide, /no-reply@auth\.fismediaclub\.org/);
+});
+
+test('branded auth email templates preserve secure Supabase links and safe email markup', () => {
+  const templatePaths = ['invite-user.html', 'reset-password.html'];
+
+  for (const templatePath of templatePaths) {
+    const template = readFileSync(new URL(`../email-templates/${templatePath}`, import.meta.url), 'utf8');
+    assert.match(template, /href="\{\{ \.ConfirmationURL \}\}"/);
+    assert.match(template, /https:\/\/fismediaclub\.org\/assets\/fis-logo\.png/);
+    assert.match(template, /FIS Media Club/);
+    assert.match(template, /role="presentation"/);
+    assert.doesNotMatch(template, /<script|javascript:|tracking/i);
+  }
+
+  const templateGuide = readFileSync(new URL('../email-templates/README.md', import.meta.url), 'utf8');
+  assert.match(templateGuide, /Supabase Auth/);
+  assert.match(templateGuide, /Creating a template only in the Resend dashboard will not change/);
+  assert.match(templateGuide, /Send Email Hook/);
 });
 
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {
