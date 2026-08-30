@@ -264,8 +264,11 @@ test('production identity uses the custom domain across metadata and invitations
   const reviewApplicationSource = readFileSync(new URL('../supabase/functions/review-application/index.ts', import.meta.url), 'utf8');
 
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/fismediaclub\.org\/">/);
+  assert.match(indexHtml, /<title>FIS Media Club<\/title>/);
   assert.match(indexHtml, /<meta property="og:url" content="https:\/\/fismediaclub\.org\/">/);
+  assert.match(indexHtml, /<meta property="og:title" content="FIS Media Club">/);
   assert.match(indexHtml, /<meta name="twitter:card" content="summary_large_image">/);
+  assert.match(indexHtml, /<meta name="twitter:title" content="FIS Media Club">/);
   assert.match(reviewApplicationSource, /Deno\.env\.get\("SITE_URL"\) \|\| "https:\/\/fismediaclub\.org"/);
   assert.match(setupGuide, /Set \*\*Site URL\*\* to `https:\/\/fismediaclub\.org`/);
   assert.match(setupGuide, /SITE_URL=https:\/\/fismediaclub\.org/);
