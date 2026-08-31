@@ -1,0 +1,12 @@
+/*
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://challenges.cloudflare.com; script-src-elem 'self' https://challenges.cloudflare.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com https://prswuqzzgordywowbwtc.supabase.co; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), serial=(), hid=(), display-capture=(), screen-wake-lock=(), browsing-topics=(), publickey-credentials-create=(), publickey-credentials-get=()
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Cross-Origin-Opener-Policy: same-origin
+  X-Permitted-Cross-Domain-Policies: none
+
+/
+  Cache-Control: no-store, max-age=0

@@ -183,8 +183,7 @@ authStyle.textContent = `
   }
 
   .auth-gate-button,
-  .auth-visitor-button,
-  .auth-visitor-exit,
+  .auth-secondary-button,
   .auth-signout {
     border: 0;
     border-radius: 8px;
@@ -206,47 +205,50 @@ authStyle.textContent = `
     opacity: 0.7;
   }
 
-  .auth-visitor-divider {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #6c757d;
-    font-size: 11px;
-    margin: 18px 0;
-    text-transform: uppercase;
-  }
-
-  .auth-visitor-divider::before,
-  .auth-visitor-divider::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: rgba(0,0,0,0.08);
-  }
-
-  .auth-visitor-button {
+  .auth-secondary-button {
     width: 100%;
-    min-height: 52px;
+    min-height: 40px;
     background: #ffffff;
     border: 1px solid rgba(0,0,0,0.12);
     color: #212529;
-    font-size: 15px;
+    font-size: 14px;
   }
 
-  .auth-visitor-button span {
-    display: block;
-    color: #6c757d;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0;
-    margin-top: 1px;
-  }
-
-  .auth-visitor-button:hover {
+  .auth-secondary-button:hover {
     border-color: rgba(234,122,244,0.7);
     background: rgba(234,122,244,0.05);
   }
+
+  .auth-public-option {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .auth-public-option p {
+    margin: 0 0 10px;
+    color: #6c757d;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .auth-public-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 8px;
+    background: #ffffff;
+    color: #212529;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .auth-public-link:hover { border-color: rgba(234,122,244,0.7); }
+  .auth-public-link span { color: #a40134; }
 
   .auth-gate-error {
     display: none;
@@ -291,22 +293,6 @@ authStyle.textContent = `
     display: block;
   }
 
-  .auth-visitor-exit {
-    display: none;
-    position: fixed;
-    right: 18px;
-    bottom: 18px;
-    z-index: 180;
-    background: #f1f3f5;
-    border: 1px solid rgba(0,0,0,0.08);
-    color: #495057;
-    padding: 9px 14px;
-  }
-
-  .auth-visitor-exit.visible {
-    display: block;
-  }
-
   body.auth-locked .auth-signout {
     display: none;
   }
@@ -329,8 +315,7 @@ authStyle.textContent = `
   }
   :root[data-theme="dark"] .auth-gate-logo { background: #f8f9fa; }
   :root[data-theme="dark"] .auth-gate-kicker,
-  :root[data-theme="dark"] .auth-visitor-divider,
-  :root[data-theme="dark"] .auth-visitor-button span,
+  :root[data-theme="dark"] .auth-public-option p,
   :root[data-theme="dark"] .auth-gate-note { color: #858a97; }
   :root[data-theme="dark"] .auth-gate-sub,
   :root[data-theme="dark"] .auth-gate-label,
@@ -343,16 +328,16 @@ authStyle.textContent = `
     border-color: rgba(255,255,255,0.10);
     color: #f2f3f5;
   }
-  :root[data-theme="dark"] .auth-visitor-divider::before,
-  :root[data-theme="dark"] .auth-visitor-divider::after { background: rgba(255,255,255,0.10); }
-  :root[data-theme="dark"] .auth-visitor-button {
+  :root[data-theme="dark"] .auth-public-option { border-color: rgba(255,255,255,0.10); }
+  :root[data-theme="dark"] .auth-secondary-button,
+  :root[data-theme="dark"] .auth-public-link {
     background: #20212a;
     border-color: rgba(255,255,255,0.12);
     color: #f2f3f5;
   }
-  :root[data-theme="dark"] .auth-visitor-button:hover { background: rgba(164,1,52,0.18); }
-  :root[data-theme="dark"] .auth-signout,
-  :root[data-theme="dark"] .auth-visitor-exit {
+  :root[data-theme="dark"] .auth-secondary-button:hover,
+  :root[data-theme="dark"] .auth-public-link:hover { background: rgba(164,1,52,0.18); }
+  :root[data-theme="dark"] .auth-signout {
     background: #20212a;
     border-color: rgba(255,255,255,0.10);
     color: #b9bdc7;
@@ -375,7 +360,7 @@ document.body.insertAdjacentHTML("afterbegin", `
       <div class="auth-gate-error" id="auth-gate-error" role="alert" aria-live="polite"></div>
       <div class="auth-lookup-actions" id="auth-lookup-actions">
         <button class="auth-gate-button" id="auth-lookup-retry" type="button">Retry account check</button>
-        <button class="auth-visitor-button" id="auth-lookup-signout" type="button">Sign out</button>
+        <button class="auth-secondary-button" id="auth-lookup-signout" type="button">Sign out</button>
       </div>
       <form id="auth-gate-form">
         <div class="auth-gate-field">
@@ -395,12 +380,9 @@ document.body.insertAdjacentHTML("afterbegin", `
         </label>
         <button class="auth-gate-button" id="auth-gate-submit" type="submit">Sign in</button>
       </form>
-      <div id="auth-visitor-option">
-        <div class="auth-visitor-divider">or</div>
-        <button class="auth-visitor-button" id="auth-visitor-submit" type="button">
-          First time here?
-          <span>Explore the fantastic Crew Center!</span>
-        </button>
+      <div class="auth-public-option" id="auth-public-option">
+        <p>Not a member yet? Learn about Media Club, see a sample dashboard, and apply without creating a visitor account.</p>
+        <a class="auth-public-link" href="https://info.fismediaclub.org/">Open the public Media Club site <span aria-hidden="true">→</span></a>
       </div>
       <form id="auth-password-setup-form" style="display:none;">
         <div class="auth-gate-field">
@@ -417,7 +399,6 @@ document.body.insertAdjacentHTML("afterbegin", `
     </div>
   </section>
   <button class="auth-signout" id="auth-signout" type="button">Sign out</button>
-  <button class="auth-visitor-exit" id="auth-visitor-exit" type="button">Member sign in</button>
 `);
 
 const authError = document.getElementById("auth-gate-error");
@@ -427,7 +408,6 @@ const authEmail = document.getElementById("auth-gate-email");
 const authPassword = document.getElementById("auth-gate-password");
 const authRemember = document.getElementById("auth-remember-browser");
 const authPasswordReset = document.getElementById("auth-password-reset");
-const visitorSubmit = document.getElementById("auth-visitor-submit");
 const passwordSetupForm = document.getElementById("auth-password-setup-form");
 const authLookupActions = document.getElementById("auth-lookup-actions");
 const authLookupRetry = document.getElementById("auth-lookup-retry");
@@ -550,7 +530,6 @@ function setAuthError(message = "") {
 function setAuthBusy(isBusy) {
   authSubmit.disabled = isBusy;
   authSubmit.textContent = isBusy ? "Signing in..." : "Sign in";
-  visitorSubmit.disabled = isBusy;
   authPasswordReset.disabled = isBusy;
 }
 
@@ -559,7 +538,6 @@ function setPasswordResetBusy(isBusy) {
   authPasswordReset.textContent = isBusy ? "Sending..." : "Forgot password?";
   authEmail.disabled = isBusy;
   authSubmit.disabled = isBusy;
-  visitorSubmit.disabled = isBusy;
 }
 
 function applyAdminControls() {
@@ -809,7 +787,6 @@ function applySignedInUser(user) {
     el.style.background = avatarUrl ? `url("${avatarUrl}") center/cover` : avatarBg;
     el.style.color = avatarFg;
   });
-  document.getElementById("auth-visitor-exit")?.classList.toggle("visible", window.CREW_CENTER_IS_VISITOR);
   applyAdminControls();
 }
 
@@ -911,8 +888,7 @@ function showSignIn() {
   window.CREW_CENTER_IS_VISITOR = false;
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
-  document.getElementById("auth-visitor-exit")?.classList.remove("visible");
-  document.getElementById("auth-visitor-option").style.display = "block";
+  document.getElementById("auth-public-option").style.display = "block";
   authForm.style.display = "block";
   passwordSetupForm.style.display = "none";
   window.stopCrewCenterLiveUpdates?.();
@@ -1003,7 +979,7 @@ function showPasswordSetup(mode = passwordSetupMode || "invite") {
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
   authForm.style.display = "none";
-  document.getElementById("auth-visitor-option").style.display = "none";
+  document.getElementById("auth-public-option").style.display = "none";
   passwordSetupForm.style.display = "block";
   const isRecovery = normalizedMode === "recovery";
   document.getElementById("auth-gate-title").textContent = isRecovery ? "Reset your password" : "Set your password";
@@ -1116,43 +1092,7 @@ authForm.addEventListener("submit", async event => {
   }
 });
 
-visitorSubmit.addEventListener("click", async () => {
-  setAuthError("");
-  if (!window.crewCenterSupabase) {
-    setAuthError("Supabase is not available yet. Check the connection and try again.");
-    return;
-  }
-  setAuthBusy(true);
-  signOutRequested = false;
-  visitorSubmit.innerHTML = 'Opening visitor access...<span>Please wait</span>';
-  try {
-    const { data, error } = await withCrewCenterTimeout(
-      window.crewCenterSupabase.auth.signInAnonymously(),
-      authOperationTimeoutMs,
-      "Visitor sign-in timed out."
-    );
-    if (error) throw error;
-    passwordSetupComplete = false;
-    clearPendingPasswordSetup();
-    await activateCrewCenterUser(data.user);
-    if (window.CREW_CENTER_IS_VISITOR && typeof window.navigate === "function") {
-      window.navigate("about", window.navItemForPage?.("about"));
-    }
-  } catch (error) {
-    setAuthError(error.name === "CrewCenterTimeoutError"
-      ? "Visitor access is taking too long because authentication is temporarily unavailable. Please try again."
-      : error.message || "Visitor access is not available right now.");
-  } finally {
-    setAuthBusy(false);
-    visitorSubmit.innerHTML = 'First time here?<span>Explore the Crew Center with limited access</span>';
-  }
-});
-
 document.getElementById("auth-signout").addEventListener("click", async () => {
-  await signOutCrewCenterSession();
-});
-
-document.getElementById("auth-visitor-exit").addEventListener("click", async () => {
   await signOutCrewCenterSession();
 });
 

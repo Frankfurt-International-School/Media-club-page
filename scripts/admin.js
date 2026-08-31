@@ -1,33 +1,8 @@
 // ══════════════════════════════
 // JOIN
 // ══════════════════════════════
-async function submitJoin() {
-  const fname = document.getElementById('join-fname').value.trim();
-  const lname = document.getElementById('join-lname').value.trim();
-  const email = document.getElementById('join-email').value.trim().toLowerCase();
-  const why = document.getElementById('join-why').value.trim();
-  if (!fname || !lname || !email || !why) { showToast('Please fill in all required fields.', 'error'); return; }
-  if (!window.isFisAliasEmail(email)) { showToast(window.FIS_ALIAS_EMAIL_MESSAGE, 'error', 7000); return; }
-  const interests = [...document.querySelectorAll('#interest-group .checked input')].map(i => i.value);
-  const { error } = await supabaseClient
-    .from('join_applications')
-    .insert({
-      name: `${fname} ${lname}`,
-      email,
-      year_group: document.getElementById('join-year').value,
-      experience_level: document.getElementById('join-exp').value,
-      interests,
-      why,
-      work_link: document.getElementById('join-link').value.trim() || null,
-    });
-  if (error) {
-    const duplicatePending = error.code === '23505';
-    showToast(duplicatePending ? 'An application with this email is already awaiting review.' : "Couldn't submit application.", 'error', 6000);
-    return;
-  }
-  document.getElementById('join-form-card').style.display = 'none';
-  document.getElementById('join-success').style.display = 'block';
-  showToast('Application submitted!');
+function submitJoin() {
+  window.location.assign('https://info.fismediaclub.org/#join');
 }
 
 // ══════════════════════════════

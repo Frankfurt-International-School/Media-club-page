@@ -878,7 +878,7 @@ test('default sidebar includes About Media Club while customized choices remain 
   assert.equal(storedRestrictedPages.items.includes('equipment-status'), false, 'stored Equipment Status preferences must not reveal the restricted page');
 });
 
-test('visitor reads use narrow RPCs and direct operational table reads stay blocked', () => {
+test('retired visitor RPCs remain narrow but are no longer executable by browser roles', () => {
   const publicEvents = extractSqlFunction('get_public_events');
   const publicGallery = extractSqlFunction('get_public_gallery');
   const publicEquipment = extractSqlFunction('get_public_equipment');
@@ -892,7 +892,7 @@ test('visitor reads use narrow RPCs and direct operational table reads stay bloc
   assert.doesNotMatch(appSource, /get_public_member_directory/);
   for (const rpc of ['get_public_events', 'get_public_gallery', 'get_public_equipment', 'get_public_announcements']) {
     assert.match(appSource, new RegExp(`['"]${rpc}['"]`));
-    assert.match(policiesSql, new RegExp(`grant execute on function public\\.${rpc}\\(\\) to authenticated`));
+    assert.doesNotMatch(policiesSql, new RegExp(`grant execute on function public\\.${rpc}\\(\\) to authenticated`));
   }
   assert.match(policiesSql, /create policy "Signed-in users can read events"[\s\S]*?not public\.is_visitor_session\(\)/);
   assert.match(policiesSql, /create policy "Signed-in users can read equipment"[\s\S]*?not public\.is_visitor_session\(\)/);

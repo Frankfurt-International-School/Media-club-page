@@ -140,7 +140,7 @@ test('dark mode includes the signed-out authentication surface', () => {
   assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate\s*\{/);
   assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate-card\s*\{/);
   assert.match(authSource, /:root\[data-theme="dark"\] \.auth-gate-input\s*\{/);
-  assert.match(authSource, /:root\[data-theme="dark"\] \.auth-visitor-button\s*\{/);
+  assert.match(authSource, /:root\[data-theme="dark"\] \.auth-public-link\s*\{/);
 });
 
 test('authentication startup and sign-out remain responsive during upstream stalls', () => {
@@ -228,7 +228,8 @@ test('password recovery stays locked until the member saves a new password', () 
   assert.match(signInSource, /passwordSetupForm\.style\.display = "none"/);
   assert.match(signInSource, /if \(!passwordSetupRequired\(\) && window\.location\.pathname !== "\/signin"\)/);
   assert.match(authSource, /auth\.signInWithPassword\(\{ email, password \}\)[\s\S]*?if \(error\) throw error;\s*passwordSetupComplete = false;\s*clearPendingPasswordSetup\(\);\s*await activateCrewCenterUser\(data\.user\);/);
-  assert.match(authSource, /auth\.signInAnonymously\(\)[\s\S]*?if \(error\) throw error;\s*passwordSetupComplete = false;\s*clearPendingPasswordSetup\(\);\s*await activateCrewCenterUser\(data\.user\);/);
+  assert.doesNotMatch(authSource, /signInAnonymously|auth-visitor-submit/);
+  assert.match(authSource, /href="https:\/\/info\.fismediaclub\.org\/"/);
   assert.doesNotMatch(authSource, /inviteFlow|inviteSetupComplete|showInviteSetup/);
 });
 
@@ -470,7 +471,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   }
 });
 
-test('visitor route allowlist exposes only public pages', () => {
+test('legacy visitor sessions remain contained while new anonymous sign-in is retired', () => {
   const match = authSource.match(/const visitorAllowedPages = new Set\((\[[^;]+\])\)/);
   assert.ok(match, 'visitor route allowlist must remain explicit');
   const routes = vm.runInNewContext(match[1]);
@@ -478,7 +479,8 @@ test('visitor route allowlist exposes only public pages', () => {
   for (const privatePage of ['meetings', 'signup', 'members', 'equipment-status', 'crew-deployment', 'profile', 'admin']) {
     assert.equal(routes.includes(privatePage), false, `${privatePage} must remain private`);
   }
-  assert.match(authSource, /await activateCrewCenterUser\(data\.user\);\s*if \(window\.CREW_CENTER_IS_VISITOR[\s\S]*?window\.navigate\("about"/);
+  assert.doesNotMatch(authSource, /signInAnonymously|auth-visitor-submit/);
+  assert.match(authSource, /href="https:\/\/info\.fismediaclub\.org\/"/);
   assert.match(authSource, /const allowedPages = new Set\(\["about", "home", "events", "gallery", "equipment", "role-guide", "join"\]\)/);
   assert.match(authSource, /\.nav-item\[data-page="signup"\]/);
   assert.match(authSource, /\.nav-item\[data-page="members"\]/);

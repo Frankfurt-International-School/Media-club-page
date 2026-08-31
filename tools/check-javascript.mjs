@@ -5,6 +5,8 @@ import { spawnSync } from 'node:child_process';
 const sourceFiles = [
   'supabase-config.js',
   'tutorial.js',
+  'info/config.js',
+  'info/info.js',
   ...readdirSync('scripts').filter(file => file.endsWith('.js')).map(file => join('scripts', file)),
   ...readdirSync('tools').filter(file => file.endsWith('.mjs')).map(file => join('tools', file)),
 ];

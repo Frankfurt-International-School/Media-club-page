@@ -70,6 +70,7 @@ drop policy if exists "Admins can manage announcements" on public.announcements;
 drop policy if exists "Signed-in users can submit join applications" on public.join_applications;
 drop policy if exists "Admins can read join applications" on public.join_applications;
 drop policy if exists "Admins can manage join applications" on public.join_applications;
+revoke insert on table public.join_applications from anon, authenticated;
 drop policy if exists "Members can read own notifications" on public.notifications;
 
 create or replace function public.is_admin_panel_user()
@@ -496,10 +497,6 @@ revoke all on function public.get_public_events() from public;
 revoke all on function public.get_public_gallery() from public;
 revoke all on function public.get_public_equipment() from public;
 revoke all on function public.get_public_announcements() from public;
-grant execute on function public.get_public_events() to authenticated;
-grant execute on function public.get_public_gallery() to authenticated;
-grant execute on function public.get_public_equipment() to authenticated;
-grant execute on function public.get_public_announcements() to authenticated;
 
 create or replace function public.set_event_archived(
   p_event_id uuid,
@@ -2076,11 +2073,6 @@ on public.announcements for all
 to authenticated
 using (public.is_admin_panel_user())
 with check (public.is_admin_panel_user());
-
-create policy "Signed-in users can submit join applications"
-on public.join_applications for insert
-to authenticated
-with check (public.is_fis_alias_email(email));
 
 create policy "Admins can read join applications"
 on public.join_applications for select

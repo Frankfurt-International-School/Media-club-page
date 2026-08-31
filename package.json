@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --test",
     "typecheck": "node tools/check-javascript.mjs",
-    "build": "node tools/build-static.mjs"
+    "build": "node tools/build-static.mjs",
+    "build:info": "node tools/build-info.mjs"
   },
   "engines": {
     "node": ">=20"

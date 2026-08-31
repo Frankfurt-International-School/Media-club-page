@@ -769,55 +769,13 @@
   <div id="page-join" class="page">
     <div style="max-width:560px;">
       <div class="page-title mb8">Join Media Club</div>
-      <div class="page-sub mb24">Fill in the form below and a faculty member will review your application.</div>
-      <div class="card" id="join-form-card">
-        <div class="form-row2">
-          <div class="form-group"><label class="form-label">First name *</label><input class="form-input" id="join-fname" placeholder="Anna" /></div>
-          <div class="form-group"><label class="form-label">Last name *</label><input class="form-input" id="join-lname" placeholder="Müller" /></div>
-        </div>
-        <div class="form-group"><label class="form-label">School alias email *</label><input class="form-input" id="join-email" type="email" inputmode="email" pattern="[A-Za-z]{2}[0-9]{4,}@fis[.]edu" title="2 letters followed by at least 4 numbers, ending in @fis.edu" placeholder="XX12345@fis.edu" /><div class="text-muted" style="font-size:11px;margin-top:6px;">Use your GDPR-safe alias: 2 letters followed by at least 4 numbers.</div></div>
-        <div class="form-row2">
-          <div class="form-group">
-            <label class="form-label">Year group</label>
-            <select class="form-select" id="join-year">
-              <option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Experience level</label>
-            <select class="form-select" id="join-exp">
-              <option>Beginner</option><option>Intermediate</option><option>Proficient</option><option>Advanced</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Interests (select all that apply)</label>
-          <div class="checkbox-group" id="interest-group">
-            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Photography"> Photography</label>
-            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Videography"> Videography</label>
-            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Podcasting"> Podcasting</label>
-            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Editing"> Editing</label>
-            <label class="checkbox-label" onclick="toggleCheck(event, this)"><input type="checkbox" value="Writing"> Writing</label>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Why do you want to join? *</label>
-          <textarea class="form-textarea" id="join-why" placeholder="Tell us a bit about yourself, what you're hoping to learn or contribute..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Link to any previous work (optional)</label>
-          <input class="form-input" id="join-link" placeholder="https://..." />
-        </div>
-        <button class="btn btn-accent" style="width:100%;" onclick="submitJoin()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Submit application
-        </button>
-      </div>
-      <div id="join-success" style="display:none;" class="card">
+      <div class="page-sub mb24">Applications now live on the public Media Club site, where students can learn about the club and apply without creating a visitor account.</div>
+      <div class="card">
         <div style="text-align:center;padding:32px 16px;">
           <div style="font-size:48px;margin-bottom:12px;">🎬</div>
-          <div style="font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--accent);margin-bottom:8px;">Application submitted!</div>
-          <div style="color:var(--text2);font-size:14px;">We'll review your application and get in touch within a few days. Welcome to the family!</div>
+          <div style="font-family:var(--font-head);font-size:24px;color:var(--accent);margin-bottom:8px;">Public applications</div>
+          <div style="color:var(--text2);font-size:14px;line-height:1.6;margin:0 auto 20px;max-width:430px;">Open the public site to see the Crew Center preview and submit a protected application using your FIS alias email.</div>
+          <a class="btn btn-accent" href="https://info.fismediaclub.org/#join">Open application form</a>
         </div>
       </div>
     </div>

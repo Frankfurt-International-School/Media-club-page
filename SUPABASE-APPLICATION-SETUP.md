@@ -1,5 +1,10 @@
 # Application review setup
 
+Public applications are now submitted from `info.fismediaclub.org` through a
+Turnstile-protected Edge Function. Complete `PUBLIC-PORTAL-SETUP.md` before testing
+new applications; this document covers the staff review and invitation half of the
+workflow.
+
 ## 1. Update the database
 
 In Supabase, open **SQL Editor**, create a new query, paste the complete contents of
@@ -72,9 +77,9 @@ the applicant manually.
 
 ## 5. Publish and test
 
-Push the repository through GitHub Desktop and wait for Cloudflare Pages to finish its
-deployment at `https://fismediaclub.org`. Submit a test application with an email
-address you control, then test:
+Push the repository through GitHub Desktop and wait for both Cloudflare Pages projects
+to finish. Submit the test application on `https://info.fismediaclub.org/#join` with
+an alias email you control, then test:
 
 1. Approve: the application disappears from Pending, a Member row is created, and an
    invitation email arrives. Its link opens the Set Password screen.
