@@ -339,12 +339,18 @@ function showSettingsSection(section) {
 }
 
 function currentNotificationPreferences() {
-  return currentMemberRecord()?.notificationPreferences || { event_created: true, event_reminders: true, maybe_reminders: true };
+  return currentMemberRecord()?.notificationPreferences || { event_created: true, event_reminders: true, maybe_reminders: true, email_event_updates: false, email_meeting_updates: false };
 }
 
 function renderNotificationSettings() {
   const preferences = currentNotificationPreferences();
-  const mapping = { 'notify-event-created': 'event_created', 'notify-event-reminders': 'event_reminders', 'notify-maybe-reminders': 'maybe_reminders' };
+  const mapping = {
+    'notify-event-created': 'event_created',
+    'notify-event-reminders': 'event_reminders',
+    'notify-maybe-reminders': 'maybe_reminders',
+    'notify-email-event-updates': 'email_event_updates',
+    'notify-email-meeting-updates': 'email_meeting_updates',
+  };
   Object.entries(mapping).forEach(([id, key]) => { const input = document.getElementById(id); if (input) input.checked = preferences[key]; });
 }
 
@@ -416,6 +422,8 @@ async function saveNotificationPreferences() {
     event_created: Boolean(document.getElementById('notify-event-created')?.checked),
     event_reminders: Boolean(document.getElementById('notify-event-reminders')?.checked),
     maybe_reminders: Boolean(document.getElementById('notify-maybe-reminders')?.checked),
+    email_event_updates: Boolean(document.getElementById('notify-email-event-updates')?.checked),
+    email_meeting_updates: Boolean(document.getElementById('notify-email-meeting-updates')?.checked),
   };
   const button = document.getElementById('notification-preference-save');
   if (button) { button.disabled = true; button.textContent = 'Saving…'; }

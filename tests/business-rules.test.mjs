@@ -14,6 +14,10 @@ const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), '
 const policiesSql = readFileSync(new URL('../supabase-auth-policies.sql', import.meta.url), 'utf8');
 const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url), 'utf8');
 const storagePoliciesSql = readFileSync(new URL('../supabase-storage-policies.sql', import.meta.url), 'utf8');
+const scheduleEmailFunction = readFileSync(new URL('../supabase/functions/send-schedule-notification/index.ts', import.meta.url), 'utf8');
+const functionConfig = readFileSync(new URL('../supabase/config.toml', import.meta.url), 'utf8');
+const redirectSetup = readFileSync(new URL('../CLOUDFLARE-REDIRECT-SETUP.md', import.meta.url), 'utf8');
+const emailBrandingSetup = readFileSync(new URL('../email-branding/README.md', import.meta.url), 'utf8');
 
 function extractFunction(name) {
   const start = appSource.indexOf(`function ${name}(`);
@@ -215,6 +219,59 @@ test('News Team meeting invitations are generated only for current team membersh
   assert.match(uiSource, /state\.notifications\.filter\(item => item\.notification_type === 'meeting_invite' \|\| preferences\.event_created\)/);
   assert.match(policiesSql, /create policy "Members can read own notifications"[\s\S]*?notifications\.member_id = public\.current_member_id\(\)/);
   assert.doesNotMatch(policiesSql, /create policy "Members can read own notifications"[\s\S]{0,240}?member\.email/);
+});
+
+test('schedule emails are explicit opt-in, audience-safe, private, and retry-safe', () => {
+  const notificationPreferences = extractSqlFunction('update_own_notification_preferences');
+  const normalizeMember = extractFunction('normalizeMember');
+  const sendScheduleEmail = extractFunction('sendScheduleEmailNotification');
+
+  assert.match(indexHtml, /id="notify-email-event-updates" type="checkbox"/);
+  assert.match(indexHtml, /id="notify-email-meeting-updates" type="checkbox"/);
+  assert.match(uiSource, /email_event_updates: Boolean\(document\.getElementById\('notify-email-event-updates'\)/);
+  assert.match(uiSource, /email_meeting_updates: Boolean\(document\.getElementById\('notify-email-meeting-updates'\)/);
+  assert.match(normalizeMember, /email_event_updates: member\.notification_preferences\?\.email_event_updates === true/);
+  assert.match(normalizeMember, /email_meeting_updates: member\.notification_preferences\?\.email_meeting_updates === true/);
+  assert.match(notificationPreferences, /'email_event_updates', coalesce\(\(p_preferences ->> 'email_event_updates'\)::boolean, false\)/);
+  assert.match(notificationPreferences, /'email_meeting_updates', coalesce\(\(p_preferences ->> 'email_meeting_updates'\)::boolean, false\)/);
+  assert.match(schemaSql, /notification_preferences jsonb not null default '[^']*"email_event_updates":false[^']*"email_meeting_updates":false/);
+
+  assert.match(schemaSql, /create table if not exists public\.schedule_email_dispatches/);
+  assert.match(schemaSql, /unique \(resource_type, resource_id, action, resource_version\)/);
+  assert.match(schemaSql, /create table if not exists public\.schedule_email_deliveries/);
+  assert.match(schemaSql, /unique \(dispatch_id, member_id\)/);
+  assert.match(schemaSql, /alter table public\.schedule_email_dispatches enable row level security/);
+  assert.match(schemaSql, /revoke all on table public\.schedule_email_deliveries from anon, authenticated/);
+  assert.match(schemaSql, /create trigger events_touch_updated_at[\s\S]*?before update on public\.events/);
+
+  assert.match(functionConfig, /\[functions\.send-schedule-notification\][\s\S]*?verify_jwt = true/);
+  assert.match(sendScheduleEmail, /supabaseClient\.functions\.invoke\('send-schedule-notification'/);
+  assert.match(appSource, /sendScheduleEmailNotification\('event', ev\.id, editingEvent \? 'updated' : 'created'\)/);
+  assert.match(appSource, /sendScheduleEmailNotification\('meeting', savedMeetingId, wasEditing \? 'updated' : 'created'\)/);
+  assert.match(scheduleEmailFunction, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(scheduleEmailFunction, /user\.is_anonymous/);
+  assert.match(scheduleEmailFunction, /Production staff access is required to send schedule emails/);
+  assert.match(scheduleEmailFunction, /member\.notification_preferences\?\.\[preferenceKey\] === true/);
+  assert.match(scheduleEmailFunction, /\.eq\("team_key", "news_team"\)/);
+  assert.match(scheduleEmailFunction, /\["faculty", "leader", "co-leader", "moderator"\]/);
+  assert.match(scheduleEmailFunction, /adminClient\.auth\.admin\.listUsers/);
+  assert.match(scheduleEmailFunction, /https:\/\/api\.resend\.com\/emails\/batch/);
+  assert.match(scheduleEmailFunction, /"Idempotency-Key": `schedule-\$\{dispatchId\}-\$\{Math\.floor\(index \/ 100\)\}`/);
+  assert.match(scheduleEmailFunction, /to: \[delivery\.recipient_email\]/);
+  assert.doesNotMatch(scheduleEmailFunction, /\bbcc\s*:/i);
+});
+
+test('canonical redirect and sender-avatar setup avoid redirect loops and false BIMI claims', () => {
+  assert.match(redirectSetup, /media-club-page\.pages\.dev/);
+  assert.match(redirectSetup, /https:\/\/fismediaclub\.org/);
+  assert.match(redirectSetup, /Preserve query string/);
+  assert.match(redirectSetup, /Subpath matching/);
+  assert.match(redirectSetup, /Preserve path suffix/);
+  assert.match(redirectSetup, /Do\s+not put this redirect in the repository's `_redirects` file/);
+  assert.match(emailBrandingSetup, /SVG wrapper around a large embedded PNG/);
+  assert.match(emailBrandingSetup, /Common Mark Certificate \(CMC\) or Verified Mark Certificate \(VMC\)/);
+  assert.match(emailBrandingSetup, /default\._bimi\.auth/);
+  assert.match(emailBrandingSetup, /does not guarantee an avatar/);
 });
 
 test('Meeting operations use guarded RPCs and RSVP writes remain owner-only', () => {

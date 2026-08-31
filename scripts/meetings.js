@@ -296,12 +296,19 @@ async function saveMeeting() {
   button.textContent = editingMeetingId ? 'Save meeting changes' : 'Schedule meeting';
   if (error || !data) { showToast(error?.message || "Couldn't save the meeting.", 'error', 8000); return; }
   const wasEditing = Boolean(editingMeetingId);
+  const savedMeetingId = editingMeetingId || data.id;
   const audience = payload.p_audience;
+  const emailDelivery = await sendScheduleEmailNotification('meeting', savedMeetingId, wasEditing ? 'updated' : 'created');
   closeMeetingEditor();
   await loadCrewCenterData({ datasets: ['meetings', 'notifications'], silent: true });
-  showToast(audience === 'news_team'
+  const savedMessage = audience === 'news_team'
     ? (wasEditing ? 'Meeting updated. News Team invitations refreshed.' : 'News Team meeting scheduled. Invitations sent only to current News Team members.')
-    : (wasEditing ? 'Meeting updated.' : 'Meeting scheduled.'));
+    : (wasEditing ? 'Meeting updated.' : 'Meeting scheduled.');
+  if (!emailDelivery.ok) {
+    showToast(`${savedMessage} Subscriber email delivery needs attention.`, 'error', 8000);
+  } else {
+    showToast(emailDelivery.sentCount ? `${savedMessage} Emailed ${emailDelivery.sentCount} subscriber${emailDelivery.sentCount === 1 ? '' : 's'}.` : savedMessage);
+  }
 }
 
 async function setMeetingRsvp(id, response) {

@@ -532,8 +532,14 @@ async function addEvent() {
     state.events.push(ev);
   }
   state.events.sort((a, b) => a.date.localeCompare(b.date));
+  const emailDelivery = await sendScheduleEmailNotification('event', ev.id, editingEvent ? 'updated' : 'created');
   closeEventEditor();
-  showToast(editingEvent ? `Event “${ev.title}” updated.` : `Event “${ev.title}” created!`);
+  const savedMessage = editingEvent ? `Event “${ev.title}” updated.` : `Event “${ev.title}” created!`;
+  if (!emailDelivery.ok) {
+    showToast(`${savedMessage} Subscriber email delivery needs attention.`, 'error', 8000);
+  } else {
+    showToast(emailDelivery.sentCount ? `${savedMessage} Emailed ${emailDelivery.sentCount} subscriber${emailDelivery.sentCount === 1 ? '' : 's'}.` : savedMessage);
+  }
   renderEvents();
   renderDashboard();
 }

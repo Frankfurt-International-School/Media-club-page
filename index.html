@@ -744,11 +744,13 @@
         </div>
       </section>
       <section class="profile-panel" id="notification-preferences-panel" data-settings-section="notifications" role="tabpanel" aria-labelledby="settings-tab-notifications" tabindex="0" hidden>
-        <div class="profile-panel-head"><h3>Notifications</h3><p>Choose which in-app updates you want to receive.</p></div>
+        <div class="profile-panel-head"><h3>Notifications</h3><p>Choose your in-app alerts and opt in to operational email updates.</p></div>
         <div class="profile-panel-body"><div class="notification-choice-list">
           <label class="notification-choice"><span><strong>New events and signups</strong><span class="text-muted" style="display:block;">Notify me when a new event is created and opens for signup.</span></span><input id="notify-event-created" type="checkbox"></label>
           <label class="notification-choice"><span><strong>Upcoming event reminders</strong><span class="text-muted" style="display:block;">Remind me about my confirmed events during the final 24 hours.</span></span><input id="notify-event-reminders" type="checkbox"></label>
           <label class="notification-choice"><span><strong>Maybe confirmation reminders</strong><span class="text-muted" style="display:block;">Show countdowns for signups that still need confirmation.</span></span><input id="notify-maybe-reminders" type="checkbox"></label>
+          <label class="notification-choice"><span><strong>Email: event updates</strong><span class="text-muted" style="display:block;">Email my FIS address when a production event is created or changed.</span></span><input id="notify-email-event-updates" type="checkbox"></label>
+          <label class="notification-choice"><span><strong>Email: meeting updates</strong><span class="text-muted" style="display:block;">Email my FIS address about new or changed meetings for audiences I belong to.</span></span><input id="notify-email-meeting-updates" type="checkbox"></label>
         </div><button class="btn btn-accent" id="notification-preference-save" style="margin-top:16px;" onclick="saveNotificationPreferences()">Save notifications</button></div>
       </section>
       <section class="profile-panel" id="tutorial-settings-panel" data-settings-section="tutorials" role="tabpanel" aria-labelledby="tutorial-settings-tab" tabindex="0" hidden>

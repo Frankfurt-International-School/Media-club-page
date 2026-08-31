@@ -35,7 +35,8 @@ alter table public.members add column if not exists avatar_path text;
 alter table public.members add column if not exists sidebar_customized boolean not null default false;
 alter table public.members add column if not exists sidebar_items text[] not null default array['home','events','meetings','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','about','admin']::text[];
 alter table public.members alter column sidebar_items set default array['home','events','meetings','signup','members','gallery','equipment','role-guide','crew-deployment','equipment-status','join','about','admin']::text[];
-alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true}'::jsonb;
+alter table public.members add column if not exists notification_preferences jsonb not null default '{"event_created":true,"event_reminders":true,"maybe_reminders":true,"email_event_updates":false,"email_meeting_updates":false}'::jsonb;
+alter table public.members alter column notification_preferences set default '{"event_created":true,"event_reminders":true,"maybe_reminders":true,"email_event_updates":false,"email_meeting_updates":false}'::jsonb;
 alter table public.members add column if not exists dashboard_preferences jsonb not null default '{"stats":[],"sections":[]}'::jsonb;
 alter table public.members add column if not exists tutorial_progress jsonb not null default '{"version":1,"completed":[],"dismissed_welcome":false,"active_tour":null,"active_step":0}'::jsonb;
 alter table public.members add column if not exists personal_equipment_preferences jsonb not null default '{"camera_name":"","auto_use_camera":false}'::jsonb;
@@ -93,8 +94,29 @@ create table if not exists public.events (
   open_signup_roles text[] not null default array['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer']::text[],
   single_role_slot_limit smallint not null default 1,
   photographer_slot_limit smallint not null default 1,
-  ends_at timestamptz not null
+  ends_at timestamptz not null,
+  updated_at timestamptz not null default now()
 );
+
+alter table public.events add column if not exists updated_at timestamptz not null default now();
+
+create or replace function public.touch_event_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+revoke all on function public.touch_event_updated_at() from public;
+
+drop trigger if exists events_touch_updated_at on public.events;
+create trigger events_touch_updated_at
+before update on public.events
+for each row execute function public.touch_event_updated_at();
 
 alter table public.events add column if not exists category text not null default 'Event';
 update public.events set category = 'Event' where category = 'World Fest';
@@ -233,6 +255,46 @@ alter table public.meetings add column if not exists faculty_authorization_confi
 
 create index if not exists meetings_starts_at_idx on public.meetings (starts_at);
 create index if not exists meetings_audience_starts_idx on public.meetings (audience, starts_at);
+
+create table if not exists public.schedule_email_dispatches (
+  id uuid primary key default gen_random_uuid(),
+  resource_type text not null check (resource_type in ('event', 'meeting')),
+  resource_id uuid not null,
+  action text not null check (action in ('created', 'updated')),
+  resource_version timestamptz not null,
+  requested_by uuid references auth.users(id) on delete set null,
+  status text not null default 'processing' check (status in ('processing', 'completed', 'failed')),
+  recipient_count integer not null default 0 check (recipient_count >= 0),
+  sent_count integer not null default 0 check (sent_count >= 0),
+  error_message text,
+  created_at timestamptz not null default now(),
+  last_attempt_at timestamptz not null default now(),
+  completed_at timestamptz,
+  unique (resource_type, resource_id, action, resource_version)
+);
+
+alter table public.schedule_email_dispatches add column if not exists last_attempt_at timestamptz not null default now();
+
+create table if not exists public.schedule_email_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  dispatch_id uuid not null references public.schedule_email_dispatches(id) on delete cascade,
+  member_id uuid not null references public.members(id) on delete cascade,
+  recipient_email text not null,
+  status text not null default 'pending' check (status in ('pending', 'sent', 'failed')),
+  provider_message_id text,
+  error_message text,
+  sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (dispatch_id, member_id)
+);
+
+create index if not exists schedule_email_deliveries_dispatch_status_idx
+on public.schedule_email_deliveries (dispatch_id, status);
+
+alter table public.schedule_email_dispatches enable row level security;
+alter table public.schedule_email_deliveries enable row level security;
+revoke all on table public.schedule_email_dispatches from anon, authenticated;
+revoke all on table public.schedule_email_deliveries from anon, authenticated;
 
 create table if not exists public.meeting_attendees (
   id uuid primary key default gen_random_uuid(),

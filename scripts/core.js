@@ -119,6 +119,21 @@ function canManageCrewOperations() {
   return ['leader', 'co-leader', 'moderator'].includes(role);
 }
 
+async function sendScheduleEmailNotification(resourceType, resourceId, action) {
+  if (!supabaseClient?.functions || !['event', 'meeting'].includes(resourceType) || !resourceId || !['created', 'updated'].includes(action)) {
+    return { ok: false, sentCount: 0, error: 'Email delivery is not configured.' };
+  }
+  const { data, error } = await supabaseClient.functions.invoke('send-schedule-notification', {
+    body: { resourceType, resourceId, action },
+  });
+  if (error || !data?.ok) {
+    return { ok: false, sentCount: 0, error: data?.error || error?.message || 'Email delivery failed.' };
+  }
+  return { ok: true, sentCount: Number(data.sentCount) || 0, duplicate: Boolean(data.duplicate) };
+}
+
+window.sendCrewCenterScheduleEmailNotification = sendScheduleEmailNotification;
+
 window.canManageCrewOperations = canManageCrewOperations;
 
 function canCreateMeetings() {
@@ -566,6 +581,8 @@ function normalizeMember(member, index = 0) {
       event_created: member.notification_preferences?.event_created !== false,
       event_reminders: member.notification_preferences?.event_reminders !== false,
       maybe_reminders: member.notification_preferences?.maybe_reminders !== false,
+      email_event_updates: member.notification_preferences?.email_event_updates === true,
+      email_meeting_updates: member.notification_preferences?.email_meeting_updates === true,
     },
     dashboardPreferences: {
       stats: Array.isArray(member.dashboard_preferences?.stats) ? member.dashboard_preferences.stats : [],

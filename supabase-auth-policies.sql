@@ -1010,7 +1010,9 @@ begin
   clean_preferences := jsonb_build_object(
     'event_created', coalesce((p_preferences ->> 'event_created')::boolean, true),
     'event_reminders', coalesce((p_preferences ->> 'event_reminders')::boolean, true),
-    'maybe_reminders', coalesce((p_preferences ->> 'maybe_reminders')::boolean, true)
+    'maybe_reminders', coalesce((p_preferences ->> 'maybe_reminders')::boolean, true),
+    'email_event_updates', coalesce((p_preferences ->> 'email_event_updates')::boolean, false),
+    'email_meeting_updates', coalesce((p_preferences ->> 'email_meeting_updates')::boolean, false)
   );
   update public.members set notification_preferences = clean_preferences
   where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''));

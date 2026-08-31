@@ -92,3 +92,48 @@ an alias email you control, then test:
 4. Resend: confirm both messages are delivered from
    `Media Club Crew Center <no-reply@auth.fismediaclub.org>` and that SPF and DKIM
    pass in the provider logs.
+
+## 6. Enable event and meeting subscription emails
+
+The Crew Center can send one-to-one operational emails when production staff create
+or update an upcoming event or meeting. Members opt in separately under **Settings >
+Notifications**. Meeting delivery follows the same General, News Team, and Leadership
+audience rules as the private Meetings page.
+
+1. Re-run the complete `supabase-schema.sql` file, then the complete
+   `supabase-auth-policies.sql` file in the SQL Editor. This adds the opt-in fields,
+   event version timestamps, and private delivery ledgers. Existing members remain
+   unsubscribed until they turn either email option on.
+2. In Resend, create a new sending-only API key restricted to
+   `auth.fismediaclub.org`. Keep it separate from the key stored in Supabase SMTP.
+3. In **Supabase > Edge Functions > Secrets**, add:
+   - `RESEND_API_KEY` = the new Resend API key
+   - `SITE_URL` = `https://fismediaclub.org`
+   - Optional: `NOTIFICATION_FROM_EMAIL` =
+     `FIS Media Club <notifications@auth.fismediaclub.org>`
+4. Deploy `supabase/functions/send-schedule-notification/index.ts` as the
+   `send-schedule-notification` function with JWT verification enabled.
+
+With the Supabase CLI:
+
+```sh
+supabase secrets set RESEND_API_KEY=YOUR_SENDING_ONLY_KEY SITE_URL=https://fismediaclub.org
+supabase functions deploy send-schedule-notification
+```
+
+Do not paste the API key into the repository or the browser configuration. The Edge
+Function reads member email addresses using the service role, checks the caller's
+production permission, recalculates the meeting audience, and sends each recipient a
+separate message through Resend's batch endpoint. A private per-recipient ledger makes
+the same saved version safe to retry without duplicate messages.
+
+Test with one controlled member first:
+
+1. Sign in as that member and enable **Email: event updates** and/or **Email: meeting
+   updates** under Settings > Notifications.
+2. Create an upcoming event as production staff. Confirm the UI reports one emailed
+   subscriber and the message links to the saved event.
+3. Schedule a News Team meeting. Confirm that an opted-in non-News-Team member does
+   not receive it, while an opted-in current News Team member does.
+4. Edit the same item once and confirm a single update email arrives. Saving an
+   already-completed or archived item does not email subscribers.
