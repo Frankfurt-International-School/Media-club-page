@@ -102,8 +102,9 @@ audience rules as the private Meetings page.
 
 1. Re-run the complete `supabase-schema.sql` file, then the complete
    `supabase-auth-policies.sql` file in the SQL Editor. This adds the opt-in fields,
-   event version timestamps, and private delivery ledgers. Existing members remain
-   unsubscribed until they turn either email option on.
+   event version timestamps, private delivery ledgers, and the server-side schedule
+   snapshots used to explain exactly what changed. Existing members remain unsubscribed
+   until they turn either email option on.
 2. In Resend, create a new sending-only API key restricted to
    `auth.fismediaclub.org`. Keep it separate from the key stored in Supabase SMTP.
 3. In **Supabase > Edge Functions > Secrets**, add:
@@ -124,8 +125,11 @@ supabase functions deploy send-schedule-notification
 Do not paste the API key into the repository or the browser configuration. The Edge
 Function reads member email addresses using the service role, checks the caller's
 production permission, recalculates the meeting audience, and sends each recipient a
-separate message through Resend's batch endpoint. A private per-recipient ledger makes
-the same saved version safe to retry without duplicate messages.
+separate message through Resend's individual email endpoint. Each message includes a
+private `.ics` calendar invitation; Resend's batch endpoint cannot send attachments.
+The function stays below the default API request rate and retries one rate-limited
+request using Resend's response header. A private per-recipient ledger makes the same
+saved version safe to retry without duplicate messages.
 
 Test with one controlled member first:
 
@@ -136,4 +140,6 @@ Test with one controlled member first:
 3. Schedule a News Team meeting. Confirm that an opted-in non-News-Team member does
    not receive it, while an opted-in current News Team member does.
 4. Edit the same item once and confirm a single update email arrives. Saving an
-   already-completed or archived item does not email subscribers.
+   already-completed or archived item does not email subscribers. Confirm the update
+   email lists the changed fields and that opening the attached `.ics` file updates the
+   same calendar entry rather than adding a duplicate.

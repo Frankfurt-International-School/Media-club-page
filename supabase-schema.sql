@@ -275,6 +275,39 @@ create table if not exists public.schedule_email_dispatches (
 
 alter table public.schedule_email_dispatches add column if not exists last_attempt_at timestamptz not null default now();
 
+create table if not exists public.schedule_email_resource_states (
+  resource_type text not null check (resource_type in ('event', 'meeting')),
+  resource_id uuid not null,
+  resource_version timestamptz not null,
+  resource_snapshot jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (resource_type, resource_id)
+);
+
+insert into public.schedule_email_resource_states (resource_type, resource_id, resource_version, resource_snapshot)
+select 'event', event.id, event.updated_at, jsonb_build_object(
+  'title', event.title,
+  'start', event.date,
+  'end', event.ends_at,
+  'location', coalesce(event.location, ''),
+  'detail', coalesce(event.description, ''),
+  'audience', ''
+)
+from public.events event
+on conflict (resource_type, resource_id) do nothing;
+
+insert into public.schedule_email_resource_states (resource_type, resource_id, resource_version, resource_snapshot)
+select 'meeting', meeting.id, meeting.updated_at, jsonb_build_object(
+  'title', meeting.title,
+  'start', meeting.starts_at,
+  'end', meeting.ends_at,
+  'location', coalesce(meeting.location, ''),
+  'detail', coalesce(meeting.agenda, ''),
+  'audience', meeting.audience
+)
+from public.meetings meeting
+on conflict (resource_type, resource_id) do nothing;
+
 create table if not exists public.schedule_email_deliveries (
   id uuid primary key default gen_random_uuid(),
   dispatch_id uuid not null references public.schedule_email_dispatches(id) on delete cascade,
@@ -293,8 +326,10 @@ on public.schedule_email_deliveries (dispatch_id, status);
 
 alter table public.schedule_email_dispatches enable row level security;
 alter table public.schedule_email_deliveries enable row level security;
+alter table public.schedule_email_resource_states enable row level security;
 revoke all on table public.schedule_email_dispatches from anon, authenticated;
 revoke all on table public.schedule_email_deliveries from anon, authenticated;
+revoke all on table public.schedule_email_resource_states from anon, authenticated;
 
 create table if not exists public.meeting_attendees (
   id uuid primary key default gen_random_uuid(),

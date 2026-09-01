@@ -80,6 +80,10 @@ function navigate(id, el, options = {}) {
     n.classList.remove('active');
     n.removeAttribute('aria-current');
   });
+  const settingsButton = document.getElementById('sidebar-settings-button');
+  settingsButton?.classList.toggle('active', page === 'profile');
+  if (page === 'profile') settingsButton?.setAttribute('aria-current', 'page');
+  else settingsButton?.removeAttribute('aria-current');
   document.getElementById('page-' + page).classList.add('active');
   const activeNav = el || navItemForPage(page);
   if (activeNav) {

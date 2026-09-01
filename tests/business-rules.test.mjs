@@ -240,8 +240,11 @@ test('schedule emails are explicit opt-in, audience-safe, private, and retry-saf
   assert.match(schemaSql, /unique \(resource_type, resource_id, action, resource_version\)/);
   assert.match(schemaSql, /create table if not exists public\.schedule_email_deliveries/);
   assert.match(schemaSql, /unique \(dispatch_id, member_id\)/);
+  assert.match(schemaSql, /create table if not exists public\.schedule_email_resource_states/);
+  assert.match(schemaSql, /resource_snapshot jsonb not null/);
   assert.match(schemaSql, /alter table public\.schedule_email_dispatches enable row level security/);
   assert.match(schemaSql, /revoke all on table public\.schedule_email_deliveries from anon, authenticated/);
+  assert.match(schemaSql, /revoke all on table public\.schedule_email_resource_states from anon, authenticated/);
   assert.match(schemaSql, /create trigger events_touch_updated_at[\s\S]*?before update on public\.events/);
 
   assert.match(functionConfig, /\[functions\.send-schedule-notification\][\s\S]*?verify_jwt = true/);
@@ -255,8 +258,16 @@ test('schedule emails are explicit opt-in, audience-safe, private, and retry-saf
   assert.match(scheduleEmailFunction, /\.eq\("team_key", "news_team"\)/);
   assert.match(scheduleEmailFunction, /\["faculty", "leader", "co-leader", "moderator"\]/);
   assert.match(scheduleEmailFunction, /adminClient\.auth\.admin\.listUsers/);
-  assert.match(scheduleEmailFunction, /https:\/\/api\.resend\.com\/emails\/batch/);
-  assert.match(scheduleEmailFunction, /"Idempotency-Key": `schedule-\$\{dispatchId\}-\$\{Math\.floor\(index \/ 100\)\}`/);
+  assert.match(scheduleEmailFunction, /https:\/\/api\.resend\.com\/emails"/);
+  assert.doesNotMatch(scheduleEmailFunction, /emails\/batch/);
+  assert.match(scheduleEmailFunction, /attachments: \[rendered\.calendar\]/);
+  assert.match(scheduleEmailFunction, /BEGIN:VCALENDAR/);
+  assert.match(scheduleEmailFunction, /UID:\$\{resourceType\}-\$\{record\.id\}@fismediaclub\.org/);
+  assert.match(scheduleEmailFunction, /\.map\(foldCalendarLine\)\.join\("\\r\\n"\)/);
+  assert.match(scheduleEmailFunction, /Calendar invitation attached/);
+  assert.match(scheduleEmailFunction, /What changed/);
+  assert.match(scheduleEmailFunction, /"Idempotency-Key": `schedule-\$\{dispatchId\}-\$\{delivery\.id\}`/);
+  assert.match(scheduleEmailFunction, /response\.headers\.get\("retry-after"\)/);
   assert.match(scheduleEmailFunction, /to: \[delivery\.recipient_email\]/);
   assert.doesNotMatch(scheduleEmailFunction, /\bbcc\s*:/i);
 });
@@ -305,6 +316,16 @@ test('sidebar identity omits Auth Admin and Member account labels', () => {
   assert.doesNotMatch(indexHtml, /id="sidebar-user-role"/);
   assert.doesNotMatch(uiSource, /sidebar-user-role/);
   assert.doesNotMatch(authSource, /sidebar-user-role/);
+});
+
+test('settings has a dedicated sidebar-footer control instead of hiding behind the avatar', () => {
+  assert.match(indexHtml, /class="sidebar-account" aria-label="Signed-in account"/);
+  assert.match(indexHtml, /href="\/profile" class="sidebar-settings-button" id="sidebar-settings-button" aria-label="Open settings"/);
+  assert.match(indexHtml, /class="sidebar-settings-label">Settings<\/span>/);
+  assert.doesNotMatch(indexHtml, /<a[^>]+class="sidebar-user"/);
+  assert.match(appStyles, /\.sidebar-settings-button:focus-visible/);
+  assert.match(appSource, /settingsButton\?\.classList\.toggle\('active', page === 'profile'\)/);
+  assert.match(appSource, /settingsButton\?\.setAttribute\('aria-current', 'page'\)/);
 });
 
 test('member directory email access is limited to Auth Admin and Faculty server-side', () => {
