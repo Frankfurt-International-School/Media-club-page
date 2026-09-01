@@ -217,7 +217,15 @@
     text-decoration: none;
     transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
   }
-  .sidebar-settings-button svg { width: 18px; height: 18px; flex-shrink: 0; stroke-width: 1.8; }
+  .sidebar-settings-button svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
   .sidebar-settings-button:hover { background: var(--sidebar-accent-hover); border-color: rgba(164,1,52,0.24); color: var(--sidebar-accent); }
   .sidebar-settings-button.active { background: var(--sidebar-accent-dim); border-color: rgba(164,1,52,0.28); color: var(--sidebar-accent); }
   .sidebar-settings-button:active { background: var(--sidebar-accent-dim); transform: scale(0.985); }
@@ -305,6 +313,10 @@
     display: none !important;
     margin: 0;
   }
+  body.sidebar-collapsed .sidebar-user-copy,
+  body.sidebar-collapsed .sidebar-settings-label {
+    display: none;
+  }
   body.sidebar-collapsed .nav-section-label { display: none; }
   body.sidebar-collapsed .sidebar-nav {
     padding: 18px 10px;
@@ -326,14 +338,26 @@
     box-shadow: 0 9px 22px rgba(164,1,52,0.14);
   }
   body.sidebar-collapsed .nav-item svg { width: 21px; height: 21px; }
-  body.sidebar-collapsed .sidebar-footer { padding: 14px 10px; }
+  body.sidebar-collapsed .sidebar-footer {
+    padding: 14px 0;
+    place-items: center;
+  }
   body.sidebar-collapsed .sidebar-account,
   body.sidebar-collapsed .sidebar-settings-button {
+    display: grid;
+    place-items: center;
     width: 48px;
+    min-width: 48px;
     height: 48px;
-    justify-content: center;
-    margin: 0 auto;
+    min-height: 48px;
+    gap: 0;
+    margin: 0;
     padding: 0;
+  }
+  body.sidebar-collapsed .sidebar-account .user-avatar,
+  body.sidebar-collapsed .sidebar-settings-button svg {
+    margin: 0;
+    place-self: center;
   }
   body.sidebar-collapsed .sidebar-settings-button { min-height: 48px; border-radius: 14px; }
   .topbar {

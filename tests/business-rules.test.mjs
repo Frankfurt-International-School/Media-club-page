@@ -328,6 +328,13 @@ test('settings has a dedicated sidebar-footer control instead of hiding behind t
   assert.match(appSource, /settingsButton\?\.setAttribute\('aria-current', 'page'\)/);
 });
 
+test('condensed sidebar centers the account avatar and settings control', () => {
+  assert.match(appStyles, /body\.sidebar-collapsed \.sidebar-user-copy,[\s\S]*?body\.sidebar-collapsed \.sidebar-settings-label \{[\s\S]*?display: none;/);
+  assert.match(appStyles, /body\.sidebar-collapsed \.sidebar-footer \{[\s\S]*?place-items: center;/);
+  assert.match(appStyles, /body\.sidebar-collapsed \.sidebar-account,[\s\S]*?body\.sidebar-collapsed \.sidebar-settings-button \{[\s\S]*?display: grid;[\s\S]*?place-items: center;[\s\S]*?width: 48px;[\s\S]*?height: 48px;/);
+  assert.match(appStyles, /body\.sidebar-collapsed \.sidebar-account \.user-avatar,[\s\S]*?body\.sidebar-collapsed \.sidebar-settings-button svg \{[\s\S]*?place-self: center;/);
+});
+
 test('member directory email access is limited to Auth Admin and Faculty server-side', () => {
   const memberDirectory = extractSqlFunction('get_member_directory');
   const ownMemberId = extractSqlFunction('get_own_member_id');
