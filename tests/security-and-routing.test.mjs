@@ -292,10 +292,22 @@ test('branded auth email templates preserve secure Supabase links and safe email
     assert.doesNotMatch(template, /<script|javascript:|tracking/i);
   }
 
+  const passwordChangedTemplate = readFileSync(new URL('../email-templates/password-changed.html', import.meta.url), 'utf8');
+  assert.match(passwordChangedTemplate, /Your password was changed/);
+  assert.match(passwordChangedTemplate, /\{\{ \.Email \}\}/);
+  assert.match(passwordChangedTemplate, /href="https:\/\/fismediaclub\.org\/signin"/);
+  assert.match(passwordChangedTemplate, /https:\/\/fismediaclub\.org\/assets\/fis-logo\.png/);
+  assert.match(passwordChangedTemplate, /https:\/\/fismediaclub\.org\/assets\/fonts\/bebas-neue-latin\.woff2/);
+  assert.match(passwordChangedTemplate, /https:\/\/fismediaclub\.org\/assets\/fonts\/space-grotesk-latin\.woff2/);
+  assert.match(passwordChangedTemplate, /role="presentation"/);
+  assert.doesNotMatch(passwordChangedTemplate, /\{\{ \.ConfirmationURL \}\}|<script|javascript:|tracking/i);
+
   const templateGuide = readFileSync(new URL('../email-templates/README.md', import.meta.url), 'utf8');
   assert.match(templateGuide, /Supabase Auth/);
   assert.match(templateGuide, /Creating a template only in the Resend dashboard will not change/);
   assert.match(templateGuide, /Send Email Hook/);
+  assert.match(templateGuide, /Password changed/);
+  assert.match(templateGuide, /password-changed\.html/);
 });
 
 test('route changes, filters, settings tabs, and toasts expose accessible state', () => {

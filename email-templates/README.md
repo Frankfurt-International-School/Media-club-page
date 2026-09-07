@@ -15,6 +15,11 @@ In the hosted Supabase dashboard, open **Authentication > Emails > Templates**.
 5. Set the subject to `Reset your FIS Media Club Crew Center password`.
 6. Paste the complete contents of `reset-password.html` into the message editor and
    save.
+7. Open **Password changed** under the security notification templates and enable
+   that notification if it is currently disabled.
+8. Set the subject to `Your FIS Media Club password was changed`.
+9. Paste the complete contents of `password-changed.html` into the message editor
+   and save.
 
 The next invitation or password-reset request will use the saved Supabase template
 and will be delivered through the existing Resend SMTP connection. Nothing needs to
@@ -24,6 +29,9 @@ be uploaded to Resend for this setup.
 
 - Keep `{{ .ConfirmationURL }}` exactly as written. Supabase replaces it with the
   recipient's secure, single-use action link.
+- `password-changed.html` is a post-change security notification, so it intentionally
+  has no `{{ .ConfirmationURL }}`. Its button opens the Crew Center sign-in page,
+  where an affected user can request a fresh reset link.
 - The header uses the email-compatible PNG at
   `https://fismediaclub.org/assets/fis-logo.png`. Publish the website before sending
   production emails if that URL is not yet reachable.
