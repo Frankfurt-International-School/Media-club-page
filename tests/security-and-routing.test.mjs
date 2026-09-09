@@ -293,10 +293,9 @@ test('branded auth email templates preserve secure Supabase links and safe email
     const template = readFileSync(new URL(`../email-templates/${templatePath}`, import.meta.url), 'utf8');
     assert.match(template, /href="\{\{ \.ConfirmationURL \}\}"/);
     assert.match(template, /https:\/\/fismediaclub\.org\/assets\/fis-logo\.png/);
-    assert.match(template, /https:\/\/fismediaclub\.org\/assets\/fonts\/bebas-neue-latin\.woff2/);
-    assert.match(template, /https:\/\/fismediaclub\.org\/assets\/fonts\/space-grotesk-latin\.woff2/);
-    assert.match(template, /font-family:'Bebas Neue','Arial Narrow',Arial,sans-serif/);
-    assert.match(template, /font-family:'Space Grotesk', Arial, Helvetica, sans-serif/);
+    assert.match(template, /font-family:Arial, Helvetica, sans-serif/);
+    assert.match(template, /font-size:38px; font-weight:700; line-height:46px/);
+    assert.doesNotMatch(template, /@font-face|Bebas Neue|Space Grotesk|Arial Narrow/);
     assert.match(template, /FIS Media Club/);
     assert.match(template, /role="presentation"/);
     assert.doesNotMatch(template, /<script|javascript:|tracking/i);
@@ -307,8 +306,9 @@ test('branded auth email templates preserve secure Supabase links and safe email
   assert.match(passwordChangedTemplate, /\{\{ \.Email \}\}/);
   assert.match(passwordChangedTemplate, /href="https:\/\/fismediaclub\.org\/signin"/);
   assert.match(passwordChangedTemplate, /https:\/\/fismediaclub\.org\/assets\/fis-logo\.png/);
-  assert.match(passwordChangedTemplate, /https:\/\/fismediaclub\.org\/assets\/fonts\/bebas-neue-latin\.woff2/);
-  assert.match(passwordChangedTemplate, /https:\/\/fismediaclub\.org\/assets\/fonts\/space-grotesk-latin\.woff2/);
+  assert.match(passwordChangedTemplate, /font-family:Arial, Helvetica, sans-serif/);
+  assert.match(passwordChangedTemplate, /font-size:38px; font-weight:700; line-height:46px/);
+  assert.doesNotMatch(passwordChangedTemplate, /@font-face|Bebas Neue|Space Grotesk|Arial Narrow/);
   assert.match(passwordChangedTemplate, /role="presentation"/);
   assert.doesNotMatch(passwordChangedTemplate, /\{\{ \.ConfirmationURL \}\}|<script|javascript:|tracking/i);
 

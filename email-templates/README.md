@@ -35,9 +35,9 @@ be uploaded to Resend for this setup.
 - The header uses the email-compatible PNG at
   `https://fismediaclub.org/assets/fis-logo.png`. Publish the website before sending
   production emails if that URL is not yet reachable.
-- The templates mirror the website's self-hosted Bebas Neue headings and Space
-  Grotesk body text. Email-safe Arial fallbacks remain in place for clients that do
-  not load custom web fonts.
+- The templates use Arial with Helvetica and generic sans-serif fallbacks throughout.
+  This avoids unreliable web-font loading and condensed fallback rendering in Gmail,
+  Outlook, and mobile mail clients.
 - Leave Resend open and click tracking disabled so authentication URLs are not
   rewritten.
 - Test with a fresh invitation and a fresh password-reset email. Use only the newest

@@ -289,6 +289,9 @@ test('schedule emails are explicit opt-in, audience-safe, private, and retry-saf
   assert.match(scheduleEmailFunction, /BEGIN:VCALENDAR/);
   assert.match(scheduleEmailFunction, /UID:\$\{resourceType\}-\$\{record\.id\}@fismediaclub\.org/);
   assert.match(scheduleEmailFunction, /\.map\(foldCalendarLine\)\.join\("\\r\\n"\)/);
+  assert.match(scheduleEmailFunction, /font-family:Arial,Helvetica,sans-serif/);
+  assert.match(scheduleEmailFunction, /font-size:32px;font-weight:700;line-height:40px/);
+  assert.doesNotMatch(scheduleEmailFunction, /Space Grotesk|Arial Narrow/);
   assert.match(scheduleEmailFunction, /Calendar invitation attached/);
   assert.match(scheduleEmailFunction, /What changed/);
   assert.match(scheduleEmailFunction, /"Idempotency-Key": `schedule-\$\{dispatchId\}-\$\{delivery\.id\}`/);
