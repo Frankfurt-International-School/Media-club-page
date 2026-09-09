@@ -2593,8 +2593,7 @@
   }
 
   /* CAS attendance tracker */
-  .badge-cas { border-color: rgba(117,221,221,.55); background: rgba(117,221,221,.2); color: #28787b; }
-  [data-theme="dark"] .badge-cas { color: #75DDDD; }
+  .badge-cas { border-color: #54bec2; background: #75DDDD; color: #153f42; }
   .cas-tracker-intro { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 18px; padding: 24px 26px; border: 1px solid rgba(117,221,221,.38); border-radius: 18px; background: linear-gradient(135deg,rgba(117,221,221,.16),var(--bg2) 58%); }
   .cas-tracker-intro::after { content: 'CAS'; position: absolute; right: 125px; top: 50%; color: rgba(117,221,221,.12); font-family: var(--font-head); font-size: 92px; line-height: 1; transform: translateY(-50%); pointer-events: none; }
   .cas-tracker-intro > div { position: relative; z-index: 1; }

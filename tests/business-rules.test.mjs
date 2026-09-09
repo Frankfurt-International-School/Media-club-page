@@ -556,7 +556,7 @@ test('CAS attendance counts completed Berlin event dates once and ignores non-at
   assert.match(schemaSql, /create table if not exists public\.cas_attendance_settings[\s\S]*?2026-09-30[\s\S]*?2026-11-15/);
   assert.match(policiesSql, /Admin Panel users can read CAS attendance settings[\s\S]*?public\.is_admin_panel_user\(\)/);
   assert.match(policiesSql, /Admin Panel users can add CAS memberships[\s\S]*?team_key = 'cas'/);
-  assert.match(appStyles, /\.badge-cas[\s\S]*?#75DDDD/);
+  assert.match(appStyles, /\.badge-cas \{[^}]*background: #75DDDD;[^}]*color: #153f42;/);
 });
 
 test('signup windows use half-open boundaries', () => {

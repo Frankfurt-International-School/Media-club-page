@@ -19,6 +19,7 @@ const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url
 const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.url), 'utf8');
 const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
 const mediaClubLogo = readFileSync(new URL('../assets/media-club-logo.png', import.meta.url));
+const buildSource = readFileSync(new URL('../tools/build-static.mjs', import.meta.url), 'utf8');
 const aboutImageNames = [
   'tech-show-crew-portrait.webp',
   'tech-show-crew-portrait-mobile.webp',
@@ -105,6 +106,14 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
   assert.match(indexHtml, /<script src="supabase-config\.js"><\/script>\s*<script src="scripts\/core\.js"><\/script>/);
   assert.match(indexHtml, /<script src="scripts\/init\.js"><\/script>\s*<script src="tutorial\.js"><\/script>/);
   assert.match(redirectsFile, /^\/\*\s+\/index\.html\s+200\s*$/m);
+});
+
+test('production builds content-version local scripts and stylesheets', () => {
+  assert.match(buildSource, /localAssets\.filter\(path => \/\\\.\(\?:css\|js\)\$\//);
+  assert.match(buildSource, /createHash\('sha256'\)[\s\S]*?slice\(0, 12\)/);
+  assert.match(buildSource, /versionedAssets\.get\(asset\)/);
+  assert.match(buildSource, /reference\.includes\('\?'\) \? '&' : '\?'/);
+  assert.match(buildSource, /writeFileSync\(join\(outputDirectory, 'index\.html'\), html\)/);
 });
 
 test('fonts are self-hosted with licenses and no Google Fonts runtime requests', () => {
