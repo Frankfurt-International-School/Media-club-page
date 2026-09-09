@@ -37,7 +37,14 @@ function normalizeCasAttendanceSettings(row = {}) {
 }
 
 function memberHasCas(member) {
-  return Array.isArray(member?.teamKeys) && member.teamKeys.includes('cas');
+  return memberDirectoryTags(member?.spec, member?.teamKeys).hasCas;
+}
+
+function casMemberStatus(status = '', enabled = false) {
+  const tags = String(status).split(',').map(tag => tag.trim()).filter(Boolean);
+  const withoutCas = tags.filter(tag => tag.toLowerCase() !== 'cas');
+  if (enabled) withoutCas.push('CAS');
+  return withoutCas.join(', ') || 'active';
 }
 
 function casAttendanceAllEvents() {
@@ -209,19 +216,20 @@ async function toggleCasMember(memberId, enabled) {
   if (!member) return;
   casAttendanceMemberUpdate = memberId;
   renderCasAttendanceTracker();
-  const request = enabled
-    ? supabaseClient.from('member_team_memberships').insert({ member_id: memberId, team_key: 'cas' })
-    : supabaseClient.from('member_team_memberships').delete().eq('member_id', memberId).eq('team_key', 'cas');
-  const { error } = await request;
+  const nextStatus = casMemberStatus(member.spec, enabled);
+  const { data, error } = await supabaseClient
+    .from('members')
+    .update({ status: nextStatus })
+    .eq('id', memberId)
+    .select('status')
+    .single();
   casAttendanceMemberUpdate = '';
-  if (error && !(enabled && error.code === '23505')) {
-    showToast("Couldn't update the CAS tag. Run the latest Supabase SQL files first.", 'error', 7000);
+  if (error) {
+    showToast("Couldn't update the CAS tag in public.members.", 'error', 7000);
     renderCasAttendanceTracker();
     return;
   }
-  const keys = new Set(member.teamKeys || []);
-  if (enabled) keys.add('cas'); else keys.delete('cas');
-  member.teamKeys = [...keys];
+  member.spec = data?.status || nextStatus;
   renderCasAttendanceTracker();
   renderMembers();
   showToast(`${member.name} is ${enabled ? 'now' : 'no longer'} tracked for CAS.`);

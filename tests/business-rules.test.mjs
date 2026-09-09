@@ -99,6 +99,29 @@ test('CAS, News Team, and Athletics are canonical secondary member tags before s
   assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
 });
 
+test('public.members CAS tags are the attendance tracker source of truth', () => {
+  const tracked = (spec, teamKeys = []) => runFunctions(
+    ['memberDirectoryTags', 'memberHasCas'],
+    {},
+    `memberHasCas({ spec: ${JSON.stringify(spec)}, teamKeys: ${JSON.stringify(teamKeys)} })`,
+  );
+  const status = (spec, enabled) => runFunctions(
+    ['casMemberStatus'],
+    {},
+    `casMemberStatus(${JSON.stringify(spec)}, ${enabled})`,
+  );
+
+  assert.equal(tracked('Photography, CAS'), true);
+  assert.equal(tracked('Photography', ['cas']), false, 'legacy team membership alone must not create the public.members CAS tag');
+  assert.equal(status('Photography, CAS, Video', false), 'Photography, Video');
+  assert.equal(status('Photography', true), 'Photography, CAS');
+  assert.equal(status('CAS', false), 'active');
+
+  const toggleCas = extractFunction('toggleCasMember');
+  assert.match(toggleCas, /\.from\('members'\)[\s\S]*?\.update\(\{ status: nextStatus \}\)/);
+  assert.doesNotMatch(toggleCas, /member_team_memberships/);
+});
+
 test('Athletics gallery access is separated from the public showcase end to end', () => {
   const publicGallery = extractSqlFunction('get_public_gallery');
   const athleticsCustodian = extractSqlFunction('is_athletics_gallery_custodian');

@@ -26,7 +26,7 @@ function memberDirectoryTags(specialisation = '', teamKeys = []) {
   return {
     hasNewsTeam: teamKeys.includes('news_team') || tags.some(isNewsTeam),
     hasAthletics: teamKeys.includes('athletics') || tags.some(isAthletics),
-    hasCas: teamKeys.includes('cas') || tags.some(isCas),
+    hasCas: tags.some(isCas),
     specialisations: tags.filter(tag => !isNewsTeam(tag) && !isAthletics(tag) && !isCas(tag)),
   };
 }
