@@ -44,14 +44,14 @@ alter table public.members add column if not exists equipment_status_access bool
 
 create table if not exists public.member_team_memberships (
   member_id uuid not null references public.members(id) on delete cascade,
-  team_key text not null check (team_key in ('news_team', 'athletics')),
+  team_key text not null check (team_key in ('news_team', 'athletics', 'cas')),
   joined_at timestamptz not null default now(),
   primary key (member_id, team_key)
 );
 
 alter table public.member_team_memberships drop constraint if exists member_team_memberships_team_key_check;
 alter table public.member_team_memberships add constraint member_team_memberships_team_key_check
-check (team_key in ('news_team', 'athletics'));
+check (team_key in ('news_team', 'athletics', 'cas'));
 
 create index if not exists member_team_memberships_team_idx
 on public.member_team_memberships (team_key, member_id);
@@ -67,6 +67,34 @@ select member.id, 'athletics'
 from public.members member
 where lower(coalesce(member.status, '')) ~ '(^|[[:space:]]*,[[:space:]])(athletics|athletics[[:space:]]+department)([[:space:]]*,|$)'
 on conflict (member_id, team_key) do nothing;
+
+insert into public.member_team_memberships (member_id, team_key)
+select member.id, 'cas'
+from public.members member
+where lower(coalesce(member.status, '')) ~ '(^|[[:space:]]*,[[:space:]])cas([[:space:]]*,|$)'
+on conflict (member_id, team_key) do nothing;
+
+create table if not exists public.cas_attendance_settings (
+  id smallint primary key default 1 check (id = 1),
+  school_year_label text not null default '2026–2027' check (char_length(btrim(school_year_label)) between 1 and 30),
+  school_year_start date not null default date '2026-09-30',
+  school_year_end date not null default date '2027-05-31',
+  fall_start date not null default date '2026-09-30',
+  fall_end date not null default date '2026-11-15',
+  winter_start date,
+  winter_end date,
+  spring_start date,
+  spring_end date,
+  updated_at timestamptz not null default now(),
+  check (school_year_end >= school_year_start),
+  check (fall_end >= fall_start and fall_start >= school_year_start and fall_end <= school_year_end),
+  check ((winter_start is null and winter_end is null) or (winter_start is not null and winter_end is not null and winter_end >= winter_start and winter_start >= school_year_start and winter_end <= school_year_end)),
+  check ((spring_start is null and spring_end is null) or (spring_start is not null and spring_end is not null and spring_end >= spring_start and spring_start >= school_year_start and spring_end <= school_year_end))
+);
+
+insert into public.cas_attendance_settings (id)
+values (1)
+on conflict (id) do nothing;
 
 -- New member email rules are enforced by the Auth Admin insert policy. Keeping
 -- this as a table CHECK would prevent approved legacy/test accounts from later
@@ -470,15 +498,13 @@ begin
     raise exception 'Event not found.';
   end if;
 
-  if target_event.category in ('Event', 'Recording (live cut)') then
-    if not new.signup_role = any(target_event.open_signup_roles) then
-      raise exception 'This role is not open for the selected event.';
-    end if;
-    if new.signup_role = 'Photographer' then
-      slot_limit := target_event.photographer_slot_limit;
-    elsif cardinality(target_event.open_signup_roles) = 1 then
-      slot_limit := target_event.single_role_slot_limit;
-    end if;
+  if not new.signup_role = any(target_event.open_signup_roles) then
+    raise exception 'This role is not open for the selected event.';
+  end if;
+  if new.signup_role = 'Photographer' then
+    slot_limit := target_event.photographer_slot_limit;
+  elsif cardinality(target_event.open_signup_roles) = 1 then
+    slot_limit := target_event.single_role_slot_limit;
   end if;
 
   for candidate_slot in 1..slot_limit loop

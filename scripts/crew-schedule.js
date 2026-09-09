@@ -69,6 +69,14 @@ function attendanceOption(status, value, label) {
   return `<option value="${value}"${status === value ? ' selected' : ''}>${label}</option>`;
 }
 
+function crewAttendanceWindow(event, now = Date.now()) {
+  const startsAt = timeValue(event.date, event.game1Start || event.time || '00:00');
+  const endsAt = eventEndTimestamp(event) || startsAt;
+  const opensAt = startsAt - 10 * 60 * 1000;
+  const closesAt = endsAt + 24 * 60 * 60 * 1000;
+  return { startsAt, endsAt, opensAt, closesAt, isOpen: now >= opensAt && now <= closesAt };
+}
+
 function crewDeploymentDates(view = crewDeploymentView, now = Date.now()) {
   return [...new Set(state.events
     .filter(event => view === 'past' ? isPastEvent(event, now) : !isPastEvent(event, now))
@@ -98,7 +106,7 @@ function updateCrewDeploymentControls(dates, selectedDate) {
     button.setAttribute('aria-pressed', String(active));
   });
   if (help) help.textContent = crewDeploymentView === 'past'
-    ? 'Completed productions are read-only and the newest log opens first.'
+    ? 'Completed productions remain editable until 24 hours after their end time; the newest log opens first.'
     : 'The nearest unfinished production is selected automatically.';
 }
 
@@ -159,8 +167,8 @@ function deploymentAttendanceAudit(signup) {
   return `<span class="deployment-attendance-audit">${recorder ? `Recorded by ${escapeHtml(recorder)}` : 'Recorder unavailable'}${markedAt ? ` · ${escapeHtml(markedAt)}` : ''}</span>`;
 }
 
-function deploymentAttendanceControl(event, signup, attendanceOpen, pastLog) {
-  if (pastLog) {
+function deploymentAttendanceControl(event, signup, attendanceOpen) {
+  if (!attendanceOpen) {
     return `<div class="deployment-attendance-log"><span class="deployment-attendance-result status-${signup.attendanceStatus}">${escapeHtml(attendanceStatusLabel(signup.attendanceStatus))}</span>${deploymentAttendanceAudit(signup)}</div>`;
   }
   return `<select class="form-select deployment-attendance-select status-${signup.attendanceStatus}" aria-label="Attendance for ${escapeHtml(signup.name)}" ${attendanceOpen ? '' : 'disabled'} onchange="markCrewAttendance('${event.id}', '${signup.id}', this.value)">${attendanceOption(signup.attendanceStatus, 'not_taken', 'Not taken')}${attendanceOption(signup.attendanceStatus, 'present', 'Present')}${attendanceOption(signup.attendanceStatus, 'late', 'Late')}${attendanceOption(signup.attendanceStatus, 'absent', 'Absent')}${attendanceOption(signup.attendanceStatus, 'excused', 'Excused')}</select>`;
@@ -187,7 +195,7 @@ function renderCrewDeployment() {
     locations.get(group.key).events.push(event);
   });
   const uniqueCrew = new Set(events.flatMap(event => event.signups.map(signup => signup.memberId))).size;
-  const openAttendance = events.filter(event => !pastLog && Date.now() >= timeValue(event.date, event.game1Start || event.time || '00:00') - 10 * 60 * 1000);
+  const openAttendance = events.filter(event => crewAttendanceWindow(event).isOpen);
   const attendanceOutstanding = openAttendance.reduce((total, event) => total + event.signups.filter(signup => signup.attendanceStatus === 'not_taken').length, 0);
   const attendanceNotRecorded = events.reduce((total, event) => total + event.signups.filter(signup => signup.attendanceStatus === 'not_taken').length, 0);
   summary.innerHTML = `<span class="deployment-stat"><strong>${events.length}</strong> events</span><span class="deployment-stat"><strong>${locations.size}</strong> locations</span><span class="deployment-stat"><strong>${uniqueCrew}</strong> crew</span><span class="deployment-stat"><strong>${pastLog ? attendanceNotRecorded : attendanceOutstanding}</strong> ${pastLog ? 'not recorded' : 'attendance pending'}</span>`;
@@ -201,12 +209,17 @@ function renderCrewDeployment() {
     <section class="deployment-location">
       <div class="deployment-location-head"><div class="deployment-location-title">${escapeHtml(location.label)}</div><span class="badge badge-gray">${location.events.length} ${location.events.length === 1 ? 'event' : 'events'}</span></div>
       ${location.events.map(event => {
-        const eventStart = timeValue(event.date, event.game1Start || event.time || '00:00');
-        const attendanceOpen = !pastLog && Date.now() >= eventStart - 10 * 60 * 1000;
+        const attendanceWindow = crewAttendanceWindow(event);
+        const attendanceOpen = attendanceWindow.isOpen;
         const attendanceTaken = event.signups.filter(signup => signup.attendanceStatus !== 'not_taken').length;
         const blocks = deploymentGameBlocks(event);
+        const attendanceState = attendanceOpen
+          ? `${pastLog ? 'Edit until' : 'Attendance'} ${pastLog ? escapeHtml(formatBerlinDateTime(attendanceWindow.closesAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : `${attendanceTaken}/${event.signups.length}`}`
+          : Date.now() < attendanceWindow.opensAt
+            ? `Opens ${escapeHtml(berlinTimeLabel(attendanceWindow.opensAt))}`
+            : `Closed · Logged ${attendanceTaken}/${event.signups.length}`;
         return `<article class="deployment-event${pastLog ? ' past-log' : ''}">
-          <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(eventScheduleTimeLabel(event))}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}${pastLog ? ' logged' : ''}">${pastLog ? `Logged ${attendanceTaken}/${event.signups.length}` : attendanceOpen ? `Attendance ${attendanceTaken}/${event.signups.length}` : `Opens ${escapeHtml(berlinTimeLabel(eventStart - 10 * 60 * 1000))}`}</span></div>
+          <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(eventScheduleTimeLabel(event))}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}${pastLog && !attendanceOpen ? ' logged' : ''}">${attendanceState}</span></div>
           ${blocks.map(block => {
             const crew = event.signups.filter(signup => signupCoversDeploymentBlock(signup, block));
             return `<div class="deployment-game"><div class="deployment-game-head"><span>${block.label}</span><span>${block.start}–${block.end}</span></div>${crew.length ? crew.map(signup => {
@@ -215,7 +228,7 @@ function renderCrewDeployment() {
               const nextStart = next ? new Date(next.signup.attendanceStart || timeValue(next.event.date, next.event.game1Start || next.event.time || '00:00')).getTime() : null;
               const nextLabel = next ? `${next.event.loc || deploymentLocation(next.event).label} · ${berlinTimeLabel(nextStart)}` : '';
               const coverage = deploymentCoverageState(signup, block);
-              return `<div class="deployment-person"><div><div class="deployment-person-name">${escapeHtml(signup.name)}${nextLabel ? `<span class="deployment-next">Next: ${escapeHtml(nextLabel)}</span>` : ''}</div><div class="deployment-person-role">${escapeHtml(signup.role || 'No production role')}</div><span class="deployment-coverage coverage-${coverage.kind}">${escapeHtml(deploymentCoverageLabel(signup, block))}</span></div>${deploymentAttendanceControl(event, signup, attendanceOpen, pastLog)}</div>`;
+              return `<div class="deployment-person"><div><div class="deployment-person-name">${escapeHtml(signup.name)}${nextLabel ? `<span class="deployment-next">Next: ${escapeHtml(nextLabel)}</span>` : ''}</div><div class="deployment-person-role">${escapeHtml(signup.role || 'No production role')}</div><span class="deployment-coverage coverage-${coverage.kind}">${escapeHtml(deploymentCoverageLabel(signup, block))}</span></div>${deploymentAttendanceControl(event, signup, attendanceOpen)}</div>`;
             }).join('') : '<div class="deployment-empty-role">No crew assigned for this game.</div>'}</div>`;
           }).join('')}
         </article>`;

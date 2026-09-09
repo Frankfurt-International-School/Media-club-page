@@ -24,8 +24,9 @@ function renderAdmin() {
   updateAdminPendingIndicator();
   renderPending();
   renderManageEvents();
+  renderCasAttendanceTracker();
   renderAdminAnn();
-  showAdminTab(tabValueFromUrl(['pending', 'manage-events', 'announcements'], 'pending'));
+  showAdminTab(tabValueFromUrl(['pending', 'manage-events', 'cas-attendance', 'announcements'], 'pending'));
 }
 
 function renderPending() {

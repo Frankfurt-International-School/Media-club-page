@@ -22,10 +22,12 @@ function memberDirectoryTags(specialisation = '', teamKeys = []) {
   const tags = String(specialisation).split(',').map(tag => tag.trim()).filter(Boolean);
   const isNewsTeam = tag => ['news team', 'student news team'].includes(tag.toLowerCase());
   const isAthletics = tag => ['athletics', 'athletics department'].includes(tag.toLowerCase());
+  const isCas = tag => tag.toLowerCase() === 'cas';
   return {
     hasNewsTeam: teamKeys.includes('news_team') || tags.some(isNewsTeam),
     hasAthletics: teamKeys.includes('athletics') || tags.some(isAthletics),
-    specialisations: tags.filter(tag => !isNewsTeam(tag) && !isAthletics(tag)),
+    hasCas: teamKeys.includes('cas') || tags.some(isCas),
+    specialisations: tags.filter(tag => !isNewsTeam(tag) && !isAthletics(tag) && !isCas(tag)),
   };
 }
 
@@ -40,8 +42,8 @@ function renderMembers() {
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
   const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
-    const { hasNewsTeam, hasAthletics, specialisations } = memberDirectoryTags(m.spec, m.teamKeys);
-    const tags = `${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${hasAthletics ? '<span class="badge badge-blue">Athletics</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
+    const { hasNewsTeam, hasAthletics, hasCas, specialisations } = memberDirectoryTags(m.spec, m.teamKeys);
+    const tags = `${hasCas ? '<span class="badge badge-cas">CAS</span>' : ''}${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${hasAthletics ? '<span class="badge badge-blue">Athletics</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
     const profileDetails = [canAccessAdminPanel() ? m.email : '', m.gradeLevel].filter(Boolean).map(value => escapeHtml(value)).join(' · ');
     const safeAvatarUrl = safeExternalUrl(m.avatarUrl);
     const avatarStyle = safeAvatarUrl
@@ -110,7 +112,7 @@ async function addMember() {
     .single();
   if (error) { showToast("Couldn't add member.", 'error'); return; }
   const directoryTags = memberDirectoryTags(specialisation);
-  const teamKeys = [directoryTags.hasNewsTeam ? 'news_team' : '', directoryTags.hasAthletics ? 'athletics' : ''].filter(Boolean);
+  const teamKeys = [directoryTags.hasNewsTeam ? 'news_team' : '', directoryTags.hasAthletics ? 'athletics' : '', directoryTags.hasCas ? 'cas' : ''].filter(Boolean);
   let teamSyncError = null;
   if (teamKeys.length) {
     const { error: membershipError } = await supabaseClient

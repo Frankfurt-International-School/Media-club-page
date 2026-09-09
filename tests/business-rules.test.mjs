@@ -80,18 +80,20 @@ test('authority tiers preserve the Auth Admin and faculty distinction', () => {
   assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, createMeetings: false, facultyConfirmation: false, otherSignups: false, equipmentStatus: false, schedule: false });
 });
 
-test('News Team and Athletics are canonical secondary member tags before specialisations', () => {
+test('CAS, News Team, and Athletics are canonical secondary member tags before specialisations', () => {
   const tags = JSON.parse(JSON.stringify(runFunctions(
     ['memberDirectoryTags'],
     {},
-    "memberDirectoryTags('Photography, student NEWS team, Video, Athletics, News Team')",
+    "memberDirectoryTags('Photography, student NEWS team, Video, Athletics, News Team, CAS')",
   )));
 
   assert.deepEqual(tags, {
     hasNewsTeam: true,
     hasAthletics: true,
+    hasCas: true,
     specialisations: ['Photography', 'Video'],
   });
+  assert.match(appSource, /hasCas \? '<span class="badge badge-cas">CAS<\/span>'/);
   assert.match(appSource, /hasNewsTeam \? '<span class="badge badge-teal">News Team<\/span>'/);
   assert.match(appSource, /hasAthletics \? '<span class="badge badge-blue">Athletics<\/span>'/);
   assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
@@ -143,7 +145,7 @@ test('Meeting visibility and RSVP both follow the selected audience', () => {
   const meetingReadAccess = extractSqlFunction('can_read_meeting');
   const meetingRsvpAccess = extractSqlFunction('can_rsvp_meeting');
   assert.match(schemaSql, /create table if not exists public\.member_team_memberships/);
-  assert.match(schemaSql, /team_key text not null check \(team_key in \('news_team', 'athletics'\)\)/);
+  assert.match(schemaSql, /team_key text not null check \(team_key in \('news_team', 'athletics', 'cas'\)\)/);
   assert.match(schemaSql, /insert into public\.member_team_memberships[\s\S]*?student\[\[:space:\]\]\+\)\?news/);
   assert.match(schemaSql, /create table if not exists public\.meetings[\s\S]*?audience in \('general', 'news_team', 'leadership'\)/);
   assert.match(schemaSql, /create table if not exists public\.meeting_attendees[\s\S]*?unique \(meeting_id, member_id\)/);
@@ -525,7 +527,36 @@ test('Crew Schedule and attendance are Auth Admin-only in the UI and database', 
   assert.match(crewScheduleAccess, /select public\.is_auth_admin\(\)/);
   assert.doesNotMatch(crewScheduleAccess, /is_admin_panel_user|leader|co-leader|faculty/);
   assert.match(policiesSql, /create or replace function public\.mark_signup_attendance[\s\S]*?if not public\.is_crew_schedule_user\(\)[\s\S]*?Auth Admin access is required\./);
+  assert.match(policiesSql, /event\.ends_at into event_starts_at, event_ends_at[\s\S]*?event_ends_at \+ interval '24 hours'[\s\S]*?Attendance closed 24 hours after the event ended/);
+  assert.match(appSource, /function crewAttendanceWindow\([\s\S]*?endsAt \+ 24 \* 60 \* 60 \* 1000/);
+  assert.match(appSource, /Completed productions remain editable until 24 hours after their end time/);
   assert.match(appSource, /if \(page === 'crew-deployment' && !canAccessCrewSchedule\(\)\)/);
+});
+
+test('CAS attendance counts completed Berlin event dates once and ignores non-attendance statuses', () => {
+  const stats = eventData => JSON.parse(JSON.stringify(runFunctions(
+    ['casAttendanceStats'],
+    { isPastEvent: event => event.completed },
+    `casAttendanceStats({ id: 'member-1', joined_date: '2026-10-01' }, ${JSON.stringify(eventData)}, { start: '2026-09-30', end: '2026-11-15' }, 1)`,
+  )));
+  const events = [
+    { date: '2026-09-30', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
+    { date: '2026-10-02', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
+    { date: '2026-10-02', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'absent' }] },
+    { date: '2026-10-03', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'late' }] },
+    { date: '2026-10-04', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'absent' }] },
+    { date: '2026-10-05', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'excused' }] },
+    { date: '2026-10-06', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'not_taken' }] },
+    { date: '2026-10-07', completed: true, signups: [] },
+    { date: '2026-10-08', completed: false, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
+  ];
+  assert.deepEqual(stats(events), { attendedDays: 2, eventDays: 6, rate: 33 });
+  assert.match(indexHtml, /data-admin-tab="cas-attendance"[\s\S]*?id="cas-period"[\s\S]*?CAS members only/);
+  assert.match(indexHtml, /id="cas-year-start"[\s\S]*?id="cas-fall-start"[\s\S]*?id="cas-winter-start"[\s\S]*?id="cas-spring-start"/);
+  assert.match(schemaSql, /create table if not exists public\.cas_attendance_settings[\s\S]*?2026-09-30[\s\S]*?2026-11-15/);
+  assert.match(policiesSql, /Admin Panel users can read CAS attendance settings[\s\S]*?public\.is_admin_panel_user\(\)/);
+  assert.match(policiesSql, /Admin Panel users can add CAS memberships[\s\S]*?team_key = 'cas'/);
+  assert.match(appStyles, /\.badge-cas[\s\S]*?#75DDDD/);
 });
 
 test('signup windows use half-open boundaries', () => {
@@ -570,11 +601,11 @@ test('all event categories require and display an approximate end time', () => {
   assert.equal(label({ cat: 'Livestream', time: '09:00', endTime: '16:30', isSports: true }), '09:00 · Approximate end time: 16:30');
 });
 
-test('Event and live-cut role matrices enforce presets and independent Photographer capacity', () => {
+test('Every event category supports role matrices, presets, and independent Photographer capacity', () => {
   const allRoles = ['Adult Supervisor', 'Student Supervisor', 'MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless', 'Photographer'];
   const roleConfig = event => JSON.parse(JSON.stringify(runFunctions(
     ['eventCategorySupportsRoleSetup', 'eventOpenRoleLabels', 'eventRoleCapacity'],
-    { configurableSignupCategories: ['Event', 'Recording (live cut)'], signupRoleDisplayOrder: allRoles, signupRoleLabels: { photographer: 'Photographer' } },
+    { configurableSignupCategories: ['Livestream', 'Recording (live cut)', 'Event', 'Other'], signupRoleDisplayOrder: allRoles, signupRoleLabels: { photographer: 'Photographer' } },
     `({ roles: eventOpenRoleLabels(${JSON.stringify(event)}), photographerSlots: eventRoleCapacity(${JSON.stringify(event)}, 'Photographer'), obsSlots: eventRoleCapacity(${JSON.stringify(event)}, 'OBS') })`,
   )));
   const preset = name => JSON.parse(JSON.stringify(runFunctions(
@@ -586,7 +617,8 @@ test('Event and live-cut role matrices enforce presets and independent Photograp
   assert.deepEqual(roleConfig({ cat: 'Event', openSignupRoles: ['Photographer'], photographerSlotLimit: 4 }), { roles: ['Photographer'], photographerSlots: 4, obsSlots: 0 });
   assert.deepEqual(roleConfig({ cat: 'Recording (live cut)', openSignupRoles: ['OBS', 'Photographer'], photographerSlotLimit: 8 }), { roles: ['OBS', 'Photographer'], photographerSlots: 8, obsSlots: 1 });
   assert.deepEqual(roleConfig({ cat: 'Event', openSignupRoles: ['OBS'], singleRoleSlotLimit: 3 }), { roles: ['OBS'], photographerSlots: 0, obsSlots: 3 });
-  assert.deepEqual(roleConfig({ cat: 'Livestream', openSignupRoles: ['Photographer'], photographerSlotLimit: 8 }), { roles: allRoles, photographerSlots: 1, obsSlots: 1 });
+  assert.deepEqual(roleConfig({ cat: 'Livestream', openSignupRoles: ['Photographer'], photographerSlotLimit: 8 }), { roles: ['Photographer'], photographerSlots: 8, obsSlots: 0 });
+  assert.deepEqual(roleConfig({ cat: 'Other', openSignupRoles: ['OBS'], singleRoleSlotLimit: 2 }), { roles: ['OBS'], photographerSlots: 0, obsSlots: 2 });
   assert.deepEqual(preset('standard'), allRoles.filter(role => role !== 'Wireless'));
   assert.deepEqual(preset('photography'), ['Adult Supervisor', 'Photographer']);
   assert.deepEqual(preset('full'), allRoles);
@@ -606,7 +638,8 @@ test('Event and live-cut role matrices enforce presets and independent Photograp
   assert.match(schemaSql, /create or replace function public\.assign_signup_role_slot\(\)[\s\S]*?for update[\s\S]*?new\.signup_role = 'Photographer'[\s\S]*?target_event\.photographer_slot_limit[\s\S]*?No signup slots are available/);
   assert.match(schemaSql, /signup_role with =,\s*role_slot with =,\s*tstzrange\(attendance_start, attendance_end, '\[\)'\) with &&/);
   const validSignup = extractSqlFunction('is_valid_event_signup');
-  assert.match(validSignup, /event\.category not in \('Event', 'Recording \(live cut\)'\)[\s\S]*?p_signup_role = any\(event\.open_signup_roles\)/);
+  assert.match(validSignup, /p_signup_role is null or p_signup_role = any\(event\.open_signup_roles\)/);
+  assert.doesNotMatch(validSignup, /event\.category not in/);
   const validReserveRoles = extractSqlFunction('are_event_reserve_roles_open');
   assert.match(validReserveRoles, /p_signup_role is distinct from 'Student Supervisor'[\s\S]*?p_reserve_role_1 = any\(event\.open_signup_roles\)[\s\S]*?p_reserve_role_2 = any\(event\.open_signup_roles\)/);
   assert.match(policiesSql, /public\.are_event_reserve_roles_open\(event_id, signup_role, reserve_role_1, reserve_role_2\)/);
@@ -884,7 +917,7 @@ test('Student Supervisor reserve priorities exclude Photographer in the UI and d
   assert.match(signupPolicy, /reserve_role_2 in \('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 \(optional\)', 'Wireless'\)/);
 });
 
-test('Crew Schedule defaults to unfinished productions and keeps completed events in read-only past logs', () => {
+test('Crew Schedule defaults to unfinished productions and keeps completed events editable for 24 hours', () => {
   const dates = ['2026-08-18', '2026-08-21', '2026-09-02'];
   assert.equal(runFunctions(['defaultCrewDeploymentDate'], {}, `defaultCrewDeploymentDate(${JSON.stringify(dates)}, 'upcoming')`), '2026-08-18');
   assert.equal(runFunctions(['defaultCrewDeploymentDate'], {}, `defaultCrewDeploymentDate(${JSON.stringify(dates)}, 'past')`), '2026-09-02');
@@ -892,9 +925,9 @@ test('Crew Schedule defaults to unfinished productions and keeps completed event
   assert.match(appSource, /crewDeploymentView = 'upcoming'/);
   assert.match(appSource, /function openCrewDeployment\(\) \{\s*crewDeploymentView = 'upcoming';\s*initCrewDeployment\(\);\s*\}/);
   assert.match(appSource, /if \(page === 'crew-deployment'\) openCrewDeployment\(\)/);
-  assert.match(appSource, /if \(pastLog\) \{[\s\S]*?deployment-attendance-log/);
+  assert.match(appSource, /if \(!attendanceOpen\) \{[\s\S]*?deployment-attendance-log/);
   assert.match(appSource, /Recorded by \$\{escapeHtml\(recorder\)\}/);
-  assert.match(appSource, /Completed productions are read-only and the newest log opens first\./);
+  assert.match(appSource, /Completed productions remain editable until 24 hours after their end time/);
 });
 
 test('Crew Schedule explains whether each member covers the full game, joins, or leaves', () => {

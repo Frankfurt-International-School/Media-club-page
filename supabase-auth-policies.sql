@@ -1,5 +1,6 @@
 alter table public.members enable row level security;
 alter table public.member_team_memberships enable row level security;
+alter table public.cas_attendance_settings enable row level security;
 alter table public.events enable row level security;
 alter table public.meetings enable row level security;
 alter table public.meeting_attendees enable row level security;
@@ -17,6 +18,11 @@ drop policy if exists "Admins can manage members" on public.members;
 drop policy if exists "Approved members can read team memberships" on public.member_team_memberships;
 drop policy if exists "Admin Panel users can manage team memberships" on public.member_team_memberships;
 drop policy if exists "Auth Admins can manage team memberships" on public.member_team_memberships;
+drop policy if exists "Admin Panel users can add CAS memberships" on public.member_team_memberships;
+drop policy if exists "Admin Panel users can remove CAS memberships" on public.member_team_memberships;
+drop policy if exists "Admin Panel users can read CAS attendance settings" on public.cas_attendance_settings;
+drop policy if exists "Admin Panel users can add CAS attendance settings" on public.cas_attendance_settings;
+drop policy if exists "Admin Panel users can update CAS attendance settings" on public.cas_attendance_settings;
 drop policy if exists "Auth Admins can add members" on public.members;
 drop policy if exists "Admins can update members" on public.members;
 drop policy if exists "Admins can delete members" on public.members;
@@ -1245,11 +1251,7 @@ as $$
     from public.events event
     where event.id = p_event_id
       and p_attendance_end > p_attendance_start
-      and (
-        event.category not in ('Event', 'Recording (live cut)')
-        or p_signup_role is null
-        or p_signup_role = any(event.open_signup_roles)
-      )
+      and (p_signup_role is null or p_signup_role = any(event.open_signup_roles))
       and (p_attendance_start at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
       and (p_attendance_end at time zone 'Europe/Berlin')::date = (event.date at time zone 'Europe/Berlin')::date
       and (
@@ -1342,13 +1344,8 @@ as $$
       select 1
       from public.events event
       where event.id = p_event_id
-        and (
-          event.category not in ('Event', 'Recording (live cut)')
-          or (
-            p_reserve_role_1 = any(event.open_signup_roles)
-            and p_reserve_role_2 = any(event.open_signup_roles)
-          )
-        )
+        and p_reserve_role_1 = any(event.open_signup_roles)
+        and p_reserve_role_2 = any(event.open_signup_roles)
     );
 $$;
 
@@ -1728,6 +1725,7 @@ set search_path = public
 as $$
 declare
   event_starts_at timestamptz;
+  event_ends_at timestamptz;
   marker_name text;
 begin
   if not public.is_crew_schedule_user() then
@@ -1737,7 +1735,7 @@ begin
     raise exception 'Invalid attendance status.';
   end if;
 
-  select event.date into event_starts_at
+  select event.date, event.ends_at into event_starts_at, event_ends_at
   from public.signups signup
   join public.events event on event.id = signup.event_id
   where signup.id = p_signup_id;
@@ -1747,6 +1745,9 @@ begin
   end if;
   if now() < event_starts_at - interval '10 minutes' then
     raise exception 'Attendance opens 10 minutes before the event starts.';
+  end if;
+  if now() > event_ends_at + interval '24 hours' then
+    raise exception 'Attendance closed 24 hours after the event ended.';
   end if;
 
   select member.name into marker_name
@@ -1790,6 +1791,35 @@ on public.member_team_memberships for all
 to authenticated
 using (public.is_auth_admin())
 with check (public.is_auth_admin());
+
+create policy "Admin Panel users can add CAS memberships"
+on public.member_team_memberships for insert
+to authenticated
+with check (team_key = 'cas' and public.is_admin_panel_user());
+
+create policy "Admin Panel users can remove CAS memberships"
+on public.member_team_memberships for delete
+to authenticated
+using (team_key = 'cas' and public.is_admin_panel_user());
+
+revoke all on table public.cas_attendance_settings from anon, authenticated;
+grant select, insert, update on table public.cas_attendance_settings to authenticated;
+
+create policy "Admin Panel users can read CAS attendance settings"
+on public.cas_attendance_settings for select
+to authenticated
+using (public.is_admin_panel_user());
+
+create policy "Admin Panel users can add CAS attendance settings"
+on public.cas_attendance_settings for insert
+to authenticated
+with check (public.is_admin_panel_user());
+
+create policy "Admin Panel users can update CAS attendance settings"
+on public.cas_attendance_settings for update
+to authenticated
+using (public.is_admin_panel_user())
+with check (public.is_admin_panel_user());
 
 create policy "Auth Admins can add members"
 on public.members for insert

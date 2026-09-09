@@ -55,7 +55,7 @@ const memberSignupRoles = ['mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2
 const supervisorSignupRoles = ['student_supervisor', ...memberSignupRoles];
 const adminSignupRoles = ['adult_supervisor', 'student_supervisor', 'mixing', 'obs', 'robocam', 'handheld_1', 'handheld_2', 'handheld_3', 'wireless', 'photographer'];
 const signupRoleDisplayOrder = adminSignupRoles.map(key => signupRoleLabels[key]);
-const configurableSignupCategories = ['Event', 'Recording (live cut)'];
+const configurableSignupCategories = ['Livestream', 'Recording (live cut)', 'Event', 'Other'];
 
 function eventCategorySupportsRoleSetup(category = '') {
   return configurableSignupCategories.includes(category);

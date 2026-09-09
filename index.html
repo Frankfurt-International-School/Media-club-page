@@ -790,10 +790,11 @@
   <!-- ── ADMIN ── -->
   <div id="page-admin" class="page">
     <div class="page-title mb8">Admin Panel</div>
-    <div class="page-sub mb24">Manage events, members, and club announcements.</div>
+    <div class="page-sub mb24">Manage applications, events, CAS attendance, and club announcements.</div>
     <div class="tab-row" role="tablist" aria-label="Admin sections">
       <a href="/admin?tab=pending" class="tab active" id="admin-tab-button-pending" data-admin-tab="pending" role="tab" aria-selected="true" tabindex="0" aria-controls="admin-tab-pending" onkeydown="handleTabKeydown(event)">Pending applications <span class="nav-badge" style="margin-left:6px;" id="pending-count">0</span></a>
       <a href="/admin?tab=manage-events" class="tab" id="admin-tab-button-manage-events" data-admin-tab="manage-events" role="tab" aria-selected="false" tabindex="-1" aria-controls="admin-tab-manage-events" onkeydown="handleTabKeydown(event)">Manage events</a>
+      <a href="/admin?tab=cas-attendance" class="tab" id="admin-tab-button-cas-attendance" data-admin-tab="cas-attendance" role="tab" aria-selected="false" tabindex="-1" aria-controls="admin-tab-cas-attendance" onkeydown="handleTabKeydown(event)">CAS attendance</a>
       <a href="/admin?tab=announcements" class="tab" id="admin-tab-button-announcements" data-admin-tab="announcements" role="tab" aria-selected="false" tabindex="-1" aria-controls="admin-tab-announcements" onkeydown="handleTabKeydown(event)">Announcements</a>
     </div>
     <div class="tab-content active" id="admin-tab-pending" role="tabpanel" aria-labelledby="admin-tab-button-pending">
@@ -801,6 +802,35 @@
     </div>
     <div class="tab-content" id="admin-tab-manage-events" role="tabpanel" aria-labelledby="admin-tab-button-manage-events" hidden>
       <div id="manage-events-list"></div>
+    </div>
+    <div class="tab-content" id="admin-tab-cas-attendance" role="tabpanel" aria-labelledby="admin-tab-button-cas-attendance" hidden>
+      <section class="cas-tracker-intro">
+        <div><span class="cas-tracker-kicker">CAS participation</span><h2>Attendance tracker</h2><p>Each completed event date counts once. Present or Late earns that day; Absent, Excused, Not taken, and no signup do not.</p></div>
+        <div class="cas-threshold"><strong>50%</strong><span>minimum attendance</span></div>
+      </section>
+      <div class="cas-tracker-toolbar">
+        <label><span>Time period</span><select class="form-select" id="cas-period" onchange="changeCasAttendancePeriod()"><option value="year">Full school year</option><option value="fall">Fall season</option><option value="winter">Winter season</option><option value="spring">Spring season</option><option value="custom">Custom dates</option></select></label>
+        <label><span>From</span><input class="form-input" id="cas-range-start" type="date" onchange="changeCasCustomRange()"></label>
+        <label><span>To</span><input class="form-input" id="cas-range-end" type="date" onchange="changeCasCustomRange()"></label>
+        <label class="cas-member-search"><span>Find member</span><input class="form-input" id="cas-member-search" type="search" placeholder="Search by name or grade" oninput="renderCasAttendanceTracker()"></label>
+        <label class="cas-only-toggle"><input id="cas-only-filter" type="checkbox" onchange="renderCasAttendanceTracker()"><span>CAS members only</span></label>
+      </div>
+      <div class="cas-tracker-status" id="cas-tracker-status" aria-live="polite"></div>
+      <div class="cas-tracker-summary" id="cas-tracker-summary"></div>
+      <div class="cas-attendance-table-wrap" id="cas-attendance-table-wrap"></div>
+      <details class="cas-season-settings">
+        <summary><span>Season date settings</span><small>Set these once the school confirms the Winter and Spring boundaries.</small></summary>
+        <div class="cas-season-settings-body">
+          <label class="cas-year-label"><span>School year label</span><input class="form-input" id="cas-school-year-label" maxlength="30" placeholder="2026–2027"></label>
+          <div class="cas-season-date-grid">
+            <div class="cas-season-date-row"><strong>Full school year</strong><label><span>Starts</span><input class="form-input" id="cas-year-start" type="date"></label><label><span>Ends</span><input class="form-input" id="cas-year-end" type="date"></label></div>
+            <div class="cas-season-date-row"><strong>Fall season</strong><label><span>Starts</span><input class="form-input" id="cas-fall-start" type="date"></label><label><span>Ends</span><input class="form-input" id="cas-fall-end" type="date"></label></div>
+            <div class="cas-season-date-row"><strong>Winter season</strong><label><span>Starts</span><input class="form-input" id="cas-winter-start" type="date"></label><label><span>Ends</span><input class="form-input" id="cas-winter-end" type="date"></label></div>
+            <div class="cas-season-date-row"><strong>Spring season</strong><label><span>Starts</span><input class="form-input" id="cas-spring-start" type="date"></label><label><span>Ends</span><input class="form-input" id="cas-spring-end" type="date"></label></div>
+          </div>
+          <div class="cas-season-actions"><span>Dates are inclusive and shared with every Admin Panel user.</span><button type="button" class="btn btn-accent" id="cas-season-save" onclick="saveCasAttendanceSettings()">Save date ranges</button></div>
+        </div>
+      </details>
     </div>
     <div class="tab-content" id="admin-tab-announcements" role="tabpanel" aria-labelledby="admin-tab-button-announcements" hidden>
       <div class="card mb16">
@@ -915,7 +945,7 @@
     <section class="event-form-section event-role-setup" id="ev-role-setup" hidden>
       <div class="event-form-section-title"><span>3</span> Open crew positions</div>
       <div class="event-role-setup-head">
-        <div><strong>Choose roles members may claim</strong><p>Available for Event and Recording (live cut). Existing signups stay attached if a role is later closed.</p></div>
+        <div><strong>Choose roles members may claim</strong><p>Available for every event category, including Livestream. Existing signups stay attached if a role is later closed.</p></div>
         <span class="event-role-setup-signal"><span></span>ROLE MATRIX</span>
       </div>
       <div class="event-role-presets" aria-label="Crew role presets">
@@ -1195,6 +1225,7 @@
 <script src="scripts/members.js"></script>
 <script src="scripts/gallery.js"></script>
 <script src="scripts/equipment.js"></script>
+<script src="scripts/cas-attendance.js"></script>
 <script src="scripts/admin.js"></script>
 <script src="scripts/init.js"></script>
 <script src="tutorial.js"></script>

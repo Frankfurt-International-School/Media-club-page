@@ -98,6 +98,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/members.js',
     'scripts/gallery.js',
     'scripts/equipment.js',
+    'scripts/cas-attendance.js',
     'scripts/admin.js',
     'scripts/init.js',
   ]);
@@ -441,7 +442,7 @@ test('canonical routes and aliases survive static-host deep links', () => {
 
 test('navigation tabs use native deep links and restore state from the URL', () => {
   const roleTabs = [...indexHtml.matchAll(/<(a|button)\b[^>]*role="tab"[^>]*>/g)].map(match => match[0]);
-  assert.equal(roleTabs.length, 19);
+  assert.equal(roleTabs.length, 20);
   roleTabs.forEach(tab => {
     assert.match(tab, /^<a\b/);
     assert.match(tab, /href="\/(?:meetings|gallery|profile|admin)(?:\?[^\"]+)?"/);
@@ -461,7 +462,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.match(appSource, /tabValueFromUrl\(Object\.keys\(galleryTabFilters\), 'all'\)/);
   assert.match(appSource, /tabValueFromUrl\(\['upcoming', 'past'\], 'upcoming'\)/);
   assert.match(appSource, /tabValueFromUrl\(\['profile', 'appearance', 'personalisation', 'dashboard', 'sidebar', 'notifications', 'tutorials'\], 'profile'\)/);
-  assert.match(appSource, /showAdminTab\(tabValueFromUrl\(\['pending', 'manage-events', 'announcements'\], 'pending'\)\)/);
+  assert.match(appSource, /showAdminTab\(tabValueFromUrl\(\['pending', 'manage-events', 'cas-attendance', 'announcements'\], 'pending'\)\)/);
   assert.match(appSource, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(appSource, /tabs\[nextIndex\]\.focus\(\)/);
   assert.doesNotMatch(appSource, /tabs\[nextIndex\]\.click\(\)/);
