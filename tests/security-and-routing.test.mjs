@@ -411,8 +411,12 @@ test('Media Role Guide includes the approved stream expectations', () => {
 
 test('gallery projects support an optional production date and link guidance', () => {
   assert.match(indexHtml, /id="gal-produced-on" type="date"/);
+  assert.ok(indexHtml.indexOf('id="gal-link"') < indexHtml.indexOf('id="gal-produced-on"'));
+  assert.ok(indexHtml.indexOf('id="gal-produced-on"') < indexHtml.indexOf('id="gal-event"'));
   assert.match(indexHtml, /id="gal-scope"[\s\S]*?value="athletics">Athletics library · restricted/);
   assert.match(appSource, /restrict sharing to the Athletics department or FIS accounts/);
+  assert.match(appSource, /Choose the production date first/);
+  assert.match(appSource, /No events on this date/);
   assert.match(appSource, /produced_on: producedOn/);
   assert.match(appSource, /project_scope: projectScope/);
   assert.match(appSource, /producedOn: item\.produced_on \|\| ''/);

@@ -148,6 +148,9 @@ test('Athletics gallery access is separated from the public showcase end to end'
   assert.match(appSource, /event_id: eventId/);
   assert.match(appSource, /eventTitle: visitor \? '' : linkedEvent\?\.title \|\| ''/);
   assert.match(indexHtml, /id="gal-event-group" hidden[\s\S]*?id="gal-event"/);
+  assert.match(appSource, /filter\(event => event\.date === productionDate\)/);
+  assert.match(appSource, /eventGroup\.hidden = !athletics \|\| !productionDate/);
+  assert.match(appSource, /view === 'athletics'[\s\S]*?dateForProject[\s\S]*?gallery-date-section/);
   assert.doesNotMatch(appSource, /Auth Admin or Faculty custodians/);
   assert.match(appSource, /the uploader, Faculty, and Leaders/);
   assert.match(indexHtml, /data-gallery-view="athletics"[\s\S]*?Athletics library[\s\S]*?Restricted delivery/);
@@ -170,6 +173,44 @@ test('Athletics gallery access is separated from the public showcase end to end'
   assert.equal(access({ role: 'Co-Leader' }), false);
   assert.equal(access({ owns: true }), true);
   assert.equal(access({ teamKeys: ['athletics'], visitor: true }), false);
+});
+
+test('Athletics gallery event choices wait for a production date and stay on that date', () => {
+  const elements = {
+    'gal-event': { value: '', disabled: false, innerHTML: '' },
+    'gal-event-group': { hidden: false },
+    'gallery-event-note': { innerHTML: '' },
+    'gal-produced-on': { value: '' },
+    'gal-scope': { value: 'athletics' },
+  };
+  const context = {
+    document: { getElementById: id => elements[id] },
+    state: {
+      events: [
+        { id: 'morning', date: '2026-10-03', time: '09:00', title: 'Morning game', archivedAt: '' },
+        { id: 'evening', date: '2026-10-03', time: '17:00', title: 'Evening game', archivedAt: '' },
+        { id: 'other-date', date: '2026-10-04', time: '10:00', title: 'Other game', archivedAt: '' },
+      ],
+      archivedEvents: [],
+    },
+    escapeHtml: value => String(value),
+  };
+
+  runFunctions(['renderGalleryEventOptions'], context, 'renderGalleryEventOptions()');
+  assert.equal(elements['gal-event-group'].hidden, true);
+
+  elements['gal-produced-on'].value = '2026-10-03';
+  runFunctions(['renderGalleryEventOptions'], context, 'renderGalleryEventOptions()');
+  assert.equal(elements['gal-event-group'].hidden, false);
+  assert.equal(elements['gal-event'].disabled, false);
+  assert.match(elements['gal-event'].innerHTML, /09:00 · Morning game/);
+  assert.match(elements['gal-event'].innerHTML, /17:00 · Evening game/);
+  assert.doesNotMatch(elements['gal-event'].innerHTML, /Other game/);
+
+  elements['gal-produced-on'].value = '2026-10-05';
+  runFunctions(['renderGalleryEventOptions'], context, 'renderGalleryEventOptions()');
+  assert.equal(elements['gal-event'].disabled, true);
+  assert.match(elements['gal-event'].innerHTML, /No events on this date/);
 });
 
 test('Meeting visibility and RSVP both follow the selected audience', () => {

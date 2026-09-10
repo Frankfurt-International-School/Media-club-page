@@ -46,13 +46,29 @@ function renderGalleryAuthorField() {
 
 function renderGalleryEventOptions() {
   const select = document.getElementById('gal-event');
-  if (!select) return;
+  const eventGroup = document.getElementById('gal-event-group');
+  const eventNote = document.getElementById('gallery-event-note');
+  const productionDate = document.getElementById('gal-produced-on')?.value || '';
+  const athletics = document.getElementById('gal-scope')?.value === 'athletics';
+  if (!select || !eventGroup) return;
   const selected = select.value;
   const events = [...state.events, ...state.archivedEvents]
+    .filter(event => event.date === productionDate)
     .slice()
-    .sort((a, b) => b.date.localeCompare(a.date));
-  select.innerHTML = `<option value="">No linked event</option>${events.map(event => `<option value="${event.id}">${escapeHtml(formatEventDate(event.date))} · ${escapeHtml(event.title)}${event.archivedAt ? ' · Archived' : ''}</option>`).join('')}`;
+    .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
+  eventGroup.hidden = !athletics || !productionDate;
+  if (eventGroup.hidden) {
+    select.value = '';
+    return;
+  }
+  select.disabled = events.length === 0;
+  select.innerHTML = events.length
+    ? `<option value="">No linked event</option>${events.map(event => `<option value="${event.id}">${escapeHtml(event.time)} · ${escapeHtml(event.title)}${event.archivedAt ? ' · Archived' : ''}</option>`).join('')}`
+    : '<option value="">No events on this date</option>';
   if (events.some(event => event.id === selected)) select.value = selected;
+  if (eventNote) eventNote.innerHTML = events.length
+    ? `<strong>${events.length} event${events.length === 1 ? '' : 's'} on this date:</strong> choose one to connect the upload, or leave it unlinked.`
+    : '<strong>No events on this date.</strong> You can still publish the project without linking an event.';
 }
 
 function openGalleryProject(card) {
@@ -119,7 +135,7 @@ function renderGallery() {
   const accessNote = document.getElementById('gallery-access-note');
   if (galleryKicker) galleryKicker.textContent = view === 'athletics' ? 'Department delivery / restricted archive' : 'Crew output / visual archive';
   if (gallerySub) gallerySub.textContent = view === 'athletics'
-    ? 'Photos and project links prepared for the Athletics department.'
+    ? 'Photos and project links for the Athletics department, grouped by production date.'
     : 'Public showcase of films, photos, podcasts, and designs by club members.';
   if (accessNote) {
     accessNote.hidden = view !== 'athletics';
@@ -162,6 +178,26 @@ function renderGallery() {
         <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${eventLabel ? `<div class="gallery-card-event"><span>Linked event</span>${escapeHtml(eventLabel)}</div>` : ''}${producedLabel ? `<div class="gallery-card-date">Produced ${escapeHtml(producedLabel)}</div>` : ''}${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
       </article>`;
   };
+  if (view === 'athletics') {
+    const dateForProject = project => project.producedOn || project.eventDate || '';
+    const dates = [...new Set(list.map(dateForProject))].sort((a, b) => {
+      if (!a) return 1;
+      if (!b) return -1;
+      return b.localeCompare(a);
+    });
+    grid.innerHTML = dates.map(date => {
+      const projects = list.filter(project => dateForProject(project) === date);
+      const label = date
+        ? formatBerlinCalendarDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+        : 'Date not set';
+      return `<section class="gallery-category-section gallery-date-section">
+        <div class="member-section-head"><span class="member-section-title">${escapeHtml(label)}</span><span class="badge badge-athletics">${projects.length}</span><span class="member-section-line"></span></div>
+        <div class="gallery-category-items">${projects.map(galleryCard).join('')}</div>
+      </section>`;
+    }).join('');
+    applyGalleryBackgrounds(grid);
+    return;
+  }
   if (f !== 'all') {
     grid.innerHTML = list.map(galleryCard).join('');
     applyGalleryBackgrounds(grid);
@@ -198,6 +234,7 @@ function updateGalleryScopeHelp() {
   const help = document.getElementById('gallery-scope-help');
   const uploadNote = document.getElementById('gallery-upload-note');
   const linkNote = document.getElementById('gallery-link-note');
+  const dateNote = document.getElementById('gallery-date-note');
   const eventGroup = document.getElementById('gal-event-group');
   if (help) help.innerHTML = scope === 'athletics'
     ? '<strong>Athletics library:</strong> hidden from visitors and non-Athletics members. The uploader, Faculty, and Leaders retain access.'
@@ -208,9 +245,11 @@ function updateGalleryScopeHelp() {
   if (linkNote) linkNote.innerHTML = scope === 'athletics'
     ? '<strong>External links:</strong> restrict sharing to the Athletics department or FIS accounts in Google Drive; the Crew Center cannot override permissions on another service.'
     : '<strong>Public showcase:</strong> use a link that visitors are allowed to open.';
-  if (eventGroup) eventGroup.hidden = scope !== 'athletics';
-  if (scope === 'athletics') renderGalleryEventOptions();
-  else if (document.getElementById('gal-event')) document.getElementById('gal-event').value = '';
+  if (dateNote) dateNote.innerHTML = scope === 'athletics'
+    ? '<strong>Choose the production date first.</strong> The event selector will then show only events held on that date.'
+    : 'Add the date the project was produced.';
+  if (scope !== 'athletics' && eventGroup) eventGroup.hidden = true;
+  renderGalleryEventOptions();
 }
 
 function initSlidingTabs() { document.querySelectorAll('.tab-row').forEach(updateSlidingTab); }
