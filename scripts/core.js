@@ -708,6 +708,7 @@ function normalizeMeeting(meeting) {
 
 function normalizeGallery(item) {
   const directoryMember = state.members.find(member => member.id === item.member_id);
+  const linkedEvent = item.events || [...state.events, ...state.archivedEvents].find(event => event.id === item.event_id);
   const visitor = isVisitorSession();
   return {
     id: item.id,
@@ -715,6 +716,9 @@ function normalizeGallery(item) {
     type: item.project_type || 'Photo',
     scope: item.project_scope === 'athletics' ? 'athletics' : 'showcase',
     memberId: visitor ? '' : item.member_id || '',
+    eventId: visitor ? '' : item.event_id || '',
+    eventTitle: visitor ? '' : linkedEvent?.title || '',
+    eventDate: visitor ? '' : linkedEvent?.date ? berlinDateKey(linkedEvent.date) : '',
     author: visitor ? 'Media Club' : item.members?.name || directoryMember?.name || 'Media Club member',
     desc: item.description || '',
     link: item.project_url || item.image_url || '#',
@@ -820,7 +824,7 @@ function crewCenterDatasetRequest(dataset, visitor) {
     members: () => supabaseClient.rpc('get_member_directory'),
     events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, role_slot, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
     meetings: () => supabaseClient.from('meetings').select('*, meeting_attendees(id, member_id, response, responded_at, members(name, role, avatar_url))').order('starts_at', { ascending: true }),
-    gallery: () => supabaseClient.from('gallery').select('*, members(name)').order('created_at', { ascending: false }),
+    gallery: () => supabaseClient.from('gallery').select('*, members(name), events(id, title, date, archived_at)').order('created_at', { ascending: false }),
     equipment: () => supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, reservation_group_id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
     announcements: () => supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }).limit(30),
     applications: () => supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),

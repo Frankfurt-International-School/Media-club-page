@@ -25,10 +25,11 @@ const allowedHostnames = new Set(
     })
     .filter(Boolean),
 );
-const yearGroups = new Set(["Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"]);
+const yearGroups = new Set(["Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "Adult"]);
 const experienceLevels = new Set(["Beginner", "Intermediate", "Proficient", "Advanced"]);
 const interestOptions = new Set(["Photography", "Videography", "Podcasting", "Editing", "Writing"]);
 const fisAliasEmailPattern = /^[a-z]{2}\d{4,}@fis\.edu$/i;
+const fisSchoolEmailPattern = /^[^\s@]+@fis\.edu$/i;
 
 const corsHeaders = (origin: string) => ({
   "Access-Control-Allow-Origin": origin,
@@ -112,11 +113,12 @@ Deno.serve(async request => {
     ? [...new Set(input.interests.map(value => text(value, 40)).filter(value => interestOptions.has(value)))].slice(0, interestOptions.size)
     : [];
 
-  if (!firstName || !lastName || !fisAliasEmailPattern.test(email) || why.length < 20) {
-    return json({ error: "Complete every required field and use a valid FIS alias email." }, 400, origin);
-  }
   if (!yearGroups.has(yearGroup) || !experienceLevels.has(experienceLevel)) {
     return json({ error: "Choose a valid year group and experience level." }, 400, origin);
+  }
+  const validEmail = yearGroup === "Adult" ? fisSchoolEmailPattern.test(email) : fisAliasEmailPattern.test(email);
+  if (!firstName || !lastName || !validEmail || why.length < 20) {
+    return json({ error: "Complete every required field and use the correct FIS email for the selected year group." }, 400, origin);
   }
   if (!validHttpsUrl(workLink)) return json({ error: "Previous work links must start with https://." }, 400, origin);
 

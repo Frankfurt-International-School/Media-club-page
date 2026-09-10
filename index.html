@@ -805,7 +805,7 @@
     </div>
     <div class="tab-content" id="admin-tab-cas-attendance" role="tabpanel" aria-labelledby="admin-tab-button-cas-attendance" hidden>
       <section class="cas-tracker-intro">
-        <div><span class="cas-tracker-kicker">CAS participation</span><h2>Attendance tracker</h2><p>Each completed event date counts once. Present or Late earns that day; Absent, Excused, Not taken, and no signup do not.</p></div>
+        <div><span class="cas-tracker-kicker">CAS participation analytics</span><h2>Attendance overview</h2><p>One completed calendar date equals one eligible event day. Present or Late earns the day; Absent, Excused, Not taken, and no signup do not.</p></div>
         <div class="cas-threshold"><strong>50%</strong><span>minimum attendance</span></div>
       </section>
       <div class="cas-tracker-toolbar">
@@ -816,6 +816,7 @@
         <label class="cas-only-toggle"><input id="cas-only-filter" type="checkbox" onchange="renderCasAttendanceTracker()"><span>CAS members only</span></label>
       </div>
       <div class="cas-tracker-status" id="cas-tracker-status" aria-live="polite"></div>
+      <div class="cas-tracker-insight" id="cas-tracker-insight"></div>
       <div class="cas-tracker-summary" id="cas-tracker-summary"></div>
       <div class="cas-attendance-table-wrap" id="cas-attendance-table-wrap"></div>
       <details class="cas-season-settings">
@@ -1053,6 +1054,11 @@
         <select class="form-select" id="gal-type"><option>Photo</option><option>Video</option><option>Podcast</option><option>Design</option></select>
       </div>
       <div class="form-group"><label class="form-label">Your name *</label><input class="form-input" id="gal-author" placeholder="Your name" /></div>
+    </div>
+    <div class="form-group" id="gal-event-group" hidden>
+      <label class="form-label" for="gal-event">Linked Athletics event <span class="text-muted">(optional)</span></label>
+      <select class="form-select" id="gal-event"><option value="">No linked event</option></select>
+      <div class="gallery-link-note"><strong>Event connection:</strong> choose the production this upload belongs to so the Athletics archive keeps its context.</div>
     </div>
     <div class="form-group"><label class="form-label" for="gal-produced-on">Production date <span class="text-muted">(optional)</span></label><input class="form-input" id="gal-produced-on" type="date" /></div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="gal-desc" placeholder="Tell us about this project..."></textarea></div>

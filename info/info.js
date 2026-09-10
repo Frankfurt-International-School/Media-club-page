@@ -5,6 +5,10 @@
   const status = document.getElementById('form-status');
   const success = document.getElementById('join-success');
   const siteKey = String(config.turnstileSiteKey || '');
+  const emailInput = document.getElementById('join-email');
+  const yearGroupInput = document.getElementById('join-year-group');
+  const studentAliasPattern = /^[a-z]{2}\d{4,}@fis\.edu$/i;
+  const schoolEmailPattern = /^[^\s@]+@fis\.edu$/i;
   let turnstileToken = '';
   let widgetId;
 
@@ -16,6 +20,27 @@
 
   function isConfigured() {
     return Boolean(siteKey && siteKey !== '__TURNSTILE_SITE_KEY__' && config.submitApplicationUrl);
+  }
+
+  function syncApplicationEmailRules() {
+    const adult = yearGroupInput.value === 'Adult';
+    document.getElementById('join-email-help').textContent = adult
+      ? 'Adults may use their normal staff address ending in @fis.edu.'
+      : 'Students: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu.';
+    emailInput.placeholder = adult ? 'name@fis.edu' : 'XX12345@fis.edu';
+    emailInput.setCustomValidity('');
+  }
+
+  function validateApplicationEmail() {
+    const email = emailInput.value.trim();
+    const adult = yearGroupInput.value === 'Adult';
+    const valid = adult ? schoolEmailPattern.test(email) : studentAliasPattern.test(email);
+    emailInput.setCustomValidity(valid || !email
+      ? ''
+      : adult
+        ? 'Use your FIS staff email ending in @fis.edu.'
+        : 'Use your student alias: 2 letters, at least 4 numbers, then @fis.edu.');
+    return valid;
   }
 
   function renderTurnstile(attempt = 0) {
@@ -56,6 +81,7 @@
   form.addEventListener('submit', async event => {
     event.preventDefault();
     setStatus('');
+    validateApplicationEmail();
     if (!form.reportValidity()) return;
     if (!turnstileToken) {
       setStatus('Please complete the human verification before submitting.');
@@ -98,5 +124,8 @@
     }
   });
 
+  emailInput.addEventListener('input', validateApplicationEmail);
+  yearGroupInput.addEventListener('change', syncApplicationEmailRules);
+  syncApplicationEmailRules();
   renderTurnstile();
 })();

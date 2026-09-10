@@ -99,12 +99,14 @@ Do not delete rows based only on a role label; approved member accounts must rem
 1. Open `https://info.fismediaclub.org` in a private browser window.
 2. Confirm navigation contains only About, Crew Center preview, Join, and Member sign in.
 3. Confirm the sample dashboard says **Preview data only** and contains no real records.
-4. Submit one controlled application with a valid FIS alias email.
+4. Submit one controlled student application with a valid FIS alias email.
 5. Confirm it appears once under Pending applications in the private Crew Center.
 6. Submit it again and confirm the duplicate-pending message appears.
-7. Use an invalid alias and an `http://` work link and confirm both are rejected.
-8. Confirm `https://fismediaclub.org/signin` has no visitor access button.
-9. Confirm the member sign-in link on the public portal opens the private sign-in page.
+7. Use an invalid student alias and an `http://` work link and confirm both are rejected.
+8. Select **Adult**, use a normal staff `@fis.edu` address, and confirm the application
+   asks for a department or school role and appears in Pending applications.
+9. Confirm `https://fismediaclub.org/signin` has no visitor access button.
+10. Confirm the member sign-in link on the public portal opens the private sign-in page.
 
 For local rendering, build with Cloudflare's always-pass Turnstile test site key:
 

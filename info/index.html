@@ -152,9 +152,9 @@
       <div class="join-intro">
         <p class="kicker">Join the crew</p>
         <h2 id="join-title">Bring your curiosity. We will build the skills together.</h2>
-        <p>Applications are reviewed by the Media Club team. Use your GDPR-safe FIS alias email so we can match an approved application to the correct account.</p>
+        <p>Applications are reviewed by the Media Club team. Students use their GDPR-safe FIS alias; adult staff use their normal FIS address.</p>
         <ul>
-          <li>Open to FIS students in Grades 6–12</li>
+          <li>Open to FIS students in Grades 6–12 and adult staff</li>
           <li>No previous media experience required</li>
           <li>An approved account is created after review</li>
         </ul>
@@ -166,13 +166,13 @@
             <label>First name <span>*</span><input name="firstName" autocomplete="given-name" maxlength="60" required></label>
             <label>Last name <span>*</span><input name="lastName" autocomplete="family-name" maxlength="60" required></label>
           </div>
-          <label>School alias email <span>*</span>
-            <input name="email" type="email" inputmode="email" autocomplete="email" pattern="[A-Za-z]{2}[0-9]{4,}@fis[.]edu" placeholder="XX12345@fis.edu" required>
-            <small>Exactly 2 letters followed by at least 4 numbers, ending in @fis.edu.</small>
+          <label>FIS email <span>*</span>
+            <input id="join-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="XX12345@fis.edu" required>
+            <small id="join-email-help">Students: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu.</small>
           </label>
           <div class="form-row">
             <label>Year group
-              <select name="yearGroup"><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option></select>
+              <select id="join-year-group" name="yearGroup"><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option><option value="Adult">Adult (write your department or role below)</option></select>
             </label>
             <label>Experience level
               <select name="experienceLevel"><option>Beginner</option><option>Intermediate</option><option>Proficient</option><option>Advanced</option></select>
@@ -188,7 +188,7 @@
               <label><input type="checkbox" name="interests" value="Writing"><span>Writing</span></label>
             </div>
           </fieldset>
-          <label>Why do you want to join? <span>*</span><textarea name="why" minlength="20" maxlength="1500" placeholder="What would you like to learn or contribute?" required></textarea></label>
+          <label>Why do you want to join? <span>*</span><textarea name="why" minlength="20" maxlength="1500" placeholder="What would you like to learn or contribute?" required></textarea><small>Adults: include your FIS department or school role.</small></label>
           <label>Link to previous work <small>(optional)</small><input name="workLink" type="url" inputmode="url" placeholder="https://..."></label>
           <label class="honeypot" aria-hidden="true">Leave this field empty<input name="website" tabindex="-1" autocomplete="off"></label>
           <div id="turnstile-widget" class="turnstile-widget" aria-label="Human verification"></div>

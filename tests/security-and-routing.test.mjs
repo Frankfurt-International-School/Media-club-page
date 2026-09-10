@@ -417,6 +417,7 @@ test('gallery projects support an optional production date and link guidance', (
   assert.match(appSource, /project_scope: projectScope/);
   assert.match(appSource, /producedOn: item\.produced_on \|\| ''/);
   assert.match(appSource, /Produced \$\{escapeHtml\(producedLabel\)\}/);
+  assert.match(appSource, /Linked event[\s\S]*?escapeHtml\(eventLabel\)/);
 });
 
 test('canonical routes and aliases survive static-host deep links', () => {

@@ -319,10 +319,34 @@ select 'event', event.id, event.updated_at, jsonb_build_object(
   'end', event.ends_at,
   'location', coalesce(event.location, ''),
   'detail', coalesce(event.description, ''),
-  'audience', ''
+  'audience', '',
+  'roleCapacities', coalesce((
+    select jsonb_object_agg(open_role.role_name, case
+      when open_role.role_name = 'Photographer' then event.photographer_slot_limit
+      when cardinality(event.open_signup_roles) = 1 then event.single_role_slot_limit
+      else 1
+    end)
+    from unnest(event.open_signup_roles) as open_role(role_name)
+  ), '{}'::jsonb)
 )
 from public.events event
 on conflict (resource_type, resource_id) do nothing;
+
+update public.schedule_email_resource_states state
+set resource_snapshot = state.resource_snapshot || jsonb_build_object(
+  'roleCapacities', coalesce((
+    select jsonb_object_agg(open_role.role_name, case
+      when open_role.role_name = 'Photographer' then event.photographer_slot_limit
+      when cardinality(event.open_signup_roles) = 1 then event.single_role_slot_limit
+      else 1
+    end)
+    from unnest(event.open_signup_roles) as open_role(role_name)
+  ), '{}'::jsonb)
+)
+from public.events event
+where state.resource_type = 'event'
+  and state.resource_id = event.id
+  and not (state.resource_snapshot ? 'roleCapacities');
 
 insert into public.schedule_email_resource_states (resource_type, resource_id, resource_version, resource_snapshot)
 select 'meeting', meeting.id, meeting.updated_at, jsonb_build_object(
@@ -917,6 +941,7 @@ create table if not exists public.gallery (
   project_name text not null,
   project_type text not null default 'Photo' check (project_type in ('Photo', 'Video', 'Podcast', 'Design')),
   member_id uuid references public.members(id) on delete set null,
+  event_id uuid references public.events(id) on delete set null,
   description text,
   image_url text,
   project_url text,
@@ -928,12 +953,16 @@ create table if not exists public.gallery (
 
 alter table public.gallery add column if not exists project_type text not null default 'Photo';
 alter table public.gallery add column if not exists member_id uuid references public.members(id) on delete set null;
+alter table public.gallery add column if not exists event_id uuid references public.events(id) on delete set null;
 alter table public.gallery add column if not exists project_url text;
 alter table public.gallery add column if not exists storage_path text;
 alter table public.gallery add column if not exists project_scope text not null default 'showcase';
 alter table public.gallery drop constraint if exists gallery_project_scope_check;
 alter table public.gallery add constraint gallery_project_scope_check
 check (project_scope in ('showcase', 'athletics'));
+alter table public.gallery drop constraint if exists gallery_event_scope_check;
+alter table public.gallery add constraint gallery_event_scope_check
+check (event_id is null or project_scope = 'athletics');
 alter table public.gallery add column if not exists produced_on date;
 update public.gallery set project_url = image_url where project_url is null and image_url is not null;
 
@@ -964,16 +993,13 @@ alter table public.join_applications add column if not exists rejection_reason t
 alter table public.join_applications add column if not exists reviewed_at timestamptz;
 alter table public.join_applications add column if not exists reviewed_by uuid references auth.users(id) on delete set null;
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'join_applications_fis_alias_email_check'
-  ) then
-    alter table public.join_applications
-      add constraint join_applications_fis_alias_email_check
-      check (public.is_fis_alias_email(email)) not valid;
-  end if;
-end $$;
+alter table public.join_applications drop constraint if exists join_applications_fis_alias_email_check;
+alter table public.join_applications drop constraint if exists join_applications_fis_email_check;
+alter table public.join_applications add constraint join_applications_fis_email_check
+check (
+  (year_group = 'Adult' and public.is_fis_school_email(email))
+  or (coalesce(year_group, '') <> 'Adult' and public.is_fis_alias_email(email))
+) not valid;
 
 create index if not exists events_date_idx on public.events (date);
 create index if not exists signups_event_id_idx on public.signups (event_id);
@@ -983,6 +1009,7 @@ create index if not exists equipment_reservations_member_id_idx on public.equipm
 create index if not exists equipment_reservations_event_id_idx on public.equipment_reservations (event_id);
 create index if not exists gallery_created_at_idx on public.gallery (created_at desc);
 create index if not exists gallery_member_id_idx on public.gallery (member_id);
+create index if not exists gallery_event_id_idx on public.gallery (event_id);
 create index if not exists announcements_created_at_idx on public.announcements (created_at desc);
 create index if not exists join_applications_created_at_idx on public.join_applications (created_at desc);
 create index if not exists join_applications_status_idx on public.join_applications (status);

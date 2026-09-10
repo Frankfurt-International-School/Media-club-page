@@ -1,4 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  eventAvailabilityChanges,
+  eventRoleCapacities,
+  routeEventUpdateRecipients,
+  type EventSignupForRouting,
+} from "./routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +24,7 @@ type MemberRecord = {
   name: string;
   email: string;
   role: string;
+  grade_level?: string | null;
   status: string;
   notification_preferences: Record<string, unknown> | null;
 };
@@ -34,6 +41,9 @@ type ScheduleRecord = {
   ends_at: string;
   updated_at: string;
   archived_at?: string | null;
+  open_signup_roles?: string[] | null;
+  single_role_slot_limit?: number | null;
+  photographer_slot_limit?: number | null;
 };
 
 type ScheduleSnapshot = {
@@ -43,12 +53,26 @@ type ScheduleSnapshot = {
   location: string;
   detail: string;
   audience: string;
+  roleCapacities: Record<string, number> | null;
 };
 
 type ScheduleChange = {
   label: string;
   before: string;
   after: string;
+};
+
+type RecipientSelection = {
+  members: MemberRecord[];
+  availabilityExpanded: boolean;
+  availableRoles: string[];
+  affectedRoleByMember: Map<string, string>;
+};
+
+type DeliveryContext = {
+  affectedRole?: string;
+  availabilityExpanded?: boolean;
+  availableRoles?: string[];
 };
 
 const normalizeRole = (role: unknown) => String(role || "").trim().toLowerCase().replaceAll(" ", "-");
@@ -102,6 +126,7 @@ const scheduleSnapshot = (record: ScheduleRecord, resourceType: ResourceType): S
   location: String(record.location || "").trim(),
   detail: String(resourceType === "event" ? record.description || "" : record.agenda || "").trim(),
   audience: resourceType === "meeting" ? String(record.audience || "general") : "",
+  roleCapacities: resourceType === "event" ? eventRoleCapacities(record) : null,
 });
 
 const normalizeSnapshot = (value: unknown): ScheduleSnapshot | null => {
@@ -114,6 +139,13 @@ const normalizeSnapshot = (value: unknown): ScheduleSnapshot | null => {
     location: String(source.location || "").trim(),
     detail: String(source.detail || "").trim(),
     audience: String(source.audience || ""),
+    roleCapacities: source.roleCapacities && typeof source.roleCapacities === "object" && !Array.isArray(source.roleCapacities)
+      ? Object.fromEntries(Object.entries(source.roleCapacities as Record<string, unknown>)
+        .map(([role, capacity]) => [role, Math.max(0, Number(capacity) || 0)]))
+      : source.role_capacities && typeof source.role_capacities === "object" && !Array.isArray(source.role_capacities)
+        ? Object.fromEntries(Object.entries(source.role_capacities as Record<string, unknown>)
+          .map(([role, capacity]) => [role, Math.max(0, Number(capacity) || 0)]))
+        : null,
   };
   return snapshot.title && snapshot.start && snapshot.end ? snapshot : null;
 };
@@ -148,6 +180,13 @@ const describeScheduleChanges = (
     add("Audience", audienceLabel(previous.audience), audienceLabel(current.audience));
   }
   add(resourceType === "event" ? "Description" : "Agenda", previous.detail, current.detail);
+  if (resourceType === "event") {
+    const availability = eventAvailabilityChanges(previous, current);
+    [...availability.expanded, ...availability.reduced].forEach(change => {
+      const slots = (count: number) => count === 0 ? "Unavailable" : `${count} ${count === 1 ? "slot" : "slots"}`;
+      changes.push({ label: `Role · ${change.role}`, before: slots(change.before), after: slots(change.after) });
+    });
+  }
   return changes;
 };
 
@@ -228,11 +267,38 @@ const calendarAttachment = (record: ScheduleRecord, resourceType: ResourceType, 
   };
 };
 
-const emailCopy = (record: ScheduleRecord, resourceType: ResourceType, action: NotificationAction) => {
+const emailCopy = (record: ScheduleRecord, resourceType: ResourceType, action: NotificationAction, context: DeliveryContext = {}) => {
   const resourceLabel = resourceType === "event" ? "event" : "meeting";
   const actionLabel = action === "created" ? "New" : "Updated";
   const detail = resourceType === "event" ? record.description : record.agenda;
   const audience = resourceType === "meeting" ? audienceLabel(record.audience || "") : "Media Club production";
+  if (resourceType === "event" && context.affectedRole) {
+    return {
+      subject: `Action needed: ${context.affectedRole} changed for ${record.title}`,
+      eyebrow: "Role update",
+      heading: `Check your ${context.affectedRole} assignment.`,
+      intro: `Your ${context.affectedRole} role is no longer available as configured for this event. Your signup has been kept; ask a Supervisor for information before making changes.`,
+      detail: String(detail || "").trim(),
+      audience,
+      cta: "Review event signup",
+      accent: "#a40134",
+      accentSoft: "#f8e9ee",
+    };
+  }
+  if (resourceType === "event" && action === "updated" && context.availabilityExpanded) {
+    const roles = context.availableRoles || [];
+    return {
+      subject: `A crew role is available: ${record.title}`,
+      eyebrow: "Role available",
+      heading: `More crew coverage is available for ${record.title}.`,
+      intro: `${roles.length === 1 ? roles[0] : "One or more crew roles"} now has additional availability. Open the event if you would like to sign up.`,
+      detail: String(detail || "").trim(),
+      audience,
+      cta: "Open available roles",
+      accent: "#28787b",
+      accentSoft: "#e6f8f8",
+    };
+  }
   return {
     subject: `${actionLabel} Media Club ${resourceLabel}: ${record.title}`,
     eyebrow: `${actionLabel} ${resourceLabel}`,
@@ -255,8 +321,9 @@ const renderEmail = (
   action: NotificationAction,
   siteUrl: string,
   previousSnapshot: ScheduleSnapshot | null,
+  context: DeliveryContext = {},
 ) => {
-  const copy = emailCopy(record, resourceType, action);
+  const copy = emailCopy(record, resourceType, action, context);
   const firstName = String(member.name || "Media Club member").trim().split(/\s+/)[0] || "Media Club member";
   const destination = resourceDestination(record, resourceType, siteUrl);
   const preferencesUrl = `${siteUrl}/profile?tab=notifications`;
@@ -308,10 +375,13 @@ const eligibleRecipients = async (
   adminClient: ReturnType<typeof createClient>,
   resourceType: ResourceType,
   record: ScheduleRecord,
-) => {
+  action: NotificationAction,
+  previousSnapshot: ScheduleSnapshot | null,
+  currentSnapshot: ScheduleSnapshot,
+): Promise<RecipientSelection> => {
   const { data, error } = await adminClient
     .from("members")
-    .select("id, name, email, role, status, notification_preferences");
+    .select("id, name, email, role, grade_level, status, notification_preferences");
   if (error) throw new Error(`Member subscription lookup failed: ${error.message}`);
 
   let members = (data || []) as MemberRecord[];
@@ -320,12 +390,40 @@ const eligibleRecipients = async (
     String(member.status || "").toLowerCase() !== "inactive"
     && member.notification_preferences?.[preferenceKey] === true
     && isFisEmail(member.email)
+    && (resourceType !== "event" || String(member.grade_level || "").trim().toLowerCase() !== "adult")
   );
 
-  if (resourceType === "event" || record.audience === "general") return members;
+  if (resourceType === "event") {
+    if (action === "created") {
+      return { members, availabilityExpanded: false, availableRoles: [], affectedRoleByMember: new Map() };
+    }
+    const { data: rawSignups, error: signupError } = await adminClient
+      .from("signups")
+      .select("member_id, signup_role, role_slot, confirmation_status")
+      .eq("event_id", record.id);
+    if (signupError) throw new Error(`Event signup audience lookup failed: ${signupError.message}`);
+    const routing = routeEventUpdateRecipients(
+      members.map(member => member.id),
+      (rawSignups || []) as EventSignupForRouting[],
+      previousSnapshot,
+      currentSnapshot,
+    );
+    const recipientIds = new Set(routing.recipientIds);
+    members = members.filter(member => recipientIds.has(member.id));
+    return {
+      members,
+      availabilityExpanded: routing.availabilityExpanded,
+      availableRoles: routing.availableRoles,
+      affectedRoleByMember: new Map(Object.entries(routing.affectedRoleByMember)),
+    };
+  }
+
+  if (record.audience === "general") {
+    return { members, availabilityExpanded: false, availableRoles: [], affectedRoleByMember: new Map() };
+  }
 
   if (record.audience === "news_team") {
-    if (!members.length) return [];
+    if (!members.length) return { members: [], availabilityExpanded: false, availableRoles: [], affectedRoleByMember: new Map() };
     const { data: memberships, error: membershipError } = await adminClient
       .from("member_team_memberships")
       .select("member_id")
@@ -333,14 +431,19 @@ const eligibleRecipients = async (
       .in("member_id", members.map(member => member.id));
     if (membershipError) throw new Error(`Meeting audience lookup failed: ${membershipError.message}`);
     const newsTeamIds = new Set((memberships || []).map(membership => membership.member_id));
-    return members.filter(member => newsTeamIds.has(member.id));
+    return { members: members.filter(member => newsTeamIds.has(member.id)), availabilityExpanded: false, availableRoles: [], affectedRoleByMember: new Map() };
   }
 
   const authAdminEmails = await listAuthAdminEmails(adminClient);
-  return members.filter(member =>
-    ["faculty", "leader", "co-leader", "moderator"].includes(normalizeRole(member.role))
-    || authAdminEmails.has(member.email.toLowerCase())
-  );
+  return {
+    members: members.filter(member =>
+      ["faculty", "leader", "co-leader", "moderator"].includes(normalizeRole(member.role))
+      || authAdminEmails.has(member.email.toLowerCase())
+    ),
+    availabilityExpanded: false,
+    availableRoles: [],
+    affectedRoleByMember: new Map(),
+  };
 };
 
 Deno.serve(async request => {
@@ -385,7 +488,7 @@ Deno.serve(async request => {
 
     const table = resourceType === "event" ? "events" : "meetings";
     const columns = resourceType === "event"
-      ? "id, title, description, date, ends_at, location, updated_at, archived_at"
+      ? "id, title, description, date, ends_at, location, updated_at, archived_at, open_signup_roles, single_role_slot_limit, photographer_slot_limit"
       : "id, title, agenda, starts_at, ends_at, location, audience, updated_at, archived_at";
     const { data: rawRecord, error: recordError } = await adminClient
       .from(table)
@@ -458,7 +561,8 @@ Deno.serve(async request => {
       if (retryError) throw new Error(`Email dispatch retry could not start: ${retryError.message}`);
     }
 
-    const recipients = await eligibleRecipients(adminClient, resourceType, record);
+    const recipientSelection = await eligibleRecipients(adminClient, resourceType, record, action, previousSnapshot, currentSnapshot);
+    const recipients = recipientSelection.members;
     if (recipients.length) {
       const { error: deliveryError } = await adminClient.from("schedule_email_deliveries").upsert(
         recipients.map(member => ({ dispatch_id: dispatchId, member_id: member.id, recipient_email: member.email.toLowerCase() })),
@@ -488,7 +592,11 @@ Deno.serve(async request => {
     for (let index = 0; index < eligiblePendingRows.length; index += 1) {
       const delivery = eligiblePendingRows[index];
       const member = membersById.get(delivery.member_id) || { id: delivery.member_id, name: "Media Club member", email: delivery.recipient_email, role: "Member", status: "active", notification_preferences: {} };
-      const rendered = renderEmail(member, record, resourceType, action, siteUrl, previousSnapshot);
+      const rendered = renderEmail(member, record, resourceType, action, siteUrl, previousSnapshot, {
+        affectedRole: recipientSelection.affectedRoleByMember.get(delivery.member_id),
+        availabilityExpanded: recipientSelection.availabilityExpanded,
+        availableRoles: recipientSelection.availableRoles,
+      });
       const payload = {
         from,
         to: [delivery.recipient_email],

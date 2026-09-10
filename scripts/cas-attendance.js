@@ -54,7 +54,7 @@ function casAttendanceAllEvents() {
 }
 
 function casAttendanceStats(member, events, range, now = Date.now()) {
-  if (!range?.start || !range?.end || range.end < range.start) return { attendedDays: 0, eventDays: 0, rate: null };
+  if (!range?.start || !range?.end || range.end < range.start) return { attendedDays: 0, missedDays: 0, eventDays: 0, rate: null };
   const memberStart = member?.joined_date && member.joined_date > range.start ? member.joined_date : range.start;
   const eligibleEvents = events.filter(event => (
     event.date >= memberStart
@@ -69,6 +69,7 @@ function casAttendanceStats(member, events, range, now = Date.now()) {
   const attendedDays = attendedDates.size;
   return {
     attendedDays,
+    missedDays: Math.max(0, eventDays - attendedDays),
     eventDays,
     rate: eventDays ? Math.round((attendedDays / eventDays) * 100) : null,
   };
@@ -155,9 +156,9 @@ function changeCasCustomRange() {
 }
 
 function casAttendanceRateMarkup(stats, contextLabel) {
-  if (stats.rate === null) return '<span class="cas-rate-empty">No completed event days</span>';
+  if (stats.rate === null) return '<div class="cas-rate is-empty"><div class="cas-rate-value"><strong>—</strong><span>0 of 0 event days attended</span></div><div class="cas-rate-bar" aria-label="No completed event days"><span style="width:0%"></span></div><span class="cas-rate-empty">Awaiting data</span></div>';
   const risk = stats.rate < 50;
-  return `<div class="cas-rate${risk ? ' is-risk' : ' is-on-track'}"><div class="cas-rate-value"><strong>${stats.rate}%</strong><span>${stats.attendedDays} / ${stats.eventDays} days</span></div><div class="cas-rate-bar" aria-label="${escapeHtml(contextLabel)} attendance ${stats.rate}%"><span style="width:${stats.rate}%"></span></div>${risk ? '<span class="cas-rate-warning">Below 50%</span>' : '<span class="cas-rate-pass">On track</span>'}</div>`;
+  return `<div class="cas-rate${risk ? ' is-risk' : ' is-on-track'}"><div class="cas-rate-value"><strong>${stats.rate}%</strong><span>${stats.attendedDays} of ${stats.eventDays} event days attended</span></div><div class="cas-rate-bar" aria-label="${escapeHtml(contextLabel)} attendance ${stats.rate}%"><span style="width:${stats.rate}%"></span></div>${risk ? '<span class="cas-rate-warning">Below 50%</span>' : '<span class="cas-rate-pass">On track</span>'}</div>`;
 }
 
 function renderCasAttendanceTracker() {
@@ -177,6 +178,7 @@ function renderCasAttendanceTracker() {
   }
   if (!validRange) {
     document.getElementById('cas-tracker-summary').innerHTML = '';
+    document.getElementById('cas-tracker-insight').innerHTML = '';
     table.innerHTML = '<div class="empty-state"><p>This period needs confirmed start and end dates before attendance can be calculated.</p></div>';
     return;
   }
@@ -185,28 +187,42 @@ function renderCasAttendanceTracker() {
   const q = (document.getElementById('cas-member-search')?.value || '').trim().toLowerCase();
   const casOnly = Boolean(document.getElementById('cas-only-filter')?.checked);
   const members = state.members
-    .filter(member => (!casOnly || memberHasCas(member)) && (!q || `${member.name} ${member.gradeLevel} ${member.role}`.toLowerCase().includes(q)))
-    .sort((a, b) => Number(memberHasCas(b)) - Number(memberHasCas(a)) || a.name.localeCompare(b.name));
-  const selectedRows = members.map(member => ({ member, stats: casAttendanceStats(member, events, range), yearStats: casAttendanceStats(member, events, yearRange) }));
+    .filter(member => (!casOnly || memberHasCas(member)) && (!q || `${member.name} ${member.gradeLevel} ${member.role}`.toLowerCase().includes(q)));
+  const selectedRows = members
+    .map(member => ({ member, stats: casAttendanceStats(member, events, range), yearStats: casAttendanceStats(member, events, yearRange) }))
+    .sort((a, b) => {
+      const casOrder = Number(memberHasCas(b.member)) - Number(memberHasCas(a.member));
+      if (casOrder) return casOrder;
+      if (memberHasCas(a.member)) {
+        const rateA = a.stats.rate === null ? Number.POSITIVE_INFINITY : a.stats.rate;
+        const rateB = b.stats.rate === null ? Number.POSITIVE_INFINITY : b.stats.rate;
+        if (rateA !== rateB) return rateA - rateB;
+      }
+      return a.member.name.localeCompare(b.member.name);
+    });
   const allPeriodDates = new Set(events.filter(event => event.date >= range.start && event.date <= range.end && isPastEvent(event)).map(event => event.date));
-  const allYearDates = new Set(events.filter(event => event.date >= yearRange.start && event.date <= yearRange.end && isPastEvent(event)).map(event => event.date));
   const casMembers = state.members.filter(memberHasCas);
   const casAtRisk = casMembers.filter(member => {
     const stats = casAttendanceStats(member, events, range);
     return stats.rate !== null && stats.rate < 50;
   }).length;
+  const casWithData = casMembers.map(member => casAttendanceStats(member, events, range)).filter(stats => stats.rate !== null);
+  const casOnTrack = casWithData.filter(stats => stats.rate >= 50).length;
+  const casAverage = casWithData.length ? Math.round(casWithData.reduce((total, stats) => total + stats.rate, 0) / casWithData.length) : null;
+  document.getElementById('cas-tracker-insight').innerHTML = `<strong>${casMembers.length} CAS member${casMembers.length === 1 ? '' : 's'}</strong><span>${casWithData.length ? `${casWithData.length} with attendance data · lowest attendance shown first` : 'Percentages will appear after the first eligible event date is completed.'}</span>`;
   document.getElementById('cas-tracker-summary').innerHTML = `
-    <div><span>Completed event days</span><strong>${allPeriodDates.size}</strong><small>Multiple events on one date count once</small></div>
-    <div><span>CAS members</span><strong>${casMembers.length}</strong><small>${casAtRisk} currently below 50%</small></div>
-    <div><span>Full-year event days</span><strong>${allYearDates.size}</strong><small>${escapeHtml(casAttendanceSettings.schoolYearLabel)}</small></div>`;
+    <div><span>Eligible event days</span><strong>${allPeriodDates.size}</strong><small>Multiple events on one date count once</small></div>
+    <div><span>CAS average</span><strong>${casAverage === null ? '—' : `${casAverage}%`}</strong><small>${casWithData.length ? `Across ${casWithData.length} recorded member${casWithData.length === 1 ? '' : 's'}` : 'No completed data yet'}</small></div>
+    <div class="cas-summary-positive"><span>On track</span><strong>${casOnTrack}</strong><small>At or above the 50% requirement</small></div>
+    <div class="cas-summary-risk"><span>Needs attention</span><strong>${casAtRisk}</strong><small>Currently below 50%</small></div>`;
 
   if (!members.length) {
     table.innerHTML = '<div class="empty-state"><p>No members match these filters.</p></div>';
     return;
   }
-  table.innerHTML = `<table class="cas-attendance-table"><thead><tr><th>Member</th><th>${escapeHtml(casAttendancePeriodLabel(period))}</th><th>Full year</th><th>CAS status</th></tr></thead><tbody>${selectedRows.map(({ member, stats, yearStats }) => {
+  table.innerHTML = `<table class="cas-attendance-table"><thead><tr><th>Member</th><th>Eligible days</th><th>Attended</th><th>Missed</th><th>${escapeHtml(casAttendancePeriodLabel(period))}</th><th>Full year</th><th>CAS tracking</th></tr></thead><tbody>${selectedRows.map(({ member, stats, yearStats }) => {
     const cas = memberHasCas(member);
-    return `<tr><td data-label="Member"><div class="cas-member-cell"><strong>${escapeHtml(member.name)}</strong><span>${escapeHtml([member.gradeLevel, member.role].filter(Boolean).join(' · '))}</span>${cas ? '<span class="badge badge-cas">CAS</span>' : ''}</div></td><td data-label="Selected period">${casAttendanceRateMarkup(stats, casAttendancePeriodLabel(period))}</td><td data-label="Full year">${casAttendanceRateMarkup(yearStats, 'Full school year')}</td><td data-label="CAS status"><button type="button" class="cas-status-toggle${cas ? ' active' : ''}" aria-pressed="${cas}" ${casAttendanceMemberUpdate ? 'disabled' : ''} onclick="toggleCasMember('${member.id}', ${!cas})"><span></span>${cas ? 'Tracked for CAS' : 'Not CAS'}</button></td></tr>`;
+    return `<tr class="${cas && stats.rate !== null && stats.rate < 50 ? 'is-risk' : ''}"><td data-label="Member"><div class="cas-member-cell"><strong>${escapeHtml(member.name)}</strong><span>${escapeHtml([member.gradeLevel, member.role].filter(Boolean).join(' · '))}</span>${cas ? '<span class="badge badge-cas">CAS</span>' : ''}</div></td><td data-label="Eligible days"><div class="cas-number-cell"><strong>${stats.eventDays}</strong><span>completed dates</span></div></td><td data-label="Attended"><div class="cas-number-cell is-positive"><strong>${stats.attendedDays}</strong><span>event days earned</span></div></td><td data-label="Missed"><div class="cas-number-cell${stats.missedDays ? ' is-negative' : ''}"><strong>${stats.missedDays}</strong><span>not attended</span></div></td><td data-label="Selected period">${casAttendanceRateMarkup(stats, casAttendancePeriodLabel(period))}</td><td data-label="Full year">${casAttendanceRateMarkup(yearStats, 'Full school year')}</td><td data-label="CAS tracking"><button type="button" class="cas-status-toggle${cas ? ' active' : ''}" aria-pressed="${cas}" ${casAttendanceMemberUpdate ? 'disabled' : ''} onclick="toggleCasMember('${member.id}', ${!cas})"><span></span>${cas ? 'Tracked for CAS' : 'Not CAS'}</button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 

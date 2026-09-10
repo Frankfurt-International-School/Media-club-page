@@ -15,6 +15,7 @@ const edgeFunction = read('supabase/functions/submit-application/index.ts');
 const functionConfig = read('supabase/config.toml');
 const policySource = read('supabase-auth-policies.sql');
 const portalMigration = read('supabase-public-portal.sql');
+const schema = read('supabase-schema.sql');
 
 test('public portal exposes only About, preview, Join, and member sign in', () => {
   const navigation = html.match(/<nav aria-label="Public site navigation">([\s\S]*?)<\/nav>/)?.[1] || '';
@@ -36,7 +37,9 @@ test('public preview is static, branded, responsive, and honest about locked fea
 });
 
 test('public application form uses Turnstile and the dedicated Edge Function only', () => {
-  assert.match(html, /name="email"[\s\S]*?pattern="\[A-Za-z\]\{2\}\[0-9\]\{4,\}@fis\[\.\]edu"/);
+  assert.match(html, /id="join-email" name="email" type="email"/);
+  assert.match(html, /option value="Adult">Adult \(write your department or role below\)<\/option>/);
+  assert.match(html, /Adults: include your FIS department or school role/);
   assert.match(html, /id="turnstile-widget"/);
   assert.match(html, /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/);
   assert.match(config, /functions\/v1\/submit-application/);
@@ -45,6 +48,8 @@ test('public application form uses Turnstile and the dedicated Edge Function onl
   assert.match(script, /max-width: 360px/);
   assert.match(script, /turnstileToken/);
   assert.match(script, /fetch\(config\.submitApplicationUrl/);
+  assert.match(script, /yearGroupInput\.value === 'Adult'/);
+  assert.match(script, /studentAliasPattern[\s\S]*?schoolEmailPattern/);
   assert.doesNotMatch(script, /createClient|supabase-js|join_applications/);
 });
 
@@ -71,6 +76,9 @@ test('application Edge Function validates origin, Turnstile, content, and duplic
   assert.match(edgeFunction, /turnstile\/v0\/siteverify/);
   assert.match(edgeFunction, /result\.action === "join_application"/);
   assert.match(edgeFunction, /\^\[a-z\]\{2\}\\d\{4,\}@fis\\\.edu\$/i);
+  assert.match(edgeFunction, /"Grade 12", "Adult"/);
+  assert.match(edgeFunction, /yearGroup === "Adult" \? fisSchoolEmailPattern\.test\(email\) : fisAliasEmailPattern\.test\(email\)/);
+  assert.match(schema, /join_applications_fis_email_check[\s\S]*?year_group = 'Adult' and public\.is_fis_school_email\(email\)[\s\S]*?public\.is_fis_alias_email\(email\)/);
   assert.match(edgeFunction, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(edgeFunction, /error\?\.code === "23505"/);
   assert.doesNotMatch(edgeFunction, /Access-Control-Allow-Origin": "\*"/);

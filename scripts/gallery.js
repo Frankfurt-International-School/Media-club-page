@@ -44,6 +44,17 @@ function renderGalleryAuthorField() {
   input.value = currentMemberRecord()?.name || state.currentUser.name || '';
 }
 
+function renderGalleryEventOptions() {
+  const select = document.getElementById('gal-event');
+  if (!select) return;
+  const selected = select.value;
+  const events = [...state.events, ...state.archivedEvents]
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date));
+  select.innerHTML = `<option value="">No linked event</option>${events.map(event => `<option value="${event.id}">${escapeHtml(formatEventDate(event.date))} · ${escapeHtml(event.title)}${event.archivedAt ? ' · Archived' : ''}</option>`).join('')}`;
+  if (events.some(event => event.id === selected)) select.value = selected;
+}
+
 function openGalleryProject(card) {
   const url = safeExternalUrl(card?.dataset?.projectUrl);
   if (url) window.open(url, '_blank', 'noopener');
@@ -141,13 +152,14 @@ function renderGallery() {
     const imageUrl = safeExternalUrl(g.image_url);
     const projectUrl = safeExternalUrl(g.link) || imageUrl;
     const producedLabel = g.producedOn ? formatBerlinCalendarDate(g.producedOn, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    const eventLabel = g.eventTitle ? `${g.eventDate ? `${formatEventDate(g.eventDate)} · ` : ''}${g.eventTitle}` : '';
     return `
       <article class="gallery-item${imageUrl ? ' has-img' : ''}" style="${imageUrl ? '' : `background:linear-gradient(145deg,${gbg},var(--bg3));`}" data-project-url="${escapeHtml(projectUrl)}"${imageUrl ? ` data-image-url="${escapeHtml(imageUrl)}"` : ''}>
         <button type="button" class="gallery-open-target" aria-label="Open ${escapeHtml(g.title)}" onclick="openGalleryProject(this.parentElement)"><span class="visually-hidden">Open ${escapeHtml(g.title)}</span></button>
         ${g.scope === 'athletics' ? '<span class="gallery-scope-badge">Athletics · private</span>' : ''}
         ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
         ${imageUrl ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
-        <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${producedLabel ? `<div class="gallery-card-date">Produced ${escapeHtml(producedLabel)}</div>` : ''}${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
+        <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${eventLabel ? `<div class="gallery-card-event"><span>Linked event</span>${escapeHtml(eventLabel)}</div>` : ''}${producedLabel ? `<div class="gallery-card-date">Produced ${escapeHtml(producedLabel)}</div>` : ''}${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
       </article>`;
   };
   if (f !== 'all') {
@@ -186,6 +198,7 @@ function updateGalleryScopeHelp() {
   const help = document.getElementById('gallery-scope-help');
   const uploadNote = document.getElementById('gallery-upload-note');
   const linkNote = document.getElementById('gallery-link-note');
+  const eventGroup = document.getElementById('gal-event-group');
   if (help) help.innerHTML = scope === 'athletics'
     ? '<strong>Athletics library:</strong> hidden from visitors and non-Athletics members. The uploader, Faculty, and Leaders retain access.'
     : '<strong>Member showcase:</strong> visible to visitors on the public gallery and About page.';
@@ -195,6 +208,9 @@ function updateGalleryScopeHelp() {
   if (linkNote) linkNote.innerHTML = scope === 'athletics'
     ? '<strong>External links:</strong> restrict sharing to the Athletics department or FIS accounts in Google Drive; the Crew Center cannot override permissions on another service.'
     : '<strong>Public showcase:</strong> use a link that visitors are allowed to open.';
+  if (eventGroup) eventGroup.hidden = scope !== 'athletics';
+  if (scope === 'athletics') renderGalleryEventOptions();
+  else if (document.getElementById('gal-event')) document.getElementById('gal-event').value = '';
 }
 
 function initSlidingTabs() { document.querySelectorAll('.tab-row').forEach(updateSlidingTab); }
@@ -318,6 +334,7 @@ async function submitProject() {
   const link = document.getElementById('gal-link').value.trim();
   const producedOn = document.getElementById('gal-produced-on').value || null;
   const projectScope = document.getElementById('gal-scope').value === 'athletics' ? 'athletics' : 'showcase';
+  const eventId = projectScope === 'athletics' ? document.getElementById('gal-event').value || null : null;
   const file = document.getElementById('gal-file').files?.[0] || null;
   const member = currentMemberRecord();
   if (!title) { showToast('Project title required.', 'error'); return; }
@@ -377,13 +394,14 @@ async function submitProject() {
       project_type: projectType,
       project_scope: projectScope,
       member_id: member.id,
+      event_id: eventId,
       description: document.getElementById('gal-desc').value.trim() || null,
       image_url: imageUrl,
       project_url: link || imageUrl,
       storage_path: storagePath,
       produced_on: producedOn,
     })
-    .select('*, members(name)')
+    .select('*, members(name), events(id, title, date, archived_at)')
     .single();
   gallerySubmissionInFlight = false;
   if (error) {
@@ -397,7 +415,7 @@ async function submitProject() {
   state.gallery.unshift(normalizeGallery(data));
   hydrateRestrictedGalleryMedia();
   closeModal('gallery-modal');
-  ['gal-title','gal-desc','gal-link','gal-produced-on'].forEach(id => document.getElementById(id).value = '');
+  ['gal-title','gal-desc','gal-link','gal-produced-on','gal-event'].forEach(id => document.getElementById(id).value = '');
   clearGalleryFile();
   document.getElementById('gal-type').value = 'Photo';
   document.getElementById('gal-scope').value = 'showcase';

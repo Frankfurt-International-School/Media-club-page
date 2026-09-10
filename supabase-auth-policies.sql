@@ -2079,6 +2079,7 @@ with check (
   and coalesce(nullif(btrim(image_url), ''), nullif(btrim(project_url), ''), nullif(btrim(storage_path), ''), '') <> ''
   and gallery.member_id = public.current_member_id()
   and (gallery.project_scope = 'showcase' or gallery.image_url is null)
+  and (gallery.event_id is null or gallery.project_scope = 'athletics')
 );
 
 create policy "Admins can update gallery"

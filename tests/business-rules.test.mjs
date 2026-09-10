@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import { eventRoleCapacities, routeEventUpdateRecipients } from '../supabase/functions/send-schedule-notification/routing.ts';
 
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const appSource = [...indexHtml.matchAll(/<script src="(scripts\/[^"]+)"><\/script>/g)]
@@ -126,6 +127,8 @@ test('Athletics gallery access is separated from the public showcase end to end'
   const publicGallery = extractSqlFunction('get_public_gallery');
   const athleticsCustodian = extractSqlFunction('is_athletics_gallery_custodian');
   assert.match(schemaSql, /project_scope text not null default 'showcase' check \(project_scope in \('showcase', 'athletics'\)\)/);
+  assert.match(schemaSql, /event_id uuid references public\.events\(id\) on delete set null/);
+  assert.match(schemaSql, /gallery_event_scope_check[\s\S]*?event_id is null or project_scope = 'athletics'/);
   assert.match(schemaSql, /select member\.id, 'athletics'[\s\S]*?athletics\[\[:space:\]\]\+department/);
   assert.match(publicGallery, /where project\.project_scope = 'showcase'/);
   assert.match(athleticsCustodian, /public\.is_admin_panel_user\(\)/);
@@ -133,6 +136,7 @@ test('Athletics gallery access is separated from the public showcase end to end'
   assert.doesNotMatch(athleticsCustodian, /co-leader|moderator/);
   assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.member_id = public\.current_member_id\(\)[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_athletics_gallery_custodian\(\)/);
   assert.match(policiesSql, /create policy "Signed-in members can submit gallery projects"[\s\S]*?nullif\(btrim\(storage_path\), ''\)[\s\S]*?gallery\.project_scope = 'showcase' or gallery\.image_url is null/);
+  assert.match(policiesSql, /gallery\.event_id is null or gallery\.project_scope = 'athletics'/);
 
   assert.match(storagePoliciesSql, /'gallery-athletics',[\s\S]*?false,[\s\S]*?20971520/);
   assert.match(storagePoliciesSql, /create policy "Athletics members can read Athletics gallery media"[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_athletics_gallery_custodian\(\)/);
@@ -140,6 +144,10 @@ test('Athletics gallery access is separated from the public showcase end to end'
   assert.match(appSource, /state\.gallery\.filter\(project => project\.scope === 'showcase'\)\.slice\(0, 3\)/);
   assert.match(appSource, /requestedView === 'athletics' && !athleticsAvailable[\s\S]*?history\.replaceState/);
   assert.match(appSource, /galleryScope\.value = state\.galleryView === 'athletics' \? 'athletics' : 'showcase'/);
+  assert.match(appSource, /events\(id, title, date, archived_at\)/);
+  assert.match(appSource, /event_id: eventId/);
+  assert.match(appSource, /eventTitle: visitor \? '' : linkedEvent\?\.title \|\| ''/);
+  assert.match(indexHtml, /id="gal-event-group" hidden[\s\S]*?id="gal-event"/);
   assert.doesNotMatch(appSource, /Auth Admin or Faculty custodians/);
   assert.match(appSource, /the uploader, Faculty, and Leaders/);
   assert.match(indexHtml, /data-gallery-view="athletics"[\s\S]*?Athletics library[\s\S]*?Restricted delivery/);
@@ -267,6 +275,7 @@ test('schedule emails are explicit opt-in, audience-safe, private, and retry-saf
   assert.match(schemaSql, /unique \(dispatch_id, member_id\)/);
   assert.match(schemaSql, /create table if not exists public\.schedule_email_resource_states/);
   assert.match(schemaSql, /resource_snapshot jsonb not null/);
+  assert.match(schemaSql, /'roleCapacities'[\s\S]*?jsonb_object_agg/);
   assert.match(schemaSql, /alter table public\.schedule_email_dispatches enable row level security/);
   assert.match(schemaSql, /revoke all on table public\.schedule_email_deliveries from anon, authenticated/);
   assert.match(schemaSql, /revoke all on table public\.schedule_email_resource_states from anon, authenticated/);
@@ -280,6 +289,11 @@ test('schedule emails are explicit opt-in, audience-safe, private, and retry-saf
   assert.match(scheduleEmailFunction, /user\.is_anonymous/);
   assert.match(scheduleEmailFunction, /Production staff access is required to send schedule emails/);
   assert.match(scheduleEmailFunction, /member\.notification_preferences\?\.\[preferenceKey\] === true/);
+  assert.match(scheduleEmailFunction, /resourceType !== "event" \|\| String\(member\.grade_level \|\| ""\)[\s\S]*?!== "adult"/);
+  assert.match(scheduleEmailFunction, /\.from\("signups"\)[\s\S]*?\.eq\("event_id", record\.id\)/);
+  assert.match(scheduleEmailFunction, /routeEventUpdateRecipients\(/);
+  assert.match(scheduleEmailFunction, /Your \$\{context\.affectedRole\} role is no longer available[\s\S]*?ask a Supervisor for information/);
+  assert.match(scheduleEmailFunction, /More crew coverage is available/);
   assert.match(scheduleEmailFunction, /\.eq\("team_key", "news_team"\)/);
   assert.match(scheduleEmailFunction, /\["faculty", "leader", "co-leader", "moderator"\]/);
   assert.match(scheduleEmailFunction, /adminClient\.auth\.admin\.listUsers/);
@@ -298,6 +312,31 @@ test('schedule emails are explicit opt-in, audience-safe, private, and retry-saf
   assert.match(scheduleEmailFunction, /response\.headers\.get\("retry-after"\)/);
   assert.match(scheduleEmailFunction, /to: \[delivery\.recipient_email\]/);
   assert.doesNotMatch(scheduleEmailFunction, /\bbcc\s*:/i);
+});
+
+test('event email routing targets signups, new availability, and displaced role holders', () => {
+  assert.deepEqual(eventRoleCapacities({ open_signup_roles: ['Photographer'], photographer_slot_limit: 3, single_role_slot_limit: 8 }), { Photographer: 3 });
+  assert.deepEqual(eventRoleCapacities({ open_signup_roles: ['OBS'], single_role_slot_limit: 2 }), { OBS: 2 });
+  assert.deepEqual(eventRoleCapacities({ open_signup_roles: ['OBS', 'Wireless'], single_role_slot_limit: 4 }), { OBS: 1, Wireless: 1 });
+
+  const eligible = ['member-1', 'member-2', 'member-3'];
+  const signups = [
+    { member_id: 'member-1', signup_role: 'OBS', role_slot: 1, confirmation_status: 'confirmed' },
+    { member_id: 'member-2', signup_role: 'Photographer', role_slot: 3, confirmation_status: 'confirmed' },
+    { member_id: 'member-3', signup_role: 'Wireless', role_slot: 1, confirmation_status: 'expired' },
+  ];
+
+  const ordinary = routeEventUpdateRecipients(eligible, signups, { roleCapacities: { OBS: 1, Photographer: 3 } }, { roleCapacities: { OBS: 1, Photographer: 3 } });
+  assert.deepEqual(ordinary.recipientIds, ['member-1', 'member-2']);
+  assert.equal(ordinary.availabilityExpanded, false);
+
+  const expanded = routeEventUpdateRecipients(eligible, signups, { roleCapacities: { OBS: 1, Photographer: 3 } }, { roleCapacities: { OBS: 1, Photographer: 3, Robocam: 1 } });
+  assert.deepEqual(expanded.recipientIds, eligible);
+  assert.deepEqual(expanded.availableRoles, ['Robocam']);
+
+  const reduced = routeEventUpdateRecipients(eligible, signups, { roleCapacities: { OBS: 1, Photographer: 3 } }, { roleCapacities: { OBS: 0, Photographer: 2 } });
+  assert.deepEqual(reduced.recipientIds, ['member-1', 'member-2']);
+  assert.deepEqual(reduced.affectedRoleByMember, { 'member-1': 'OBS', 'member-2': 'Photographer' });
 });
 
 test('canonical redirect and sender-avatar setup avoid redirect loops and false BIMI claims', () => {
@@ -576,13 +615,16 @@ test('CAS attendance counts completed Berlin event dates once and ignores non-at
     { date: '2026-10-07', completed: true, signups: [] },
     { date: '2026-10-08', completed: false, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
   ];
-  assert.deepEqual(stats(events), { attendedDays: 2, eventDays: 6, rate: 33 });
+  assert.deepEqual(stats(events), { attendedDays: 2, missedDays: 4, eventDays: 6, rate: 33 });
   assert.match(indexHtml, /data-admin-tab="cas-attendance"[\s\S]*?id="cas-period"[\s\S]*?CAS members only/);
   assert.match(indexHtml, /id="cas-year-start"[\s\S]*?id="cas-fall-start"[\s\S]*?id="cas-winter-start"[\s\S]*?id="cas-spring-start"/);
   assert.match(schemaSql, /create table if not exists public\.cas_attendance_settings[\s\S]*?2026-09-30[\s\S]*?2026-11-15/);
   assert.match(policiesSql, /Admin Panel users can read CAS attendance settings[\s\S]*?public\.is_admin_panel_user\(\)/);
   assert.match(policiesSql, /Admin Panel users can add CAS memberships[\s\S]*?team_key = 'cas'/);
   assert.match(appStyles, /\.badge-cas \{[^}]*background: #75DDDD;[^}]*color: #153f42;/);
+  assert.match(appSource, /\$\{stats\.attendedDays\} of \$\{stats\.eventDays\} event days attended/);
+  assert.match(appSource, /Eligible days[\s\S]*?Attended[\s\S]*?Missed[\s\S]*?CAS tracking/);
+  assert.match(appStyles, /\.cas-tracker-summary \{[^}]*repeat\(4,minmax\(0,1fr\)\)/);
 });
 
 test('signup windows use half-open boundaries', () => {

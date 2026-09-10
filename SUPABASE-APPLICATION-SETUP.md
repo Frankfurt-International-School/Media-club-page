@@ -98,7 +98,12 @@ an alias email you control, then test:
 The Crew Center can send one-to-one operational emails when production staff create
 or update an upcoming event or meeting. Members opt in separately under **Settings >
 Notifications**. Meeting delivery follows the same General, News Team, and Leadership
-audience rules as the private Meetings page.
+audience rules as the private Meetings page. New events go to opted-in student members.
+For event updates, ordinary detail changes go only to opted-in members already signed
+up; a newly opened role or increased capacity goes to every opted-in student member.
+If a role closes or its capacity drops below an existing assignment, the affected
+signup holder receives a personal warning to ask a Supervisor. Adult-grade members do
+not receive event emails.
 
 1. Re-run the complete `supabase-schema.sql` file, then the complete
    `supabase-auth-policies.sql` file in the SQL Editor. This adds the opt-in fields,
@@ -112,8 +117,9 @@ audience rules as the private Meetings page.
    - `SITE_URL` = `https://fismediaclub.org`
    - Optional: `NOTIFICATION_FROM_EMAIL` =
      `FIS Media Club <notifications@auth.fismediaclub.org>`
-4. Deploy `supabase/functions/send-schedule-notification/index.ts` as the
-   `send-schedule-notification` function with JWT verification enabled.
+4. Deploy the complete `supabase/functions/send-schedule-notification/` directory,
+   including both `index.ts` and `routing.ts`, as the `send-schedule-notification`
+   function with JWT verification enabled.
 
 With the Supabase CLI:
 
@@ -139,7 +145,10 @@ Test with one controlled member first:
    subscriber and the message links to the saved event.
 3. Schedule a News Team meeting. Confirm that an opted-in non-News-Team member does
    not receive it, while an opted-in current News Team member does.
-4. Edit the same item once and confirm a single update email arrives. Saving an
-   already-completed or archived item does not email subscribers. Confirm the update
-   email lists the changed fields and that opening the attached `.ics` file updates the
-   same calendar entry rather than adding a duplicate.
+4. Edit only the event details and confirm only its opted-in signup holders receive the
+   update. Add a role or increase capacity and confirm every opted-in student receives
+   the availability message. Remove an assigned role and confirm its affected signup
+   holder receives the Supervisor warning without losing the signup.
+5. Saving an already-completed or archived item does not email subscribers. Confirm the
+   update email lists the changed fields and that opening the attached `.ics` file
+   updates the same calendar entry rather than adding a duplicate.
