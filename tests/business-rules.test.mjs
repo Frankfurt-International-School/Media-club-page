@@ -645,9 +645,9 @@ test('Crew Schedule and attendance are Auth Admin-only in the UI and database', 
   assert.match(appStyles, /\.deployment-attendance-select\.is-saving/);
 });
 
-test('CAS attendance counts completed Berlin event dates once and ignores non-attendance statuses', () => {
+test('CAS attendance updates when a member is marked and counts completed Berlin event dates once', () => {
   const stats = eventData => JSON.parse(JSON.stringify(runFunctions(
-    ['casAttendanceStats'],
+    ['casAttendanceWasRecorded', 'casAttendanceEventEligibleForMember', 'casAttendanceStats'],
     { isPastEvent: event => event.completed },
     `casAttendanceStats({ id: 'member-1', joined_date: '2026-10-01' }, ${JSON.stringify(eventData)}, { start: '2026-09-10', end: '2026-11-15' }, 1)`,
   )));
@@ -661,8 +661,10 @@ test('CAS attendance counts completed Berlin event dates once and ignores non-at
     { date: '2026-10-06', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'not_taken' }] },
     { date: '2026-10-07', completed: true, signups: [] },
     { date: '2026-10-08', completed: false, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
+    { date: '2026-10-09', completed: false, signups: [{ memberId: 'member-2', attendanceStatus: 'present' }] },
+    { date: '2026-10-10', completed: false, signups: [{ memberId: 'member-1', attendanceStatus: 'not_taken' }] },
   ];
-  assert.deepEqual(stats(events), { attendedDays: 2, missedDays: 4, eventDays: 6, rate: 33 });
+  assert.deepEqual(stats(events), { attendedDays: 3, missedDays: 4, eventDays: 7, rate: 43 });
   assert.match(indexHtml, /data-admin-tab="cas-attendance"[\s\S]*?id="cas-period"[\s\S]*?CAS members only/);
   assert.match(indexHtml, /id="cas-year-start"[\s\S]*?id="cas-fall-start"[\s\S]*?id="cas-winter-start"[\s\S]*?id="cas-spring-start"/);
   assert.match(schemaSql, /create table if not exists public\.cas_attendance_settings[\s\S]*?school_year_start date not null default date '2026-09-10'[\s\S]*?fall_start date not null default date '2026-09-10'[\s\S]*?fall_end date not null default date '2026-11-15'/);
@@ -672,8 +674,25 @@ test('CAS attendance counts completed Berlin event dates once and ignores non-at
   assert.match(policiesSql, /Admin Panel users can add CAS memberships[\s\S]*?team_key = 'cas'/);
   assert.match(appStyles, /\.badge-cas \{[^}]*background: #75DDDD;[^}]*color: #153f42;/);
   assert.match(appSource, /\$\{stats\.attendedDays\} of \$\{stats\.eventDays\} event days attended/);
+  assert.match(appSource, /Percentages appear as attendance is recorded or when an event finishes\./);
   assert.match(appSource, /Eligible days[\s\S]*?Attended[\s\S]*?Missed[\s\S]*?CAS tracking/);
   assert.match(appStyles, /\.cas-tracker-summary \{[^}]*repeat\(4,minmax\(0,1fr\)\)/);
+});
+
+test('archived events retain CAS attendance until the event is permanently deleted', () => {
+  const archivedEvents = JSON.parse(JSON.stringify(runFunctions(
+    ['casAttendanceAllEvents'],
+    { state: { events: [{ id: 'active-event' }], archivedEvents: [{ id: 'archived-event', signups: [{ attendanceStatus: 'present' }] }] } },
+    'casAttendanceAllEvents()',
+  )));
+  const archiveEvent = extractSqlFunction('set_event_archived');
+  const deleteEvent = extractSqlFunction('permanently_delete_event');
+
+  assert.deepEqual(archivedEvents.map(event => event.id), ['active-event', 'archived-event']);
+  assert.doesNotMatch(archiveEvent, /delete from public\.(?:events|signups)/);
+  assert.match(deleteEvent, /delete from public\.events where id = p_event_id/);
+  assert.match(schemaSql, /event_id uuid not null references public\.events\(id\) on delete cascade/);
+  assert.match(indexHtml, /Archived events keep their attendance history; deleted events do not\./);
 });
 
 test('signup windows use half-open boundaries', () => {
