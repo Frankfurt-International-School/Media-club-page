@@ -2049,7 +2049,8 @@
   .deployment-coverage { display: inline-flex; align-items: center; width: fit-content; margin-top: 5px; padding: 3px 7px; border: 1px solid rgba(22,131,99,.2); border-radius: 999px; background: rgba(78,240,196,.08); color: #168363; font-size: 9px; font-weight: 650; line-height: 1.25; }
   .deployment-coverage.coverage-joins, .deployment-coverage.coverage-leaves { border-color: rgba(178,118,19,.22); background: rgba(255,181,71,.09); color: #9a650e; }
   .deployment-coverage.coverage-partial { border-color: rgba(56,121,189,.22); background: rgba(94,170,255,.08); color: #3879bd; }
-  .deployment-attendance-select { min-width: 112px; padding: 6px 8px; font-size: 10px; }
+  .deployment-attendance-select { min-width: 112px; padding: 6px 8px; font-size: 10px; transition: border-color .16s ease, background .16s ease, opacity .16s ease; }
+  .deployment-attendance-select.is-saving { opacity: .62; cursor: progress; }
   .deployment-attendance-select.status-present { border-color: rgba(78,240,196,.42); background: var(--teal-dim); }
   .deployment-attendance-select.status-late { border-color: rgba(255,181,71,.42); background: var(--amber-dim); }
   .deployment-attendance-select.status-absent { border-color: rgba(255,123,94,.42); background: var(--coral-dim); }

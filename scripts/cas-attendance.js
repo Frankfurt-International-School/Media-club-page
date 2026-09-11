@@ -4,9 +4,9 @@
 const casAttendanceDefaults = {
   id: 1,
   schoolYearLabel: '2026–2027',
-  yearStart: '2026-09-30',
+  yearStart: '2026-09-10',
   yearEnd: '2027-05-31',
-  fallStart: '2026-09-30',
+  fallStart: '2026-09-10',
   fallEnd: '2026-11-15',
   winterStart: '',
   winterEnd: '',

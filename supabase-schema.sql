@@ -77,9 +77,9 @@ on conflict (member_id, team_key) do nothing;
 create table if not exists public.cas_attendance_settings (
   id smallint primary key default 1 check (id = 1),
   school_year_label text not null default '2026–2027' check (char_length(btrim(school_year_label)) between 1 and 30),
-  school_year_start date not null default date '2026-09-30',
+  school_year_start date not null default date '2026-09-10',
   school_year_end date not null default date '2027-05-31',
-  fall_start date not null default date '2026-09-30',
+  fall_start date not null default date '2026-09-10',
   fall_end date not null default date '2026-11-15',
   winter_start date,
   winter_end date,
@@ -95,6 +95,13 @@ create table if not exists public.cas_attendance_settings (
 insert into public.cas_attendance_settings (id)
 values (1)
 on conflict (id) do nothing;
+
+update public.cas_attendance_settings
+set school_year_start = least(school_year_start, date '2026-09-10'),
+    fall_start = date '2026-09-10'
+where id = 1
+  and school_year_label = '2026–2027'
+  and fall_start = date '2026-09-30';
 
 -- New member email rules are enforced by the Auth Admin insert policy. Keeping
 -- this as a table CHECK would prevent approved legacy/test accounts from later

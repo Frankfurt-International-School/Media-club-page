@@ -4,6 +4,25 @@
 let crewDeploymentRefreshTimer = null;
 let crewDeploymentView = 'upcoming';
 const crewDeploymentSelectedDates = { upcoming: '', past: '' };
+const crewAttendanceRealtimeIgnoreIds = new Set();
+const crewAttendanceRealtimeIgnoreTimers = new Map();
+const crewAttendanceSavingIds = new Set();
+
+function clearCrewAttendanceRealtimeIgnore(signupId) {
+  crewAttendanceRealtimeIgnoreIds.delete(signupId);
+  const timer = crewAttendanceRealtimeIgnoreTimers.get(signupId);
+  if (timer) clearTimeout(timer);
+  crewAttendanceRealtimeIgnoreTimers.delete(signupId);
+}
+
+function shouldIgnoreCrewAttendanceRealtime(payload) {
+  const signupId = String(payload?.new?.id || payload?.old?.id || '');
+  if (!signupId || !crewAttendanceRealtimeIgnoreIds.has(signupId)) return false;
+  clearCrewAttendanceRealtimeIgnore(signupId);
+  return true;
+}
+
+window.shouldIgnoreCrewAttendanceRealtime = shouldIgnoreCrewAttendanceRealtime;
 
 function deploymentLocation(event) {
   const location = String(event.loc || 'TBC').trim();
@@ -171,7 +190,53 @@ function deploymentAttendanceControl(event, signup, attendanceOpen) {
   if (!attendanceOpen) {
     return `<div class="deployment-attendance-log"><span class="deployment-attendance-result status-${signup.attendanceStatus}">${escapeHtml(attendanceStatusLabel(signup.attendanceStatus))}</span>${deploymentAttendanceAudit(signup)}</div>`;
   }
-  return `<select class="form-select deployment-attendance-select status-${signup.attendanceStatus}" aria-label="Attendance for ${escapeHtml(signup.name)}" ${attendanceOpen ? '' : 'disabled'} onchange="markCrewAttendance('${event.id}', '${signup.id}', this.value)">${attendanceOption(signup.attendanceStatus, 'not_taken', 'Not taken')}${attendanceOption(signup.attendanceStatus, 'present', 'Present')}${attendanceOption(signup.attendanceStatus, 'late', 'Late')}${attendanceOption(signup.attendanceStatus, 'absent', 'Absent')}${attendanceOption(signup.attendanceStatus, 'excused', 'Excused')}</select>`;
+  return `<select class="form-select deployment-attendance-select status-${signup.attendanceStatus}" data-event-id="${event.id}" data-signup-id="${signup.id}" aria-label="Attendance for ${escapeHtml(signup.name)}" ${attendanceOpen ? '' : 'disabled'} onchange="markCrewAttendance('${event.id}', '${signup.id}', this.value)">${attendanceOption(signup.attendanceStatus, 'not_taken', 'Not taken')}${attendanceOption(signup.attendanceStatus, 'present', 'Present')}${attendanceOption(signup.attendanceStatus, 'late', 'Late')}${attendanceOption(signup.attendanceStatus, 'absent', 'Absent')}${attendanceOption(signup.attendanceStatus, 'excused', 'Excused')}</select>`;
+}
+
+function deploymentAttendanceState(event, pastLog, now = Date.now()) {
+  const attendanceWindow = crewAttendanceWindow(event, now);
+  const attendanceTaken = event.signups.filter(signup => signup.attendanceStatus !== 'not_taken').length;
+  const text = attendanceWindow.isOpen
+    ? `${pastLog ? 'Edit until' : 'Attendance'} ${pastLog ? formatBerlinDateTime(attendanceWindow.closesAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : `${attendanceTaken}/${event.signups.length}`}`
+    : now < attendanceWindow.opensAt
+      ? `Opens ${berlinTimeLabel(attendanceWindow.opensAt)}`
+      : `Closed · Logged ${attendanceTaken}/${event.signups.length}`;
+  return { text, isOpen: attendanceWindow.isOpen };
+}
+
+function updateCrewAttendanceControl(control, status, saving) {
+  ['not_taken', 'present', 'late', 'absent', 'excused'].forEach(value => control.classList.remove(`status-${value}`));
+  control.classList.add(`status-${status}`);
+  control.classList.toggle('is-saving', saving);
+  control.value = status;
+  control.disabled = saving;
+  control.setAttribute('aria-busy', String(saving));
+}
+
+function updateCrewAttendanceUi(eventId, signupId, status, saving = false) {
+  [...document.querySelectorAll('.deployment-attendance-select')]
+    .filter(control => control.dataset.signupId === signupId)
+    .forEach(control => updateCrewAttendanceControl(control, status, saving));
+
+  const date = document.getElementById('crew-deployment-date')?.value;
+  const pastLog = crewDeploymentView === 'past';
+  const visibleEvents = state.events.filter(event => event.date === date && (pastLog ? isPastEvent(event) : !isPastEvent(event)));
+  const attendanceCount = pastLog
+    ? visibleEvents.reduce((total, event) => total + event.signups.filter(signup => signup.attendanceStatus === 'not_taken').length, 0)
+    : visibleEvents.filter(event => crewAttendanceWindow(event).isOpen)
+      .reduce((total, event) => total + event.signups.filter(signup => signup.attendanceStatus === 'not_taken').length, 0);
+  const summary = document.querySelector('[data-deployment-attendance-summary]');
+  if (summary) summary.innerHTML = `<strong>${attendanceCount}</strong> ${pastLog ? 'not recorded' : 'attendance pending'}`;
+
+  const event = state.events.find(item => item.id === eventId);
+  const indicator = [...document.querySelectorAll('[data-deployment-attendance-state]')]
+    .find(item => item.dataset.deploymentAttendanceState === eventId);
+  if (event && indicator) {
+    const attendanceState = deploymentAttendanceState(event, pastLog);
+    indicator.textContent = attendanceState.text;
+    indicator.classList.toggle('open', attendanceState.isOpen);
+    indicator.classList.toggle('logged', pastLog && !attendanceState.isOpen);
+  }
 }
 
 function renderCrewDeployment() {
@@ -198,7 +263,7 @@ function renderCrewDeployment() {
   const openAttendance = events.filter(event => crewAttendanceWindow(event).isOpen);
   const attendanceOutstanding = openAttendance.reduce((total, event) => total + event.signups.filter(signup => signup.attendanceStatus === 'not_taken').length, 0);
   const attendanceNotRecorded = events.reduce((total, event) => total + event.signups.filter(signup => signup.attendanceStatus === 'not_taken').length, 0);
-  summary.innerHTML = `<span class="deployment-stat"><strong>${events.length}</strong> events</span><span class="deployment-stat"><strong>${locations.size}</strong> locations</span><span class="deployment-stat"><strong>${uniqueCrew}</strong> crew</span><span class="deployment-stat"><strong>${pastLog ? attendanceNotRecorded : attendanceOutstanding}</strong> ${pastLog ? 'not recorded' : 'attendance pending'}</span>`;
+  summary.innerHTML = `<span class="deployment-stat"><strong>${events.length}</strong> events</span><span class="deployment-stat"><strong>${locations.size}</strong> locations</span><span class="deployment-stat"><strong>${uniqueCrew}</strong> crew</span><span class="deployment-stat" data-deployment-attendance-summary><strong>${pastLog ? attendanceNotRecorded : attendanceOutstanding}</strong> ${pastLog ? 'not recorded' : 'attendance pending'}</span>`;
   if (!events.length) {
     const hasPastLogs = crewDeploymentDates('past').length > 0;
     grid.innerHTML = `<div class="empty-state deployment-empty-state"><p>${pastLog ? 'No completed production logs are available yet.' : 'No active or upcoming productions are scheduled.'}</p>${!pastLog && hasPastLogs ? '<button class="btn btn-ghost btn-sm" type="button" onclick="setCrewDeploymentView(\'past\')">Open past logs</button>' : ''}</div>`;
@@ -209,17 +274,11 @@ function renderCrewDeployment() {
     <section class="deployment-location">
       <div class="deployment-location-head"><div class="deployment-location-title">${escapeHtml(location.label)}</div><span class="badge badge-gray">${location.events.length} ${location.events.length === 1 ? 'event' : 'events'}</span></div>
       ${location.events.map(event => {
-        const attendanceWindow = crewAttendanceWindow(event);
-        const attendanceOpen = attendanceWindow.isOpen;
-        const attendanceTaken = event.signups.filter(signup => signup.attendanceStatus !== 'not_taken').length;
         const blocks = deploymentGameBlocks(event);
-        const attendanceState = attendanceOpen
-          ? `${pastLog ? 'Edit until' : 'Attendance'} ${pastLog ? escapeHtml(formatBerlinDateTime(attendanceWindow.closesAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : `${attendanceTaken}/${event.signups.length}`}`
-          : Date.now() < attendanceWindow.opensAt
-            ? `Opens ${escapeHtml(berlinTimeLabel(attendanceWindow.opensAt))}`
-            : `Closed · Logged ${attendanceTaken}/${event.signups.length}`;
+        const attendanceState = deploymentAttendanceState(event, pastLog);
+        const attendanceOpen = attendanceState.isOpen;
         return `<article class="deployment-event${pastLog ? ' past-log' : ''}">
-          <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(eventScheduleTimeLabel(event))}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}${pastLog && !attendanceOpen ? ' logged' : ''}">${attendanceState}</span></div>
+          <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(eventScheduleTimeLabel(event))}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}${pastLog && !attendanceOpen ? ' logged' : ''}" data-deployment-attendance-state="${event.id}">${escapeHtml(attendanceState.text)}</span></div>
           ${blocks.map(block => {
             const crew = event.signups.filter(signup => signupCoversDeploymentBlock(signup, block));
             return `<div class="deployment-game"><div class="deployment-game-head"><span>${block.label}</span><span>${block.start}–${block.end}</span></div>${crew.length ? crew.map(signup => {
@@ -237,15 +296,36 @@ function renderCrewDeployment() {
 }
 
 async function markCrewAttendance(eventId, signupId, status) {
-  if (!canAccessCrewSchedule()) return;
-  const { data: updated, error } = await supabaseClient.rpc('mark_signup_attendance', { p_signup_id: signupId, p_attendance_status: status });
-  if (error || !updated) { showToast(error?.message || "Couldn't update attendance.", 'error', 6000); renderCrewDeployment(); return; }
+  if (!canAccessCrewSchedule() || crewAttendanceSavingIds.has(signupId)) return;
   const event = state.events.find(item => item.id === eventId);
   const signup = event?.signups.find(item => item.id === signupId);
-  if (signup) {
-    signup.attendanceStatus = status;
-    signup.attendanceMarkedAt = status === 'not_taken' ? '' : new Date().toISOString();
-    signup.attendanceMarkedByName = status === 'not_taken' ? '' : currentMemberRecord()?.name || state.currentUser.name || '';
+  if (!signup) return;
+  const previous = {
+    status: signup.attendanceStatus,
+    markedAt: signup.attendanceMarkedAt,
+    markedByName: signup.attendanceMarkedByName,
+  };
+  const markerName = currentMemberRecord()?.name || state.currentUser.name || '';
+  clearCrewAttendanceRealtimeIgnore(signupId);
+  crewAttendanceSavingIds.add(signupId);
+  crewAttendanceRealtimeIgnoreIds.add(signupId);
+  signup.attendanceStatus = status;
+  signup.attendanceMarkedAt = status === 'not_taken' ? '' : new Date().toISOString();
+  signup.attendanceMarkedByName = status === 'not_taken' ? '' : markerName;
+  updateCrewAttendanceUi(eventId, signupId, status, true);
+  const { data: updated, error } = await supabaseClient.rpc('mark_signup_attendance', { p_signup_id: signupId, p_attendance_status: status });
+  crewAttendanceSavingIds.delete(signupId);
+  if (error || !updated) {
+    clearCrewAttendanceRealtimeIgnore(signupId);
+    signup.attendanceStatus = previous.status;
+    signup.attendanceMarkedAt = previous.markedAt;
+    signup.attendanceMarkedByName = previous.markedByName;
+    updateCrewAttendanceUi(eventId, signupId, previous.status, false);
+    showToast(error?.message || "Couldn't update attendance.", 'error', 6000);
+    return;
   }
-  renderCrewDeployment();
+  updateCrewAttendanceUi(eventId, signupId, status, false);
+  if (crewAttendanceRealtimeIgnoreIds.has(signupId)) {
+    crewAttendanceRealtimeIgnoreTimers.set(signupId, setTimeout(() => clearCrewAttendanceRealtimeIgnore(signupId), 5000));
+  }
 }

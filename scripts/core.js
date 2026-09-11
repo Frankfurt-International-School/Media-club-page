@@ -1022,7 +1022,10 @@ function subscribeToCrewCenterChanges() {
   };
   let channel = supabaseClient.channel('crew-center-live-data');
   Object.entries(tableDatasets).forEach(([table, datasets]) => {
-    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => queueRealtimeDataLoad(...datasets));
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, payload => {
+      if (table === 'signups' && window.shouldIgnoreCrewAttendanceRealtime?.(payload)) return;
+      queueRealtimeDataLoad(...datasets);
+    });
   });
   window.CREW_CENTER_REALTIME_CHANNEL = channel.subscribe();
 }

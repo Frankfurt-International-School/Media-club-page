@@ -629,6 +629,7 @@ test('camera and lens visuals are lightweight, model-matched, and isolated to th
 
 test('Crew Schedule and attendance are Auth Admin-only in the UI and database', () => {
   const crewScheduleAccess = extractSqlFunction('is_crew_schedule_user');
+  const markAttendance = extractFunction('markCrewAttendance');
   assert.match(appSource, /function canAccessCrewSchedule\(\) \{\s*return canAddMembers\(\);\s*\}/);
   assert.match(crewScheduleAccess, /select public\.is_auth_admin\(\)/);
   assert.doesNotMatch(crewScheduleAccess, /is_admin_panel_user|leader|co-leader|faculty/);
@@ -637,16 +638,21 @@ test('Crew Schedule and attendance are Auth Admin-only in the UI and database', 
   assert.match(appSource, /function crewAttendanceWindow\([\s\S]*?endsAt \+ 24 \* 60 \* 60 \* 1000/);
   assert.match(appSource, /Completed productions remain editable until 24 hours after their end time/);
   assert.match(appSource, /if \(page === 'crew-deployment' && !canAccessCrewSchedule\(\)\)/);
+  assert.match(markAttendance, /updateCrewAttendanceUi\(eventId, signupId, status, true\)[\s\S]*?supabaseClient\.rpc\('mark_signup_attendance'/);
+  assert.doesNotMatch(markAttendance, /renderCrewDeployment\(\)/, 'a single attendance save must not rebuild the deployment list');
+  assert.match(appSource, /table === 'signups' && window\.shouldIgnoreCrewAttendanceRealtime\?\.\(payload\)/);
+  assert.match(appSource, /data-signup-id="\$\{signup\.id\}"/);
+  assert.match(appStyles, /\.deployment-attendance-select\.is-saving/);
 });
 
 test('CAS attendance counts completed Berlin event dates once and ignores non-attendance statuses', () => {
   const stats = eventData => JSON.parse(JSON.stringify(runFunctions(
     ['casAttendanceStats'],
     { isPastEvent: event => event.completed },
-    `casAttendanceStats({ id: 'member-1', joined_date: '2026-10-01' }, ${JSON.stringify(eventData)}, { start: '2026-09-30', end: '2026-11-15' }, 1)`,
+    `casAttendanceStats({ id: 'member-1', joined_date: '2026-10-01' }, ${JSON.stringify(eventData)}, { start: '2026-09-10', end: '2026-11-15' }, 1)`,
   )));
   const events = [
-    { date: '2026-09-30', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
+    { date: '2026-09-10', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
     { date: '2026-10-02', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'present' }] },
     { date: '2026-10-02', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'absent' }] },
     { date: '2026-10-03', completed: true, signups: [{ memberId: 'member-1', attendanceStatus: 'late' }] },
@@ -659,7 +665,9 @@ test('CAS attendance counts completed Berlin event dates once and ignores non-at
   assert.deepEqual(stats(events), { attendedDays: 2, missedDays: 4, eventDays: 6, rate: 33 });
   assert.match(indexHtml, /data-admin-tab="cas-attendance"[\s\S]*?id="cas-period"[\s\S]*?CAS members only/);
   assert.match(indexHtml, /id="cas-year-start"[\s\S]*?id="cas-fall-start"[\s\S]*?id="cas-winter-start"[\s\S]*?id="cas-spring-start"/);
-  assert.match(schemaSql, /create table if not exists public\.cas_attendance_settings[\s\S]*?2026-09-30[\s\S]*?2026-11-15/);
+  assert.match(schemaSql, /create table if not exists public\.cas_attendance_settings[\s\S]*?school_year_start date not null default date '2026-09-10'[\s\S]*?fall_start date not null default date '2026-09-10'[\s\S]*?fall_end date not null default date '2026-11-15'/);
+  assert.match(schemaSql, /update public\.cas_attendance_settings[\s\S]*?fall_start = date '2026-09-10'[\s\S]*?fall_start = date '2026-09-30'/);
+  assert.match(appSource, /yearStart: '2026-09-10'[\s\S]*?fallStart: '2026-09-10'/);
   assert.match(policiesSql, /Admin Panel users can read CAS attendance settings[\s\S]*?public\.is_admin_panel_user\(\)/);
   assert.match(policiesSql, /Admin Panel users can add CAS memberships[\s\S]*?team_key = 'cas'/);
   assert.match(appStyles, /\.badge-cas \{[^}]*background: #75DDDD;[^}]*color: #153f42;/);
