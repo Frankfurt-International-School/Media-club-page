@@ -352,10 +352,28 @@ function availableReserveRoleLabels() {
     .filter(role => openRoles.includes(role));
 }
 
+function eventAllowsMixingObsReserve(event) {
+  const location = String(event?.loc || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const openRoles = eventOpenRoleLabels(event);
+  return Boolean(
+    (event?.isSports || event?.isIsst)
+    && (location.includes('lower field') || location.includes('upper field'))
+    && openRoles.includes(signupRoleLabels.mixing)
+    && openRoles.includes(signupRoleLabels.obs)
+  );
+}
+
 function updateReserveRoleFields() {
   const fields = document.getElementById('signup-reserve-fields');
-  const isSupervisor = document.getElementById('signup-role')?.value === signupRoleLabels.student_supervisor;
+  const mixerFields = document.getElementById('signup-mixer-reserve');
+  const mixerCheckbox = document.getElementById('signup-mixer-obs-reserve');
+  const event = state.events.find(candidate => candidate.id === document.getElementById('sheet-event-select')?.value);
+  const selectedRole = document.getElementById('signup-role')?.value;
+  const isSupervisor = selectedRole === signupRoleLabels.student_supervisor;
+  const mixerReserveAvailable = selectedRole === signupRoleLabels.mixing && eventAllowsMixingObsReserve(event);
   fields?.classList.toggle('visible', isSupervisor);
+  if (mixerFields) mixerFields.hidden = !mixerReserveAvailable;
+  if (!mixerReserveAvailable && mixerCheckbox) mixerCheckbox.checked = false;
   if (isSupervisor) {
     const first = document.getElementById('signup-reserve-role-1');
     const second = document.getElementById('signup-reserve-role-2');

@@ -451,12 +451,18 @@ alter table public.signups drop constraint if exists signups_attendance_type_che
 alter table public.signups add constraint signups_attendance_type_check
 check (attendance_type in ('whole', 'game_1', 'game_2', 'game_3', 'game_4', 'setup', 'shift_1', 'shift_2', 'takedown', 'custom'));
 alter table public.signups drop constraint if exists signups_student_supervisor_reserves_check;
-alter table public.signups add constraint signups_student_supervisor_reserves_check check (
+alter table public.signups drop constraint if exists signups_reserve_roles_check;
+alter table public.signups add constraint signups_reserve_roles_check check (
   (
     signup_role = 'Student Supervisor'
     and reserve_role_1 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
     and reserve_role_2 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
     and reserve_role_1 <> reserve_role_2
+  )
+  or (
+    signup_role = 'MIXING'
+    and reserve_role_1 = 'OBS'
+    and reserve_role_2 is null
   )
   or (reserve_role_1 is null and reserve_role_2 is null)
 ) not valid;
@@ -465,10 +471,18 @@ begin
   if not exists (
     select 1
     from public.signups
-    where signup_role = 'Student Supervisor'
-      and (reserve_role_1 = 'Photographer' or reserve_role_2 = 'Photographer')
+    where (reserve_role_1 is not null or reserve_role_2 is not null)
+      and (
+        (
+          signup_role = 'Student Supervisor'
+          and reserve_role_1 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
+          and reserve_role_2 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
+          and reserve_role_1 <> reserve_role_2
+        )
+        or (signup_role = 'MIXING' and reserve_role_1 = 'OBS' and reserve_role_2 is null)
+      ) is not true
   ) then
-    alter table public.signups validate constraint signups_student_supervisor_reserves_check;
+    alter table public.signups validate constraint signups_reserve_roles_check;
   end if;
 end $$;
 alter table public.signups drop constraint if exists signups_photographer_equipment_check;

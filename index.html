@@ -426,6 +426,12 @@
         <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-2">Reserve priority 2</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-2" onchange="syncReserveRoleOptions()"></select></div></div>
         <div class="signup-reserve-note">At 10 minutes before the overall event start, the first vacant role is activated for the supervisor's attendance window. A real signup always takes precedence. Photography is excluded because the supervisor must remain in the stream area.</div>
       </div>
+      <div class="signup-mixer-reserve" id="signup-mixer-reserve" hidden>
+        <label for="signup-mixer-obs-reserve">
+          <input id="signup-mixer-obs-reserve" type="checkbox">
+          <span><strong>OBS takeover reserve</strong><small>If OBS is still unclaimed 10 minutes before this Lower or Upper Field game, switch from MIXING to OBS for your attendance window.</small></span>
+        </label>
+      </div>
       <div class="signup-entry-actions"><button class="btn btn-accent" onclick="addSignupRow()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Sign up

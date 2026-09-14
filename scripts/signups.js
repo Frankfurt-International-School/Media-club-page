@@ -185,15 +185,28 @@ function signupWindowsOverlap(a, b) {
     && new Date(a.attendanceEnd).getTime() > new Date(b.attendanceStart).getTime();
 }
 
-function activeSupervisorReserves(ev, now = Date.now()) {
+function activeReserveAssignments(ev, now = Date.now()) {
   const assignments = new Map();
   const activationAt = reserveActivationAt(ev);
   if (!activationAt || now < activationAt) return assignments;
   const openRoles = eventOpenRoleLabels(ev);
+  const claimed = [];
+  const mixingReserves = eventAllowsMixingObsReserve(ev)
+    ? ev.signups
+      .filter(signup => signup.role === signupRoleLabels.mixing && signup.reserveRole1 === signupRoleLabels.obs)
+      .sort((a, b) => (a.signedUpAt || '').localeCompare(b.signedUpAt || '') || a.id.localeCompare(b.id))
+    : [];
+  mixingReserves.forEach(mixer => {
+    const realObsSignup = ev.signups.some(signup => signup.role === signupRoleLabels.obs && signupWindowsOverlap(signup, mixer));
+    const reserveAlreadyAssigned = claimed.some(signup => signup.role === signupRoleLabels.obs && signupWindowsOverlap(signup, mixer));
+    if (!realObsSignup && !reserveAlreadyAssigned) {
+      assignments.set(mixer.id, signupRoleLabels.obs);
+      claimed.push({ role: signupRoleLabels.obs, attendanceStart: mixer.attendanceStart, attendanceEnd: mixer.attendanceEnd });
+    }
+  });
   const supervisors = ev.signups
     .filter(signup => signup.role === signupRoleLabels.student_supervisor)
     .sort((a, b) => (a.signedUpAt || '').localeCompare(b.signedUpAt || '') || a.id.localeCompare(b.id));
-  const claimed = [];
   supervisors.forEach(supervisor => {
     const choices = [supervisor.reserveRole1, supervisor.reserveRole2].filter(role => role && openRoles.includes(role));
     const selected = choices.find(role => {
@@ -262,7 +275,7 @@ function renderSignupSheet() {
   const expiredSignups = ev.expiredSignups || [];
   const showRemoveColumn = ev.signups.some(canRemoveSignup) || expiredSignups.some(canRemoveSignup);
   const removeHeader = showRemoveColumn ? '<th></th>' : '';
-  const reserveAssignments = activeSupervisorReserves(ev);
+  const reserveAssignments = activeReserveAssignments(ev);
   const activationAt = reserveActivationAt(ev);
   const reserveIsActive = Boolean(activationAt && Date.now() >= activationAt);
   const orderedSignups = ev.signups
@@ -277,18 +290,22 @@ function renderSignupSheet() {
     });
   let rows = orderedSignups.map(({ signup: s }, i) => {
     const activeReserveRole = reserveAssignments.get(s.id);
-    const supervisorRoleNote = s.role === signupRoleLabels.student_supervisor
+    const reserveRoleNote = s.role === signupRoleLabels.student_supervisor
       ? activeReserveRole
         ? `<span class="reserve-priority-note"><strong>Current role:</strong> ${escapeHtml(activeReserveRole)}</span>`
         : s.reserveRole1
           ? `<span class="reserve-priority-note">${reserveIsActive ? 'Reserve not needed' : 'Reserve priority'}: ${escapeHtml(s.reserveRole1)} → ${escapeHtml(s.reserveRole2)}</span>`
           : ''
-      : '';
+      : s.role === signupRoleLabels.mixing && s.reserveRole1 === signupRoleLabels.obs
+        ? activeReserveRole
+          ? `<span class="reserve-priority-note"><strong>Current role:</strong> ${escapeHtml(activeReserveRole)} · MIXING takeover reserve activated</span>`
+          : `<span class="reserve-priority-note">${reserveIsActive ? 'OBS is already covered' : 'OBS takeover reserve · activates if vacant 10 minutes before start'}</span>`
+        : '';
     return `
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${escapeHtml(s.name)}</td>
-      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${signupCameraBadge(s)}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${supervisorRoleNote}</td>
+      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${signupCameraBadge(s)}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${reserveRoleNote}</td>
       <td style="color:var(--text2);font-size:12px;">${escapeHtml(attendanceLabel(s))}</td>
       <td style="color:var(--text3);font-size:12px;">${escapeHtml(s.ts)}</td>
       ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</div></td>` : ''}
@@ -353,7 +370,12 @@ async function addSignupRow() {
     return;
   }
   const isStudentSupervisor = role === signupRoleLabels.student_supervisor;
-  const reserveRole1 = isStudentSupervisor ? document.getElementById('signup-reserve-role-1').value : null;
+  const isMixingObsReserve = role === signupRoleLabels.mixing
+    && eventAllowsMixingObsReserve(ev)
+    && document.getElementById('signup-mixer-obs-reserve')?.checked;
+  const reserveRole1 = isStudentSupervisor
+    ? document.getElementById('signup-reserve-role-1').value
+    : isMixingObsReserve ? signupRoleLabels.obs : null;
   const reserveRole2 = isStudentSupervisor ? document.getElementById('signup-reserve-role-2').value : null;
   const attendance = selectedAttendanceWindow(ev);
   if (!attendance) {
@@ -421,8 +443,8 @@ async function addSignupRow() {
       event_id: ev.id,
       member_id: member.id,
       signup_role: roleFreeAttendance ? null : role,
-      reserve_role_1: isStudentSupervisor ? reserveRole1 : null,
-      reserve_role_2: isStudentSupervisor ? reserveRole2 : null,
+      reserve_role_1: roleFreeAttendance ? null : reserveRole1,
+      reserve_role_2: roleFreeAttendance ? null : reserveRole2,
       equipment_source: equipmentSource,
       own_camera_name: equipmentSource === 'own' ? personalCameraName : null,
       attendance_type: attendance.type,

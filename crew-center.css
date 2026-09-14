@@ -891,6 +891,13 @@
   .signup-reserve-fields { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; padding: 14px; border: 1px solid rgba(164,1,52,0.22); border-radius: 12px; background: linear-gradient(120deg, var(--accent-dim2), transparent); }
   .signup-reserve-fields.visible { display: grid; }
   .signup-reserve-note { grid-column: 1 / -1; color: var(--text3); font-size: 11px; }
+  .signup-mixer-reserve { margin-top: 14px; padding: 14px; border: 1px solid rgba(164,1,52,.24); border-radius: 12px; background: linear-gradient(120deg, var(--accent-dim2), var(--bg2)); }
+  .signup-mixer-reserve[hidden] { display: none; }
+  .signup-mixer-reserve label { display: flex; align-items: flex-start; gap: 10px; color: var(--text2); cursor: pointer; }
+  .signup-mixer-reserve input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--accent); flex: 0 0 auto; }
+  .signup-mixer-reserve strong, .signup-mixer-reserve small { display: block; }
+  .signup-mixer-reserve strong { color: var(--text); font-size: 12px; }
+  .signup-mixer-reserve small { margin-top: 3px; color: var(--text3); font-size: 10px; line-height: 1.45; }
   .signup-camera-source { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .55fr); gap: 14px 18px; align-items: end; margin-top: 14px; padding: 16px; border: 1px solid rgba(164,1,52,.24); border-radius: 14px; background: linear-gradient(120deg, var(--accent-dim2), var(--bg2) 72%); }
   .signup-camera-source[hidden] { display: none; }
   .signup-camera-source-copy strong { display: block; color: var(--text); font-size: 13px; }

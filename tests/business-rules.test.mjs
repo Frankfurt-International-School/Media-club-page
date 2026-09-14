@@ -791,7 +791,7 @@ test('Every event category supports role matrices, presets, and independent Phot
   assert.match(validSignup, /p_signup_role is null or p_signup_role = any\(event\.open_signup_roles\)/);
   assert.doesNotMatch(validSignup, /event\.category not in/);
   const validReserveRoles = extractSqlFunction('are_event_reserve_roles_open');
-  assert.match(validReserveRoles, /p_signup_role is distinct from 'Student Supervisor'[\s\S]*?p_reserve_role_1 = any\(event\.open_signup_roles\)[\s\S]*?p_reserve_role_2 = any\(event\.open_signup_roles\)/);
+  assert.match(validReserveRoles, /p_signup_role = 'Student Supervisor'[\s\S]*?p_reserve_role_1 = any\(event\.open_signup_roles\)[\s\S]*?p_reserve_role_2 = any\(event\.open_signup_roles\)/);
   assert.match(policiesSql, /public\.are_event_reserve_roles_open\(event_id, signup_role, reserve_role_1, reserve_role_2\)/);
   assert.match(policiesSql, /grant execute on function public\.are_event_reserve_roles_open\(uuid, text, text, text\) to authenticated/);
   assert.match(appSource, /filter\(role => role && openRoles\.includes\(role\)\)/);
@@ -1087,16 +1087,54 @@ test('active student supervisor reserves preserve the supervisor label and show 
   assert.doesNotMatch(appSource, /<td>\$\{displayRole \? escapeHtml\(displayRole\)/);
 });
 
+test('Lower and Upper Field MIXING signups can reserve an OBS takeover', () => {
+  const eligibility = event => runFunctions(
+    ['eventAllowsMixingObsReserve'],
+    {
+      eventOpenRoleLabels: () => event.openSignupRoles,
+      signupRoleLabels: { mixing: 'MIXING', obs: 'OBS' },
+    },
+    `eventAllowsMixingObsReserve(${JSON.stringify(event)})`,
+  );
+  const baseEvent = { isSports: true, loc: 'Lower Field', openSignupRoles: ['MIXING', 'OBS'] };
+  assert.equal(eligibility(baseEvent), true);
+  assert.equal(eligibility({ ...baseEvent, loc: 'Upper Field' }), true);
+  assert.equal(eligibility({ ...baseEvent, loc: 'Stroth Center' }), false);
+  assert.equal(eligibility({ ...baseEvent, isSports: false }), false);
+  assert.equal(eligibility({ ...baseEvent, openSignupRoles: ['MIXING'] }), false);
+
+  const reserveAssignments = signups => JSON.parse(JSON.stringify(runFunctions(
+    ['signupWindowsOverlap', 'activeReserveAssignments'],
+    {
+      reserveActivationAt: () => 100,
+      eventOpenRoleLabels: () => ['MIXING', 'OBS'],
+      eventAllowsMixingObsReserve: () => true,
+      signupRoleLabels: { mixing: 'MIXING', obs: 'OBS', student_supervisor: 'Student Supervisor' },
+    },
+    `Object.fromEntries(activeReserveAssignments({ signups: ${JSON.stringify(signups)} }, 101))`,
+  )));
+  const mixer = { id: 'mixer-1', role: 'MIXING', reserveRole1: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z', signedUpAt: '2026-09-10T12:00:00Z' };
+  assert.deepEqual(reserveAssignments([mixer]), { 'mixer-1': 'OBS' });
+  assert.deepEqual(reserveAssignments([mixer, { id: 'obs-1', role: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z' }]), {});
+
+  assert.match(indexHtml, /id="signup-mixer-reserve" hidden[\s\S]*?id="signup-mixer-obs-reserve"/);
+  assert.match(appSource, /reserve_role_1: roleFreeAttendance \? null : reserveRole1/);
+  assert.match(appSource, /MIXING takeover reserve activated/);
+  assert.match(schemaSql, /signups_reserve_roles_check[\s\S]*?signup_role = 'MIXING'[\s\S]*?reserve_role_1 = 'OBS'[\s\S]*?reserve_role_2 is null/);
+  const reserveAccess = extractSqlFunction('are_event_reserve_roles_open');
+  assert.match(reserveAccess, /p_signup_role = 'MIXING'[\s\S]*?event\.is_sports or event\.is_isst[\s\S]*?like '%lower field%'[\s\S]*?like '%upper field%'[\s\S]*?p_reserve_role_1 = 'OBS'/);
+});
+
 test('Student Supervisor reserve priorities exclude Photographer in the UI and database', () => {
   assert.match(appSource, /\['adult_supervisor', 'student_supervisor', 'photographer'\]\.includes\(key\)/);
   assert.match(appSource, /Student Supervisors cannot use Photographer as a reserve role\./);
   assert.match(indexHtml, /Photography is excluded because the supervisor must remain in the stream area\./);
 
-  const reserveConstraintStart = schemaSql.indexOf('add constraint signups_student_supervisor_reserves_check');
+  const reserveConstraintStart = schemaSql.indexOf('add constraint signups_reserve_roles_check');
   const reserveConstraint = schemaSql.slice(reserveConstraintStart, schemaSql.indexOf('do $$', reserveConstraintStart));
   assert.doesNotMatch(reserveConstraint, /Photographer/);
   assert.match(reserveConstraint, /\) not valid;/);
-  assert.match(schemaSql, /where signup_role = 'Student Supervisor'[\s\S]*?reserve_role_1 = 'Photographer' or reserve_role_2 = 'Photographer'[\s\S]*?validate constraint signups_student_supervisor_reserves_check/);
+  assert.match(schemaSql, /where \(reserve_role_1 is not null or reserve_role_2 is not null\)[\s\S]*?signup_role = 'Student Supervisor'[\s\S]*?is not true[\s\S]*?validate constraint signups_reserve_roles_check/);
 
   const signupPolicy = policiesSql.slice(
     policiesSql.indexOf('create policy "Signed-in users can add signups"'),

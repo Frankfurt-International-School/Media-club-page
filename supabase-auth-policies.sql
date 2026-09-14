@@ -1349,14 +1349,30 @@ stable
 security definer
 set search_path = public
 as $$
-  select p_signup_role is distinct from 'Student Supervisor'
-    or exists (
+  select case
+    when p_signup_role = 'Student Supervisor' then exists (
       select 1
       from public.events event
       where event.id = p_event_id
         and p_reserve_role_1 = any(event.open_signup_roles)
         and p_reserve_role_2 = any(event.open_signup_roles)
-    );
+    )
+    when p_signup_role = 'MIXING' and (p_reserve_role_1 is not null or p_reserve_role_2 is not null) then exists (
+      select 1
+      from public.events event
+      where event.id = p_event_id
+        and (event.is_sports or event.is_isst)
+        and (
+          lower(btrim(coalesce(event.location, ''))) like '%lower field%'
+          or lower(btrim(coalesce(event.location, ''))) like '%upper field%'
+        )
+        and 'MIXING' = any(event.open_signup_roles)
+        and 'OBS' = any(event.open_signup_roles)
+        and p_reserve_role_1 = 'OBS'
+        and p_reserve_role_2 is null
+    )
+    else p_reserve_role_1 is null and p_reserve_role_2 is null
+  end;
 $$;
 
 revoke all on function public.are_event_reserve_roles_open(uuid, text, text, text) from public;
@@ -1999,6 +2015,7 @@ with check (
       and reserve_role_2 in ('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 (optional)', 'Wireless')
       and reserve_role_1 <> reserve_role_2
     )
+    or (signup_role = 'MIXING' and reserve_role_1 = 'OBS' and reserve_role_2 is null)
     or (signup_role <> 'Student Supervisor' and reserve_role_1 is null and reserve_role_2 is null)
     or (signup_role is null and reserve_role_1 is null and reserve_role_2 is null)
   )
