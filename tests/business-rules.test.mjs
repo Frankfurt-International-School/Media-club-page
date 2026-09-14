@@ -1001,6 +1001,67 @@ test('personal cameras are owner-scoped and snapshotted only for Photographer si
   assert.match(appStyles, /\.signup-camera-source\[hidden\]/);
 });
 
+test('signup sheets link active event camera kits to the matching Photographer window', () => {
+  const signup = {
+    role: 'Photographer',
+    equipmentSource: 'club',
+    memberId: 'member-1',
+    attendanceStart: '2026-09-18T08:00:00.000Z',
+    attendanceEnd: '2026-09-18T10:00:00.000Z',
+  };
+  const reservation = overrides => ({
+    groupId: 'kit-1',
+    memberId: 'member-1',
+    eventId: 'event-1',
+    type: 'event',
+    startsAt: '2026-09-18T08:30:00.000Z',
+    endsAt: '2026-09-18T09:30:00.000Z',
+    status: 'scheduled',
+    returnedAt: '',
+    autoReleasedAt: '',
+    ...overrides,
+  });
+  const equipment = [
+    { id: 'camera-1', name: 'Canon EOS R6', category: 'Recording Cameras', reservations: [reservation({})] },
+    { id: 'lens-1', name: 'Sigma 24–70mm f/2.8', category: 'Lens', reservations: [reservation({})] },
+    { id: 'camera-2', name: 'Wrong member camera', category: 'Camera', reservations: [reservation({ groupId: 'kit-2', memberId: 'member-2' })] },
+    { id: 'camera-3', name: 'Wrong event camera', category: 'Camera', reservations: [reservation({ groupId: 'kit-3', eventId: 'event-2' })] },
+    { id: 'camera-4', name: 'Wrong window camera', category: 'Camera', reservations: [reservation({ groupId: 'kit-4', startsAt: '2026-09-18T10:00:00.000Z', endsAt: '2026-09-18T11:00:00.000Z' })] },
+    { id: 'lens-2', name: 'Returned lens', category: 'Lens', reservations: [reservation({ groupId: 'kit-5', status: 'returned', returnedAt: '2026-09-18T09:00:00.000Z' })] },
+    { id: 'audio-1', name: 'Audio recorder', category: 'Audio', reservations: [reservation({})] },
+  ];
+  const loadouts = JSON.parse(JSON.stringify(runFunctions(
+    ['signupClubEquipmentLoadouts'],
+    { state: { equipment: [] }, signupRoleLabels: { photographer: 'Photographer' } },
+    `signupClubEquipmentLoadouts(${JSON.stringify(signup)}, 'event-1', ${JSON.stringify(equipment)})`,
+  )));
+
+  assert.deepEqual(loadouts, [['Canon EOS R6', 'Sigma 24–70mm f/2.8']]);
+  const badge = runFunctions(
+    ['signupClubEquipmentLoadouts', 'signupCameraBadge'],
+    {
+      state: { equipment },
+      signupRoleLabels: { photographer: 'Photographer' },
+      escapeHtml: value => String(value),
+    },
+    `signupCameraBadge(${JSON.stringify(signup)}, 'event-1')`,
+  );
+  assert.match(badge, /Club kit · Canon EOS R6 \+ Sigma 24–70mm f\/2\.8/);
+  const ownAndClubBadge = runFunctions(
+    ['signupClubEquipmentLoadouts', 'signupCameraBadge'],
+    {
+      state: { equipment },
+      signupRoleLabels: { photographer: 'Photographer' },
+      escapeHtml: value => String(value),
+    },
+    `signupCameraBadge(${JSON.stringify({ ...signup, equipmentSource: 'own', ownCameraName: 'Sony a6400' })}, 'event-1')`,
+  );
+  assert.match(ownAndClubBadge, /Own camera · Sony a6400/);
+  assert.match(ownAndClubBadge, /Club kit · Canon EOS R6 \+ Sigma 24–70mm f\/2\.8/);
+  assert.match(appSource, /signupCameraBadge\(s, ev\.id\)/);
+  assert.match(appStyles, /\.signup-camera-badge\.club-loadout/);
+});
+
 test('dashboard widget visibility follows public, member, operations, and admin access', () => {
   const available = ({ access, visitor = false, member = true, operations = false, admin = false }) => runFunctions(
     ['isVisitorSession', 'dashboardPreferenceAvailable'],

@@ -911,9 +911,11 @@
   .signup-camera-status-dot.club { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-dim2); }
   .signup-camera-settings-link { grid-column: 1 / -1; justify-self: start; color: var(--accent); font-size: 10px; font-weight: 600; text-decoration: none; }
   .signup-camera-settings-link:hover { text-decoration: underline; }
-  .signup-camera-badge { display: flex; width: fit-content; align-items: center; gap: 6px; margin-top: 4px; padding: 3px 8px; border-radius: 999px; background: var(--teal-dim); color: #16886c; font-size: 9px; font-weight: 700; }
+  .signup-camera-badge { display: flex; width: fit-content; max-width: 100%; align-items: center; gap: 6px; margin-top: 4px; padding: 3px 8px; border-radius: 999px; background: var(--teal-dim); color: #16886c; font-size: 9px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
   :root[data-theme="dark"] .signup-camera-badge { color: var(--teal); }
-  .signup-camera-badge > span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+  .signup-camera-badge.club-loadout { border: 1px solid rgba(164,1,52,.18); border-radius: 8px; background: var(--accent-dim2); color: var(--accent); }
+  :root[data-theme="dark"] .signup-camera-badge.club-loadout { color: var(--accent); }
+  .signup-camera-badge > span { width: 6px; min-width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
   .reserve-role-badge { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 2px 7px; border-radius: 999px; background: var(--accent-dim); color: var(--accent); font-size: 10px; font-weight: 600; white-space: nowrap; }
   .reserve-priority-note { display: block; margin-top: 3px; color: var(--text3); font-size: 10px; }
 
@@ -2274,6 +2276,7 @@
     #sheet-table td:nth-child(4)::before { content: 'Staying for'; }
     #sheet-table td:nth-child(5)::before { content: 'Signed up'; }
     #sheet-table td:nth-child(6)::before { content: 'Action'; }
+    #sheet-table td:nth-child(3) .signup-camera-badge { grid-column: 2; }
     #equipment-register-table td:nth-child(1)::before { content: 'Equipment'; }
     #equipment-register-table td:nth-child(2)::before { content: 'Person'; }
     #equipment-register-table td:nth-child(3)::before { content: 'Session'; }

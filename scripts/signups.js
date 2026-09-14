@@ -167,9 +167,56 @@ function attendanceLabel(signup) {
   return `${labels[signup.attendanceType] || 'Custom'} · ${start}–${end}`;
 }
 
-function signupCameraBadge(signup) {
-  if (signup.role !== signupRoleLabels.photographer || signup.equipmentSource !== 'own' || !signup.ownCameraName) return '';
-  return `<span class="signup-camera-badge"><span aria-hidden="true"></span>Own camera · ${escapeHtml(signup.ownCameraName)}</span>`;
+function signupClubEquipmentLoadouts(signup, eventId, equipment = state.equipment) {
+  if (signup.role !== signupRoleLabels.photographer || !signup.memberId || !eventId) return [];
+  const signupStart = new Date(signup.attendanceStart).getTime();
+  const signupEnd = new Date(signup.attendanceEnd).getTime();
+  if (!Number.isFinite(signupStart) || !Number.isFinite(signupEnd) || signupStart >= signupEnd) return [];
+
+  const grouped = new Map();
+  equipment
+    .filter(item => ['Camera', 'Recording Cameras', 'Lens'].includes(item.category))
+    .forEach(item => item.reservations.forEach(reservation => {
+      const reservationStart = new Date(reservation.startsAt).getTime();
+      const reservationEnd = new Date(reservation.endsAt).getTime();
+      const isActive = ['scheduled', 'checked_out'].includes(reservation.status)
+        && !reservation.returnedAt
+        && !reservation.autoReleasedAt;
+      const matchesSignup = reservation.memberId === signup.memberId
+        && reservation.eventId === eventId
+        && reservation.type === 'event'
+        && Number.isFinite(reservationStart)
+        && Number.isFinite(reservationEnd)
+        && reservationStart < signupEnd
+        && reservationEnd > signupStart;
+      if (!isActive || !matchesSignup) return;
+
+      const groupKey = reservation.groupId || `${reservation.memberId}:${reservation.eventId}:${reservation.startsAt}:${reservation.endsAt}`;
+      const group = grouped.get(groupKey) || { startsAt: reservationStart, items: new Map() };
+      group.startsAt = Math.min(group.startsAt, reservationStart);
+      group.items.set(item.id || item.name, { name: item.name, category: item.category });
+      grouped.set(groupKey, group);
+    }));
+
+  const categoryOrder = category => category === 'Lens' ? 1 : 0;
+  return [...grouped.values()]
+    .sort((a, b) => a.startsAt - b.startsAt)
+    .map(group => [...group.items.values()]
+      .sort((a, b) => categoryOrder(a.category) - categoryOrder(b.category) || a.name.localeCompare(b.name))
+      .map(item => item.name));
+}
+
+function signupCameraBadge(signup, eventId) {
+  if (signup.role !== signupRoleLabels.photographer) return '';
+  const badges = [];
+  if (signup.equipmentSource === 'own' && signup.ownCameraName) {
+    badges.push(`<span class="signup-camera-badge"><span aria-hidden="true"></span>Own camera · ${escapeHtml(signup.ownCameraName)}</span>`);
+  }
+  badges.push(...signupClubEquipmentLoadouts(signup, eventId).map(loadout => {
+    const label = loadout.length > 1 ? 'Club kit' : 'Club camera';
+    return `<span class="signup-camera-badge club-loadout"><span aria-hidden="true"></span>${label} · ${loadout.map(escapeHtml).join(' + ')}</span>`;
+  }));
+  return badges.join('');
 }
 
 let reserveActivationTimer = null;
@@ -305,7 +352,7 @@ function renderSignupSheet() {
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${escapeHtml(s.name)}</td>
-      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${signupCameraBadge(s)}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${reserveRoleNote}</td>
+      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${signupCameraBadge(s, ev.id)}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${reserveRoleNote}</td>
       <td style="color:var(--text2);font-size:12px;">${escapeHtml(attendanceLabel(s))}</td>
       <td style="color:var(--text3);font-size:12px;">${escapeHtml(s.ts)}</td>
       ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</div></td>` : ''}
@@ -314,7 +361,7 @@ function renderSignupSheet() {
   if (!rows && !expiredSignups.length) {
     rows = `<tr class="empty-row"><td colspan="${showRemoveColumn ? 6 : 5}">No one has signed up yet. Choose an open period below to be first.</td></tr>`;
   }
-  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')}${signupCameraBadge(s)} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}',true)">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
+  rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')}${signupCameraBadge(s, ev.id)} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}',true)">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
   document.getElementById('sheet-table').innerHTML = `
     <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Staying for</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
