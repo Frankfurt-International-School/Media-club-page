@@ -12,23 +12,150 @@ function initSignupSheet() {
   renderSignupSheet();
 }
 
+function signupAttendanceChoices(ev) {
+  const whole = {
+    type: 'whole',
+    label: ev?.isIsst ? `Whole time (${ev.game4Start ? '4' : '3'} games)` : ev?.isSports ? 'Whole time (2 games)' : 'Whole time',
+    startTime: ev?.game1Start || ev?.time,
+    endTime: ev?.game4End || ev?.game3End || ev?.game2End || ev?.game1End || ev?.endTime || '23:59',
+  };
+  const custom = { type: 'custom', label: 'Part time (choose arrival and leaving time)', custom: true };
+  if (ev?.isFestival) {
+    return [
+      { type: 'setup', label: 'Setup (no role)', startTime: ev.setupStart, endTime: ev.setupEnd, roleFree: true },
+      { type: 'shift_1', label: 'Shift 1', startTime: ev.shift1Start, endTime: ev.shift1End },
+      { type: 'shift_2', label: 'Shift 2', startTime: ev.shift2Start, endTime: ev.shift2End },
+      { type: 'takedown', label: 'Takedown (no role)', startTime: ev.takedownStart, endTime: ev.takedownEnd, roleFree: true },
+      { type: 'custom', label: 'Custom time', custom: true },
+    ];
+  }
+  if (ev?.isIsst) {
+    return [whole, 1, 2, 3, 4].flatMap(item => {
+      if (typeof item !== 'number') return [item];
+      const startTime = ev[`game${item}Start`];
+      const endTime = ev[`game${item}End`];
+      return startTime && endTime ? [{ type: `game_${item}`, label: `Game ${item}`, startTime, endTime }] : [];
+    }).concat(custom);
+  }
+  if (ev?.isSports) {
+    return [
+      whole,
+      { type: 'game_1', label: 'Game 1', startTime: ev.game1Start, endTime: ev.game1End },
+      { type: 'game_2', label: 'Game 2', startTime: ev.game2Start, endTime: ev.game2End },
+      custom,
+    ];
+  }
+  return [whole, custom];
+}
+
+function signupChoiceWindow(ev, choice) {
+  if (!ev || !choice || choice.custom || !choice.startTime || !choice.endTime) return null;
+  const start = timeValue(ev.date, choice.startTime);
+  const end = timeValue(ev.date, choice.endTime);
+  return start && end && end > start ? { type: choice.type, start, end, startTime: choice.startTime, endTime: choice.endTime } : null;
+}
+
+function signupRoleAvailability(ev, attendance) {
+  if (!ev || !attendance) return [];
+  const openRoles = eventOpenRoleLabels(ev);
+  return currentUserSignupRoleKeys()
+    .map(key => signupRoleLabels[key])
+    .filter(role => openRoles.includes(role))
+    .map(role => {
+      const capacity = eventRoleCapacity(ev, role);
+      const occupied = (ev.signups || []).filter(signup => signup.role === role && signupOverlaps(signup, attendance)).length;
+      return { role, capacity, occupied, open: Math.max(0, capacity - occupied) };
+    });
+}
+
+function signupAttendanceAvailability(ev) {
+  return signupAttendanceChoices(ev).map(choice => {
+    if (choice.custom) return { ...choice, isFull: false, openSlots: null };
+    if (choice.roleFree) return { ...choice, isFull: false, openSlots: null };
+    const roles = signupRoleAvailability(ev, signupChoiceWindow(ev, choice));
+    const openSlots = roles.reduce((sum, role) => sum + role.open, 0);
+    return { ...choice, roles, openSlots, isFull: openSlots === 0 };
+  });
+}
+
+function signupCapacitySummary(ev) {
+  const availability = signupAttendanceAvailability(ev);
+  const periods = ev?.isFestival
+    ? availability.filter(choice => choice.type.startsWith('shift_'))
+    : ev?.isSports || ev?.isIsst
+      ? availability.filter(choice => choice.type.startsWith('game_'))
+      : availability.filter(choice => choice.type === 'whole');
+  const totalSlots = periods.reduce((sum, period) => sum + (period.roles || []).reduce((roleSum, role) => roleSum + role.capacity, 0), 0);
+  const openSlots = periods.reduce((sum, period) => sum + (period.openSlots || 0), 0);
+  return {
+    periods: periods.length,
+    openPeriods: periods.filter(period => !period.isFull).length,
+    totalSlots,
+    openSlots,
+  };
+}
+
+function renderSignupWindowAvailability(ev) {
+  const container = document.getElementById('signup-window-picker');
+  if (!container) return;
+  const selected = document.getElementById('signup-attendance')?.value || '';
+  const choices = signupAttendanceAvailability(ev).filter(choice => !choice.custom);
+  if (choices.length <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = `
+    <div class="signup-window-picker-head"><strong>Choose a period</strong><span>Full periods stay visible so you can move to the next opening.</span></div>
+    <div class="signup-window-options">${choices.map(choice => `
+      <button type="button" class="signup-window-option${choice.type === selected ? ' active' : ''}${choice.isFull ? ' full' : ''}" onclick="selectSignupAttendanceWindow('${choice.type}')" ${choice.isFull ? 'disabled' : ''} aria-pressed="${choice.type === selected}">
+        <strong>${escapeHtml(choice.label.replace(/ \(.+\)$/, ''))}</strong>
+        <span>${escapeHtml(choice.startTime)}–${escapeHtml(choice.endTime)}</span>
+        <small>${choice.roleFree ? 'No role required' : choice.isFull ? 'Fully staffed' : `${choice.openSlots} role ${choice.openSlots === 1 ? 'place' : 'places'} open`}</small>
+      </button>`).join('')}</div>`;
+}
+
+function selectSignupAttendanceWindow(type) {
+  const select = document.getElementById('signup-attendance');
+  if (!select || ![...select.options].some(option => option.value === type && !option.disabled)) return;
+  select.value = type;
+  updateSignupAttendanceFields();
+}
+
 function renderSignupAttendanceOptions(ev) {
   const select = document.getElementById('signup-attendance');
+  const guidance = document.getElementById('signup-attendance-guidance');
   const previous = select.value;
-  select.innerHTML = ev?.isFestival
-    ? '<option value="setup">Setup (no role)</option><option value="shift_1">Shift 1</option><option value="shift_2">Shift 2</option><option value="takedown">Takedown (no role)</option><option value="custom">Custom time</option>'
-    : ev?.isIsst
-      ? `<option value="whole">Whole time (${ev.game4Start ? '4' : '3'} games)</option><option value="game_1">Game 1</option><option value="game_2">Game 2</option><option value="game_3">Game 3</option>${ev.game4Start ? '<option value="game_4">Game 4</option>' : ''}<option value="custom">Part time (choose arrival and leaving time)</option>`
-      : ev?.isSports
-      ? '<option value="whole">Whole time (2 games)</option><option value="game_1">Half-the-time (Game 1)</option><option value="game_2">Half-the-time (Game 2)</option><option value="custom">Part time (choose arrival and leaving time)</option>'
-      : '<option value="whole">Whole time</option><option value="custom">Part time (choose arrival and leaving time)</option>';
-  if ([...select.options].some(option => option.value === previous)) select.value = previous;
+  const availability = signupAttendanceAvailability(ev);
+  select.innerHTML = availability.map(choice => {
+    const time = choice.startTime && choice.endTime ? ` · ${choice.startTime}–${choice.endTime}` : '';
+    const status = choice.roleFree ? ' · no role required' : choice.isFull ? ' · fully staffed' : choice.openSlots === null ? '' : ` · ${choice.openSlots} open`;
+    return `<option value="${choice.type}"${choice.isFull ? ' disabled' : ''}>${escapeHtml(choice.label + time + status)}</option>`;
+  }).join('');
+
+  const previousIndex = availability.findIndex(choice => choice.type === previous);
+  const previousChoice = availability[previousIndex];
+  const nextChoice = previousChoice?.isFull
+    ? availability.slice(previousIndex + 1).concat(availability.slice(0, previousIndex)).find(choice => !choice.isFull && !choice.custom)
+    : null;
+  const selectedChoice = nextChoice
+    || availability.find(choice => choice.type === previous && !choice.isFull)
+    || availability.find(choice => !choice.isFull && !choice.custom)
+    || availability.find(choice => choice.custom);
+  if (selectedChoice) select.value = selectedChoice.type;
+  if (guidance) {
+    guidance.textContent = nextChoice
+      ? `${previousChoice.label} is fully staffed, so the form moved to ${nextChoice.label}.`
+      : 'Role availability updates for the selected period.';
+  }
+  renderSignupWindowAvailability(ev);
 }
 
 function updateSignupAttendanceFields() {
   const custom = document.getElementById('signup-attendance').value === 'custom';
   document.getElementById('signup-custom-time-fields').style.display = custom ? '' : 'none';
   document.getElementById('signup-attendance-choice').classList.toggle('part-time-selected', custom);
+  const ev = state.events.find(event => event.id === document.getElementById('sheet-event-select')?.value);
+  renderSignupWindowAvailability(ev);
   renderSignupRoleOptionsForCurrentEvent();
 }
 
@@ -109,7 +236,6 @@ function renderSignupSheet() {
   document.getElementById('signup-entry-card').style.display = '';
   renderSignupAttendanceOptions(ev);
   updateSignupAttendanceFields();
-  renderSignupRoleOptions(ev);
   renderSignupNameField();
   scheduleReserveActivation(ev);
   const maybeOption = document.querySelector('#signup-confirmation option[value="maybe"]');
@@ -121,14 +247,15 @@ function renderSignupSheet() {
   if (confirmationHelp) confirmationHelp.textContent = maybeClosed ? 'The Maybe deadline has passed; new signups must be confirmed.' : `Maybe signups must be confirmed by ${formatBerlinDateTime(maybeDeadline, { dateStyle: 'medium', timeStyle: 'short' })} Berlin time.`;
   document.getElementById('sheet-event-title').textContent = ev.title;
   document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${eventScheduleTimeLabel(ev)} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}${isstScheduleCaption(ev) ? ' · ' + isstScheduleCaption(ev) : ''}${festivalScheduleCaption(ev) ? ' · ' + festivalScheduleCaption(ev) : ''}`;
-  const cap = ev.slots || '∞';
-  document.getElementById('sheet-event-cap').textContent = `${ev.signups.length} signed up${ev.slots ? ' · ' + ev.slots + ' max' : ''}`;
-  const pct = ev.slots ? Math.min(100, Math.round(ev.signups.length / ev.slots * 100)) : 0;
-  document.getElementById('sheet-progress').style.width = ev.slots ? pct + '%' : '0%';
-  const isFull = ev.slots && ev.signups.length >= ev.slots;
-  document.getElementById('sheet-cap-badge').innerHTML = isFull
-    ? '<span class="badge badge-coral">Full</span>'
-    : `<span class="badge badge-green">${ev.slots ? ev.slots - ev.signups.length + ' open' : 'Open'}</span>`;
+  const capacity = signupCapacitySummary(ev);
+  document.getElementById('sheet-event-cap').textContent = capacity.totalSlots
+    ? `${ev.signups.length} signed up · ${capacity.openSlots} role ${capacity.openSlots === 1 ? 'place' : 'places'} open across ${capacity.openPeriods} ${capacity.openPeriods === 1 ? 'period' : 'periods'}`
+    : `${ev.signups.length} signed up · no production roles available to this account`;
+  const pct = capacity.totalSlots ? Math.round((capacity.totalSlots - capacity.openSlots) / capacity.totalSlots * 100) : 0;
+  document.getElementById('sheet-progress').style.width = `${pct}%`;
+  document.getElementById('sheet-cap-badge').innerHTML = capacity.totalSlots && capacity.openSlots === 0
+    ? '<span class="badge badge-coral">All periods staffed</span>'
+    : `<span class="badge badge-green">${capacity.openPeriods} ${capacity.openPeriods === 1 ? 'period' : 'periods'} open</span>`;
 
   const currentMemberId = currentMemberRecord()?.id;
   const canRemoveSignup = signup => Boolean(state.currentUser.isAdmin || (currentMemberId && signup.memberId === currentMemberId));
@@ -167,11 +294,8 @@ function renderSignupSheet() {
       ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</div></td>` : ''}
     </tr>`;
   }).join('');
-  if (ev.slots) {
-    const empty = Math.min(3, ev.slots - ev.signups.length);
-    for (let i = 0; i < empty; i++) {
-      rows += `<tr class="empty-row"><td class="row-num">${ev.signups.length + i + 1}</td><td>open slot</td><td>—</td><td>—</td><td>—</td>${showRemoveColumn ? '<td></td>' : ''}</tr>`;
-    }
+  if (!rows && !expiredSignups.length) {
+    rows = `<tr class="empty-row"><td colspan="${showRemoveColumn ? 6 : 5}">No one has signed up yet. Choose an open period below to be first.</td></tr>`;
   }
   rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')}${signupCameraBadge(s)} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}',true)">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
   document.getElementById('sheet-table').innerHTML = `
@@ -222,7 +346,6 @@ async function addSignupRow() {
     return;
   }
   const matchedMember = matchingMembers[0];
-  if (ev.slots && ev.signups.length >= ev.slots) { showToast('This event is full!', 'error'); return; }
   const role = document.getElementById('signup-role').value;
   if (role && eventRoleCapacity(ev, role) === 0) {
     showToast('That role is not open for this event.', 'error');

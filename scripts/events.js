@@ -12,6 +12,16 @@ function eventRoleSetupCaption(event) {
   return `${roles.length} open crew roles`;
 }
 
+function eventScheduleTimeline(event) {
+  const segments = eventScheduleSegments(event);
+  if (!segments.length) return '';
+  return `<div class="event-schedule-timeline" aria-label="Event schedule">${segments.map(segment => `
+    <div class="event-schedule-segment">
+      <span>${escapeHtml(segment.label)}</span>
+      <strong>${escapeHtml(segment.start)}–${escapeHtml(segment.end)}</strong>
+    </div>`).join('')}</div>`;
+}
+
 function renderEvents(filter) {
   if (filter !== undefined) state.eventFilter = filter;
   renderArchivedEvents();
@@ -27,7 +37,6 @@ function renderEvents(filter) {
   const el = document.getElementById('events-list');
   if (!list.length) { el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>${state.showPastEvents ? 'No events in this category.' : 'No upcoming events in this category.'}</p></div>`; return; }
   const eventCard = ev => {
-    const pct = ev.slots ? Math.round((ev.signups.length / ev.slots) * 100) : 0;
     const past = isPastEvent(ev);
     return `
       <div class="event-card">
@@ -35,23 +44,20 @@ function renderEvents(filter) {
           <div class="event-month">${fmtMonth(ev.date)}</div>
           <div class="event-day">${fmtDay(ev.date)}</div>
         </div>
-        <div style="flex:1;">
-          <div class="flex-between mb8">
+        <div class="event-card-content">
+          <div class="event-card-heading">
             <div class="event-title">${escapeHtml(ev.title)}</div>
-            <div style="display:flex;gap:6px;"><span class="badge badge-${catColor(ev.cat)}">${escapeHtml(ev.cat)}</span>${past ? '<span class="badge badge-gray">Past</span>' : ''}</div>
+            <div class="event-card-badges"><span class="badge badge-${catColor(ev.cat)}">${escapeHtml(ev.cat)}</span>${past ? '<span class="badge badge-gray">Past</span>' : ''}</div>
           </div>
-          <div class="event-meta">
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${escapeHtml(eventScheduleTimeLabel(ev))}</span>
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(ev.loc || 'TBC')}</span>
-            ${ev.slots ? `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${ev.signups.length} / ${ev.slots} slots</span>` : ''}
+          <div class="event-primary-meta">
+            <div class="event-primary-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span><small>Event window</small><strong>${escapeHtml(eventScheduleTimeLabel(ev))}</strong></span></div>
+            <div class="event-primary-location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg><span><small>Location</small><strong>${escapeHtml(ev.loc || 'TBC')}</strong></span></div>
           </div>
-          ${ev.desc ? `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${escapeHtml(ev.desc)}</div>` : ''}
-          ${sportsScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(sportsScheduleCaption(ev))}</div>` : ''}
-          ${isstScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(isstScheduleCaption(ev))}</div>` : ''}
-          ${festivalScheduleCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(festivalScheduleCaption(ev))}</div>` : ''}
-          ${livestreamSetupCaption(ev) ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
+          ${eventScheduleTimeline(ev)}
+          ${ev.desc ? `<div class="event-description">${escapeHtml(ev.desc)}</div>` : ''}
+          ${livestreamSetupCaption(ev) ? `<div class="event-setup-note">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
           ${eventRoleSetupCaption(ev) ? `<div class="event-open-role-caption"><span></span>${escapeHtml(eventRoleSetupCaption(ev))}</div>` : ''}
-          ${ev.slots ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><div class="progress-label">${pct}% full</div>` : ''}
+          <div class="event-signup-count">${ev.signups.length} ${ev.signups.length === 1 ? 'crew signup' : 'crew signups'}</div>
           <div class="event-card-actions">
             ${past
               ? '<span class="text-muted">This event has ended.</span>'

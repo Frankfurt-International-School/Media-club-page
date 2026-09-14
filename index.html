@@ -384,21 +384,23 @@
     <div class="card signup-entry-card" id="signup-entry-card">
       <div class="signup-entry-head">
         <div class="signup-entry-title">Join this event</div>
-        <div class="signup-entry-sub">Choose the member, production role, and attendance window.</div>
+        <div class="signup-entry-sub">Choose the member and time first, then claim a production role that is still open for that period.</div>
       </div>
+      <div class="signup-window-picker" id="signup-window-picker" aria-live="polite"></div>
       <div class="signup-entry-grid" id="signup-entry-grid">
         <div class="form-group signup-field" id="signup-member-field">
           <label class="form-label" for="signup-name">Member</label>
           <input class="form-input" id="signup-name" autocomplete="off" placeholder="Name as shown on the Members page" oninput="clearSignupNameValidation()" onblur="validateSignupNameInput(true)" />
           <div class="signup-name-help" id="signup-name-help">Enter the full name exactly as displayed on the Members page. Capitalization does not matter.</div>
         </div>
-        <div class="form-group signup-field" id="signup-role-group">
-          <label class="form-label" for="signup-role">Production role</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-role" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
-        </div>
         <div class="form-group signup-field attendance-choice" id="signup-attendance-choice">
           <label class="form-label" for="signup-attendance">Staying for</label>
           <div class="signup-select-shell"><select class="form-select" id="signup-attendance" onchange="updateSignupAttendanceFields()"></select></div>
+          <div class="signup-name-help" id="signup-attendance-guidance"></div>
+        </div>
+        <div class="form-group signup-field" id="signup-role-group">
+          <label class="form-label" for="signup-role">Production role</label>
+          <div class="signup-select-shell"><select class="form-select" id="signup-role" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
         </div>
       </div>
       <div class="sidebar-customize-toggle" style="margin-top:14px;"><span><strong>Can you definitely attend?</strong><span class="text-muted" id="signup-confirmation-help" style="display:block;">Choose Maybe if you still need to confirm. You must confirm two hours before the event starts.</span></span><select class="form-select" id="signup-confirmation" style="width:150px;"><option value="confirmed">Yes, confirmed</option><option value="maybe">Maybe</option></select></div>

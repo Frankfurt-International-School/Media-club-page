@@ -17,10 +17,11 @@ function galleryViewFromUrl() {
 function canAccessAthleticsGallery() {
   if (isVisitorSession()) return false;
   const member = currentMemberRecord();
+  const hasAthleticsTag = memberDirectoryTags(member?.spec, member?.teamKeys).hasAthletics;
   return Boolean(
     canAccessAdminPanel()
     || normalizeRoleName(member?.role || '') === 'leader'
-    || member?.teamKeys?.includes('athletics')
+    || hasAthleticsTag
     || state.gallery.some(project => project.scope === 'athletics' && project.memberId === member?.id)
   );
 }

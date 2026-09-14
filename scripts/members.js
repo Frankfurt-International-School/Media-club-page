@@ -43,7 +43,7 @@ function renderMembers() {
   const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
     const { hasNewsTeam, hasAthletics, hasCas, specialisations } = memberDirectoryTags(m.spec, m.teamKeys);
-    const tags = `${hasCas ? '<span class="badge badge-cas">CAS</span>' : ''}${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${hasAthletics ? '<span class="badge badge-blue">Athletics</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
+    const tags = `${hasCas ? '<span class="badge badge-cas">CAS</span>' : ''}${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${hasAthletics ? '<span class="badge badge-athletics">Athletics</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
     const profileDetails = [canAccessAdminPanel() ? m.email : '', m.gradeLevel].filter(Boolean).map(value => escapeHtml(value)).join(' · ');
     const safeAvatarUrl = safeExternalUrl(m.avatarUrl);
     const avatarStyle = safeAvatarUrl

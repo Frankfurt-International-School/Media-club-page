@@ -96,7 +96,8 @@ test('CAS, News Team, and Athletics are canonical secondary member tags before s
   });
   assert.match(appSource, /hasCas \? '<span class="badge badge-cas">CAS<\/span>'/);
   assert.match(appSource, /hasNewsTeam \? '<span class="badge badge-teal">News Team<\/span>'/);
-  assert.match(appSource, /hasAthletics \? '<span class="badge badge-blue">Athletics<\/span>'/);
+  assert.match(appSource, /hasAthletics \? '<span class="badge badge-athletics">Athletics<\/span>'/);
+  assert.match(appStyles, /\.badge-athletics \{[^}]*background: var\(--accent-dim\);[^}]*color: var\(--accent\)/);
   assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
 });
 
@@ -126,6 +127,7 @@ test('public.members CAS tags are the attendance tracker source of truth', () =>
 test('Athletics gallery access is separated from the public showcase end to end', () => {
   const publicGallery = extractSqlFunction('get_public_gallery');
   const athleticsCustodian = extractSqlFunction('is_athletics_gallery_custodian');
+  const teamAccess = extractSqlFunction('is_member_of_team');
   assert.match(schemaSql, /project_scope text not null default 'showcase' check \(project_scope in \('showcase', 'athletics'\)\)/);
   assert.match(schemaSql, /event_id uuid references public\.events\(id\) on delete set null/);
   assert.match(schemaSql, /gallery_event_scope_check[\s\S]*?event_id is null or project_scope = 'athletics'/);
@@ -134,6 +136,7 @@ test('Athletics gallery access is separated from the public showcase end to end'
   assert.match(athleticsCustodian, /public\.is_admin_panel_user\(\)/);
   assert.match(athleticsCustodian, /replace\(lower\(member\.role\), ' ', '-'\) = 'leader'/);
   assert.doesNotMatch(athleticsCustodian, /co-leader|moderator/);
+  assert.match(teamAccess, /p_team_key = 'athletics'[\s\S]*?from public\.members member[\s\S]*?member\.status[\s\S]*?athletics\|athletics\[\[:space:\]\]\+department/);
   assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.member_id = public\.current_member_id\(\)[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_athletics_gallery_custodian\(\)/);
   assert.match(policiesSql, /create policy "Signed-in members can submit gallery projects"[\s\S]*?nullif\(btrim\(storage_path\), ''\)[\s\S]*?gallery\.project_scope = 'showcase' or gallery\.image_url is null/);
   assert.match(policiesSql, /gallery\.event_id is null or gallery\.project_scope = 'athletics'/);
@@ -155,12 +158,12 @@ test('Athletics gallery access is separated from the public showcase end to end'
   assert.match(appSource, /the uploader, Faculty, and Leaders/);
   assert.match(indexHtml, /data-gallery-view="athletics"[\s\S]*?Athletics library[\s\S]*?Restricted delivery/);
 
-  const access = ({ teamKeys = [], isAdmin = false, owns = false, visitor = false, role = 'Member' }) => runFunctions(
-    ['canAccessAthleticsGallery'],
+  const access = ({ spec = '', teamKeys = [], isAdmin = false, owns = false, visitor = false, role = 'Member' }) => runFunctions(
+    ['memberDirectoryTags', 'canAccessAthleticsGallery'],
     {
       state: { gallery: owns ? [{ scope: 'athletics', memberId: 'member-1' }] : [] },
       isVisitorSession: () => visitor,
-      currentMemberRecord: () => ({ id: 'member-1', teamKeys, role }),
+      currentMemberRecord: () => ({ id: 'member-1', spec, teamKeys, role }),
       canAccessAdminPanel: () => isAdmin,
       normalizeRoleName: value => value.toLowerCase().replace(/\s+/g, '-'),
     },
@@ -168,6 +171,7 @@ test('Athletics gallery access is separated from the public showcase end to end'
   );
   assert.equal(access({}), false);
   assert.equal(access({ teamKeys: ['athletics'] }), true);
+  assert.equal(access({ spec: 'Photography, Athletics' }), true);
   assert.equal(access({ isAdmin: true }), true);
   assert.equal(access({ role: 'Leader' }), true);
   assert.equal(access({ role: 'Co-Leader' }), false);
@@ -735,6 +739,15 @@ test('all event categories require and display an approximate end time', () => {
   assert.equal(label({ cat: 'Recording (live cut)', time: '15:30', endTime: '23:59' }), '15:30');
   assert.equal(label({ cat: 'Event', time: '15:30', endTime: '18:00' }), '15:30 · Approximate end time: 18:00');
   assert.equal(label({ cat: 'Livestream', time: '09:00', endTime: '16:30', isSports: true }), '09:00 · Approximate end time: 16:30');
+  const sportsSegments = JSON.parse(JSON.stringify(runFunctions(
+    ['eventScheduleSegments'],
+    {},
+    "eventScheduleSegments({ isSports: true, game1Start: '15:00', game1End: '16:00', game2Start: '16:00', game2End: '17:00' })",
+  )));
+  assert.deepEqual(sportsSegments, [
+    { key: 'game_1', label: 'Game 1', start: '15:00', end: '16:00' },
+    { key: 'game_2', label: 'Game 2', start: '16:00', end: '17:00' },
+  ]);
 });
 
 test('Every event category supports role matrices, presets, and independent Photographer capacity', () => {
@@ -767,6 +780,7 @@ test('Every event category supports role matrices, presets, and independent Phot
   assert.match(appSource, /photographer_slot_limit: photographerSlotLimit/);
   assert.match(appSource, /setEventSignupRoles\(event\.openSignupRoles\)/);
   assert.match(appSource, /overlappingRoleSignups\.length >= roleCapacity/);
+  assert.doesNotMatch(extractFunction('addSignupRow'), /ev\.slots && ev\.signups\.length >= ev\.slots/);
   assert.match(schemaSql, /open_signup_roles text\[\] not null default/);
   assert.match(schemaSql, /single_role_slot_limit smallint not null default 1/);
   assert.match(schemaSql, /photographer_slot_limit smallint not null default 1/);
@@ -787,6 +801,41 @@ test('Every event category supports role matrices, presets, and independent Phot
   assert.match(updateGrant, /photographer_slot_limit/);
 });
 
+test('signup availability is calculated per period and advances beyond a staffed game', () => {
+  const event = {
+    id: 'event-1',
+    cat: 'Event',
+    date: '2026-09-18',
+    time: '15:00',
+    endTime: '17:00',
+    isSports: true,
+    game1Start: '15:00',
+    game1End: '16:00',
+    game2Start: '16:00',
+    game2End: '17:00',
+    openSignupRoles: ['OBS'],
+    slots: 1,
+    signups: [{ role: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z' }],
+  };
+  const availability = JSON.parse(JSON.stringify(runFunctions(
+    ['signupOverlaps', 'signupAttendanceChoices', 'signupChoiceWindow', 'signupRoleAvailability', 'signupAttendanceAvailability', 'signupCapacitySummary'],
+    {
+      signupRoleLabels: { obs: 'OBS' },
+      eventOpenRoleLabels: () => ['OBS'],
+      currentUserSignupRoleKeys: () => ['obs'],
+      eventRoleCapacity: () => 1,
+      timeValue: (date, time) => Date.parse(`${date}T${time}:00Z`),
+    },
+    `({ availability: signupAttendanceAvailability(${JSON.stringify(event)}), summary: signupCapacitySummary(${JSON.stringify(event)}) })`,
+  )));
+  assert.equal(availability.availability.find(choice => choice.type === 'game_1').isFull, true);
+  assert.equal(availability.availability.find(choice => choice.type === 'game_2').isFull, false);
+  assert.deepEqual(availability.summary, { periods: 2, openPeriods: 1, totalSlots: 2, openSlots: 1 });
+  assert.match(extractFunction('renderSignupAttendanceOptions'), /previousChoice\?\.isFull[\s\S]*?slice\(previousIndex \+ 1\)[\s\S]*?nextChoice/);
+  assert.match(indexHtml, /id="signup-member-field"[\s\S]*?id="signup-attendance-choice"[\s\S]*?id="signup-role-group"/);
+  assert.match(indexHtml, /id="signup-window-picker"/);
+});
+
 test('production staff can edit events without replacing linked records or lifecycle fields', () => {
   const openEditor = extractFunction('openEventEditor');
   const saveEvent = extractFunction('addEvent');
@@ -804,6 +853,7 @@ test('production staff can edit events without replacing linked records or lifec
       fmtMonth: () => 'SEP',
       fmtDay: () => '18',
       eventScheduleTimeLabel: () => '17:30',
+      eventScheduleTimeline: () => '',
       escapeHtml: value => String(value),
       pageUrl: () => '/signup?event=event-1',
       catColor: () => 'purple',
@@ -830,6 +880,9 @@ test('production staff can edit events without replacing linked records or lifec
   assert.match(appSource, /onclick="openEventEditor\('\$\{ev\.id\}'\)"[^>]*>Edit event<\/button>/);
   assert.match(renderEventCard(true), /Edit event/);
   assert.doesNotMatch(renderEventCard(false), /Edit event/);
+  assert.match(renderEventCard(false), /event-primary-time[\s\S]*?Event window[\s\S]*?17:30/);
+  assert.match(appStyles, /\.event-title \{[^}]*font-family: var\(--font-head\)[^}]*font-size: 20px/);
+  assert.match(appStyles, /\.event-schedule-segment strong \{[^}]*font-family: var\(--font-head\)[^}]*font-size: 18px/);
   assert.match(openEditor, /if \(!canManageCrewOperations\(\)\)/);
   assert.match(openEditor, /document\.getElementById\('ev-title'\)\.value = event\.title/);
   assert.match(openEditor, /document\.getElementById\('ev-date'\)\.value = event\.date/);

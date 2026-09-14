@@ -267,12 +267,22 @@ stable
 security definer
 set search_path = public
 as $$
-  select exists (
-    select 1
-    from public.member_team_memberships membership
-    where membership.member_id = public.current_member_id()
-      and membership.team_key = p_team_key
-  );
+  select
+    exists (
+      select 1
+      from public.member_team_memberships membership
+      where membership.member_id = public.current_member_id()
+        and membership.team_key = p_team_key
+    )
+    or (
+      p_team_key = 'athletics'
+      and exists (
+        select 1
+        from public.members member
+        where member.id = public.current_member_id()
+          and lower(coalesce(member.status, '')) ~ '(^|[[:space:]]*,[[:space:]])(athletics|athletics[[:space:]]+department)([[:space:]]*,|$)'
+      )
+    );
 $$;
 
 create or replace function public.can_read_meeting(p_meeting_id uuid)

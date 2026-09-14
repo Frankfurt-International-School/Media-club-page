@@ -207,6 +207,33 @@ function festivalScheduleCaption(ev) {
   if (!ev.isFestival) return '';
   return `Setup ${ev.setupStart}–${ev.setupEnd} · Shift 1 ${ev.shift1Start}–${ev.shift1End} · Shift 2 ${ev.shift2Start}–${ev.shift2End} · Takedown ${ev.takedownStart}–${ev.takedownEnd}`;
 }
+function eventScheduleSegments(ev) {
+  if (ev?.isFestival) {
+    return [
+      { key: 'setup', label: 'Setup', start: ev.setupStart, end: ev.setupEnd },
+      { key: 'shift_1', label: 'Shift 1', start: ev.shift1Start, end: ev.shift1End },
+      { key: 'shift_2', label: 'Shift 2', start: ev.shift2Start, end: ev.shift2End },
+      { key: 'takedown', label: 'Takedown', start: ev.takedownStart, end: ev.takedownEnd },
+    ].filter(segment => segment.start && segment.end);
+  }
+  if (ev?.isIsst) {
+    return [1, 2, 3, 4].map(number => ({
+      key: `game_${number}`,
+      label: `Game ${number}`,
+      start: ev[`game${number}Start`],
+      end: ev[`game${number}End`],
+    })).filter(segment => segment.start && segment.end);
+  }
+  if (ev?.isSports) {
+    return [1, 2].map(number => ({
+      key: `game_${number}`,
+      label: `Game ${number}`,
+      start: ev[`game${number}Start`],
+      end: ev[`game${number}End`],
+    })).filter(segment => segment.start && segment.end);
+  }
+  return [];
+}
 function memberColor(c) {
   const map = { green: ['var(--accent-dim)', 'var(--accent)'], purple: ['var(--purple-dim)', 'var(--purple)'], coral: ['var(--coral-dim)', 'var(--coral)'], amber: ['var(--amber-dim)', 'var(--amber)'], teal: ['var(--teal-dim)', 'var(--teal)'], blue: ['var(--blue-dim)', 'var(--blue)'] };
   return map[c] || map.purple;
