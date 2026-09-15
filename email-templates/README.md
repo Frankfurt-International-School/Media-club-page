@@ -33,10 +33,10 @@ application-decision email. It is not a Supabase Auth template and should not be
 pasted into **Authentication > Emails > Templates**.
 
 The deployed `review-application` Edge Function renders the matching production
-layout from `supabase/functions/review-application/rejection-email.mjs`, safely
-inserts the applicant's first name and the reviewer's reason, and submits the final
-HTML and plain-text versions directly to Resend. No Resend dashboard template is
-required, so the email design remains versioned with the function that sends it.
+layout directly from its self-contained `index.ts`, safely inserts the applicant's
+first name and the reviewer's reason, and submits the final HTML and plain-text
+versions directly to Resend. No Resend dashboard template is required, so the email
+design remains versioned with the function that sends it.
 
 The function uses the `RESEND_API_KEY` Edge Function secret already configured for
 schedule notifications. It sends from `APPLICATION_FROM_EMAIL` when that optional

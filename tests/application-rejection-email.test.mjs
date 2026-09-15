@@ -2,13 +2,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { renderRejectionEmail } from '../supabase/functions/review-application/rejection-email.mjs';
-
 const reviewFunction = readFileSync(new URL('../supabase/functions/review-application/index.ts', import.meta.url), 'utf8');
 const template = readFileSync(new URL('../email-templates/application-rejected.html', import.meta.url), 'utf8');
 const setupGuide = readFileSync(new URL('../SUPABASE-APPLICATION-SETUP.md', import.meta.url), 'utf8');
 const adminSource = readFileSync(new URL('../scripts/admin.js', import.meta.url), 'utf8');
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const rendererStart = reviewFunction.indexOf('const escapeEmailHtml');
+const rendererEnd = reviewFunction.indexOf('\nDeno.serve', rendererStart);
+const rendererSource = reviewFunction.slice(rendererStart, rendererEnd)
+  .replace(/\}: \{ applicantName: unknown; reason: string; infoUrl: string \}/, '}')
+  .replace(/: unknown/g, '')
+  .replace(/\[character\]!/, '[character]');
+const renderRejectionEmail = Function(`${rendererSource}\nreturn renderRejectionEmail;`)();
 
 test('rejection email renders branded HTML and a plain-text alternative', () => {
   const rendered = renderRejectionEmail({
@@ -69,7 +74,8 @@ test('review UI and setup guide describe automatic rejection email delivery', ()
   assert.doesNotMatch(template, /<script|javascript:|tracking/i);
 
   assert.match(setupGuide, /RESEND_API_KEY/);
-  assert.match(setupGuide, /rejection-email\.mjs/);
+  assert.match(setupGuide, /email renderer is included[\s\S]*?inside `index\.ts`/);
+  assert.doesNotMatch(reviewFunction, /from "\.\/rejection-email/);
   assert.match(setupGuide, /marked rejected only after Resend accepts the email/);
   assert.doesNotMatch(setupGuide, /reviewer is reminded to email[\s\S]{0,40}manually/i);
 });

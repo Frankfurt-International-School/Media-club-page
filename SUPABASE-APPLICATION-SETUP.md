@@ -30,8 +30,9 @@ password-reset request does not require an Edge Function.
 ## 3. Create the Edge Function
 
 In Supabase, open **Edge Functions**, create a function named `review-application`,
-and deploy the complete `supabase/functions/review-application/` directory, including
-`index.ts` and `rejection-email.mjs`. Keep JWT verification enabled.
+paste the complete `supabase/functions/review-application/index.ts` file into the
+editor, keep JWT verification enabled, and deploy it. The email renderer is included
+inside `index.ts`, so dashboard deployment does not depend on another source file.
 
 With the Supabase CLI, the equivalent commands are:
 
@@ -49,7 +50,7 @@ set `APPLICATION_FROM_EMAIL` to a verified sender; otherwise the function uses
 `NOTIFICATION_FROM_EMAIL` and then
 `FIS Media Club <notifications@auth.fismediaclub.org>` as its fallback. Secret
 changes are available to hosted functions immediately; redeploy `review-application`
-whenever its source code or rejection template module changes.
+whenever its source code changes.
 
 ## 4. Configure authentication email
 
