@@ -1,8 +1,9 @@
-# Crew Center authentication email templates
+# Crew Center email templates
 
-These templates are for **Supabase Auth**, with Resend acting as Supabase's SMTP
-delivery service. Creating a template only in the Resend dashboard will not change
-emails sent by Supabase's built-in invitation and password-reset flows.
+The invitation, password-reset and password-changed templates are for **Supabase
+Auth**, with Resend acting as Supabase's SMTP delivery service.
+Creating a template only in the Resend dashboard will not change emails sent by
+those built-in Supabase Auth flows.
 
 ## Install in Supabase
 
@@ -25,6 +26,23 @@ The next invitation or password-reset request will use the saved Supabase templa
 and will be delivered through the existing Resend SMTP connection. Nothing needs to
 be uploaded to Resend for this setup.
 
+## Application rejection email
+
+`application-rejected.html` is the reviewable design reference for the private
+application-decision email. It is not a Supabase Auth template and should not be
+pasted into **Authentication > Emails > Templates**.
+
+The deployed `review-application` Edge Function renders the matching production
+layout from `supabase/functions/review-application/rejection-email.mjs`, safely
+inserts the applicant's first name and the reviewer's reason, and submits the final
+HTML and plain-text versions directly to Resend. No Resend dashboard template is
+required, so the email design remains versioned with the function that sends it.
+
+The function uses the `RESEND_API_KEY` Edge Function secret already configured for
+schedule notifications. It sends from `APPLICATION_FROM_EMAIL` when that optional
+secret is present, then falls back to `NOTIFICATION_FROM_EMAIL`, and finally to
+`FIS Media Club <notifications@auth.fismediaclub.org>`.
+
 ## Important details
 
 - Keep `{{ .ConfirmationURL }}` exactly as written. Supabase replaces it with the
@@ -42,10 +60,13 @@ be uploaded to Resend for this setup.
   rewritten.
 - Test with a fresh invitation and a fresh password-reset email. Use only the newest
   link and click it once.
+- Test application rejection with one controlled pending application. The application
+  should remain pending if Resend refuses the message, and should become rejected only
+  after Resend accepts it.
 - If a mail client blocks remote images, the header and call-to-action still retain
   their text and color treatment.
 
-## When Resend dashboard templates would be used
+## When other Resend dashboard templates would be used
 
 Resend dashboard templates require the sender to call the Resend API with a published
 template ID. For Supabase Auth, that means replacing the simple SMTP-only path with a

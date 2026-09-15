@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { renderRejectionEmail } from "./rejection-email.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 const isFisAliasEmail = (email: unknown) => /^[a-z]{2}\d{4,}@fis\.edu$/i.test(String(email || "").trim());
+const isFisSchoolEmail = (email: unknown) => /^[^\s@]+@fis\.edu$/i.test(String(email || "").trim());
 
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -35,6 +37,9 @@ Deno.serve(async request => {
 
   const { applicationId, decision, reason = "" } = await request.json();
   if (!applicationId || !["approve", "reject"].includes(decision)) return json({ error: "Invalid review request." }, 400);
+  const rejectionReason = String(reason).trim();
+  if (decision === "reject" && !rejectionReason) return json({ error: "A rejection reason is required." }, 400);
+  if (decision === "reject" && rejectionReason.length > 1500) return json({ error: "Keep the rejection reason to 1,500 characters or fewer." }, 400);
 
   const { data: application, error: applicationError } = await adminClient
     .from("join_applications")
@@ -131,19 +136,70 @@ Deno.serve(async request => {
     return json({ ok: true });
   }
 
-  if (!String(reason).trim()) {
+  const recipientEmail = String(application.email || "").trim().toLowerCase();
+  if (!isFisSchoolEmail(recipientEmail)) {
     await releaseApplication();
-    return json({ error: "A rejection reason is required." }, 400);
+    return json({ error: "The applicant does not have a valid FIS email address, so the rejection email was not sent." }, 400);
   }
+
+  const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
+  if (!resendApiKey) {
+    await releaseApplication();
+    return json({ error: "Rejection email delivery is not configured. Add RESEND_API_KEY to the Edge Function secrets." }, 503);
+  }
+
+  const infoUrl = Deno.env.get("PUBLIC_INFO_URL") || "https://info.fismediaclub.org";
+  const from = Deno.env.get("APPLICATION_FROM_EMAIL")
+    || Deno.env.get("NOTIFICATION_FROM_EMAIL")
+    || "FIS Media Club <notifications@auth.fismediaclub.org>";
+  const rendered = renderRejectionEmail({ applicantName: application.name, reason: rejectionReason, infoUrl });
+  const emailPayload = {
+    from,
+    to: [recipientEmail],
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    tags: [
+      { name: "message_type", value: "application_rejected" },
+      { name: "application_id", value: applicationId },
+    ],
+  };
+
+  let emailResponse: Response;
+  let emailResponseBody: Record<string, unknown> = {};
+  try {
+    emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": `application-rejection-${applicationId}`,
+      },
+      body: JSON.stringify(emailPayload),
+      signal: AbortSignal.timeout(10_000),
+    });
+    emailResponseBody = await emailResponse.json().catch(() => ({}));
+  } catch (error) {
+    await releaseApplication();
+    const message = error instanceof Error ? error.message : "The email provider could not be reached.";
+    return json({ error: `Rejection email was not sent: ${message}` }, 502);
+  }
+
+  if (!emailResponse.ok || typeof emailResponseBody.id !== "string") {
+    await releaseApplication();
+    const message = String(emailResponseBody.message || emailResponseBody.error || `Resend returned ${emailResponse.status}`);
+    return json({ error: `Rejection email was not sent: ${message}` }, 502);
+  }
+
   const { error: updateError } = await adminClient.from("join_applications").update({
     status: "rejected",
-    rejection_reason: String(reason).trim(),
+    rejection_reason: rejectionReason,
     reviewed_at: new Date().toISOString(),
     reviewed_by: user.id,
   }).eq("id", applicationId);
   if (updateError) {
     await releaseApplication();
-    return json({ error: updateError.message }, 500);
+    return json({ error: `The email was sent, but the application could not be marked rejected: ${updateError.message}. Retry promptly; the delivery request is protected from duplicates for 24 hours.` }, 500);
   }
-  return json({ ok: true, applicantEmail: application.email });
+  return json({ ok: true, applicantEmail: recipientEmail, emailSent: true, providerMessageId: emailResponseBody.id });
 });

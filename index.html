@@ -1182,9 +1182,9 @@
     <div class="modal-sub" id="reject-application-name">Explain the decision to the applicant.</div>
     <div class="form-group">
       <label class="form-label" for="reject-application-reason">Reason *</label>
-      <textarea class="form-textarea" id="reject-application-reason" placeholder="Please provide a clear and respectful reason." required></textarea>
+      <textarea class="form-textarea" id="reject-application-reason" maxlength="1500" placeholder="Please provide a clear and respectful reason. This will appear in the email." required></textarea>
     </div>
-    <button class="btn btn-danger" id="reject-application-submit" style="width:100%;justify-content:center;" onclick="submitApplicationRejection()">Reject application</button>
+    <button class="btn btn-danger" id="reject-application-submit" style="width:100%;justify-content:center;" onclick="submitApplicationRejection()">Reject and email applicant</button>
   </div>
 </div>
 

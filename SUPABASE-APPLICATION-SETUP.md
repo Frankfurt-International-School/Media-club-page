@@ -30,21 +30,26 @@ password-reset request does not require an Edge Function.
 ## 3. Create the Edge Function
 
 In Supabase, open **Edge Functions**, create a function named `review-application`,
-and use the code from `supabase/functions/review-application/index.ts`. Keep JWT
-verification enabled, then deploy the function.
+and deploy the complete `supabase/functions/review-application/` directory, including
+`index.ts` and `rejection-email.mjs`. Keep JWT verification enabled.
 
-With the Supabase CLI, the equivalent command is:
+With the Supabase CLI, the equivalent commands are:
 
 ```sh
+supabase secrets set RESEND_API_KEY=YOUR_SENDING_ONLY_KEY SITE_URL=https://fismediaclub.org
 supabase functions deploy review-application
 ```
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are supplied to
 hosted Edge Functions by Supabase. Never put the service role key in frontend code.
 Add `SITE_URL=https://fismediaclub.org` under **Edge Functions > Secrets** so
-application-review invitations use the production domain. Secret changes are
-available to hosted functions immediately; redeploy `review-application` whenever
-its source code changes need to be applied to the live project.
+application-review invitations use the production domain. Rejection messages use
+the `RESEND_API_KEY` sending-only key also used for schedule notifications. You may
+set `APPLICATION_FROM_EMAIL` to a verified sender; otherwise the function uses
+`NOTIFICATION_FROM_EMAIL` and then
+`FIS Media Club <notifications@auth.fismediaclub.org>` as its fallback. Secret
+changes are available to hosted functions immediately; redeploy `review-application`
+whenever its source code or rejection template module changes.
 
 ## 4. Configure authentication email
 
@@ -71,9 +76,13 @@ Store the API key only in Supabase's SMTP settings. Never commit it or put it in
 frontend code. Keep Resend open and click tracking disabled so authentication links
 are not rewritten. With this SMTP setup, Supabase owns the message template and
 Resend delivers it; creating a template only in Resend does not update Supabase.
-Using a Resend-hosted template would require a separate Supabase Send Email Hook.
-Rejected applications are recorded in Supabase and the reviewer is reminded to email
-the applicant manually.
+Using a Resend-hosted template for an Auth email would require a separate Supabase
+Send Email Hook. Application rejection is not an Auth email: the `review-application`
+Edge Function renders its version-controlled template and sends the private message
+through Resend's individual email endpoint. The reviewer's reason is escaped before
+it enters the HTML message, and a plain-text version is included. The application is
+marked rejected only after Resend accepts the email; on a delivery error it remains
+pending so the reviewer can retry.
 
 ## 5. Publish and test
 
@@ -83,15 +92,17 @@ an alias email you control, then test:
 
 1. Approve: the application disappears from Pending, a Member row is created, and an
    invitation email arrives. Its link opens the Set Password screen.
-2. Reject: the admin must enter a reason. The application is marked rejected and a
-   notification reminds the reviewer to email the applicant manually.
+2. Reject: the admin must enter a reason. Confirm that one private decision email
+   arrives with that reason and that the application is then marked rejected. If the
+   send fails, confirm the provider error appears and the application stays pending.
 3. Password reset: enter a member email on `https://fismediaclub.org/signin`, select
    **Forgot password?**, and confirm that the newest email link opens the Reset
    Password screen on `fismediaclub.org` before the dashboard. Recovery links are
    single-use.
-4. Resend: confirm both messages are delivered from
-   `Media Club Crew Center <no-reply@auth.fismediaclub.org>` and that SPF and DKIM
-   pass in the provider logs.
+4. Resend: confirm the Auth messages are delivered from
+   `Media Club Crew Center <no-reply@auth.fismediaclub.org>`, the rejection message
+   uses the configured application/notification sender, and SPF and DKIM pass in the
+   provider logs.
 
 ## 6. Enable event and meeting subscription emails
 
