@@ -269,6 +269,13 @@ function activeReserveAssignments(ev, now = Date.now()) {
   return assignments;
 }
 
+function signupRoleCoverageLabel(signup, activeReserveRole) {
+  const coversMixingAndObs = signup.role === signupRoleLabels.mixing
+    && signup.reserveRole1 === signupRoleLabels.obs
+    && activeReserveRole === signupRoleLabels.obs;
+  return coversMixingAndObs ? `${signupRoleLabels.mixing} + ${signupRoleLabels.obs}` : signup.role;
+}
+
 function scheduleReserveActivation(ev) {
   if (reserveActivationTimer) clearTimeout(reserveActivationTimer);
   const activationAt = reserveActivationAt(ev);
@@ -337,6 +344,10 @@ function renderSignupSheet() {
     });
   let rows = orderedSignups.map(({ signup: s }, i) => {
     const activeReserveRole = reserveAssignments.get(s.id);
+    const coversMixingAndObs = s.role === signupRoleLabels.mixing
+      && s.reserveRole1 === signupRoleLabels.obs
+      && activeReserveRole === signupRoleLabels.obs;
+    const roleCoverageLabel = signupRoleCoverageLabel(s, activeReserveRole);
     const reserveRoleNote = s.role === signupRoleLabels.student_supervisor
       ? activeReserveRole
         ? `<span class="reserve-priority-note"><strong>Current role:</strong> ${escapeHtml(activeReserveRole)}</span>`
@@ -345,14 +356,14 @@ function renderSignupSheet() {
           : ''
       : s.role === signupRoleLabels.mixing && s.reserveRole1 === signupRoleLabels.obs
         ? activeReserveRole
-          ? `<span class="reserve-priority-note"><strong>Current role:</strong> ${escapeHtml(activeReserveRole)} · MIXING takeover reserve activated</span>`
-          : `<span class="reserve-priority-note">${reserveIsActive ? 'OBS is already covered' : 'OBS takeover reserve · activates if vacant 10 minutes before start'}</span>`
+          ? '<span class="reserve-priority-note"><strong>Covering both:</strong> MIXING and OBS for this attendance window</span>'
+          : `<span class="reserve-priority-note">${reserveIsActive ? 'OBS already has direct coverage · MIXING remains covered here' : 'OBS backup coverage · if vacant 10 minutes before start, this member covers both roles'}</span>`
         : '';
     return `
     <tr>
       <td class="row-num">${i + 1}</td>
       <td>${escapeHtml(s.name)}</td>
-      <td>${s.role ? escapeHtml(s.role) : '<span style="color:var(--text3)">—</span>'}${signupCameraBadge(s, ev.id)}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? '<span class="reserve-role-badge">Reserve active</span>' : ''}${reserveRoleNote}</td>
+      <td>${roleCoverageLabel ? escapeHtml(roleCoverageLabel) : '<span style="color:var(--text3)">—</span>'}${signupCameraBadge(s, ev.id)}${s.confirmationStatus === 'maybe' ? `<span class="reserve-role-badge" style="background:var(--amber-dim);color:#9a6510;">Maybe · ${escapeHtml(confirmationCountdown(s.confirmationDeadline))}</span>` : ''}${activeReserveRole ? `<span class="reserve-role-badge">${coversMixingAndObs ? 'OBS covered' : 'Reserve active'}</span>` : ''}${reserveRoleNote}</td>
       <td style="color:var(--text2);font-size:12px;">${escapeHtml(attendanceLabel(s))}</td>
       <td style="color:var(--text3);font-size:12px;">${escapeHtml(s.ts)}</td>
       ${showRemoveColumn ? `<td><div class="flex gap6">${s.confirmationStatus === 'maybe' && s.memberId === currentMemberId ? `<button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${ev.id}','${s.id}')">Confirm</button>` : ''}${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}')">Remove</button>` : ''}</div></td>` : ''}

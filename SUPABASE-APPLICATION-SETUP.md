@@ -164,3 +164,47 @@ Test with one controlled member first:
 5. Saving an already-completed or archived item does not email subscribers. Confirm the
    update email lists the changed fields and that opening the attached `.ics` file
    updates the same calendar entry rather than adding a duplicate.
+
+## 7. Prune old notification history safely
+
+Do not drop any of the current `public` tables to shorten the Supabase table list.
+They are application tables, even when their names describe delivery history.
+
+Old completed or failed rows in `schedule_email_dispatches` are safe to prune after
+the school's chosen retention period. Their related `schedule_email_deliveries` rows
+are removed automatically by the foreign key's `on delete cascade`. Old notifications
+may also be pruned after members have read them. This example keeps 90 days:
+
+```sql
+begin;
+
+delete from public.schedule_email_dispatches
+where status in ('completed', 'failed')
+  and last_attempt_at < now() - interval '90 days';
+
+delete from public.notifications
+where read_at is not null
+  and created_at < now() - interval '90 days';
+
+commit;
+```
+
+Do not routinely clear `schedule_email_resource_states`: each row is the current
+snapshot used to calculate what changed in the next event or meeting email. Only
+orphaned snapshots whose source record was permanently deleted are safe to remove:
+
+```sql
+delete from public.schedule_email_resource_states state
+where (
+    state.resource_type = 'event'
+    and not exists (select 1 from public.events event where event.id = state.resource_id)
+  ) or (
+    state.resource_type = 'meeting'
+    and not exists (select 1 from public.meetings meeting where meeting.id = state.resource_id)
+  );
+```
+
+`join_applications`, signups, attendance, meetings, events, equipment reservations,
+gallery records, members and team memberships are business records rather than logs.
+Retain or delete those only under an approved school data-retention decision. Supabase
+platform logs shown in Logs Explorer are managed separately and are not these tables.

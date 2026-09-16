@@ -85,7 +85,7 @@ function openRejectApplicationModal(id) {
   const app = state.applications.find(a => a.id === id);
   if (!app) return;
   rejectingApplicationId = id;
-  document.getElementById('reject-application-name').textContent = `A private decision email will be sent to ${app.fname} ${app.lname}.`;
+  document.getElementById('reject-application-name').textContent = `The Crew Center will automatically send a private decision email to ${app.fname} ${app.lname}.`;
   document.getElementById('reject-application-reason').value = '';
   openModal('reject-application-modal');
 }
@@ -101,15 +101,15 @@ async function submitApplicationRejection() {
   if (!id || !reason) { showToast('Enter a reason for the applicant.', 'error'); return; }
   const button = document.getElementById('reject-application-submit');
   button.disabled = true;
-  button.textContent = 'Sending...';
+  button.textContent = 'Sending email...';
   const { data, error } = await supabaseClient.functions.invoke('review-application', {
     body: { applicationId: id, decision: 'reject', reason },
   });
   button.disabled = false;
-  button.textContent = 'Reject and email applicant';
+  button.textContent = 'Reject and send email automatically';
   if (error) { showToast(await edgeFunctionErrorMessage(error, "Couldn't reject application."), 'error'); return; }
   closeRejectApplicationModal();
-  showToast(`Application rejected. Decision email sent to ${data?.applicantEmail || 'the applicant'}.`);
+  showToast(`Application rejected. The Crew Center sent the decision email to ${data?.applicantEmail || 'the applicant'}.`);
   await loadCrewCenterData();
   renderAdmin();
 }

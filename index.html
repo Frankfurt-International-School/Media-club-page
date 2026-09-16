@@ -429,7 +429,7 @@
       <div class="signup-mixer-reserve" id="signup-mixer-reserve" hidden>
         <label for="signup-mixer-obs-reserve">
           <input id="signup-mixer-obs-reserve" type="checkbox">
-          <span><strong>OBS takeover reserve</strong><small>If OBS is still unclaimed 10 minutes before this Lower or Upper Field game, switch from MIXING to OBS for your attendance window.</small></span>
+          <span><strong>Cover MIXING and OBS if needed</strong><small>If OBS is still unclaimed 10 minutes before this Lower or Upper Field game, you will cover both MIXING and OBS for your attendance window. A direct OBS signup always takes precedence.</small></span>
         </label>
       </div>
       <div class="signup-entry-actions"><button class="btn btn-accent" onclick="addSignupRow()">
@@ -1179,12 +1179,12 @@
   <div class="modal" style="position:relative;">
     <button class="modal-close" onclick="closeRejectApplicationModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     <div class="modal-title">Reject application</div>
-    <div class="modal-sub" id="reject-application-name">Explain the decision to the applicant.</div>
+    <div class="modal-sub" id="reject-application-name">The Crew Center will send the decision email automatically.</div>
     <div class="form-group">
       <label class="form-label" for="reject-application-reason">Reason *</label>
       <textarea class="form-textarea" id="reject-application-reason" maxlength="1500" placeholder="Please provide a clear and respectful reason. This will appear in the email." required></textarea>
     </div>
-    <button class="btn btn-danger" id="reject-application-submit" style="width:100%;justify-content:center;" onclick="submitApplicationRejection()">Reject and email applicant</button>
+    <button class="btn btn-danger" id="reject-application-submit" style="width:100%;justify-content:center;" onclick="submitApplicationRejection()">Reject and send email automatically</button>
   </div>
 </div>
 

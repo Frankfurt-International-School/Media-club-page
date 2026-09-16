@@ -63,8 +63,10 @@ test('application rejection sends privately through Resend before finalizing the
 
 test('review UI and setup guide describe automatic rejection email delivery', () => {
   assert.match(indexHtml, /maxlength="1500"/);
-  assert.match(indexHtml, /Reject and email applicant/);
-  assert.match(adminSource, /Decision email sent to/);
+  assert.match(indexHtml, /Reject and send email automatically/);
+  assert.match(indexHtml, /Crew Center will send the decision email automatically/);
+  assert.match(adminSource, /Crew Center will automatically send a private decision email/);
+  assert.match(adminSource, /Crew Center sent the decision email to/);
   assert.doesNotMatch(adminSource, /Please email .*the applicant/);
 
   assert.match(template, /Application update/);
@@ -78,4 +80,8 @@ test('review UI and setup guide describe automatic rejection email delivery', ()
   assert.doesNotMatch(reviewFunction, /from "\.\/rejection-email/);
   assert.match(setupGuide, /marked rejected only after Resend accepts the email/);
   assert.doesNotMatch(setupGuide, /reviewer is reminded to email[\s\S]{0,40}manually/i);
+  assert.match(setupGuide, /delete from public\.schedule_email_dispatches/);
+  assert.match(setupGuide, /schedule_email_deliveries[\s\S]*?on delete cascade/);
+  assert.match(setupGuide, /Do not routinely clear `schedule_email_resource_states`/);
+  assert.match(setupGuide, /delete from public\.notifications[\s\S]*?read_at is not null/);
 });

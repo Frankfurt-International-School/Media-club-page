@@ -1144,11 +1144,17 @@ test('signup removals use the shared in-app confirmation before deletion', () =>
 test('active student supervisor reserves preserve the supervisor label and show the current role', () => {
   assert.match(appSource, /const activeReserveRole = reserveAssignments\.get\(s\.id\)/);
   assert.match(appSource, /<strong>Current role:<\/strong> \$\{escapeHtml\(activeReserveRole\)\}/);
-  assert.match(appSource, /<td>\$\{s\.role \? escapeHtml\(s\.role\)/);
+  const supervisorLabel = runFunctions(
+    ['signupRoleCoverageLabel'],
+    { signupRoleLabels: { mixing: 'MIXING', obs: 'OBS' } },
+    `signupRoleCoverageLabel({ role: 'Student Supervisor', reserveRole1: 'OBS' }, 'OBS')`,
+  );
+  assert.equal(supervisorLabel, 'Student Supervisor');
+  assert.match(appSource, /<td>\$\{roleCoverageLabel \? escapeHtml\(roleCoverageLabel\)/);
   assert.doesNotMatch(appSource, /<td>\$\{displayRole \? escapeHtml\(displayRole\)/);
 });
 
-test('Lower and Upper Field MIXING signups can reserve an OBS takeover', () => {
+test('Lower and Upper Field MIXING signups can cover OBS without leaving MIXING', () => {
   const eligibility = event => runFunctions(
     ['eventAllowsMixingObsReserve'],
     {
@@ -1178,9 +1184,20 @@ test('Lower and Upper Field MIXING signups can reserve an OBS takeover', () => {
   assert.deepEqual(reserveAssignments([mixer]), { 'mixer-1': 'OBS' });
   assert.deepEqual(reserveAssignments([mixer, { id: 'obs-1', role: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z' }]), {});
 
+  const coverageLabel = activeRole => runFunctions(
+    ['signupRoleCoverageLabel'],
+    { signupRoleLabels: { mixing: 'MIXING', obs: 'OBS' } },
+    `signupRoleCoverageLabel(${JSON.stringify(mixer)}, ${JSON.stringify(activeRole)})`,
+  );
+  assert.equal(coverageLabel('OBS'), 'MIXING + OBS');
+  assert.equal(coverageLabel(null), 'MIXING');
+
   assert.match(indexHtml, /id="signup-mixer-reserve" hidden[\s\S]*?id="signup-mixer-obs-reserve"/);
+  assert.match(indexHtml, /you will cover both MIXING and OBS/);
+  assert.doesNotMatch(indexHtml, /switch from MIXING to OBS/);
   assert.match(appSource, /reserve_role_1: roleFreeAttendance \? null : reserveRole1/);
-  assert.match(appSource, /MIXING takeover reserve activated/);
+  assert.match(appSource, /<strong>Covering both:<\/strong> MIXING and OBS/);
+  assert.match(appSource, /OBS covered/);
   assert.match(schemaSql, /signups_reserve_roles_check[\s\S]*?signup_role = 'MIXING'[\s\S]*?reserve_role_1 = 'OBS'[\s\S]*?reserve_role_2 is null/);
   const reserveAccess = extractSqlFunction('are_event_reserve_roles_open');
   assert.match(reserveAccess, /p_signup_role = 'MIXING'[\s\S]*?event\.is_sports or event\.is_isst[\s\S]*?like '%lower field%'[\s\S]*?like '%upper field%'[\s\S]*?p_reserve_role_1 = 'OBS'/);
