@@ -25,7 +25,11 @@ The invitation link will return applicants to the Crew Center password setup scr
 The login page's **Forgot password?** button uses Supabase Auth directly and returns
 members to `/signin` on the origin where the request was made. Send members to
 `https://fismediaclub.org/signin` so new recovery links use the custom domain. The
-password-reset request does not require an Edge Function.
+password-reset request does not require an Edge Function. If Supabase returns an
+expired or invalid invitation/recovery link, the Crew Center clears the stale
+password-setup state and shows a focused **Get a new access link** screen. The member
+enters their FIS email and receives a fresh recovery link instead of remaining stuck
+on a password form that cannot be submitted.
 
 ## 3. Create the Edge Function
 
@@ -100,7 +104,8 @@ an alias email you control, then test:
    **Forgot password?**, and confirm that the newest email link opens the Reset
    Password screen on `fismediaclub.org` before the dashboard. Recovery links are
    single-use.
-4. Resend: confirm the Auth messages are delivered from
+4. Expired link: open `/signin#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired` and confirm it shows **Get a new access link**, only asks for the FIS email, and does not show the unusable password form.
+5. Resend: confirm the Auth messages are delivered from
    `Media Club Crew Center <no-reply@auth.fismediaclub.org>`, the rejection message
    uses the configured application/notification sender, and SPF and DKIM pass in the
    provider logs.

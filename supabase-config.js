@@ -25,6 +25,10 @@ authStyle.textContent = `
     display: none !important;
   }
 
+  .auth-gate [hidden] {
+    display: none !important;
+  }
+
   .auth-gate {
     min-height: 100vh;
     width: 100%;
@@ -301,6 +305,16 @@ authStyle.textContent = `
   .auth-lookup-actions.visible { display: flex; }
   .auth-lookup-actions button { flex: 1; }
 
+  .auth-expired-actions {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .auth-expired-actions.visible {
+    display: flex;
+  }
+
   :root[data-theme="dark"] .auth-gate {
     background:
       linear-gradient(135deg, rgba(164,1,52,0.22), transparent 36%),
@@ -367,18 +381,22 @@ document.body.insertAdjacentHTML("afterbegin", `
           <label class="auth-gate-label" for="auth-gate-email">Email</label>
           <input class="auth-gate-input" id="auth-gate-email" type="email" autocomplete="email" inputmode="email" placeholder="Your account email" required>
         </div>
-        <div class="auth-gate-field">
+        <div class="auth-gate-field" id="auth-password-field">
           <div class="auth-password-heading">
             <label class="auth-gate-label" for="auth-gate-password">Password</label>
             <button class="auth-password-reset" id="auth-password-reset" type="button">Forgot password?</button>
           </div>
           <input class="auth-gate-input" id="auth-gate-password" type="password" autocomplete="current-password" placeholder="Password" required>
         </div>
-        <label class="auth-remember" for="auth-remember-browser">
+        <label class="auth-remember" id="auth-remember-row" for="auth-remember-browser">
           <input id="auth-remember-browser" type="checkbox" checked>
           <span>Remember me on this browser</span>
         </label>
         <button class="auth-gate-button" id="auth-gate-submit" type="submit">Sign in</button>
+        <div class="auth-expired-actions" id="auth-expired-actions">
+          <button class="auth-gate-button" id="auth-expired-resend" type="button">Send me a new access link</button>
+          <button class="auth-secondary-button" id="auth-expired-back" type="button">Back to sign in</button>
+        </div>
       </form>
       <div class="auth-public-option" id="auth-public-option">
         <p>Not a member yet? Learn about Media Club, see a sample dashboard, and apply without creating a visitor account.</p>
@@ -408,6 +426,11 @@ const authEmail = document.getElementById("auth-gate-email");
 const authPassword = document.getElementById("auth-gate-password");
 const authRemember = document.getElementById("auth-remember-browser");
 const authPasswordReset = document.getElementById("auth-password-reset");
+const authPasswordField = document.getElementById("auth-password-field");
+const authRememberRow = document.getElementById("auth-remember-row");
+const authExpiredActions = document.getElementById("auth-expired-actions");
+const authExpiredResend = document.getElementById("auth-expired-resend");
+const authExpiredBack = document.getElementById("auth-expired-back");
 const passwordSetupForm = document.getElementById("auth-password-setup-form");
 const authLookupActions = document.getElementById("auth-lookup-actions");
 const authLookupRetry = document.getElementById("auth-lookup-retry");
@@ -416,15 +439,31 @@ const pendingPasswordSetupKey = "crew-center-pending-password-setup";
 const normalizePasswordSetupMode = mode => ["invite", "recovery"].includes(String(mode || "").toLowerCase())
   ? String(mode).toLowerCase()
   : "";
-const authLinkType = normalizePasswordSetupMode(
-  new URLSearchParams(window.location.hash.slice(1)).get("type")
-  || new URLSearchParams(window.location.search).get("type")
+const authHashParams = new URLSearchParams(window.location.hash.slice(1));
+const authSearchParams = new URLSearchParams(window.location.search);
+const authLinkErrorCode = authHashParams.get("error_code") || authSearchParams.get("error_code") || "";
+const authLinkErrorDescription = authHashParams.get("error_description") || authSearchParams.get("error_description") || "";
+const authLinkFailure = Boolean(
+  authLinkErrorCode
+  || authHashParams.get("error")
+  || authSearchParams.get("error")
 );
+const authLinkExpired = authLinkErrorCode === "otp_expired"
+  || /expired|invalid/i.test(authLinkErrorDescription);
+const authLinkType = authLinkFailure ? "" : normalizePasswordSetupMode(
+  authHashParams.get("type") || authSearchParams.get("type")
+);
+if (authLinkFailure) {
+  sessionStorage.removeItem(pendingPasswordSetupKey);
+  localStorage.removeItem(pendingPasswordSetupKey);
+  history.replaceState({ page: "signin" }, "", "/signin");
+}
 const storedPasswordSetupMode = normalizePasswordSetupMode(
-  sessionStorage.getItem(pendingPasswordSetupKey) || localStorage.getItem(pendingPasswordSetupKey)
+  authLinkFailure ? "" : sessionStorage.getItem(pendingPasswordSetupKey) || localStorage.getItem(pendingPasswordSetupKey)
 );
 let passwordSetupMode = authLinkType || storedPasswordSetupMode;
 let passwordSetupComplete = false;
+let pendingAuthLinkFailure = authLinkFailure ? { expired: authLinkExpired } : null;
 const rememberPreferenceKey = "crew-center-remember-session";
 const shouldRememberSession = () => localStorage.getItem(rememberPreferenceKey) !== "false";
 const authStorage = {
@@ -536,6 +575,8 @@ function setAuthBusy(isBusy) {
 function setPasswordResetBusy(isBusy) {
   authPasswordReset.disabled = isBusy;
   authPasswordReset.textContent = isBusy ? "Sending..." : "Forgot password?";
+  authExpiredResend.disabled = isBusy;
+  authExpiredResend.textContent = isBusy ? "Sending..." : "Send me a new access link";
   authEmail.disabled = isBusy;
   authSubmit.disabled = isBusy;
 }
@@ -881,6 +922,30 @@ async function allowCrewCenterUser(user) {
   return false;
 }
 
+function applySignInPresentation() {
+  const recoveringExpiredLink = Boolean(pendingAuthLinkFailure);
+  document.getElementById("auth-gate-title").textContent = recoveringExpiredLink ? "Get a new access link" : "Sign in";
+  document.querySelector(".auth-gate-sub").textContent = recoveringExpiredLink
+    ? "Enter your FIS email below. We will send a fresh link so you can choose your password."
+    : "Use the account created for you in Supabase to open the Media Club dashboard.";
+  document.querySelector(".auth-gate-note").textContent = recoveringExpiredLink
+    ? "The fresh link is single-use. Open only the newest Media Club email."
+    : "Please submit an application for an account.";
+  authPasswordField.hidden = recoveringExpiredLink;
+  authPassword.disabled = recoveringExpiredLink;
+  authRememberRow.hidden = recoveringExpiredLink;
+  authRemember.disabled = recoveringExpiredLink;
+  authSubmit.hidden = recoveringExpiredLink;
+  authExpiredActions.classList.toggle("visible", recoveringExpiredLink);
+  document.getElementById("auth-public-option").style.display = recoveringExpiredLink ? "none" : "block";
+  if (recoveringExpiredLink) {
+    setAuthError(pendingAuthLinkFailure.expired
+      ? "That access link expired or was already used. Request a new one below."
+      : "That access link could not be used. Request a new one below.");
+    setTimeout(() => authEmail.focus(), 0);
+  }
+}
+
 function showSignIn() {
   if (window.CREW_CENTER_AUTH_USER) window.CREW_CENTER_AUTH_EPOCH += 1;
   window.CREW_CENTER_AUTH_USER = null;
@@ -888,7 +953,6 @@ function showSignIn() {
   window.CREW_CENTER_IS_VISITOR = false;
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
-  document.getElementById("auth-public-option").style.display = "block";
   authForm.style.display = "block";
   passwordSetupForm.style.display = "none";
   window.stopCrewCenterLiveUpdates?.();
@@ -896,6 +960,7 @@ function showSignIn() {
     history.replaceState({ page: "signin" }, "", "/signin");
   }
   setAuthBusy(false);
+  applySignInPresentation();
 }
 
 async function activateCrewCenterUser(user, options = {}) {
@@ -975,6 +1040,7 @@ document.getElementById("auth-lookup-signout").addEventListener("click", async (
 
 function showPasswordSetup(mode = passwordSetupMode || "invite") {
   const normalizedMode = normalizePasswordSetupMode(mode) || "invite";
+  pendingAuthLinkFailure = null;
   rememberPendingPasswordSetup(normalizedMode);
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
@@ -1022,7 +1088,7 @@ passwordSetupForm.addEventListener("submit", async event => {
   }
 });
 
-authPasswordReset.addEventListener("click", async () => {
+async function requestPasswordReset() {
   setAuthError("");
   if (!window.crewCenterSupabase) {
     setAuthError("Supabase is not available yet. Check the connection and try again.");
@@ -1046,7 +1112,7 @@ authPasswordReset.addEventListener("click", async () => {
     );
     if (error) throw error;
     setAuthMessage(
-      "If a Media Club account uses that email, a password reset link has been sent. Check your inbox and spam folder.",
+      "If a Media Club account uses that email, a fresh access link has been sent. Open the newest Media Club email; older links will not work.",
       "success"
     );
   } catch (error) {
@@ -1057,10 +1123,23 @@ authPasswordReset.addEventListener("click", async () => {
   } finally {
     setPasswordResetBusy(false);
   }
+}
+
+authPasswordReset.addEventListener("click", requestPasswordReset);
+authExpiredResend.addEventListener("click", requestPasswordReset);
+authExpiredBack.addEventListener("click", () => {
+  pendingAuthLinkFailure = null;
+  history.replaceState({ page: "signin" }, "", "/signin");
+  showSignIn();
+  setAuthError("");
 });
 
 authForm.addEventListener("submit", async event => {
   event.preventDefault();
+  if (pendingAuthLinkFailure) {
+    await requestPasswordReset();
+    return;
+  }
   pendingApprovalCheckUser = null;
   authLookupActions.classList.remove("visible");
   setAuthError("");

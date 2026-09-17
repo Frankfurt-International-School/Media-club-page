@@ -184,7 +184,9 @@ test('authentication startup and sign-out remain responsive during upstream stal
 test('password recovery stays locked until the member saves a new password', () => {
   assert.match(authSource, /const pendingPasswordSetupKey = "crew-center-pending-password-setup"/);
   assert.match(authSource, /\["invite", "recovery"\]\.includes/);
-  assert.match(authSource, /new URLSearchParams\(window\.location\.hash\.slice\(1\)\)\.get\("type"\)[\s\S]*?new URLSearchParams\(window\.location\.search\)\.get\("type"\)/);
+  assert.match(authSource, /const authHashParams = new URLSearchParams\(window\.location\.hash\.slice\(1\)\)/);
+  assert.match(authSource, /const authSearchParams = new URLSearchParams\(window\.location\.search\)/);
+  assert.match(authSource, /authHashParams\.get\("type"\) \|\| authSearchParams\.get\("type"\)/);
 
   const rememberStart = authSource.indexOf('function rememberPendingPasswordSetup(mode)');
   const rememberEnd = authSource.indexOf('\nfunction clearPendingPasswordSetup()', rememberStart);
@@ -243,6 +245,22 @@ test('password recovery stays locked until the member saves a new password', () 
   assert.doesNotMatch(authSource, /inviteFlow|inviteSetupComplete|showInviteSetup/);
 });
 
+test('expired auth links offer a fresh access link instead of trapping users in password setup', () => {
+  assert.match(authSource, /const authLinkErrorCode = authHashParams\.get\("error_code"\)/);
+  assert.match(authSource, /const authLinkExpired = authLinkErrorCode === "otp_expired"/);
+  assert.match(authSource, /const authLinkType = authLinkFailure \? "" : normalizePasswordSetupMode/);
+  assert.match(authSource, /if \(authLinkFailure\) \{[\s\S]*?removeItem\(pendingPasswordSetupKey\)[\s\S]*?history\.replaceState\(\{ page: "signin" \}, "", "\/signin"\)/);
+  assert.match(authSource, /let pendingAuthLinkFailure = authLinkFailure \? \{ expired: authLinkExpired \} : null/);
+  assert.match(authSource, /function applySignInPresentation\(\)[\s\S]*?"Get a new access link"[\s\S]*?authPasswordField\.hidden = recoveringExpiredLink[\s\S]*?authPassword\.disabled = recoveringExpiredLink[\s\S]*?authExpiredActions\.classList\.toggle\("visible", recoveringExpiredLink\)/);
+  assert.match(authSource, /\.auth-gate \[hidden\] \{\s*display: none !important/);
+  assert.match(authSource, /That access link expired or was already used\. Request a new one below\./);
+  assert.match(authSource, /The fresh link is single-use\. Open only the newest Media Club email\./);
+  assert.match(authSource, /id="auth-expired-resend" type="button">Send me a new access link<\/button>/);
+  assert.match(authSource, /authExpiredResend\.addEventListener\("click", requestPasswordReset\)/);
+  assert.match(authSource, /authExpiredBack\.addEventListener\("click", \(\) => \{[\s\S]*?pendingAuthLinkFailure = null/);
+  assert.match(authSource, /authForm\.addEventListener\("submit", async event => \{[\s\S]*?if \(pendingAuthLinkFailure\) \{\s*await requestPasswordReset\(\);/);
+});
+
 test('the sign-in gate can request a privacy-safe password reset email', () => {
   assert.match(authSource, /<button class="auth-password-reset" id="auth-password-reset" type="button">Forgot password\?<\/button>/);
   assert.match(authSource, /\.auth-password-reset:focus-visible/);
@@ -251,18 +269,20 @@ test('the sign-in gate can request a privacy-safe password reset email', () => {
   assert.match(authSource, /authError\.classList\.toggle\("success", type === "success"\)/);
   assert.match(authSource, /authError\.setAttribute\("role", type === "success" \? "status" : "alert"\)/);
 
-  const resetStart = authSource.indexOf('authPasswordReset.addEventListener("click", async () => {');
-  const resetEnd = authSource.indexOf('\nauthForm.addEventListener', resetStart);
+  const resetStart = authSource.indexOf('async function requestPasswordReset()');
+  const resetEnd = authSource.indexOf('\nauthPasswordReset.addEventListener', resetStart);
   const resetSource = authSource.slice(resetStart, resetEnd);
-  assert.ok(resetStart > -1 && resetEnd > resetStart, 'Expected a password-reset button handler');
+  assert.ok(resetStart > -1 && resetEnd > resetStart, 'Expected a shared password-reset request handler');
   assert.match(resetSource, /const email = authEmail\.value\.trim\(\)\.toLowerCase\(\)/);
   assert.match(resetSource, /if \(!authEmail\.checkValidity\(\)\) \{\s*authEmail\.reportValidity\(\);\s*return;/);
   assert.match(resetSource, /const redirectTo = new URL\("\/signin", window\.location\.origin\)\.toString\(\)/);
   assert.match(resetSource, /auth\.resetPasswordForEmail\(email, \{ redirectTo \}\)/);
   assert.match(resetSource, /withCrewCenterTimeout\([\s\S]*?authOperationTimeoutMs/);
-  assert.match(resetSource, /If a Media Club account uses that email, a password reset link has been sent\./);
+  assert.match(resetSource, /If a Media Club account uses that email, a fresh access link has been sent\./);
   assert.match(resetSource, /setAuthMessage\([\s\S]*?"success"/);
   assert.doesNotMatch(resetSource, /functions\.invoke|account does not exist|no account/i);
+  assert.match(authSource, /authPasswordReset\.addEventListener\("click", requestPasswordReset\)/);
+  assert.match(authSource, /authExpiredResend\.addEventListener\("click", requestPasswordReset\)/);
   assert.match(authSource, /function setAuthBusy\(isBusy\)[\s\S]*?authPasswordReset\.disabled = isBusy/);
 
   const setupGuide = readFileSync(new URL('../SUPABASE-APPLICATION-SETUP.md', import.meta.url), 'utf8');
