@@ -299,6 +299,65 @@ test('News Team meeting invitations are generated only for current team membersh
   assert.doesNotMatch(policiesSql, /create policy "Members can read own notifications"[\s\S]{0,240}?member\.email/);
 });
 
+test('Mark read acknowledges generated signup reminders as well as stored notifications', () => {
+  const saved = new Map();
+  const result = JSON.parse(JSON.stringify(runFunctions(
+    [
+      'currentMemberRecord',
+      'notificationReminderStorageKey',
+      'notificationReminderReadKeys',
+      'markNotificationRemindersRead',
+    ],
+    {
+      state: {
+        currentUser: { email: 'member@fis.edu', name: 'Member' },
+        members: [{ id: 'member-1', email: 'member@fis.edu', name: 'Member', isCurrentUser: true }],
+      },
+      window: { CREW_CENTER_AUTH_USER: { email: 'member@fis.edu' } },
+      localStorage: {
+        getItem: key => saved.get(key) || null,
+        setItem: (key, value) => saved.set(key, value),
+      },
+      notificationReminderReadStoragePrefix: 'crew-center-read-notification-reminders:',
+      notificationReminderReadFallback: new Map(),
+    },
+    "(() => { markNotificationRemindersRead(['upcoming:event-1:signup-1:start-1']); const keys = notificationReminderReadKeys(); return { storageKey: notificationReminderStorageKey(), acknowledged: keys.has('upcoming:event-1:signup-1:start-1') }; })()",
+  )));
+
+  assert.deepEqual(result, {
+    storageKey: 'crew-center-read-notification-reminders:member-1',
+    acknowledged: true,
+  });
+  const fallbackResult = runFunctions(
+    [
+      'currentMemberRecord',
+      'notificationReminderStorageKey',
+      'notificationReminderReadKeys',
+      'markNotificationRemindersRead',
+    ],
+    {
+      state: {
+        currentUser: { email: 'member@fis.edu', name: 'Member' },
+        members: [{ id: 'member-1', email: 'member@fis.edu', name: 'Member', isCurrentUser: true }],
+      },
+      window: { CREW_CENTER_AUTH_USER: { email: 'member@fis.edu' } },
+      localStorage: {
+        getItem: () => { throw new Error('Storage unavailable'); },
+        setItem: () => { throw new Error('Storage unavailable'); },
+      },
+      notificationReminderReadStoragePrefix: 'crew-center-read-notification-reminders:',
+      notificationReminderReadFallback: new Map(),
+    },
+    "(() => { markNotificationRemindersRead(['upcoming:event-1:signup-1:start-1']); return notificationReminderReadKeys().has('upcoming:event-1:signup-1:start-1'); })()",
+  );
+  assert.equal(fallbackResult, true, 'generated reminders should stay read for the page session if localStorage is unavailable');
+  assert.match(uiSource, /const \{ maybeItems, upcomingItems \} = currentGeneratedNotificationItems\(\)/);
+  assert.match(uiSource, /markNotificationRemindersRead\(\[\.\.\.maybeItems, \.\.\.upcomingItems\]\.map\(item => item\.readKey\)\)/);
+  assert.match(uiSource, /maybeItems\.filter\(item => !readReminderKeys\.has\(item\.readKey\)\)\.length/);
+  assert.match(uiSource, /upcomingItems\.filter\(item => !readReminderKeys\.has\(item\.readKey\)\)\.length/);
+  assert.match(indexHtml, /id="notification-mark-read" onclick="markNotificationsRead\(\)"/);
+});
+
 test('schedule emails are explicit opt-in, audience-safe, private, and retry-safe', () => {
   const notificationPreferences = extractSqlFunction('update_own_notification_preferences');
   const normalizeMember = extractFunction('normalizeMember');

@@ -469,6 +469,61 @@ function ownUpcomingSignups() {
   return state.events.flatMap(event => event.signups.filter(signup => signup.memberId === memberId).map(signup => ({ event, signup })));
 }
 
+const notificationReminderReadStoragePrefix = 'crew-center-read-notification-reminders:';
+const notificationReminderReadFallback = new Map();
+
+function notificationReminderReadKey(type, event, signup) {
+  const revision = type === 'maybe'
+    ? signup.confirmationDeadline || ''
+    : String(timeValue(event.date, event.setupStart || event.game1Start || event.time || '00:00') || '');
+  return `${type}:${event.id}:${signup.id}:${revision}`;
+}
+
+function notificationReminderStorageKey() {
+  const memberId = currentMemberRecord()?.id;
+  return memberId ? `${notificationReminderReadStoragePrefix}${memberId}` : '';
+}
+
+function notificationReminderReadKeys() {
+  const storageKey = notificationReminderStorageKey();
+  if (!storageKey) return new Set();
+  const readKeys = new Set(notificationReminderReadFallback.get(storageKey) || []);
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (Array.isArray(saved)) saved.filter(value => typeof value === 'string').forEach(value => readKeys.add(value));
+  } catch {
+    // Keep the acknowledgement for this page session when browser storage is unavailable.
+  }
+  return readKeys;
+}
+
+function markNotificationRemindersRead(keys) {
+  const storageKey = notificationReminderStorageKey();
+  if (!storageKey || !keys.length) return;
+  const readKeys = notificationReminderReadKeys();
+  keys.forEach(key => readKeys.add(key));
+  notificationReminderReadFallback.set(storageKey, readKeys);
+  try {
+    localStorage.setItem(storageKey, JSON.stringify([...readKeys].slice(-100)));
+  } catch {
+    // The in-memory acknowledgement still makes the button work for this page session.
+  }
+}
+
+function currentGeneratedNotificationItems(now = Date.now()) {
+  const preferences = currentNotificationPreferences();
+  const ownSignups = ownUpcomingSignups();
+  const maybeItems = preferences.maybe_reminders ? ownSignups.filter(({ signup }) => signup.confirmationStatus === 'maybe' && new Date(signup.confirmationDeadline).getTime() > now) : [];
+  const upcomingItems = preferences.event_reminders ? ownSignups.filter(({ event, signup }) => {
+    const startsAt = timeValue(event.date, event.setupStart || event.game1Start || event.time || '00:00');
+    return signup.confirmationStatus === 'confirmed' && startsAt > now && startsAt - now <= 24 * 60 * 60 * 1000;
+  }) : [];
+  return {
+    maybeItems: maybeItems.map(item => ({ ...item, readKey: notificationReminderReadKey('maybe', item.event, item.signup) })),
+    upcomingItems: upcomingItems.map(item => ({ ...item, readKey: notificationReminderReadKey('upcoming', item.event, item.signup) })),
+  };
+}
+
 function renderNotificationCenter() {
   const list = document.getElementById('notification-list');
   const badge = document.getElementById('notification-count');
@@ -479,19 +534,18 @@ function renderNotificationCenter() {
     return;
   }
   const preferences = currentNotificationPreferences();
-  const now = Date.now();
-  const ownSignups = ownUpcomingSignups();
-  const maybeItems = preferences.maybe_reminders ? ownSignups.filter(({ signup }) => signup.confirmationStatus === 'maybe' && new Date(signup.confirmationDeadline).getTime() > now) : [];
-  const upcomingItems = preferences.event_reminders ? ownSignups.filter(({ event, signup }) => {
-    const startsAt = timeValue(event.date, event.setupStart || event.game1Start || event.time || '00:00');
-    return signup.confirmationStatus === 'confirmed' && startsAt > now && startsAt - now <= 24 * 60 * 60 * 1000;
-  }) : [];
+  const { maybeItems, upcomingItems } = currentGeneratedNotificationItems();
+  const readReminderKeys = notificationReminderReadKeys();
   const storedItems = state.notifications.filter(item => item.notification_type === 'meeting_invite' || preferences.event_created);
-  const unread = storedItems.filter(item => !item.read_at).length + maybeItems.length + upcomingItems.length;
+  const unread = storedItems.filter(item => !item.read_at).length
+    + maybeItems.filter(item => !readReminderKeys.has(item.readKey)).length
+    + upcomingItems.filter(item => !readReminderKeys.has(item.readKey)).length;
   badge.textContent = unread > 99 ? '99+' : unread;
   badge.classList.toggle('visible', unread > 0);
-  const actionHtml = maybeItems.map(({ event, signup }) => `<div class="notification-item action"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
-  const upcomingHtml = upcomingItems.map(({ event }) => `<a class="notification-item action" href="${escapeHtml(pageUrl('signup', { event: event.id }))}"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(eventScheduleTimeLabel(event))}.</div><div class="notification-item-meta">Upcoming event</div></a>`).join('');
+  const markReadButton = document.getElementById('notification-mark-read');
+  if (markReadButton) markReadButton.disabled = unread === 0;
+  const actionHtml = maybeItems.map(({ event, signup, readKey }) => `<div class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
+  const upcomingHtml = upcomingItems.map(({ event, readKey }) => `<a class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}" href="${escapeHtml(pageUrl('signup', { event: event.id }))}"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(eventScheduleTimeLabel(event))}.</div><div class="notification-item-meta">Upcoming event</div></a>`).join('');
   const storedHtml = storedItems.map(item => {
     const page = Object.values(sidebarCategories).some(category => category.pages.includes(item.page)) ? item.page : 'events';
     const relatedEventId = state.events.some(event => event.id === item.related_event_id) ? item.related_event_id : '';
@@ -517,10 +571,22 @@ function closeNotificationPanel() {
 }
 
 async function markNotificationsRead() {
-  const { error } = await supabaseClient.rpc('mark_own_notifications_read');
-  if (error) { showToast("Couldn't mark notifications as read.", 'error'); return; }
+  const markReadButton = document.getElementById('notification-mark-read');
+  if (markReadButton) { markReadButton.disabled = true; markReadButton.textContent = 'Marking…'; }
+  const { maybeItems, upcomingItems } = currentGeneratedNotificationItems();
+  markNotificationRemindersRead([...maybeItems, ...upcomingItems].map(item => item.readKey));
+  const hasUnreadStoredItems = state.notifications.some(item => !item.read_at);
+  const { error } = hasUnreadStoredItems ? await supabaseClient.rpc('mark_own_notifications_read') : { error: null };
+  if (markReadButton) markReadButton.textContent = 'Mark read';
+  if (error) {
+    if (markReadButton) markReadButton.disabled = false;
+    renderNotificationCenter();
+    showToast("Couldn't mark all notifications as read.", 'error');
+    return;
+  }
   state.notifications.forEach(item => { item.read_at = item.read_at || new Date().toISOString(); });
   renderNotificationCenter();
+  showToast('Notifications marked as read.');
 }
 
 function setCrewCenterTheme(theme) {
