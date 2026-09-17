@@ -1,6 +1,8 @@
 // ══════════════════════════════
 // SIGN-UP SHEETS
 // ══════════════════════════════
+const signupSheetPeriodSelection = new Map();
+
 function initSignupSheet() {
   const sel = document.getElementById('sheet-event-select');
   const previousEventId = sel.value;
@@ -93,6 +95,67 @@ function signupCapacitySummary(ev) {
     totalSlots,
     openSlots,
   };
+}
+
+function signupSheetPeriods(ev) {
+  const availability = signupAttendanceAvailability(ev);
+  const periods = ev?.isFestival
+    ? availability.filter(choice => !choice.custom)
+    : ev?.isSports || ev?.isIsst
+      ? availability.filter(choice => choice.type.startsWith('game_'))
+      : availability.filter(choice => choice.type === 'whole');
+  return periods
+    .map(period => ({ ...period, window: signupChoiceWindow(ev, period) }))
+    .filter(period => period.window);
+}
+
+function signupSheetPeriodStatus(ev, period) {
+  const signups = (ev?.signups || []).filter(signup => signupOverlaps(signup, period?.window));
+  const roles = period?.roles || [];
+  const totalSlots = roles.reduce((sum, role) => sum + role.capacity, 0);
+  const openSlots = roles.reduce((sum, role) => sum + role.open, 0);
+  return { signups, totalSlots, openSlots };
+}
+
+function selectedSignupSheetPeriod(ev, periods = signupSheetPeriods(ev)) {
+  const selectedType = signupSheetPeriodSelection.get(ev?.id);
+  const selected = periods.find(period => period.type === selectedType) || periods[0] || null;
+  if (ev?.id && selected) signupSheetPeriodSelection.set(ev.id, selected.type);
+  return selected;
+}
+
+function selectSignupSheetPeriod(type) {
+  const eventId = document.getElementById('sheet-event-select')?.value;
+  const ev = state.events.find(event => event.id === eventId);
+  if (!ev || !signupSheetPeriods(ev).some(period => period.type === type)) return;
+  signupSheetPeriodSelection.set(ev.id, type);
+  renderSignupSheet();
+}
+
+function renderSignupSheetPeriodPicker(ev, periods, selectedPeriod) {
+  const container = document.getElementById('signup-sheet-period-picker');
+  if (!container) return;
+  if (periods.length <= 1) {
+    container.innerHTML = '';
+    document.getElementById('sheet-table')?.removeAttribute('aria-labelledby');
+    return;
+  }
+  const periodKind = ev.isSports || ev.isIsst ? 'game' : 'period';
+  container.innerHTML = `
+    <div class="signup-sheet-period-head"><strong>View crew by ${periodKind}</strong><span>Whole-time and custom-time signups appear in every ${periodKind} they cover.</span></div>
+    <div class="signup-sheet-period-options" role="group" aria-label="Crew sheet ${periodKind}">
+      ${periods.map(period => {
+        const status = signupSheetPeriodStatus(ev, period);
+        const active = period.type === selectedPeriod?.type;
+        const staffing = period.roleFree
+          ? 'No role required'
+          : status.totalSlots
+            ? status.openSlots === 0 ? 'Fully staffed' : `${status.openSlots} open`
+            : 'Crew view';
+        return `<button type="button" class="signup-sheet-period-button${active ? ' active' : ''}" id="sheet-period-tab-${period.type}" aria-pressed="${active}" aria-controls="sheet-table" onclick="selectSignupSheetPeriod('${period.type}')"><strong>${escapeHtml(period.label.replace(/ \(.+\)$/, ''))}</strong><span>${escapeHtml(period.startTime)}–${escapeHtml(period.endTime)}</span><small>${status.signups.length} crew · ${staffing}</small></button>`;
+      }).join('')}
+    </div>`;
+  if (selectedPeriod) document.getElementById('sheet-table')?.setAttribute('aria-labelledby', `sheet-period-tab-${selectedPeriod.type}`);
 }
 
 function renderSignupWindowAvailability(ev) {
@@ -232,32 +295,33 @@ function signupWindowsOverlap(a, b) {
     && new Date(a.attendanceEnd).getTime() > new Date(b.attendanceStart).getTime();
 }
 
-function activeReserveAssignments(ev, now = Date.now()) {
+function activeReserveAssignments(ev, now = Date.now(), coverageWindow = null) {
   const assignments = new Map();
   const activationAt = reserveActivationAt(ev);
   if (!activationAt || now < activationAt) return assignments;
   const openRoles = eventOpenRoleLabels(ev);
+  const relevantSignups = coverageWindow ? ev.signups.filter(signup => signupOverlaps(signup, coverageWindow)) : ev.signups;
   const claimed = [];
   const mixingReserves = eventAllowsMixingObsReserve(ev)
-    ? ev.signups
+    ? relevantSignups
       .filter(signup => signup.role === signupRoleLabels.mixing && signup.reserveRole1 === signupRoleLabels.obs)
       .sort((a, b) => (a.signedUpAt || '').localeCompare(b.signedUpAt || '') || a.id.localeCompare(b.id))
     : [];
   mixingReserves.forEach(mixer => {
-    const realObsSignup = ev.signups.some(signup => signup.role === signupRoleLabels.obs && signupWindowsOverlap(signup, mixer));
+    const realObsSignup = relevantSignups.some(signup => signup.role === signupRoleLabels.obs && signupWindowsOverlap(signup, mixer));
     const reserveAlreadyAssigned = claimed.some(signup => signup.role === signupRoleLabels.obs && signupWindowsOverlap(signup, mixer));
     if (!realObsSignup && !reserveAlreadyAssigned) {
       assignments.set(mixer.id, signupRoleLabels.obs);
       claimed.push({ role: signupRoleLabels.obs, attendanceStart: mixer.attendanceStart, attendanceEnd: mixer.attendanceEnd });
     }
   });
-  const supervisors = ev.signups
+  const supervisors = relevantSignups
     .filter(signup => signup.role === signupRoleLabels.student_supervisor)
     .sort((a, b) => (a.signedUpAt || '').localeCompare(b.signedUpAt || '') || a.id.localeCompare(b.id));
   supervisors.forEach(supervisor => {
     const choices = [supervisor.reserveRole1, supervisor.reserveRole2].filter(role => role && openRoles.includes(role));
     const selected = choices.find(role => {
-      const realSignupExists = ev.signups.some(signup => signup.role === role && signupWindowsOverlap(signup, supervisor));
+      const realSignupExists = relevantSignups.some(signup => signup.role === role && signupWindowsOverlap(signup, supervisor));
       const reserveAlreadyAssigned = claimed.some(signup => signup.role === role && signupWindowsOverlap(signup, supervisor));
       return !realSignupExists && !reserveAlreadyAssigned;
     });
@@ -296,6 +360,7 @@ function renderSignupSheet() {
     document.getElementById('sheet-event-cap').textContent = '— slots';
     document.getElementById('sheet-cap-badge').innerHTML = '';
     document.getElementById('sheet-progress').style.width = '0%';
+    document.getElementById('signup-sheet-period-picker').innerHTML = '';
     document.getElementById('signup-entry-card').style.display = 'none';
     renderSignupRoleOptions(null);
     return;
@@ -314,25 +379,34 @@ function renderSignupSheet() {
   if (confirmationHelp) confirmationHelp.textContent = maybeClosed ? 'The Maybe deadline has passed; new signups must be confirmed.' : `Maybe signups must be confirmed by ${formatBerlinDateTime(maybeDeadline, { dateStyle: 'medium', timeStyle: 'short' })} Berlin time.`;
   document.getElementById('sheet-event-title').textContent = ev.title;
   document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${eventScheduleTimeLabel(ev)} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}${isstScheduleCaption(ev) ? ' · ' + isstScheduleCaption(ev) : ''}${festivalScheduleCaption(ev) ? ' · ' + festivalScheduleCaption(ev) : ''}`;
-  const capacity = signupCapacitySummary(ev);
+  const periods = signupSheetPeriods(ev);
+  const selectedPeriod = selectedSignupSheetPeriod(ev, periods);
+  const capacity = selectedPeriod
+    ? signupSheetPeriodStatus(ev, selectedPeriod)
+    : { signups: ev.signups, totalSlots: 0, openSlots: 0 };
+  renderSignupSheetPeriodPicker(ev, periods, selectedPeriod);
+  const periodPrefix = periods.length > 1 && selectedPeriod ? `${selectedPeriod.label} · ` : '';
   document.getElementById('sheet-event-cap').textContent = capacity.totalSlots
-    ? `${ev.signups.length} signed up · ${capacity.openSlots} role ${capacity.openSlots === 1 ? 'place' : 'places'} open across ${capacity.openPeriods} ${capacity.openPeriods === 1 ? 'period' : 'periods'}`
-    : `${ev.signups.length} signed up · no production roles available to this account`;
+    ? `${periodPrefix}${capacity.signups.length} crew · ${capacity.openSlots} role ${capacity.openSlots === 1 ? 'place' : 'places'} open`
+    : `${periodPrefix}${capacity.signups.length} crew · no production roles available to this account`;
   const pct = capacity.totalSlots ? Math.round((capacity.totalSlots - capacity.openSlots) / capacity.totalSlots * 100) : 0;
   document.getElementById('sheet-progress').style.width = `${pct}%`;
   document.getElementById('sheet-cap-badge').innerHTML = capacity.totalSlots && capacity.openSlots === 0
-    ? '<span class="badge badge-coral">All periods staffed</span>'
-    : `<span class="badge badge-green">${capacity.openPeriods} ${capacity.openPeriods === 1 ? 'period' : 'periods'} open</span>`;
+    ? `<span class="badge badge-coral">${escapeHtml(selectedPeriod?.label || 'Event')} staffed</span>`
+    : capacity.totalSlots
+      ? `<span class="badge badge-green">${capacity.openSlots} ${capacity.openSlots === 1 ? 'role place' : 'role places'} open</span>`
+      : '';
 
   const currentMemberId = currentMemberRecord()?.id;
   const canRemoveSignup = signup => Boolean(state.currentUser.isAdmin || (currentMemberId && signup.memberId === currentMemberId));
-  const expiredSignups = ev.expiredSignups || [];
-  const showRemoveColumn = ev.signups.some(canRemoveSignup) || expiredSignups.some(canRemoveSignup);
+  const visibleSignups = selectedPeriod ? capacity.signups : ev.signups;
+  const expiredSignups = (ev.expiredSignups || []).filter(signup => !selectedPeriod || signupOverlaps(signup, selectedPeriod.window));
+  const showRemoveColumn = visibleSignups.some(canRemoveSignup) || expiredSignups.some(canRemoveSignup);
   const removeHeader = showRemoveColumn ? '<th></th>' : '';
-  const reserveAssignments = activeReserveAssignments(ev);
+  const reserveAssignments = activeReserveAssignments(ev, Date.now(), selectedPeriod?.window || null);
   const activationAt = reserveActivationAt(ev);
   const reserveIsActive = Boolean(activationAt && Date.now() >= activationAt);
-  const orderedSignups = ev.signups
+  const orderedSignups = visibleSignups
     .map(signup => ({ signup, sortRole: reserveAssignments.get(signup.id) || signup.role }))
     .sort((a, b) => {
       const roleA = signupRoleDisplayOrder.indexOf(a.sortRole);
@@ -370,7 +444,7 @@ function renderSignupSheet() {
     </tr>`;
   }).join('');
   if (!rows && !expiredSignups.length) {
-    rows = `<tr class="empty-row"><td colspan="${showRemoveColumn ? 6 : 5}">No one has signed up yet. Choose an open period below to be first.</td></tr>`;
+    rows = `<tr class="empty-row"><td colspan="${showRemoveColumn ? 6 : 5}">No one is assigned for ${escapeHtml(selectedPeriod?.label || 'this event')} yet. Choose that period below to be first.</td></tr>`;
   }
   rows += expiredSignups.map(s => `<tr style="opacity:.62;"><td class="row-num">—</td><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || '—')}${signupCameraBadge(s, ev.id)} <span class="badge badge-gray">Maybe expired · vacant</span></td><td>${escapeHtml(attendanceLabel(s))}</td><td>${escapeHtml(s.ts)}</td>${showRemoveColumn ? `<td>${canRemoveSignup(s) ? `<button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${ev.id}','${s.id}',true)">Remove</button>` : ''}</td>` : ''}</tr>`).join('');
   document.getElementById('sheet-table').innerHTML = `

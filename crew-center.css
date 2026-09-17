@@ -822,6 +822,19 @@
 
   /* ── SIGNUP SHEET ── */
   .signup-sheet-card { overflow-x: auto; }
+  .signup-sheet-period-picker { margin: 0 0 13px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg3); }
+  .signup-sheet-period-picker:empty { display: none; }
+  .signup-sheet-period-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+  .signup-sheet-period-head strong { color: var(--text); font-size: 12px; }
+  .signup-sheet-period-head span { color: var(--text3); font-size: 10px; }
+  .signup-sheet-period-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); gap: 8px; }
+  .signup-sheet-period-button { min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); color: var(--text2); font-family: var(--font-body); text-align: left; cursor: pointer; transition: border-color .16s, background .16s, transform .16s; }
+  .signup-sheet-period-button:hover { border-color: rgba(164,1,52,.38); transform: translateY(-1px); }
+  .signup-sheet-period-button.active { border-color: rgba(164,1,52,.44); background: var(--accent-dim2); box-shadow: inset 3px 0 0 var(--accent); }
+  .signup-sheet-period-button strong, .signup-sheet-period-button span, .signup-sheet-period-button small { display: block; }
+  .signup-sheet-period-button strong { color: var(--text); font-size: 11px; }
+  .signup-sheet-period-button span { margin-top: 2px; color: var(--accent); font-family: var(--font-head); font-size: 17px; line-height: 1; letter-spacing: .035em; font-variant-numeric: tabular-nums; }
+  .signup-sheet-period-button small { margin-top: 5px; color: var(--text3); font-size: 9px; }
   .sheet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .sheet-table th {
     text-align: left;
@@ -2295,6 +2308,8 @@
     .event-card-content { width: 100%; }
     .event-card-badges { position: absolute; top: 16px; left: 80px; right: 14px; }
     .event-schedule-timeline, .signup-window-options { grid-template-columns: 1fr; }
+    .signup-sheet-period-head { align-items: flex-start; flex-direction: column; gap: 3px; }
+    .signup-sheet-period-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (min-width: 769px) and (max-width: 1150px) {
     .member-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

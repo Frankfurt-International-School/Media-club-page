@@ -895,6 +895,59 @@ test('signup availability is calculated per period and advances beyond a staffed
   assert.match(indexHtml, /id="signup-window-picker"/);
 });
 
+test('signup sheets provide one button-filtered crew view per configured game', () => {
+  const event = {
+    id: 'event-1',
+    date: '2026-09-18',
+    time: '15:00',
+    endTime: '18:00',
+    isIsst: true,
+    game1Start: '15:00',
+    game1End: '16:00',
+    game2Start: '16:00',
+    game2End: '17:00',
+    game3Start: '17:00',
+    game3End: '18:00',
+    game4Start: '',
+    game4End: '',
+    openSignupRoles: ['OBS'],
+    signups: [
+      { role: 'Student Supervisor', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T18:00:00Z' },
+      { role: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z' },
+      { role: 'Photographer', attendanceStart: '2026-09-18T15:30:00Z', attendanceEnd: '2026-09-18T16:30:00Z' },
+    ],
+  };
+  const periods = JSON.parse(JSON.stringify(runFunctions(
+    [
+      'signupOverlaps',
+      'signupAttendanceChoices',
+      'signupChoiceWindow',
+      'signupRoleAvailability',
+      'signupAttendanceAvailability',
+      'signupSheetPeriods',
+      'signupSheetPeriodStatus',
+    ],
+    {
+      signupRoleLabels: { obs: 'OBS' },
+      eventOpenRoleLabels: () => ['OBS'],
+      currentUserSignupRoleKeys: () => ['obs'],
+      eventRoleCapacity: () => 1,
+      timeValue: (date, time) => Date.parse(`${date}T${time}:00Z`),
+    },
+    `signupSheetPeriods(${JSON.stringify(event)}).map(period => ({ type: period.type, label: period.label, crew: signupSheetPeriodStatus(${JSON.stringify(event)}, period).signups.length }))`,
+  )));
+
+  assert.deepEqual(periods, [
+    { type: 'game_1', label: 'Game 1', crew: 3 },
+    { type: 'game_2', label: 'Game 2', crew: 2 },
+    { type: 'game_3', label: 'Game 3', crew: 1 },
+  ]);
+  assert.match(indexHtml, /id="signup-sheet-period-picker"/);
+  assert.match(extractFunction('renderSignupSheetPeriodPicker'), /role="group"[\s\S]*?aria-pressed/);
+  assert.match(extractFunction('renderSignupSheet'), /visibleSignups = selectedPeriod \? capacity\.signups : ev\.signups/);
+  assert.match(appStyles, /\.signup-sheet-period-options \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(138px, 1fr\)\)/);
+});
+
 test('production staff can edit events without replacing linked records or lifecycle fields', () => {
   const openEditor = extractFunction('openEventEditor');
   const saveEvent = extractFunction('addEvent');
@@ -1229,19 +1282,26 @@ test('Lower and Upper Field MIXING signups can cover OBS without leaving MIXING'
   assert.equal(eligibility({ ...baseEvent, isSports: false }), false);
   assert.equal(eligibility({ ...baseEvent, openSignupRoles: ['MIXING'] }), false);
 
-  const reserveAssignments = signups => JSON.parse(JSON.stringify(runFunctions(
-    ['signupWindowsOverlap', 'activeReserveAssignments'],
+  const reserveAssignments = (signups, coverageWindow = null) => JSON.parse(JSON.stringify(runFunctions(
+    ['signupOverlaps', 'signupWindowsOverlap', 'activeReserveAssignments'],
     {
       reserveActivationAt: () => 100,
       eventOpenRoleLabels: () => ['MIXING', 'OBS'],
       eventAllowsMixingObsReserve: () => true,
       signupRoleLabels: { mixing: 'MIXING', obs: 'OBS', student_supervisor: 'Student Supervisor' },
     },
-    `Object.fromEntries(activeReserveAssignments({ signups: ${JSON.stringify(signups)} }, 101))`,
+    `Object.fromEntries(activeReserveAssignments({ signups: ${JSON.stringify(signups)} }, 101, ${JSON.stringify(coverageWindow)}))`,
   )));
   const mixer = { id: 'mixer-1', role: 'MIXING', reserveRole1: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z', signedUpAt: '2026-09-10T12:00:00Z' };
   assert.deepEqual(reserveAssignments([mixer]), { 'mixer-1': 'OBS' });
   assert.deepEqual(reserveAssignments([mixer, { id: 'obs-1', role: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z' }]), {});
+  const wholeEventMixer = { ...mixer, attendanceEnd: '2026-09-18T17:00:00Z' };
+  const gameOneObs = { id: 'obs-1', role: 'OBS', attendanceStart: '2026-09-18T15:00:00Z', attendanceEnd: '2026-09-18T16:00:00Z' };
+  assert.deepEqual(
+    reserveAssignments([wholeEventMixer, gameOneObs], { start: Date.parse('2026-09-18T16:00:00Z'), end: Date.parse('2026-09-18T17:00:00Z') }),
+    { 'mixer-1': 'OBS' },
+    'Game 2 should show the whole-event MIXING signup covering OBS when only Game 1 has a direct OBS signup',
+  );
 
   const coverageLabel = activeRole => runFunctions(
     ['signupRoleCoverageLabel'],
