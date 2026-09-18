@@ -1159,7 +1159,7 @@
     <div class="modal-title">Reserve equipment</div>
     <div class="modal-sub" id="reserve-equipment-name">Choose when you need this item.</div>
     <div class="form-group"><label class="form-label">Use</label><select class="form-select" id="reserve-type" onchange="updateReservationFields()"><option value="event">During an event</option><option value="non_event">Not during an event</option></select></div>
-    <div class="form-group" id="reserve-event-group"><label class="form-label">Event</label><select class="form-select" id="reserve-event" onchange="prefillEventReservationTimes()"></select></div>
+    <div class="form-group" id="reserve-event-group"><label class="form-label">Event</label><select class="form-select" id="reserve-event" onchange="prefillEventReservationTimes()"></select><div class="reservation-photographer-match" id="reserve-photographer-match" hidden></div></div>
     <div class="form-group" id="reserve-date-group" style="display:none;"><label class="form-label">Date</label><input class="form-input" id="reserve-date" type="date" onchange="renderReservationLensOptions()" /></div>
     <div class="form-group" id="reserve-purpose-group" style="display:none;"><label class="form-label">Purpose *</label><textarea class="form-textarea" id="reserve-purpose" placeholder="Explain what the equipment will be used for"></textarea></div>
     <section class="reservation-lens-system" id="reserve-lens-system" hidden>

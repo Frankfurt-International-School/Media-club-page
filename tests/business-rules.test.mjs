@@ -1048,6 +1048,63 @@ test('outside-event camera eligibility remains Grade 11 or 12 only', () => {
   assert.equal(allowed('Audio', 'Grade 9'), true);
 });
 
+test('camera reservations auto-detect the current member Photographer events', () => {
+  const member = { id: 'member-1' };
+  const event = (overrides = {}) => ({
+    id: 'event-1',
+    signups: [],
+    ...overrides,
+  });
+  const events = [
+    event({
+      id: 'varsity',
+      signups: [{
+        memberId: member.id,
+        role: 'Handheld 1',
+        confirmationStatus: 'confirmed',
+        attendanceStart: '2026-09-18T14:00:00.000Z',
+        attendanceEnd: '2026-09-18T15:15:00.000Z',
+      }],
+    }),
+    event({
+      id: 'jv',
+      signups: [{
+        memberId: member.id,
+        role: 'Photographer',
+        confirmationStatus: 'confirmed',
+        attendanceStart: '2026-09-18T15:30:00.000Z',
+        attendanceEnd: '2026-09-18T16:15:00.000Z',
+      }],
+    }),
+    event({
+      id: 'expired',
+      signups: [{
+        memberId: member.id,
+        role: 'Photographer',
+        confirmationStatus: 'expired',
+        attendanceStart: '2026-09-19T15:30:00.000Z',
+        attendanceEnd: '2026-09-19T16:15:00.000Z',
+      }],
+    }),
+  ];
+  const eligible = JSON.parse(JSON.stringify(runFunctions(
+    ['activePhotographerSignup', 'cameraReservationEvents'],
+    {
+      state: { events },
+      isPastEvent: () => false,
+      isCameraEquipment: item => item.category === 'Camera',
+      canAccessAdminPanel: () => false,
+    },
+    `cameraReservationEvents({ category: 'Camera' }, ${JSON.stringify(member)}, ${JSON.stringify(events)}).map(item => item.id)`,
+  )));
+
+  assert.deepEqual(eligible, ['jv']);
+  assert.match(indexHtml, /id="reserve-photographer-match" hidden/);
+  assert.match(appSource, /Photographer signup detected · \$\{localTimeFromIso\(photographerSignup\.attendanceStart\)\}–\$\{localTimeFromIso\(photographerSignup\.attendanceEnd\)\}/);
+  assert.match(appSource, /You may reserve a shorter period inside this window\./);
+  assert.match(appStyles, /\.reservation-photographer-match/);
+});
+
 test('reservation policies require approved ownership and keep camera-lens kits atomic', () => {
   const kitReservation = extractSqlFunction('create_camera_kit_reservation');
   const groupCancellation = extractSqlFunction('cancel_equipment_reservation_group');
@@ -1061,12 +1118,21 @@ test('reservation policies require approved ownership and keep camera-lens kits 
   assert.match(appSource, /FACULTY EXCEPTION/);
   assert.doesNotMatch(appSource, /AUTH ADMIN EXCEPTION/);
   assert.match(kitReservation, /lens_item\.compatibility_group is distinct from camera_item\.compatibility_group/);
+  assert.match(kitReservation, /where event\.id = p_event_id[\s\S]*?event\.archived_at is null/);
+  assert.match(kitReservation, /signup\.event_id = p_event_id[\s\S]*?signup\.member_id = reserving_member_id[\s\S]*?signup\.signup_role = 'Photographer'/);
+  assert.match(kitReservation, /signup\.confirmation_status = 'confirmed'[\s\S]*?signup\.confirmation_status = 'maybe'/);
+  assert.match(kitReservation, /signup\.attendance_start <= p_starts_at[\s\S]*?signup\.attendance_end >= p_ends_at/);
+  assert.doesNotMatch(kitReservation, /p_reservation_type = 'event'[\s\S]*?from public\.events event[\s\S]*?tstzrange\([\s\S]*?not exists \([\s\S]*?signup\.event_id = event\.id/);
+  assert.match(kitReservation, /p_reservation_type = 'non_event'[\s\S]*?This time overlaps an event\. Choose that event/);
   assert.match(kitReservation, /reservation_group_id, equipment_id[\s\S]*?kit_group_id, camera_item\.id[\s\S]*?kit_group_id, lens_item\.id/);
   assert.match(groupCancellation, /public\.is_auth_admin\(\)[\s\S]*?public\.current_member_id\(\)/);
   assert.match(groupCancellation, /reservation\.reservation_group_id = target_reservation\.reservation_group_id/);
   assert.match(policiesSql, /revoke delete on table public\.equipment_reservations from anon, authenticated/);
   assert.doesNotMatch(policiesSql, /create policy "Users can cancel equipment reservations"/);
   assert.match(appSource, /supabaseClient\.rpc\('create_camera_kit_reservation'/);
+  assert.match(appSource, /if \(type === 'event'\)[\s\S]*?activePhotographerSignup\(event, member\.id\)/);
+  assert.match(appSource, /Reserve only inside your Photographer signup time for the selected event\./);
+  assert.match(policiesSql, /revoke all on function public\.create_camera_kit_reservation\([^)]+\) from public, anon/);
   assert.match(appSource, /supabaseClient\.rpc\('cancel_equipment_reservation_group'/);
   assert.match(indexHtml, /id="reserve-lens-system" hidden[\s\S]*?id="reserve-lens-grid"/);
   assert.match(schemaSql, /compatibility_group in \('canon-r6', 'lumix-gh6', 'canon-aps-c'\)/);

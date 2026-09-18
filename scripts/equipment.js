@@ -500,6 +500,27 @@ async function requestPermanentDeleteEquipment(id) {
 
 let reservingEquipmentId = null;
 
+function activePhotographerSignup(event, memberId, now = Date.now()) {
+  if (!event || !memberId) return null;
+  return event.signups.find(signup => {
+    if (signup.memberId !== memberId || signup.role !== 'Photographer') return false;
+    if (!['confirmed', 'maybe'].includes(signup.confirmationStatus || 'confirmed')) return false;
+    if (signup.confirmationStatus === 'maybe' && signup.confirmationDeadline) {
+      const deadline = new Date(signup.confirmationDeadline).getTime();
+      if (Number.isFinite(deadline) && deadline <= now) return false;
+    }
+    const start = new Date(signup.attendanceStart).getTime();
+    const end = new Date(signup.attendanceEnd).getTime();
+    return Number.isFinite(start) && Number.isFinite(end) && end > start;
+  }) || null;
+}
+
+function cameraReservationEvents(item, member, events = state.events) {
+  const upcoming = events.filter(event => !isPastEvent(event));
+  if (!isCameraEquipment(item) || canAccessAdminPanel()) return upcoming;
+  return upcoming.filter(event => activePhotographerSignup(event, member?.id));
+}
+
 function currentEquipmentReservationWindow() {
   const item = state.equipment.find(equipment => equipment.id === reservingEquipmentId);
   const type = document.getElementById('reserve-type')?.value;
@@ -564,9 +585,11 @@ function openEquipmentReservation(id) {
   if (item.category === 'Lens') { showToast('Lenses are reserved as part of a compatible camera kit.', 'error', 5000); return; }
   const member = currentMemberRecord();
   const outsideEventAllowed = canReserveOutsideEvent(item, member);
-  const reservableEvents = state.events.filter(event => !isPastEvent(event));
+  const reservableEvents = cameraReservationEvents(item, member);
   if (!outsideEventAllowed && !reservableEvents.length) {
-    showToast('Only Grade 11 and Grade 12 members can borrow cameras outside an event.', 'error', 6000);
+    showToast(isCameraEquipment(item)
+      ? 'Sign up as Photographer for an upcoming event before reserving a club camera.'
+      : 'Only Grade 11 and Grade 12 members can borrow cameras outside an event.', 'error', 6000);
     return;
   }
   reservingEquipmentId = id;
@@ -585,6 +608,7 @@ function openEquipmentReservation(id) {
 function updateReservationFields() {
   const duringEvent = document.getElementById('reserve-type').value === 'event';
   document.getElementById('reserve-event-group').style.display = duringEvent ? '' : 'none';
+  if (!duringEvent) document.getElementById('reserve-photographer-match').hidden = true;
   document.getElementById('reserve-date-group').style.display = duringEvent ? 'none' : '';
   document.getElementById('reserve-purpose-group').style.display = duringEvent ? 'none' : '';
   if (duringEvent) prefillEventReservationTimes();
@@ -600,10 +624,15 @@ function prefillEventReservationTimes() {
   if (!event) return;
   const member = currentMemberRecord();
   const item = state.equipment.find(equipment => equipment.id === reservingEquipmentId);
-  const photographerSignup = event.signups.find(signup => signup.memberId === member?.id && signup.role === 'Photographer');
+  const photographerSignup = activePhotographerSignup(event, member?.id);
   const useSignupWindow = item && ['Camera', 'Recording Cameras'].includes(item.category) && !canAccessAdminPanel() && photographerSignup;
   document.getElementById('reserve-start').value = useSignupWindow ? localTimeFromIso(photographerSignup.attendanceStart) : event.game1Start || event.time;
   document.getElementById('reserve-end').value = useSignupWindow ? localTimeFromIso(photographerSignup.attendanceEnd) : event.game4End || event.game3End || event.game2End || localTimeFromIso(event.endsAt) || '23:59';
+  const match = document.getElementById('reserve-photographer-match');
+  match.hidden = !useSignupWindow;
+  match.textContent = useSignupWindow
+    ? `Photographer signup detected · ${localTimeFromIso(photographerSignup.attendanceStart)}–${localTimeFromIso(photographerSignup.attendanceEnd)}. You may reserve a shorter period inside this window.`
+    : '';
   renderReservationLensOptions();
 }
 
@@ -688,18 +717,27 @@ async function reserveEquipment() {
     renderReservationLensOptions();
     return;
   }
-  const overlappingRestrictedEvent = state.events.find(candidate => {
-    if (!candidate.isFestival && !['Livestream', 'Event'].includes(candidate.cat)) return false;
-    const eventStart = timeValue(candidate.date, candidate.game1Start || candidate.time);
-    const eventEnd = candidate.endsAt ? new Date(candidate.endsAt).getTime() : timeValue(candidate.date, '23:59');
-    return start < eventEnd && end > eventStart;
-  });
-  if (camera && overlappingRestrictedEvent && !canAccessAdminPanel()) {
-    const photographerSignup = overlappingRestrictedEvent.signups.find(signup => signup.memberId === member.id && signup.role === 'Photographer');
-    const covered = photographerSignup && new Date(photographerSignup.attendanceStart).getTime() <= start && new Date(photographerSignup.attendanceEnd).getTime() >= end;
-    if (!covered) {
-      showToast('This time is during an event. To use a camera, sign up as Photographer and reserve only within your signup time.', 'error', 6000);
-      return;
+  if (camera && !canAccessAdminPanel()) {
+    if (type === 'event') {
+      const photographerSignup = activePhotographerSignup(event, member.id);
+      const covered = photographerSignup
+        && new Date(photographerSignup.attendanceStart).getTime() <= start
+        && new Date(photographerSignup.attendanceEnd).getTime() >= end;
+      if (!covered) {
+        showToast('Reserve only inside your Photographer signup time for the selected event.', 'error', 6000);
+        return;
+      }
+    } else {
+      const overlappingRestrictedEvent = state.events.find(candidate => {
+        if (!candidate.isFestival && !['Livestream', 'Event'].includes(candidate.cat)) return false;
+        const eventStart = timeValue(candidate.date, candidate.game1Start || candidate.time);
+        const eventEnd = candidate.endsAt ? new Date(candidate.endsAt).getTime() : timeValue(candidate.date, '23:59');
+        return start < eventEnd && end > eventStart;
+      });
+      if (overlappingRestrictedEvent) {
+        showToast('This time overlaps an event. Choose that event and use your Photographer signup instead.', 'error', 6000);
+        return;
+      }
     }
   }
   const startsAt = new Date(start).toISOString();

@@ -1464,6 +1464,7 @@ declare
   reserving_member_id uuid := public.current_member_id();
   camera_item public.equipment%rowtype;
   lens_item public.equipment%rowtype;
+  target_event public.events%rowtype;
   kit_group_id uuid := gen_random_uuid();
   member_grade integer;
   result jsonb;
@@ -1479,6 +1480,16 @@ begin
     or (p_reservation_type = 'non_event' and p_event_id is null and nullif(btrim(p_purpose), '') is not null)
   ) then
     raise exception 'Choose a valid event or provide a non-event purpose.';
+  end if;
+
+  if p_reservation_type = 'event' then
+    select * into target_event
+    from public.events event
+    where event.id = p_event_id
+      and event.archived_at is null;
+    if not found then
+      raise exception 'Choose a valid active event.';
+    end if;
   end if;
 
   select * into camera_item
@@ -1528,25 +1539,37 @@ begin
     end if;
   end if;
 
-  if not public.is_admin_panel_user() and exists (
-    select 1
-    from public.events event
-    where (event.category in ('Livestream', 'Event') or event.is_festival)
-      and tstzrange(
-        event.date,
-        coalesce(event.ends_at, (date_trunc('day', event.date at time zone 'Europe/Berlin') + interval '1 day') at time zone 'Europe/Berlin'),
-        '[)'
-      ) && tstzrange(p_starts_at, p_ends_at, '[)')
+  if not public.is_admin_panel_user() then
+    if p_reservation_type = 'event'
+      and (target_event.category in ('Livestream', 'Event') or target_event.is_festival)
       and not exists (
         select 1 from public.signups signup
-        where signup.event_id = event.id
+        where signup.event_id = p_event_id
           and signup.member_id = reserving_member_id
           and signup.signup_role = 'Photographer'
+          and (
+            signup.confirmation_status = 'confirmed'
+            or (
+              signup.confirmation_status = 'maybe'
+              and (signup.confirmation_deadline is null or signup.confirmation_deadline > now())
+            )
+          )
           and signup.attendance_start <= p_starts_at
           and signup.attendance_end >= p_ends_at
-      )
-  ) then
-    raise exception 'Sign up as Photographer and reserve only within your signup time.';
+      ) then
+      raise exception 'Reserve only inside your Photographer signup time for the selected event.';
+    elsif p_reservation_type = 'non_event' and exists (
+      select 1
+      from public.events event
+      where (event.category in ('Livestream', 'Event') or event.is_festival)
+        and tstzrange(
+          event.date,
+          coalesce(event.ends_at, (date_trunc('day', event.date at time zone 'Europe/Berlin') + interval '1 day') at time zone 'Europe/Berlin'),
+          '[)'
+        ) && tstzrange(p_starts_at, p_ends_at, '[)')
+    ) then
+      raise exception 'This time overlaps an event. Choose that event and use your Photographer signup instead.';
+    end if;
   end if;
 
   insert into public.equipment_reservations (
@@ -1599,7 +1622,7 @@ exception
 end;
 $$;
 
-revoke all on function public.create_camera_kit_reservation(uuid, uuid, uuid, text, text, timestamptz, timestamptz) from public;
+revoke all on function public.create_camera_kit_reservation(uuid, uuid, uuid, text, text, timestamptz, timestamptz) from public, anon;
 grant execute on function public.create_camera_kit_reservation(uuid, uuid, uuid, text, text, timestamptz, timestamptz) to authenticated;
 
 create or replace function public.cancel_equipment_reservation_group(p_reservation_id uuid)
