@@ -26,6 +26,10 @@ test('privacy notice is dated, contactable, and accurately names the active proc
   assert.match(privacy, /Last updated: 18 September 2026/);
   assert.match(privacy, /mailto:shenghan_lang@fis\.edu/);
   assert.match(privacy, /Supabase[\s\S]*Cloudflare[\s\S]*Resend/);
+  assert.match(privacy, /Ireland \(<code>eu-west-1<\/code>\)/);
+  assert.match(privacy, /configured Ireland region/);
+  assert.match(privacy, /Cloudflare Pages uses a global delivery network/);
+  assert.match(privacy, /delivery logs are stored in the United States/);
   assert.match(privacy, /does not sell personal data/);
   assert.match(privacy, /use AI to make decisions/);
   assert.match(privacy, /There is not yet a fixed automatic deletion schedule/);
