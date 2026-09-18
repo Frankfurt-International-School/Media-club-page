@@ -281,6 +281,35 @@ authStyle.textContent = `
     margin-top: 14px;
   }
 
+  .auth-legal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    color: #777b84;
+    font-size: 10px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .auth-legal a {
+    color: #7e176f;
+    font-weight: 600;
+    text-underline-offset: 2px;
+  }
+
+  .auth-legal a:hover { color: #a40134; }
+
+  .auth-legal a:focus-visible {
+    border-radius: 3px;
+    outline: 3px solid rgba(234,122,244,0.22);
+    outline-offset: 2px;
+  }
+
   .auth-signout {
     display: none;
     position: fixed;
@@ -330,7 +359,8 @@ authStyle.textContent = `
   :root[data-theme="dark"] .auth-gate-logo { background: #f8f9fa; }
   :root[data-theme="dark"] .auth-gate-kicker,
   :root[data-theme="dark"] .auth-public-option p,
-  :root[data-theme="dark"] .auth-gate-note { color: #858a97; }
+  :root[data-theme="dark"] .auth-gate-note,
+  :root[data-theme="dark"] .auth-legal { color: #858a97; }
   :root[data-theme="dark"] .auth-gate-sub,
   :root[data-theme="dark"] .auth-gate-label,
   :root[data-theme="dark"] .auth-remember { color: #b9bdc7; }
@@ -343,6 +373,9 @@ authStyle.textContent = `
     color: #f2f3f5;
   }
   :root[data-theme="dark"] .auth-public-option { border-color: rgba(255,255,255,0.10); }
+  :root[data-theme="dark"] .auth-legal { border-color: rgba(255,255,255,0.10); }
+  :root[data-theme="dark"] .auth-legal a { color: #f0a8f7; }
+  :root[data-theme="dark"] .auth-legal a:hover { color: #ffffff; }
   :root[data-theme="dark"] .auth-secondary-button,
   :root[data-theme="dark"] .auth-public-link {
     background: #20212a;
@@ -414,6 +447,12 @@ document.body.insertAdjacentHTML("afterbegin", `
         <button class="auth-gate-button" id="auth-password-setup-submit" type="submit">Set password</button>
       </form>
       <p class="auth-gate-note">Please submit an application for an account.</p>
+      <div class="auth-legal" aria-label="Privacy and legal information">
+        <span>Voluntary student club system.</span>
+        <a href="/privacy">Privacy &amp; data</a>
+        <span aria-hidden="true">·</span>
+        <a href="/impressum">Impressum</a>
+      </div>
     </div>
   </section>
   <button class="auth-signout" id="auth-signout" type="button">Sign out</button>

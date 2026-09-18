@@ -5,6 +5,9 @@ import { join } from 'node:path';
 const outputDirectory = 'dist';
 const files = [
   'index.html',
+  'privacy.html',
+  'impressum.html',
+  'legal.css',
   'crew-center.css',
   'tutorial.css',
   'supabase-config.js',
