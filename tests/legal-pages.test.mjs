@@ -60,9 +60,10 @@ test('Impressum states what is known without pretending the missing postal detai
 
 test('legal pages are responsive static build assets with clean routes', () => {
   assert.match(legalStyles, /@media \(max-width: 680px\)/);
-  assert.match(redirects, /^\/privacy\s+\/privacy\.html\s+200$/m);
-  assert.match(redirects, /^\/terms\s+\/terms\.html\s+200$/m);
-  assert.match(redirects, /^\/impressum\s+\/impressum\.html\s+200$/m);
+  assert.doesNotMatch(redirects, /^\/(?:privacy|terms|impressum)\b/m, 'manual HTML rewrites loop with Cloudflare clean URLs');
+  assert.match(privacy, /rel="canonical" href="https:\/\/fismediaclub\.org\/privacy"/);
+  assert.match(terms, /rel="canonical" href="https:\/\/fismediaclub\.org\/terms"/);
+  assert.match(impressum, /rel="canonical" href="https:\/\/fismediaclub\.org\/impressum"/);
   for (const file of ['privacy.html', 'terms.html', 'impressum.html', 'legal.css']) {
     assert.ok(build.includes(`'${file}'`), `${file} must be copied into the production build`);
   }

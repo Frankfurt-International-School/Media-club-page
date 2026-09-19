@@ -105,7 +105,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
   ]);
   assert.match(indexHtml, /<script src="supabase-config\.js"><\/script>\s*<script src="scripts\/core\.js"><\/script>/);
   assert.match(indexHtml, /<script src="scripts\/init\.js"><\/script>\s*<script src="tutorial\.js"><\/script>/);
-  assert.match(redirectsFile, /^\/\*\s+\/index\.html\s+200\s*$/m);
+  assert.doesNotMatch(redirectsFile, /^\s*\/\*/m, 'Cloudflare native SPA fallback must not override matching static HTML pages');
 });
 
 test('production builds content-version local scripts and stylesheets', () => {
@@ -465,7 +465,8 @@ test('canonical routes and aliases survive static-host deep links', () => {
   context.window.location.search = '?tab=not-a-tab';
   assert.equal(context.__routing.tabValueFromUrl(['pending', 'announcements'], 'pending'), 'pending');
 
-  assert.match(redirectsFile, /^\/\*\s+\/index\.html\s+200\s*$/m);
+  assert.doesNotMatch(redirectsFile, /^\s*\/\*/m, 'Cloudflare supplies SPA fallback when no top-level 404.html exists');
+  assert.doesNotMatch(buildSource, /['"]404\.html['"]/);
   assert.match(headersFile, /\/signup\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(headersFile, /\/signups\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(headersFile, /\/meetings\n\s+Cache-Control: no-store, max-age=0/);
