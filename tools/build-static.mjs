@@ -6,6 +6,7 @@ const outputDirectory = 'dist';
 const files = [
   'index.html',
   'privacy.html',
+  'terms.html',
   'impressum.html',
   'legal.css',
   'crew-center.css',

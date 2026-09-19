@@ -451,6 +451,8 @@ document.body.insertAdjacentHTML("afterbegin", `
         <span>Voluntary student club system.</span>
         <a href="/privacy">Privacy &amp; data</a>
         <span aria-hidden="true">·</span>
+        <a href="/terms">Terms</a>
+        <span aria-hidden="true">·</span>
         <a href="/impressum">Impressum</a>
       </div>
     </div>

@@ -151,6 +151,7 @@ fieldset { min-width: 0; padding: 0; border: 0; }
 .submit-button:disabled { cursor: wait; opacity: .62; transform: none; }
 .privacy-note { margin: -7px 0 0; color: #8a8c94; font-size: 9px; line-height: 1.55; text-align: center; }
 .privacy-note a { color: var(--accent); font-weight: 600; text-underline-offset: 2px; }
+.sensitive-info-note { margin: -9px 0 0; padding: 9px 11px; border-left: 2px solid #dfb2c0; background: #fff8fa; color: #757780; font-size: 9px; line-height: 1.55; }
 .success-card { text-align: center; padding: 28px 12px; }
 .success-card > span { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%; background: #e3f5ef; color: var(--teal); font-size: 25px; }
 .success-card h3 { margin-bottom: 9px; font-size: 38px; }
