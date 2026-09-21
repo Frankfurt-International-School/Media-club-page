@@ -11,6 +11,24 @@ function workspaceFromHostname(hostname = '') {
   return normalizeWorkspaceHostname(hostname) === 'sac.fismediaclub.org' ? 'sac' : 'media';
 }
 
+function workspaceFromSearch(search = '') {
+  const requested = new URLSearchParams(String(search).replace(/^\?/, '')).get('workspace');
+  return ['media', 'sac'].includes(requested) ? requested : null;
+}
+
+function resolvedWorkspaceForLocation(hostname, search, sacAccess) {
+  const requested = workspaceFromSearch(search) || workspaceFromHostname(hostname);
+  return resolveWorkspaceSelection(requested, sacAccess);
+}
+
+function workspaceSearchForSelection(workspace, hostname, search = '') {
+  const params = new URLSearchParams(String(search).replace(/^\?/, ''));
+  if (workspace === workspaceFromHostname(hostname)) params.delete('workspace');
+  else params.set('workspace', workspace);
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
 function memberCanAccessSacWorkspace(member, isAdmin = false, isVisitor = false) {
   if (isVisitor) return false;
   if (isAdmin) return true;
@@ -48,12 +66,27 @@ function workspacePageFor(page, workspace = activeCrewCenterWorkspace) {
   return page === 'sac-home' ? 'home' : page;
 }
 
-function closeWorkspaceMenu({ returnFocus = false } = {}) {
+function workspaceUrlForPage(page, workspace = activeCrewCenterWorkspace, locationLike = window.location) {
+  const route = typeof pageUrl === 'function' ? pageUrl(page) : '/dashboard';
+  const url = new URL(route, locationLike.origin);
+  url.search = workspaceSearchForSelection(workspace, locationLike.hostname, url.search);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function setWorkspaceMenuOpen(open, { returnFocus = false } = {}) {
   const menu = document.getElementById('workspace-menu');
   const button = document.getElementById('workspace-switcher-button');
-  if (menu) menu.hidden = true;
-  button?.setAttribute('aria-expanded', 'false');
-  if (returnFocus) button?.focus();
+  if (!menu || !button) return;
+  menu.classList.toggle('open', open);
+  menu.setAttribute('aria-hidden', String(!open));
+  menu.toggleAttribute('inert', !open);
+  button.setAttribute('aria-expanded', String(open));
+  if (open) requestAnimationFrame(() => menu.querySelector('[aria-checked="true"]')?.focus());
+  else if (returnFocus) button.focus();
+}
+
+function closeWorkspaceMenu({ returnFocus = false } = {}) {
+  setWorkspaceMenuOpen(false, { returnFocus });
 }
 
 function toggleWorkspaceMenu(event) {
@@ -61,13 +94,10 @@ function toggleWorkspaceMenu(event) {
   const button = document.getElementById('workspace-switcher-button');
   const menu = document.getElementById('workspace-menu');
   if (!button || !menu || button.disabled) return;
-  const willOpen = menu.hidden;
-  menu.hidden = !willOpen;
-  button.setAttribute('aria-expanded', String(willOpen));
-  if (willOpen) menu.querySelector('[aria-checked="true"]')?.focus();
+  setWorkspaceMenuOpen(!menu.classList.contains('open'));
 }
 
-function applyWorkspacePresentation() {
+function applyWorkspacePresentation({ animate = false } = {}) {
   const sacAccess = canAccessSacWorkspace();
   const isSac = activeCrewCenterWorkspace === 'sac';
   document.documentElement.dataset.workspace = activeCrewCenterWorkspace;
@@ -98,18 +128,27 @@ function applyWorkspacePresentation() {
   });
   closeWorkspaceMenu();
   window.applySidebarPreferences?.();
+  if (animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.remove('workspace-changing');
+    void document.documentElement.offsetWidth;
+    document.documentElement.classList.add('workspace-changing');
+    window.setTimeout(() => document.documentElement.classList.remove('workspace-changing'), 320);
+  }
 }
 
 function setCrewCenterWorkspace(workspace, options = {}) {
   const sacAccess = canAccessSacWorkspace();
   const requestedSac = workspace === 'sac';
+  const previousWorkspace = activeCrewCenterWorkspace;
   activeCrewCenterWorkspace = resolveWorkspaceSelection(workspace, sacAccess);
-  applyWorkspacePresentation();
+  applyWorkspacePresentation({ animate: options.animate !== false && previousWorkspace !== activeCrewCenterWorkspace });
   if (requestedSac && !sacAccess && options.announce !== false) {
     showToast('This account is not eligible for the SAC workspace.', 'error', 5000);
   }
   if (options.navigate !== false && typeof navigate === 'function') {
-    navigate('home', navItemForPage(workspacePageFor('home')));
+    const page = workspacePageFor('home');
+    history.pushState({ page, workspace: activeCrewCenterWorkspace }, '', workspaceUrlForPage(page));
+    navigate(page, navItemForPage(page), { skipUrl: true });
   }
   return activeCrewCenterWorkspace;
 }
@@ -120,15 +159,22 @@ function selectCrewCenterWorkspace(workspace) {
 }
 
 function initializeCrewCenterWorkspace() {
-  const workspace = resolvedWorkspaceForHostname(window.location.hostname, canAccessSacWorkspace());
+  const workspace = resolvedWorkspaceForLocation(window.location.hostname, window.location.search, canAccessSacWorkspace());
   setCrewCenterWorkspace(workspace, { navigate: false, announce: false });
   if (typeof pageFromPath !== 'function' || typeof navigate !== 'function') return workspace;
   const requestedPage = pageFromPath();
   const resolvedPage = workspacePageFor(requestedPage);
-  if (resolvedPage !== requestedPage) {
-    history.replaceState({ page: resolvedPage }, '', pageUrl(resolvedPage));
+  const resolvedUrl = workspaceUrlForPage(resolvedPage, workspace);
+  if (`${window.location.pathname}${window.location.search}` !== resolvedUrl) {
+    history.replaceState({ page: resolvedPage, workspace }, '', resolvedUrl);
   }
   navigate(resolvedPage, navItemForPage(resolvedPage), { skipUrl: true, preserveFocus: true });
+  return workspace;
+}
+
+function syncCrewCenterWorkspaceFromLocation() {
+  const workspace = resolvedWorkspaceForLocation(window.location.hostname, window.location.search, canAccessSacWorkspace());
+  setCrewCenterWorkspace(workspace, { navigate: false, announce: false, animate: true });
   return workspace;
 }
 
@@ -142,7 +188,7 @@ document.addEventListener('click', event => {
 });
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !document.getElementById('workspace-menu')?.hidden) {
+  if (event.key === 'Escape' && document.getElementById('workspace-menu')?.classList.contains('open')) {
     closeWorkspaceMenu({ returnFocus: true });
   }
 });
@@ -152,3 +198,4 @@ window.currentCrewCenterWorkspace = currentCrewCenterWorkspace;
 window.initializeCrewCenterWorkspace = initializeCrewCenterWorkspace;
 window.resetCrewCenterWorkspace = resetCrewCenterWorkspace;
 window.selectCrewCenterWorkspace = selectCrewCenterWorkspace;
+window.syncCrewCenterWorkspaceFromLocation = syncCrewCenterWorkspaceFromLocation;

@@ -33,15 +33,15 @@
   <div class="sidebar-logo">
     <button type="button" class="workspace-switcher" id="workspace-switcher-button" onclick="toggleWorkspaceMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-controls="workspace-menu" aria-label="Current workspace: Media Club." title="Media Club workspace" disabled>
       <span class="logo-mark">
-        <span class="workspace-symbol" aria-hidden="true"><img class="logo-image workspace-media-symbol" src="assets/media-club-logo.png" width="128" height="128" alt=""><span class="workspace-sac-symbol">SAC</span></span>
+        <span class="workspace-symbol" aria-hidden="true"><img class="logo-image workspace-logo workspace-media-symbol" src="assets/media-club-logo.png" width="128" height="128" alt=""><img class="logo-image workspace-logo workspace-sac-symbol" src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></span>
         <span class="workspace-brand-copy"><span class="logo-copy" id="workspace-name">Media Club</span><span class="logo-sub logo-copy" id="workspace-subtitle">FIS Student Media Club</span></span>
       </span>
       <svg class="workspace-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
-    <div class="workspace-menu" id="workspace-menu" role="menu" aria-label="Choose workspace" hidden>
+    <div class="workspace-menu" id="workspace-menu" role="menu" aria-label="Choose workspace" aria-hidden="true" inert>
       <div class="workspace-menu-label">Switch workspace</div>
-      <button type="button" class="workspace-menu-option active" data-workspace-choice="media" role="menuitemradio" aria-checked="true" onclick="selectCrewCenterWorkspace('media')"><span class="workspace-menu-icon media">MC</span><span><strong>Media Club</strong><small>Production and equipment</small></span><span class="workspace-menu-check" aria-hidden="true">✓</span></button>
-      <button type="button" class="workspace-menu-option" data-workspace-choice="sac" role="menuitemradio" aria-checked="false" onclick="selectCrewCenterWorkspace('sac')"><span class="workspace-menu-icon sac">SAC</span><span><strong>Student Athletic Council</strong><small>Athletic events and service</small></span><span class="workspace-menu-check" aria-hidden="true">✓</span></button>
+      <button type="button" class="workspace-menu-option active" data-workspace-choice="media" role="menuitemradio" aria-checked="true" onclick="selectCrewCenterWorkspace('media')"><span class="workspace-menu-icon media" aria-hidden="true"><img src="assets/media-club-logo.png" width="128" height="128" alt=""></span><span><strong>Media Club</strong><small>Production and equipment</small></span><span class="workspace-menu-check" aria-hidden="true">✓</span></button>
+      <button type="button" class="workspace-menu-option" data-workspace-choice="sac" role="menuitemradio" aria-checked="false" onclick="selectCrewCenterWorkspace('sac')"><span class="workspace-menu-icon sac" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></span><span><strong>Student Athletic Council</strong><small>Athletic events and service</small></span><span class="workspace-menu-check" aria-hidden="true">✓</span></button>
     </div>
   </div>
   <nav class="sidebar-nav">
@@ -312,7 +312,7 @@
           <p class="page-sub">A dedicated place for athletic-event service, time-slot sign-ups, meetings, and attendance.</p>
           <div class="sac-home-access"><span aria-hidden="true"></span> Access is based on your approved member record, never on the website address.</div>
         </div>
-        <div class="sac-home-mark" aria-hidden="true">SAC</div>
+        <div class="sac-home-mark" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></div>
       </section>
       <section class="sac-home-grid" aria-label="SAC workspace areas">
         <article class="sac-home-card"><div class="sac-home-card-number">01</div><h2>Athletic events</h2><p>SAC event details and linked Media Club livestreams will appear here as they are added.</p><span>Workspace foundation ready</span></article>

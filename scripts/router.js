@@ -48,6 +48,10 @@ function pageUrl(page, params = {}) {
     if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
   });
   const query = search.toString();
+  const workspaceReady = Boolean(window.CREW_CENTER_AUTH_USER || window.CREW_CENTER_IS_VISITOR || window.CREW_CENTER_IS_ADMIN);
+  if (workspaceReady && typeof currentCrewCenterWorkspace === 'function' && typeof workspaceSearchForSelection === 'function') {
+    return `${route}${workspaceSearchForSelection(currentCrewCenterWorkspace(), window.location.hostname, query ? `?${query}` : '')}`;
+  }
   return query ? `${route}?${query}` : route;
 }
 
@@ -131,9 +135,19 @@ function navigate(id, el, options = {}) {
 }
 
 function openPageFromUrl() {
+  const canSyncWorkspace = Boolean(window.CREW_CENTER_AUTH_USER || window.CREW_CENTER_IS_VISITOR || window.CREW_CENTER_IS_ADMIN);
+  const workspace = (canSyncWorkspace ? window.syncCrewCenterWorkspaceFromLocation?.() : null)
+    || (typeof currentCrewCenterWorkspace === 'function' ? currentCrewCenterWorkspace() : 'media');
   const requestedPage = pageFromPath();
   const page = typeof workspacePageFor === 'function' ? workspacePageFor(requestedPage) : requestedPage;
-  if (page !== requestedPage) history.replaceState({ page }, '', pageUrl(page));
+  if (page !== requestedPage) {
+    history.replaceState({ page, workspace }, '', workspaceUrlForPage(page, workspace));
+  } else if (canSyncWorkspace && typeof workspaceSearchForSelection === 'function') {
+    const canonicalSearch = workspaceSearchForSelection(workspace, window.location.hostname, window.location.search);
+    if (canonicalSearch !== window.location.search) {
+      history.replaceState({ page, workspace }, '', `${window.location.pathname}${canonicalSearch}${window.location.hash}`);
+    }
+  }
   navigate(page, navItemForPage(page), { skipUrl: true });
 }
 
@@ -162,8 +176,11 @@ function installNativeLinkNavigation() {
     if (!page) return;
     event.preventDefault();
     const destinationPage = routePages[destination.pathname];
+    const workspaceSearch = typeof workspaceSearchForSelection === 'function'
+      ? workspaceSearchForSelection(currentCrewCenterWorkspace(), window.location.hostname, destination.search)
+      : destination.search;
     const destinationUrl = page === destinationPage
-      ? `${destination.pathname}${destination.search}${destination.hash}`
+      ? `${destination.pathname}${workspaceSearch}${destination.hash}`
       : pageUrl(page);
     history.pushState({ page }, '', destinationUrl);
     navigate(page, navItemForPage(page), { skipUrl: true });

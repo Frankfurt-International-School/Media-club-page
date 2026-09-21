@@ -20,6 +20,7 @@ const schemaSql = readFileSync(new URL('../supabase-schema.sql', import.meta.url
 const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.url), 'utf8');
 const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
 const mediaClubLogo = readFileSync(new URL('../assets/media-club-logo.png', import.meta.url));
+const sacWarriorsMark = readFileSync(new URL('../assets/sac-warriors-mark.png', import.meta.url));
 const buildSource = readFileSync(new URL('../tools/build-static.mjs', import.meta.url), 'utf8');
 const aboutImageNames = [
   'tech-show-crew-portrait.webp',
@@ -501,22 +502,34 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
   const functionNames = [
     'normalizeWorkspaceHostname',
     'workspaceFromHostname',
+    'workspaceFromSearch',
+    'resolvedWorkspaceForLocation',
+    'workspaceSearchForSelection',
     'memberCanAccessSacWorkspace',
     'resolvedWorkspaceForHostname',
     'resolveWorkspaceSelection',
     'workspacePageFor',
   ];
   const source = functionNames.map(extractWorkspaceFunction).join('\n');
-  const context = {};
-  vm.runInNewContext(`${source}\nglobalThis.__workspace = { workspaceFromHostname, memberCanAccessSacWorkspace, resolvedWorkspaceForHostname, resolveWorkspaceSelection, workspacePageFor };`, context);
+  const context = { URLSearchParams };
+  vm.runInNewContext(`${source}\nglobalThis.__workspace = { workspaceFromHostname, workspaceFromSearch, resolvedWorkspaceForLocation, workspaceSearchForSelection, memberCanAccessSacWorkspace, resolvedWorkspaceForHostname, resolveWorkspaceSelection, workspacePageFor };`, context);
   const logic = context.__workspace;
 
   assert.equal(logic.workspaceFromHostname('sac.fismediaclub.org'), 'sac');
   assert.equal(logic.workspaceFromHostname('SAC.FISMEDIACLUB.ORG.'), 'sac');
   assert.equal(logic.workspaceFromHostname('fismediaclub.org'), 'media');
+  assert.equal(logic.workspaceFromSearch('?workspace=sac'), 'sac');
+  assert.equal(logic.workspaceFromSearch('?workspace=media'), 'media');
+  assert.equal(logic.workspaceFromSearch('?workspace=anything-else'), null);
   assert.equal(logic.resolvedWorkspaceForHostname('sac.fismediaclub.org', true), 'sac');
   assert.equal(logic.resolvedWorkspaceForHostname('sac.fismediaclub.org', false), 'media', 'hostname alone must never grant SAC access');
   assert.equal(logic.resolvedWorkspaceForHostname('fismediaclub.org', true), 'media');
+  assert.equal(logic.resolvedWorkspaceForLocation('fismediaclub.org', '?workspace=sac', true), 'sac');
+  assert.equal(logic.resolvedWorkspaceForLocation('sac.fismediaclub.org', '?workspace=media', true), 'media');
+  assert.equal(logic.resolvedWorkspaceForLocation('fismediaclub.org', '?workspace=sac', false), 'media');
+  assert.equal(logic.workspaceSearchForSelection('sac', 'fismediaclub.org', '?tab=appearance'), '?tab=appearance&workspace=sac');
+  assert.equal(logic.workspaceSearchForSelection('media', 'fismediaclub.org', '?tab=appearance&workspace=sac'), '?tab=appearance');
+  assert.equal(logic.workspaceSearchForSelection('sac', 'sac.fismediaclub.org', '?workspace=media'), '');
 
   assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: 'Grade 9', role: 'Member' }), true);
   assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: 'Grade 12', role: 'Member' }), true);
@@ -533,6 +546,17 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
 
   assert.match(indexHtml, /id="workspace-switcher-button"[\s\S]*?aria-controls="workspace-menu"/);
   assert.match(indexHtml, /data-workspace-choice="media"[\s\S]*?data-workspace-choice="sac"/);
+  assert.match(indexHtml, /workspace-media-symbol[^>]+assets\/media-club-logo\.png/);
+  assert.match(indexHtml, /workspace-sac-symbol[^>]+assets\/sac-warriors-mark\.png/);
+  assert.match(indexHtml, /workspace-menu-icon media[\s\S]*?assets\/media-club-logo\.png/);
+  assert.match(indexHtml, /workspace-menu-icon sac[\s\S]*?assets\/sac-warriors-mark\.png/);
+  assert.match(indexHtml, /sac-home-mark[\s\S]*?assets\/sac-warriors-mark\.png/);
+  assert.ok(sacWarriorsMark.length > 20_000 && sacWarriorsMark.length < 100_000, 'cropped SAC mark should stay compact');
+  assert.equal(sacWarriorsMark.subarray(1, 4).toString(), 'PNG');
+  assert.match(appStyles, /\.workspace-menu\.open[\s\S]*?opacity: 1[\s\S]*?visibility: visible/);
+  assert.match(appStyles, /\.workspace-menu \{[\s\S]*?left: 12px;[\s\S]*?right: 12px;[\s\S]*?width: auto/);
+  assert.match(workspaceSource, /workspaceSearchForSelection\(workspace, hostname, search/);
+  assert.match(workspaceSource, /history\.pushState\(\{ page, workspace: activeCrewCenterWorkspace \}, '', workspaceUrlForPage\(page\)\)/);
   assert.match(indexHtml, /id="page-sac-home"/);
   assert.match(coreSource, /await loadCrewCenterData\(\{ datasets: \['members'\] \}\);\s*window\.initializeCrewCenterWorkspace\?\.\(\)/);
   assert.doesNotMatch(workspaceSource, /https:\/\/fismediaclub\.org/, 'ordinary workspace routing must remain same-origin');
