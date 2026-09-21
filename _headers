@@ -16,3 +16,18 @@
   Cache-Control: no-store, max-age=0
 /signin
   Cache-Control: no-store, max-age=0
+
+# Keep the application shell coherent even if Pages is accidentally configured
+# to publish the repository root instead of the fingerprinted dist build.
+/crew-center.css
+  Cache-Control: no-cache, max-age=0, must-revalidate
+/tutorial.css
+  Cache-Control: no-cache, max-age=0, must-revalidate
+/assets/fonts/fonts.css
+  Cache-Control: no-cache, max-age=0, must-revalidate
+/supabase-config.js
+  Cache-Control: no-cache, max-age=0, must-revalidate
+/tutorial.js
+  Cache-Control: no-cache, max-age=0, must-revalidate
+/scripts/*
+  Cache-Control: no-cache, max-age=0, must-revalidate

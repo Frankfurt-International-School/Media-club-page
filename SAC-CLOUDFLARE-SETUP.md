@@ -36,6 +36,44 @@ Read-only Cloudflare inspection on 21 September 2026 showed:
 
 Recheck this state immediately before making a live change.
 
+## Fix the private Pages build before adding SAC
+
+The private Crew Center repository already has a production build that copies
+the deployable site to `dist` and fingerprints its CSS and JavaScript URLs. The
+Pages project must publish that generated directory. Publishing the repository
+root skips the fingerprints and can combine new HTML with an older stylesheet
+that is still in a visitor's browser cache.
+
+In **Cloudflare Dashboard > Workers & Pages > media-club-page > Settings >
+Builds & deployments**, set the production build configuration to:
+
+| Setting | Value |
+| --- | --- |
+| Production branch | `main` |
+| Framework preset | `None` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | `/` or blank |
+
+Save the settings, then start one new production deployment of the latest
+`main` commit. In its build log, confirm that `npm run build` succeeds and that
+Cloudflare uploads files from `dist`.
+
+After deployment, inspect the live HTML. Stylesheet and script references must
+contain a fingerprint query such as:
+
+```text
+crew-center.css?v=...
+scripts/workspaces.js?v=...
+```
+
+If those references have no `?v=...`, stop: the project is still publishing the
+repository root. Do not attach `sac.fismediaclub.org` until this is corrected.
+
+The repository also sends `no-cache` response headers for the unversioned app
+shell files as a fallback. That protects visitors from another mixed-version
+screen, but it does not replace the correct `dist` build configuration.
+
 ## Prerequisites before adding the hostname
 
 1. Deploy code that recognizes `sac.fismediaclub.org` and selects the SAC

@@ -487,6 +487,12 @@ test('canonical routes and aliases survive static-host deep links', () => {
   assert.match(headersFile, /\/signups\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(headersFile, /\/meetings\n\s+Cache-Control: no-store, max-age=0/);
   assert.match(headersFile, /\/signin\n\s+Cache-Control: no-store, max-age=0/);
+  assert.match(headersFile, /\/crew-center\.css\n\s+Cache-Control: no-cache, max-age=0, must-revalidate/);
+  assert.match(headersFile, /\/tutorial\.css\n\s+Cache-Control: no-cache, max-age=0, must-revalidate/);
+  assert.match(headersFile, /\/assets\/fonts\/fonts\.css\n\s+Cache-Control: no-cache, max-age=0, must-revalidate/);
+  assert.match(headersFile, /\/supabase-config\.js\n\s+Cache-Control: no-cache, max-age=0, must-revalidate/);
+  assert.match(headersFile, /\/tutorial\.js\n\s+Cache-Control: no-cache, max-age=0, must-revalidate/);
+  assert.match(headersFile, /\/scripts\/\*\n\s+Cache-Control: no-cache, max-age=0, must-revalidate/);
   assert.match(authSource, /window\.location\.pathname !== "\/signin"[\s\S]*?history\.replaceState\(\{ page: "signin" \}, "", "\/signin"\)/);
   assert.match(authSource, /window\.location\.pathname === "\/signin"[\s\S]*?defaultRoute[\s\S]*?history\.replaceState/);
 });
