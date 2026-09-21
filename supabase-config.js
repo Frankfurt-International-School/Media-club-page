@@ -992,6 +992,7 @@ function showSignIn() {
   window.CREW_CENTER_AUTH_USER = null;
   window.CREW_CENTER_IS_ADMIN = false;
   window.CREW_CENTER_IS_VISITOR = false;
+  window.resetCrewCenterWorkspace?.();
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
   authForm.style.display = "block";

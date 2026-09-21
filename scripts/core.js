@@ -955,10 +955,14 @@ async function loadCrewCenterData(options = {}) {
 
 async function loadCrewCenterInitialData() {
   const visitor = isVisitorSession();
-  const page = typeof pageFromPath === 'function' ? pageFromPath() : 'home';
+  if (!visitor) await loadCrewCenterData({ datasets: ['members'] });
+  window.initializeCrewCenterWorkspace?.();
+  const routePage = typeof pageFromPath === 'function' ? pageFromPath() : 'home';
+  const page = typeof workspacePageFor === 'function' ? workspacePageFor(routePage) : routePage;
   const pageDatasets = {
     about: ['gallery'],
     home: ['events', 'gallery', 'equipment', 'announcements'],
+    'sac-home': [],
     events: ['events'],
     meetings: ['meetings'],
     signup: ['events', 'equipment'],
@@ -971,7 +975,6 @@ async function loadCrewCenterInitialData() {
     join: [],
     admin: ['applications'],
   }[page] || [];
-  if (!visitor) await loadCrewCenterData({ datasets: ['members'] });
   const eligibleDatasets = visitor
     ? crewCenterPublicDatasets
     : crewCenterDatasets.filter(dataset => dataset !== 'applications' || canAccessAdminPanel());
@@ -1115,7 +1118,7 @@ function applySidebarPreferences() {
   const preferences = currentSidebarPreferences();
   const available = availableSidebarPages();
   const visiblePages = new Set(preferences.items);
-  document.querySelectorAll('.sidebar-nav .nav-item[data-page]').forEach(item => {
+  document.querySelectorAll('.sidebar-nav .nav-item[data-workspace-scope="media"][data-page]').forEach(item => {
     item.classList.toggle('sidebar-custom-hidden', !visiblePages.has(item.dataset.page));
   });
   Object.entries(sidebarCategories).forEach(([category, definition]) => {

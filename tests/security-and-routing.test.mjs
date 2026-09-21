@@ -11,6 +11,7 @@ const appSource = crewCenterScriptPaths
   .join('\n');
 const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const coreSource = readFileSync(new URL('../scripts/core.js', import.meta.url), 'utf8');
+const workspaceSource = readFileSync(new URL('../scripts/workspaces.js', import.meta.url), 'utf8');
 const initSource = readFileSync(new URL('../scripts/init.js', import.meta.url), 'utf8');
 const headersFile = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
 const redirectsFile = readFileSync(new URL('../_redirects', import.meta.url), 'utf8');
@@ -46,6 +47,19 @@ function globalHeaders() {
 
 function inlineScriptBodies() {
   return [...indexHtml.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
+}
+
+function extractWorkspaceFunction(name) {
+  const start = workspaceSource.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `Expected ${name} in scripts/workspaces.js`);
+  const bodyStart = workspaceSource.indexOf('{', start);
+  let depth = 0;
+  for (let index = bodyStart; index < workspaceSource.length; index += 1) {
+    if (workspaceSource[index] === '{') depth += 1;
+    if (workspaceSource[index] === '}') depth -= 1;
+    if (depth === 0) return workspaceSource.slice(start, index + 1);
+  }
+  throw new Error(`Could not find the end of ${name}`);
 }
 
 test('Cloudflare headers enforce transport, framing, capability, and MIME protections', () => {
@@ -89,6 +103,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
   assert.doesNotMatch(indexHtml, /<style>/);
   assert.deepEqual(crewCenterScriptPaths, [
     'scripts/core.js',
+    'scripts/workspaces.js',
     'scripts/router.js',
     'scripts/ui.js',
     'scripts/dashboard.js',
@@ -103,7 +118,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/admin.js',
     'scripts/init.js',
   ]);
-  assert.match(indexHtml, /<script src="supabase-config\.js"><\/script>\s*<script src="scripts\/core\.js"><\/script>/);
+  assert.match(indexHtml, /<script src="supabase-config\.js"><\/script>\s*<script src="scripts\/core\.js"><\/script>\s*<script src="scripts\/workspaces\.js"><\/script>/);
   assert.match(indexHtml, /<script src="scripts\/init\.js"><\/script>\s*<script src="tutorial\.js"><\/script>/);
   assert.doesNotMatch(redirectsFile, /^\s*\/\*/m, 'Cloudflare native SPA fallback must not override matching static HTML pages');
 });
@@ -277,6 +292,7 @@ test('the sign-in gate can request a privacy-safe password reset email', () => {
   assert.match(resetSource, /if \(!authEmail\.checkValidity\(\)\) \{\s*authEmail\.reportValidity\(\);\s*return;/);
   assert.match(resetSource, /const redirectTo = new URL\("\/signin", window\.location\.origin\)\.toString\(\)/);
   assert.match(resetSource, /auth\.resetPasswordForEmail\(email, \{ redirectTo \}\)/);
+  assert.equal(new URL('/signin', 'https://sac.fismediaclub.org').toString(), 'https://sac.fismediaclub.org/signin');
   assert.match(resetSource, /withCrewCenterTimeout\([\s\S]*?authOperationTimeoutMs/);
   assert.match(resetSource, /If a Media Club account uses that email, a fresh access link has been sent\./);
   assert.match(resetSource, /setAuthMessage\([\s\S]*?"success"/);
@@ -374,7 +390,7 @@ test('primary content pages share the branded page hero', () => {
 
 test('About Media Club is a local, privacy-conscious brochure page', () => {
   const start = indexHtml.indexOf('<div id="page-about" class="page">');
-  const end = indexHtml.indexOf('<!-- ── DASHBOARD ── -->', start);
+  const end = indexHtml.indexOf('<!-- ── SAC WORKSPACE ── -->', start);
   assert.ok(start > -1 && end > start, 'Expected the About Media Club page markup');
   const aboutMarkup = indexHtml.slice(start, end);
   assert.match(aboutMarkup, /Discover Media Club/);
@@ -475,6 +491,47 @@ test('canonical routes and aliases survive static-host deep links', () => {
   assert.match(authSource, /window\.location\.pathname === "\/signin"[\s\S]*?defaultRoute[\s\S]*?history\.replaceState/);
 });
 
+test('SAC hostname selection remains separate from SAC authorization', () => {
+  const functionNames = [
+    'normalizeWorkspaceHostname',
+    'workspaceFromHostname',
+    'memberCanAccessSacWorkspace',
+    'resolvedWorkspaceForHostname',
+    'resolveWorkspaceSelection',
+    'workspacePageFor',
+  ];
+  const source = functionNames.map(extractWorkspaceFunction).join('\n');
+  const context = {};
+  vm.runInNewContext(`${source}\nglobalThis.__workspace = { workspaceFromHostname, memberCanAccessSacWorkspace, resolvedWorkspaceForHostname, resolveWorkspaceSelection, workspacePageFor };`, context);
+  const logic = context.__workspace;
+
+  assert.equal(logic.workspaceFromHostname('sac.fismediaclub.org'), 'sac');
+  assert.equal(logic.workspaceFromHostname('SAC.FISMEDIACLUB.ORG.'), 'sac');
+  assert.equal(logic.workspaceFromHostname('fismediaclub.org'), 'media');
+  assert.equal(logic.resolvedWorkspaceForHostname('sac.fismediaclub.org', true), 'sac');
+  assert.equal(logic.resolvedWorkspaceForHostname('sac.fismediaclub.org', false), 'media', 'hostname alone must never grant SAC access');
+  assert.equal(logic.resolvedWorkspaceForHostname('fismediaclub.org', true), 'media');
+
+  assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: 'Grade 9', role: 'Member' }), true);
+  assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: 'Grade 12', role: 'Member' }), true);
+  assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: 'Grade 8', role: 'Member' }), false);
+  assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: 'Adult', role: 'Member' }), true);
+  assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: '', role: 'Faculty' }), true);
+  assert.equal(logic.memberCanAccessSacWorkspace(null, true), true, 'Auth Admin retains emergency workspace access');
+  assert.equal(logic.memberCanAccessSacWorkspace({ gradeLevel: 'Grade 11', role: 'Member' }, false, true), false, 'visitor sessions never gain SAC access');
+  assert.equal(logic.resolveWorkspaceSelection('sac', false), 'media');
+  assert.equal(logic.resolveWorkspaceSelection('sac', true), 'sac');
+  assert.equal(logic.workspacePageFor('events', 'sac'), 'sac-home');
+  assert.equal(logic.workspacePageFor('profile', 'sac'), 'profile');
+  assert.equal(logic.workspacePageFor('sac-home', 'media'), 'home');
+
+  assert.match(indexHtml, /id="workspace-switcher-button"[\s\S]*?aria-controls="workspace-menu"/);
+  assert.match(indexHtml, /data-workspace-choice="media"[\s\S]*?data-workspace-choice="sac"/);
+  assert.match(indexHtml, /id="page-sac-home"/);
+  assert.match(coreSource, /await loadCrewCenterData\(\{ datasets: \['members'\] \}\);\s*window\.initializeCrewCenterWorkspace\?\.\(\)/);
+  assert.doesNotMatch(workspaceSource, /https:\/\/fismediaclub\.org/, 'ordinary workspace routing must remain same-origin');
+});
+
 test('navigation tabs use native deep links and restore state from the URL', () => {
   const roleTabs = [...indexHtml.matchAll(/<(a|button)\b[^>]*role="tab"[^>]*>/g)].map(match => match[0]);
   assert.equal(roleTabs.length, 20);
@@ -488,7 +545,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.doesNotMatch(indexHtml, /<button\b[^>]*role="tab"/);
 
   const sidebarLinks = [...indexHtml.matchAll(/<a\b[^>]*class="nav-item[^>]*data-page="[^"]+"[^>]*>/g)].map(match => match[0]);
-  assert.equal(sidebarLinks.length, 13);
+  assert.equal(sidebarLinks.length, 14);
   sidebarLinks.forEach(link => {
     assert.match(link, /href="\/[^"]+"/);
     assert.doesNotMatch(link, /onclick=/);
@@ -508,8 +565,9 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.match(nativeNavigation, /destination\.origin !== window\.location\.origin/);
   assert.match(nativeNavigation, /event\.button !== 0 \|\| event\.metaKey \|\| event\.ctrlKey \|\| event\.shiftKey \|\| event\.altKey/);
   assert.match(nativeNavigation, /event\.preventDefault\(\)/);
-  assert.match(nativeNavigation, /history\.pushState\(\{ page \}, '', `\$\{destination\.pathname\}\$\{destination\.search\}\$\{destination\.hash\}`\)/);
-  assert.match(indexHtml, /<html lang="en" class="sidebar-pending">/);
+  assert.match(nativeNavigation, /const destinationUrl = page === destinationPage/);
+  assert.match(nativeNavigation, /history\.pushState\(\{ page \}, '', destinationUrl\)/);
+  assert.match(indexHtml, /<html lang="en" class="sidebar-pending" data-workspace="media">/);
   assert.match(appStyles, /html\.sidebar-pending \.sidebar-nav,[\s\S]*?visibility: hidden/);
   assert.match(appSource, /document\.documentElement\.classList\.remove\('sidebar-pending'\)/);
   assert.match(appSource, /renderDatasetErrors\(\);\s*closeAllPages\(\);\s*closeMobileSidebar\(\);/);

@@ -1,7 +1,7 @@
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { about: "About Media Club", home: "Dashboard", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   about: '/about',
   home: '/dashboard',
@@ -62,7 +62,8 @@ function navItemForPage(id) {
 }
 
 function navigate(id, el, options = {}) {
-  let page = document.getElementById('page-' + id) ? id : 'home';
+  const workspacePage = typeof workspacePageFor === 'function' ? workspacePageFor(id) : id;
+  let page = document.getElementById('page-' + workspacePage) ? workspacePage : 'home';
   if (page === 'admin' && !canAccessAdminPanel()) {
     page = 'home';
   }
@@ -130,7 +131,10 @@ function navigate(id, el, options = {}) {
 }
 
 function openPageFromUrl() {
-  navigate(pageFromPath(), navItemForPage(pageFromPath()), { skipUrl: true });
+  const requestedPage = pageFromPath();
+  const page = typeof workspacePageFor === 'function' ? workspacePageFor(requestedPage) : requestedPage;
+  if (page !== requestedPage) history.replaceState({ page }, '', pageUrl(page));
+  navigate(page, navItemForPage(page), { skipUrl: true });
 }
 
 window.addEventListener('popstate', openPageFromUrl);
@@ -139,7 +143,8 @@ function installNativeLinkNavigation() {
   const visitorPages = new Set(['about', 'home', 'events', 'gallery', 'equipment', 'role-guide', 'join']);
   const pageForDestination = destination => {
     if (destination.origin !== window.location.origin) return;
-    const page = routePages[destination.pathname];
+    const routePage = routePages[destination.pathname];
+    const page = typeof workspacePageFor === 'function' ? workspacePageFor(routePage) : routePage;
     if (!page) return;
     if (page === 'admin' && !canAccessAdminPanel()) return;
     if (page === 'equipment-status' && !canAccessEquipmentStatus()) return;
@@ -156,7 +161,11 @@ function installNativeLinkNavigation() {
     const page = pageForDestination(destination);
     if (!page) return;
     event.preventDefault();
-    history.pushState({ page }, '', `${destination.pathname}${destination.search}${destination.hash}`);
+    const destinationPage = routePages[destination.pathname];
+    const destinationUrl = page === destinationPage
+      ? `${destination.pathname}${destination.search}${destination.hash}`
+      : pageUrl(page);
+    history.pushState({ page }, '', destinationUrl);
     navigate(page, navItemForPage(page), { skipUrl: true });
   });
 }
