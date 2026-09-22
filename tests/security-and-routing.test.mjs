@@ -559,7 +559,69 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
   assert.match(workspaceSource, /history\.pushState\(\{ page, workspace: activeCrewCenterWorkspace \}, '', workspaceUrlForPage\(page\)\)/);
   assert.match(indexHtml, /id="page-sac-home"/);
   assert.match(coreSource, /await loadCrewCenterData\(\{ datasets: \['members'\] \}\);\s*window\.initializeCrewCenterWorkspace\?\.\(\)/);
-  assert.doesNotMatch(workspaceSource, /https:\/\/fismediaclub\.org/, 'ordinary workspace routing must remain same-origin');
+  assert.doesNotMatch(extractWorkspaceFunction('workspaceUrlForPage'), /https:\/\/fismediaclub\.org/, 'ordinary page routing must remain same-origin');
+});
+
+test('workspace choices navigate to the correct production host in both directions', () => {
+  const functionNames = [
+    'normalizeWorkspaceHostname', 'workspaceFromHostname', 'workspaceSearchForSelection',
+    'workspaceUrlForPage', 'workspaceSwitchUrl', 'selectCrewCenterWorkspace',
+  ];
+  const source = functionNames.map(extractWorkspaceFunction).join('\n');
+  const assigned = [];
+  const localSelections = [];
+  let sacAccess = true;
+  let currentRoute = '/dashboard?workspace=sac';
+  const context = {
+    URL, URLSearchParams,
+    window: { location: {} },
+    canAccessSacWorkspace: () => sacAccess,
+    closeWorkspaceMenu: () => {},
+    setCrewCenterWorkspace: workspace => localSelections.push(workspace),
+    pageUrl: () => currentRoute,
+  };
+  vm.runInNewContext(`${source}\nglobalThis.choose = selectCrewCenterWorkspace; globalThis.switchUrl = workspaceSwitchUrl;`, context);
+  const visit = url => {
+    context.window.location = Object.assign(new URL(url), { assign: destination => assigned.push(destination) });
+    assigned.length = 0;
+    localSelections.length = 0;
+  };
+
+  visit('https://fismediaclub.org/dashboard?workspace=sac#old-fragment');
+  context.choose('sac');
+  assert.deepEqual(assigned, ['https://sac.fismediaclub.org/dashboard']);
+  assert.deepEqual(localSelections, [], 'do not render a different workspace before leaving the current origin');
+
+  visit('https://sac.fismediaclub.org/dashboard?workspace=media');
+  currentRoute = '/dashboard?workspace=media';
+  context.choose('media');
+  assert.deepEqual(assigned, ['https://fismediaclub.org/dashboard']);
+  assert.deepEqual(localSelections, []);
+
+  for (const [host, workspace] of [['fismediaclub.org', 'media'], ['sac.fismediaclub.org', 'sac']]) {
+    visit(`https://${host}/dashboard`);
+    context.choose(workspace);
+    assert.deepEqual(assigned, [], 'reselecting the current workspace should not reload');
+    assert.deepEqual(localSelections, [workspace]);
+  }
+
+  for (const origin of ['http://localhost:4173', 'http://127.0.0.1:4173', 'https://preview.media-club-page.pages.dev', 'https://sac.fismediaclub.org.example.com']) {
+    visit(`${origin}/dashboard`);
+    assert.equal(context.switchUrl('sac'), '/dashboard?workspace=sac');
+    context.choose('sac');
+    assert.deepEqual(assigned, [], 'preview and unrelated hostnames must never jump to production');
+    assert.deepEqual(localSelections, ['sac']);
+  }
+
+  visit('https://fismediaclub.org/dashboard');
+  sacAccess = false;
+  context.choose('sac');
+  assert.deepEqual(assigned, [], 'SAC eligibility must be checked before leaving the current host');
+  assert.deepEqual(localSelections, ['sac'], 'the existing denied-workspace handler displays the eligibility error');
+
+  visit('https://sac.fismediaclub.org/dashboard');
+  context.choose('media');
+  assert.deepEqual(assigned, ['https://fismediaclub.org/dashboard'], 'returning to Media Club never requires SAC access');
 });
 
 test('navigation tabs use native deep links and restore state from the URL', () => {

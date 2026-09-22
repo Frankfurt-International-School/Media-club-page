@@ -73,6 +73,19 @@ function workspaceUrlForPage(page, workspace = activeCrewCenterWorkspace, locati
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function workspaceSwitchUrl(workspace, locationLike = window.location) {
+  const productionOrigins = {
+    media: 'https://fismediaclub.org',
+    sac: 'https://sac.fismediaclub.org',
+  };
+  const isProductionHost = Object.values(productionOrigins).some(origin =>
+    new URL(origin).hostname === normalizeWorkspaceHostname(locationLike.hostname));
+  // Local and Pages previews must stay on their own deployment.
+  if (!isProductionHost) return workspaceUrlForPage('home', workspace, locationLike);
+  const destination = new URL(productionOrigins[workspace === 'sac' ? 'sac' : 'media']);
+  return `${destination.origin}${workspaceUrlForPage('home', workspace, destination)}`;
+}
+
 function setWorkspaceMenuOpen(open, { returnFocus = false } = {}) {
   const menu = document.getElementById('workspace-menu');
   const button = document.getElementById('workspace-switcher-button');
@@ -155,6 +168,16 @@ function setCrewCenterWorkspace(workspace, options = {}) {
 
 function selectCrewCenterWorkspace(workspace) {
   closeWorkspaceMenu();
+  if (workspace === 'sac' && !canAccessSacWorkspace()) {
+    setCrewCenterWorkspace(workspace);
+    return;
+  }
+  const destination = new URL(workspaceSwitchUrl(workspace), window.location.origin);
+  if (destination.origin !== window.location.origin) {
+    // A workspace switch may cross hosts; ordinary page navigation stays relative.
+    window.location.assign(destination.href);
+    return;
+  }
   setCrewCenterWorkspace(workspace);
 }
 

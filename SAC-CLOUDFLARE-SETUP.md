@@ -15,6 +15,24 @@ The SAC hostname should serve the same application and deployment as
 default, while the workspace switcher lets eligible members return to Media Club.
 This avoids a second codebase and a second authentication system.
 
+### Workspace switcher destinations
+
+On either production hostname, choosing SAC opens
+`https://sac.fismediaclub.org/dashboard`, and choosing Media Club opens
+`https://fismediaclub.org/dashboard`. These are full browser navigations when
+changing hosts. Ordinary internal routes stay on the current hostname.
+
+Local development and Pages previews keep both workspaces on their own origin
+using `?workspace=sac`; they must not send testers to production. Existing
+query-based links remain supported, and selecting a workspace on production
+moves to its designated hostname.
+
+The current browser session storage is separate on each hostname, so a member
+may need to sign in with the same account on the destination. Adding custom
+domains or Supabase redirect URLs does not share sessions between hostnames.
+SAC eligibility is checked before switching and again when the destination app
+loads its authenticated member data.
+
 Keep public SAC information and the SAC membership-request entry point in the
 public project at `info.fismediaclub.org/sac`. Do not expose the authenticated SAC
 workspace, member directory, signups, or attendance through the public build.
