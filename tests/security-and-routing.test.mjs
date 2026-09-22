@@ -576,6 +576,7 @@ test('workspace choices navigate to the correct production host in both directio
     URL, URLSearchParams,
     window: { location: {} },
     canAccessSacWorkspace: () => sacAccess,
+    canAccessMediaWorkspace: () => true,
     closeWorkspaceMenu: () => {},
     setCrewCenterWorkspace: workspace => localSelections.push(workspace),
     pageUrl: () => currentRoute,

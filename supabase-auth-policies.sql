@@ -133,6 +133,8 @@ as $$
     or exists (
       select 1
       from public.members member
+      join public.member_team_memberships membership
+        on membership.member_id = member.id and membership.team_key = 'media_club'
       where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
         and replace(lower(member.role), ' ', '-') in ('leader', 'co-leader', 'moderator')
     );
@@ -149,6 +151,8 @@ as $$
     or exists (
       select 1
       from public.members member
+      join public.member_team_memberships membership
+        on membership.member_id = member.id and membership.team_key = 'media_club'
       where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
         and replace(lower(member.role), ' ', '-') = 'leader'
     );
@@ -167,6 +171,8 @@ as $$
   select exists (
     select 1
     from public.members member
+    join public.member_team_memberships membership
+      on membership.member_id = member.id and membership.team_key = 'media_club'
     where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
       and replace(lower(member.role), ' ', '-') in ('faculty', 'leader', 'co-leader')
   );
@@ -240,6 +246,24 @@ as $$
   from public.members member
   where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   limit 1;
+$$;
+
+create or replace function public.can_access_media_club()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_auth_admin()
+    or (
+      public.is_approved_member()
+      and exists (
+        select 1 from public.member_team_memberships membership
+        where membership.member_id = public.current_member_id()
+          and membership.team_key = 'media_club'
+      )
+    );
 $$;
 
 create or replace function public.current_sac_title()
@@ -443,7 +467,7 @@ declare
   target_audience text;
   target_archived_at timestamptz;
 begin
-  if not public.is_approved_member() then return false; end if;
+  if not public.can_access_media_club() then return false; end if;
 
   select meeting.audience, meeting.archived_at
   into target_audience, target_archived_at
@@ -469,7 +493,7 @@ declare
   target_audience text;
   target_archived_at timestamptz;
 begin
-  if not public.is_approved_member() then return false; end if;
+  if not public.can_access_media_club() then return false; end if;
 
   select meeting.audience, meeting.archived_at
   into target_audience, target_archived_at
@@ -484,6 +508,7 @@ end;
 $$;
 
 revoke all on function public.current_member_id() from public;
+revoke all on function public.can_access_media_club() from public;
 revoke all on function public.current_sac_title() from public;
 revoke all on function public.can_manage_sac_memberships() from public;
 revoke all on function public.can_review_sac_applications() from public;
@@ -495,6 +520,7 @@ revoke all on function public.is_member_of_team(text) from public;
 revoke all on function public.can_read_meeting(uuid) from public;
 revoke all on function public.can_rsvp_meeting(uuid) from public;
 grant execute on function public.current_member_id() to authenticated;
+grant execute on function public.can_access_media_club() to authenticated;
 grant execute on function public.current_sac_title() to authenticated;
 grant execute on function public.can_manage_sac_memberships() to authenticated;
 grant execute on function public.can_review_sac_applications() to authenticated;
@@ -1371,6 +1397,7 @@ security definer
 set search_path = public
 as $$
 begin
+  if not public.can_access_media_club() then return false; end if;
   update public.signups signup
   set confirmation_status = 'confirmed', confirmed_at = now()
   where signup.id = p_signup_id
@@ -1559,7 +1586,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select not public.is_visitor_session()
+  select public.can_access_media_club()
     and p_ends_at > p_starts_at
     and ((p_reservation_type = 'event' and p_event_id is not null) or (p_reservation_type = 'non_event' and p_event_id is null))
     and exists (
@@ -1636,8 +1663,8 @@ declare
   member_grade integer;
   result jsonb;
 begin
-  if public.is_visitor_session() or reserving_member_id is null then
-    raise exception 'Approved member access is required.';
+  if not public.can_access_media_club() or reserving_member_id is null then
+    raise exception 'Media Club membership is required.';
   end if;
   if p_ends_at is null or p_starts_at is null or p_ends_at <= p_starts_at then
     raise exception 'The reservation end time must be after its start time.';
@@ -1802,6 +1829,7 @@ declare
   target_reservation public.equipment_reservations%rowtype;
   deleted_count integer := 0;
 begin
+  if not public.can_access_media_club() then return false; end if;
   select * into target_reservation
   from public.equipment_reservations reservation
   where reservation.id = p_reservation_id;
@@ -2071,7 +2099,7 @@ create policy "Signed-in users can read events"
 on public.events for select
 to authenticated
 using (
-  not public.is_visitor_session()
+  public.can_access_media_club()
   and (archived_at is null or public.is_crew_operations_user())
 );
 
@@ -2180,13 +2208,13 @@ using (
 create policy "Signed-in users can read signups"
 on public.signups for select
 to authenticated
-using (public.is_approved_member());
+using (public.can_access_media_club());
 
 create policy "Signed-in users can add signups"
 on public.signups for insert
 to authenticated
 with check (
-  not public.is_visitor_session()
+  public.can_access_media_club()
   and attendance_start is not null
   and attendance_end is not null
   and attendance_end > attendance_start
@@ -2228,7 +2256,7 @@ on public.signups for delete
 to authenticated
 using (
   public.is_auth_admin()
-  or signups.member_id = public.current_member_id()
+  or (public.can_access_media_club() and signups.member_id = public.current_member_id())
 );
 
 create policy "Members can read own notifications"
@@ -2242,7 +2270,7 @@ create policy "Signed-in users can read equipment"
 on public.equipment for select
 to authenticated
 using (
-  not public.is_visitor_session()
+  public.can_access_media_club()
   and (archived_at is null or public.is_crew_operations_user())
 );
 
@@ -2260,7 +2288,7 @@ with check (public.is_crew_operations_user());
 create policy "Signed-in users can read equipment reservations"
 on public.equipment_reservations for select
 to authenticated
-using (public.is_approved_member());
+using (public.can_access_media_club());
 
 create policy "Signed-in members can reserve equipment"
 on public.equipment_reservations for insert
@@ -2287,7 +2315,7 @@ create policy "Signed-in users can read gallery"
 on public.gallery for select
 to authenticated
 using (
-  not public.is_visitor_session()
+  public.can_access_media_club()
   and (
     gallery.project_scope = 'showcase'
     or gallery.member_id = public.current_member_id()
@@ -2300,7 +2328,7 @@ create policy "Signed-in members can submit gallery projects"
 on public.gallery for insert
 to authenticated
 with check (
-  not public.is_visitor_session()
+  public.can_access_media_club()
   and coalesce(nullif(btrim(image_url), ''), nullif(btrim(project_url), ''), nullif(btrim(storage_path), ''), '') <> ''
   and gallery.member_id = public.current_member_id()
   and (gallery.project_scope = 'showcase' or gallery.image_url is null)
@@ -2318,13 +2346,13 @@ on public.gallery for delete
 to authenticated
 using (
   lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '')) = 'admin'
-  or gallery.member_id = public.current_member_id()
+  or (public.can_access_media_club() and gallery.member_id = public.current_member_id())
 );
 
 create policy "Signed-in users can read announcements"
 on public.announcements for select
 to authenticated
-using (not public.is_visitor_session());
+using (public.can_access_media_club());
 
 create policy "Admins can manage announcements"
 on public.announcements for all
@@ -2332,16 +2360,28 @@ to authenticated
 using (public.is_admin_panel_user())
 with check (public.is_admin_panel_user());
 
-create policy "Admins can read join applications"
+create policy "Authorized reviewers can read join applications"
 on public.join_applications for select
 to authenticated
-using (public.is_admin_panel_user());
+using (
+  public.is_auth_admin()
+  or (application_target = 'media_club' and public.is_admin_panel_user())
+  or (application_target = 'sac' and public.can_review_sac_applications())
+);
 
-create policy "Admins can manage join applications"
+create policy "Authorized reviewers can update join applications"
 on public.join_applications for update
 to authenticated
-using (public.is_admin_panel_user())
-with check (public.is_admin_panel_user());
+using (
+  public.is_auth_admin()
+  or (application_target = 'media_club' and public.is_admin_panel_user())
+  or (application_target = 'sac' and public.can_review_sac_applications())
+)
+with check (
+  public.is_auth_admin()
+  or (application_target = 'media_club' and public.is_admin_panel_user())
+  or (application_target = 'sac' and public.can_review_sac_applications())
+);
 
 do $$
 begin

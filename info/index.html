@@ -152,9 +152,10 @@
       <div class="join-intro">
         <p class="kicker">Join the crew</p>
         <h2 id="join-title">Bring your curiosity. We will build the skills together.</h2>
-        <p>Applications are reviewed by the Media Club team. Students use their GDPR-safe FIS alias; adult staff use their normal FIS address.</p>
+        <p>Choose Media Club, Student Athletic Council (SAC), or both. Students use their GDPR-safe FIS alias; adult staff use their normal FIS address.</p>
         <ul>
-          <li>Open to FIS students in Grades 6–12 and adult staff</li>
+          <li>Media Club: FIS students in Grades 6–12 and adult staff</li>
+          <li>SAC: current SAC members in Grades 9–12; meetings are on B days at lunch</li>
           <li>No previous media experience required</li>
           <li>An approved account is created after review</li>
         </ul>
@@ -162,6 +163,20 @@
 
       <div class="form-card">
         <form id="join-form" novalidate>
+          <fieldset class="application-choice">
+            <legend>What are you applying for? <span>*</span></legend>
+            <div class="application-choice-grid">
+              <label><input type="radio" name="applicationTarget" value="media_club" checked><span><strong>Media Club</strong><small>Production and storytelling</small></span></label>
+              <label><input type="radio" name="applicationTarget" value="sac"><span><strong>SAC</strong><small>Student Athletic Council</small></span></label>
+              <label><input type="radio" name="applicationTarget" value="both"><span><strong>Both</strong><small>Media Club + SAC</small></span></label>
+            </div>
+          </fieldset>
+          <div class="sac-application-note" id="sac-application-note" hidden>
+            <strong>SAC applications are for current SAC members in Grades 9–12.</strong>
+            <span>SAC meets on B days at lunch. Applying does not unlock SAC event sign-ups; access starts only after approval and an SAC tag is added to your account.</span>
+            <label class="application-checkbox"><input id="current-sac-member" name="currentSacMember" type="checkbox"><span>I am already a current SAC member.</span></label>
+            <label class="application-checkbox"><input name="existingMember" type="checkbox"><span>I already have a Media Club Crew Center account. Please use the same FIS email.</span></label>
+          </div>
           <div class="form-row">
             <label>First name <span>*</span><input name="firstName" autocomplete="given-name" maxlength="60" required></label>
             <label>Last name <span>*</span><input name="lastName" autocomplete="family-name" maxlength="60" required></label>
@@ -170,15 +185,15 @@
             <input id="join-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="XX12345@fis.edu" required>
             <small id="join-email-help">Students: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu.</small>
           </label>
-          <div class="form-row">
-            <label>Year group
-              <select id="join-year-group" name="yearGroup"><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option><option value="Adult">Adult (write your department or role below)</option></select>
+          <div class="form-row year-experience-row">
+            <label>Year group <span>*</span>
+              <select id="join-year-group" name="yearGroup" required><option value="" disabled selected>Select your year group</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option><option value="Adult">Adult (write your department or role below)</option></select>
             </label>
-            <label>Experience level
+            <label id="media-experience-field">Experience level
               <select name="experienceLevel"><option>Beginner</option><option>Intermediate</option><option>Proficient</option><option>Advanced</option></select>
             </label>
           </div>
-          <fieldset>
+          <fieldset id="media-interests-field">
             <legend>Interests <small>(select any)</small></legend>
             <div class="interest-grid">
               <label><input type="checkbox" name="interests" value="Photography"><span>Photography</span></label>
@@ -188,9 +203,9 @@
               <label><input type="checkbox" name="interests" value="Writing"><span>Writing</span></label>
             </div>
           </fieldset>
-          <label>Why do you want to join? <span>*</span><textarea name="why" minlength="20" maxlength="1500" placeholder="What would you like to learn or contribute?" required></textarea><small>Adults: include your FIS department or school role.</small></label>
-          <p class="sensitive-info-note">Do not include passwords, medical information, home addresses, private phone numbers or other sensitive information.</p>
-          <label>Link to previous work <small>(optional)</small><input name="workLink" type="url" inputmode="url" placeholder="https://..."></label>
+          <label id="media-why-field">Why do you want to join? <span>*</span><textarea name="why" minlength="20" maxlength="1500" placeholder="What would you like to learn or contribute?" required></textarea><small>Adults: include your FIS department or school role.</small></label>
+          <p class="sensitive-info-note" id="media-sensitive-note">Do not include passwords, medical information, home addresses, private phone numbers or other sensitive information.</p>
+          <label id="media-work-field">Link to previous work <small>(optional)</small><input name="workLink" type="url" inputmode="url" placeholder="https://..."></label>
           <label class="honeypot" aria-hidden="true">Leave this field empty<input name="website" tabindex="-1" autocomplete="off"></label>
           <div id="turnstile-widget" class="turnstile-widget" aria-label="Human verification"></div>
           <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
@@ -200,7 +215,7 @@
         <div class="success-card" id="join-success" hidden tabindex="-1">
           <span aria-hidden="true">✓</span>
           <h3>Application received.</h3>
-          <p>We will review it and contact you at your FIS alias email. You do not need to create an account now.</p>
+          <p id="join-success-message">We will review it and contact you at your FIS alias email. You do not need to create an account now.</p>
           <a class="button button-quiet" href="#about">Back to About</a>
         </div>
       </div>

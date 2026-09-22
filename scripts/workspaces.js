@@ -16,9 +16,9 @@ function workspaceFromSearch(search = '') {
   return ['media', 'sac'].includes(requested) ? requested : null;
 }
 
-function resolvedWorkspaceForLocation(hostname, search, sacAccess) {
+function resolvedWorkspaceForLocation(hostname, search, sacAccess, mediaAccess = true) {
   const requested = workspaceFromSearch(search) || workspaceFromHostname(hostname);
-  return resolveWorkspaceSelection(requested, sacAccess);
+  return resolveWorkspaceSelection(requested, sacAccess, mediaAccess);
 }
 
 function workspaceSearchForSelection(workspace, hostname, search = '') {
@@ -48,11 +48,20 @@ function canAccessSacWorkspace() {
   );
 }
 
+function canAccessMediaWorkspace() {
+  if (canAccessAdminPanel() || isVisitorSession()) return true;
+  const member = currentMemberRecord();
+  if (!member) return true;
+  const teams = Array.isArray(member.teamKeys) ? member.teamKeys : [];
+  return teams.includes('media_club') || !teams.includes('sac');
+}
+
 function resolvedWorkspaceForHostname(hostname, sacAccess) {
   return workspaceFromHostname(hostname) === 'sac' && sacAccess ? 'sac' : 'media';
 }
 
-function resolveWorkspaceSelection(workspace, sacAccess) {
+function resolveWorkspaceSelection(workspace, sacAccess, mediaAccess = true) {
+  if (!mediaAccess && sacAccess) return 'sac';
   return workspace === 'sac' && sacAccess ? 'sac' : 'media';
 }
 
@@ -112,6 +121,7 @@ function toggleWorkspaceMenu(event) {
 
 function applyWorkspacePresentation({ animate = false } = {}) {
   const sacAccess = canAccessSacWorkspace();
+  const mediaAccess = canAccessMediaWorkspace();
   const isSac = activeCrewCenterWorkspace === 'sac';
   document.documentElement.dataset.workspace = activeCrewCenterWorkspace;
   document.title = isSac ? 'FIS Student Athletic Council' : 'FIS Media Club';
@@ -125,12 +135,12 @@ function applyWorkspacePresentation({ animate = false } = {}) {
 
   const button = document.getElementById('workspace-switcher-button');
   if (button) {
-    button.disabled = !sacAccess;
-    button.classList.toggle('available', sacAccess);
-    button.setAttribute('aria-label', sacAccess
+    button.disabled = !sacAccess || !mediaAccess;
+    button.classList.toggle('available', sacAccess && mediaAccess);
+    button.setAttribute('aria-label', sacAccess && mediaAccess
       ? `Current workspace: ${isSac ? 'Student Athletic Council' : 'Media Club'}. Switch workspace.`
-      : 'Current workspace: Media Club.');
-    button.title = sacAccess ? 'Switch workspace' : 'Media Club workspace';
+      : `Current workspace: ${isSac ? 'Student Athletic Council' : 'Media Club'}.`);
+    button.title = sacAccess && mediaAccess ? 'Switch workspace' : `${isSac ? 'SAC' : 'Media Club'} workspace`;
   }
 
   document.querySelectorAll('[data-workspace-choice]').forEach(choice => {
@@ -138,6 +148,7 @@ function applyWorkspacePresentation({ animate = false } = {}) {
     choice.setAttribute('aria-checked', String(selected));
     choice.classList.toggle('active', selected);
     if (choice.dataset.workspaceChoice === 'sac') choice.disabled = !sacAccess;
+    if (choice.dataset.workspaceChoice === 'media') choice.disabled = !mediaAccess;
   });
   closeWorkspaceMenu();
   window.applySidebarPreferences?.();
@@ -153,7 +164,7 @@ function setCrewCenterWorkspace(workspace, options = {}) {
   const sacAccess = canAccessSacWorkspace();
   const requestedSac = workspace === 'sac';
   const previousWorkspace = activeCrewCenterWorkspace;
-  activeCrewCenterWorkspace = resolveWorkspaceSelection(workspace, sacAccess);
+  activeCrewCenterWorkspace = resolveWorkspaceSelection(workspace, sacAccess, canAccessMediaWorkspace());
   applyWorkspacePresentation({ animate: options.animate !== false && previousWorkspace !== activeCrewCenterWorkspace });
   if (requestedSac && !sacAccess && options.announce !== false) {
     showToast('This account is not eligible for the SAC workspace.', 'error', 5000);
@@ -168,6 +179,10 @@ function setCrewCenterWorkspace(workspace, options = {}) {
 
 function selectCrewCenterWorkspace(workspace) {
   closeWorkspaceMenu();
+  if (workspace === 'media' && !canAccessMediaWorkspace()) {
+    showToast('Media Club access requires a Media Club membership.', 'error', 5000);
+    return;
+  }
   if (workspace === 'sac' && !canAccessSacWorkspace()) {
     setCrewCenterWorkspace(workspace);
     return;
@@ -182,7 +197,7 @@ function selectCrewCenterWorkspace(workspace) {
 }
 
 function initializeCrewCenterWorkspace() {
-  const workspace = resolvedWorkspaceForLocation(window.location.hostname, window.location.search, canAccessSacWorkspace());
+  const workspace = resolvedWorkspaceForLocation(window.location.hostname, window.location.search, canAccessSacWorkspace(), canAccessMediaWorkspace());
   setCrewCenterWorkspace(workspace, { navigate: false, announce: false });
   if (typeof pageFromPath !== 'function' || typeof navigate !== 'function') return workspace;
   const requestedPage = pageFromPath();
@@ -196,7 +211,7 @@ function initializeCrewCenterWorkspace() {
 }
 
 function syncCrewCenterWorkspaceFromLocation() {
-  const workspace = resolvedWorkspaceForLocation(window.location.hostname, window.location.search, canAccessSacWorkspace());
+  const workspace = resolvedWorkspaceForLocation(window.location.hostname, window.location.search, canAccessSacWorkspace(), canAccessMediaWorkspace());
   setCrewCenterWorkspace(workspace, { navigate: false, announce: false, animate: true });
   return workspace;
 }
@@ -217,6 +232,7 @@ document.addEventListener('keydown', event => {
 });
 
 window.canAccessSacWorkspace = canAccessSacWorkspace;
+window.canAccessMediaWorkspace = canAccessMediaWorkspace;
 window.currentCrewCenterWorkspace = currentCrewCenterWorkspace;
 window.initializeCrewCenterWorkspace = initializeCrewCenterWorkspace;
 window.resetCrewCenterWorkspace = resetCrewCenterWorkspace;

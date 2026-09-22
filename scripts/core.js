@@ -826,6 +826,9 @@ function normalizeApplication(item) {
     interests: item.interests || [],
     status: item.status || 'pending',
     year: item.year_group || '',
+    target: item.application_target || 'media_club',
+    currentSacMember: item.current_sac_member === true,
+    existingMember: item.existing_member === true,
     exp: item.experience_level || '',
     link: item.work_link || '',
     rejectionReason: item.rejection_reason || '',
@@ -899,7 +902,7 @@ function applyCrewCenterDataset(dataset, rows) {
   } else if (dataset === 'announcements') {
     state.announcements = data.map(normalizeAnnouncement);
   } else if (dataset === 'applications') {
-    state.applications = canAccessAdminPanel() ? data.map(normalizeApplication) : [];
+    state.applications = canAccessAdminPanel() || canReviewSacApplications() ? data.map(normalizeApplication) : [];
   } else if (dataset === 'notifications') {
     state.notifications = data;
   }
@@ -987,7 +990,7 @@ async function loadCrewCenterInitialData() {
   const pageDatasets = {
     about: ['gallery'],
     home: ['events', 'gallery', 'equipment', 'announcements'],
-    'sac-home': [],
+    'sac-home': canReviewSacApplications() ? ['applications'] : [],
     events: ['events'],
     meetings: ['meetings'],
     signup: ['events', 'equipment'],
@@ -1002,7 +1005,7 @@ async function loadCrewCenterInitialData() {
   }[page] || [];
   const eligibleDatasets = visitor
     ? crewCenterPublicDatasets
-    : crewCenterDatasets.filter(dataset => dataset !== 'applications' || canAccessAdminPanel());
+    : crewCenterDatasets.filter(dataset => dataset !== 'applications' || canAccessAdminPanel() || canReviewSacApplications());
   const primaryDatasets = [...new Set(pageDatasets)].filter(dataset => eligibleDatasets.includes(dataset));
   if (primaryDatasets.length) await loadCrewCenterData({ datasets: primaryDatasets });
   const loadedDatasets = new Set(visitor ? primaryDatasets : ['members', ...primaryDatasets]);
@@ -1094,6 +1097,7 @@ function renderCurrentPage() {
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
   if (activePage === 'about') renderAboutRecentProjects();
   if (activePage === 'home') renderDashboard();
+  if (activePage === 'sac-home') renderSacApplications();
   if (activePage === 'events') renderEvents();
   if (activePage === 'meetings') renderMeetings();
   if (activePage === 'signup') initSignupSheet();

@@ -5,6 +5,38 @@ Turnstile-protected Edge Function. Complete `PUBLIC-PORTAL-SETUP.md` before test
 new applications; this document covers the staff review and invitation half of the
 workflow.
 
+## SAC application rollout (not yet live)
+
+The public Join form can offer **Media Club**, **SAC**, or **Both**. SAC choices
+require Grade 9–12 and an explicit declaration that the applicant is already a
+current SAC member. This declaration is not proof: the reviewer must check the
+real SAC roster before approval. SAC-only applicants do not answer Media Club
+production questions. Existing Crew Center members check the existing-account
+box and use the same FIS email; approval adds the missing tag without replacing
+their existing membership or sending a second Auth invitation.
+
+During a separately authorized rollout, apply `supabase-schema.sql`, then
+`supabase-auth-policies.sql`, then `supabase-storage-policies.sql`. Deploy the
+updated `submit-application`, `review-application`, and
+`send-schedule-notification` Edge Functions, and only then publish both the
+public info site and Crew Center builds. The media-team membership gate in
+those policies and the email recipient filter prevent SAC-only accounts from
+seeing or receiving Media Club operations. Keep `RESEND_API_KEY` configured for approval
+emails to existing members. The Auth Admin sees all application types; Faculty
+sees Media Club-only requests; the SAC President sees SAC-only requests on the
+SAC dashboard. A combined application is reviewed only by Auth Admin. SAC and
+combined requests are approved or permanently deleted after an explicit
+warning; no rejection email is sent. Approval creates an in-app notification,
+and sends an Auth invitation for a new account or an approval email for an
+existing one. Delivery errors are shown to the reviewer without silently
+reversing an already-approved membership.
+
+Before inviting students to use the option, test a Grade 9 SAC-only application,
+a dual application, an existing-member SAC application, and Grade 8/Adult SAC
+rejection. Verify that an SAC-only approval has only the SAC tag and that a
+Media Club-only approval has only the Media Club tag. Do not treat a selected
+form option as authorization for SAC event sign-ups.
+
 ## 1. Update the database
 
 In Supabase, open **SQL Editor**, create a new query, paste the complete contents of
@@ -58,7 +90,8 @@ whenever its source code changes.
 
 ## 4. Configure authentication email
 
-Approval emails use Supabase Auth's invitation template, while member password resets
+New-account approvals use Supabase Auth's invitation template; existing-account
+approvals use the Edge Function's Resend email and an in-app notification. Member password resets
 use its reset-password template. Paste the repository's branded
 `email-templates/invite-user.html` and `email-templates/reset-password.html` files
 into **Authentication > Emails > Templates > Invite user** and **Reset password**.

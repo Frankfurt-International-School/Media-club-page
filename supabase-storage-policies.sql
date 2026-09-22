@@ -22,7 +22,7 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'gallery-media'
-  and not public.is_visitor_session()
+  and public.can_access_media_club()
   and (storage.foldername(name))[1] = auth.uid()::text
   and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
   and exists (
@@ -67,7 +67,7 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'gallery-athletics'
-  and not public.is_visitor_session()
+  and public.can_access_media_club()
   and (storage.foldername(name))[1] = auth.uid()::text
   and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
   and public.is_approved_member()
@@ -78,7 +78,7 @@ on storage.objects for select
 to authenticated
 using (
   bucket_id = 'gallery-athletics'
-  and not public.is_visitor_session()
+  and public.can_access_media_club()
   and (
     (storage.foldername(name))[1] = auth.uid()::text
     or public.is_member_of_team('athletics')

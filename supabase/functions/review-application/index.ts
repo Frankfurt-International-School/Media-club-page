@@ -132,6 +132,17 @@ const renderRejectionEmail = ({ applicantName, reason, infoUrl }: { applicantNam
   return { subject, html, text };
 };
 
+const renderApprovalEmail = (applicantName: unknown, target: unknown) => {
+  const name = firstNameFrom(applicantName);
+  const group = target === "both" ? "Media Club and SAC" : target === "sac" ? "Student Athletic Council" : "Media Club";
+  const subject = `Your FIS ${group} access is approved`;
+  const message = `Your ${group} application has been approved. Sign in to the Crew Center with your FIS email. If you joined SAC, use the workspace switcher to open the SAC workspace; SAC event sign-ups require your approved SAC tag.`;
+  const signInUrl = "https://fismediaclub.org/signin";
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeEmailHtml(subject)}</title></head><body style="margin:0;padding:32px;background:#f4f1ec;color:#25222c;font-family:Arial,Helvetica,sans-serif;"><main style="max-width:560px;margin:auto;padding:32px;background:#fff;border-radius:16px;"><p style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#a40134;font-weight:700;">FIS Crew Center</p><h1 style="font-size:30px;line-height:1.2;">You're approved, ${escapeEmailHtml(name)}.</h1><p style="font-size:16px;line-height:1.6;">${escapeEmailHtml(message)}</p><p><a href="${signInUrl}" style="display:inline-block;padding:13px 19px;border-radius:9px;background:#a40134;color:#fff;text-decoration:none;font-weight:700;">Sign in to the Crew Center</a></p></main></body></html>`;
+  const text = `Hi ${name},\n\n${message}\n\n${signInUrl}`;
+  return { subject, html, text };
+};
+
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -147,14 +158,12 @@ Deno.serve(async request => {
   if (userError || !user) return json({ error: "Sign in again before reviewing applications." }, 401);
 
   const authAdmin = String(user.app_metadata?.role || "").toLowerCase() === "admin";
-  const { data: reviewerMember } = await adminClient.from("members").select("role").ilike("email", user.email || "").maybeSingle();
+  const { data: reviewerMember } = await adminClient.from("members").select("id, role").ilike("email", user.email || "").maybeSingle();
   const memberRole = String(reviewerMember?.role || "").toLowerCase().trim().replaceAll(" ", "-");
-  if (!authAdmin && memberRole !== "faculty") {
-    return json({ error: "You do not have permission to review applications." }, 403);
-  }
 
-  const { applicationId, decision, reason = "" } = await request.json();
-  if (!applicationId || !["approve", "reject"].includes(decision)) return json({ error: "Invalid review request." }, 400);
+  const { applicationId, decision, reason = "", confirmDelete = false } = await request.json();
+  if (!applicationId || !["approve", "reject", "delete"].includes(decision)) return json({ error: "Invalid review request." }, 400);
+  if (decision === "delete" && confirmDelete !== true) return json({ error: "Confirm permanent deletion before submitting." }, 400);
   const rejectionReason = String(reason).trim();
   if (decision === "reject" && !rejectionReason) return json({ error: "A rejection reason is required." }, 400);
   if (decision === "reject" && rejectionReason.length > 1500) return json({ error: "Keep the rejection reason to 1,500 characters or fewer." }, 400);
@@ -167,6 +176,23 @@ Deno.serve(async request => {
     .is("reviewed_at", null)
     .maybeSingle();
   if (applicationError || !application) return json({ error: "This application is no longer pending." }, 409);
+  const target = String(application.application_target || "media_club");
+  const includesSac = target === "sac" || target === "both";
+  const includesMedia = target === "media_club" || target === "both";
+  if (!includesSac && !includesMedia) return json({ error: "This application has an invalid target." }, 400);
+  let sacPresident = false;
+  if (reviewerMember?.id && target === "sac") {
+    const { data: reviewerSac } = await adminClient.from("member_team_memberships")
+      .select("team_role")
+      .eq("member_id", reviewerMember.id)
+      .eq("team_key", "sac")
+      .maybeSingle();
+    sacPresident = reviewerSac?.team_role === "president";
+  }
+  const mayReview = authAdmin || (target === "media_club" && memberRole === "faculty") || (target === "sac" && sacPresident);
+  if (!mayReview) return json({ error: "You do not have permission to review this application." }, 403);
+  if (includesSac && decision === "reject") return json({ error: "SAC requests can only be approved or deleted without an email." }, 400);
+  if (!includesSac && decision === "delete") return json({ error: "Media Club applications use the rejection review flow." }, 400);
 
   const { data: claimedApplication, error: claimError } = await adminClient
     .from("join_applications")
@@ -182,11 +208,22 @@ Deno.serve(async request => {
     await adminClient.from("join_applications").update({ reviewed_at: null, reviewed_by: null }).eq("id", applicationId).eq("status", "pending");
   };
 
+  if (decision === "delete") {
+    const { error: deleteError } = await adminClient.from("join_applications")
+      .delete().eq("id", applicationId).eq("status", "pending").eq("reviewed_by", user.id);
+    if (deleteError) {
+      await releaseApplication();
+      return json({ error: `The SAC request could not be deleted: ${deleteError.message}` }, 500);
+    }
+    return json({ ok: true, deleted: true });
+  }
+
   if (decision === "approve") {
     const normalizedEmail = String(application.email).trim().toLowerCase();
-    if (!isFisAliasEmail(normalizedEmail)) {
+    const validEmail = application.year_group === "Adult" ? isFisSchoolEmail(normalizedEmail) : isFisAliasEmail(normalizedEmail);
+    if (!validEmail || (includesSac && (!['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].includes(application.year_group) || !application.current_sac_member))) {
       await releaseApplication();
-      return json({ error: "This application does not use a valid FIS alias email (2 letters followed by at least 4 numbers, ending in @fis.edu)." }, 400);
+      return json({ error: "The applicant's FIS email or SAC eligibility is invalid." }, 400);
     }
     const { data: existingMember, error: existingMemberError } = await adminClient
       .from("members")
@@ -198,27 +235,50 @@ Deno.serve(async request => {
       return json({ error: `Member lookup failed: ${existingMemberError.message}` }, 500);
     }
 
-    const siteUrl = Deno.env.get("SITE_URL") || "https://fismediaclub.org";
-    const { data: invite, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(normalizedEmail, {
-      redirectTo: siteUrl,
-      data: { full_name: existingMember?.name || application.name, role: "Member" },
-    });
-    if (inviteError) {
+    let existingAuthAccount = false;
+    let authLookupComplete = false;
+    for (let page = 1; page <= 20; page += 1) {
+      const { data: accounts, error: accountsError } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
+      if (accountsError) {
+        await releaseApplication();
+        return json({ error: `Account lookup failed: ${accountsError.message}` }, 500);
+      }
+      const users = accounts?.users || [];
+      if (users.some(account => String(account.email || "").toLowerCase() === normalizedEmail)) {
+        existingAuthAccount = true;
+        authLookupComplete = true;
+        break;
+      }
+      if (users.length < 1000) { authLookupComplete = true; break; }
+    }
+    if (!authLookupComplete) {
       await releaseApplication();
-      const accountExists = /already|registered|exists/i.test(inviteError.message);
-      return json({
-        error: accountExists
-          ? "This email already has a Supabase Auth account. Ask the applicant to sign in instead of sending another invitation."
-          : `Invitation was not sent: ${inviteError.message}`,
-      }, 400);
+      return json({ error: "Account lookup exceeded its safe page limit. Review the account manually before approving." }, 503);
     }
 
-    if (invite.user) {
-      const { error: metadataError } = await adminClient.auth.admin.updateUserById(invite.user.id, { app_metadata: { role: "member" } });
-      if (metadataError) {
-        await adminClient.auth.admin.deleteUser(invite.user.id);
+    let invitedUserId = "";
+    if (!existingAuthAccount) {
+      const siteUrl = Deno.env.get("SITE_URL") || "https://fismediaclub.org";
+      const { data: invite, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(normalizedEmail, {
+        redirectTo: siteUrl,
+        data: { full_name: existingMember?.name || application.name, role: "Member" },
+      });
+      if (inviteError) {
         await releaseApplication();
-        return json({ error: `Account role setup failed: ${metadataError.message}` }, 500);
+        const accountExists = /already|registered|exists/i.test(inviteError.message);
+        return json({ error: accountExists
+          ? "This email already has a sign-in account. Link its member record before approving."
+          : `Invitation was not sent: ${inviteError.message}` }, 400);
+      }
+      invitedUserId = invite.user?.id || "";
+      if (!invitedUserId) {
+        await releaseApplication();
+        return json({ error: "Invitation returned no account. Check the Auth log before retrying." }, 500);
+      }
+      const { error: metadataError } = await adminClient.auth.admin.updateUserById(invitedUserId, { app_metadata: { role: "member" } });
+      if (metadataError) {
+        await releaseApplication();
+        return json({ error: `An invitation may already be in the applicant's inbox, but account setup failed: ${metadataError.message}. Retry the pending application after resolving the error.` }, 500);
       }
     }
 
@@ -232,11 +292,51 @@ Deno.serve(async request => {
         status: application.interests?.join(", ") || "General",
       }).select("id").single();
       if (memberError) {
-        if (invite.user) await adminClient.auth.admin.deleteUser(invite.user.id);
         await releaseApplication();
-        return json({ error: `Member record failed: ${memberError.message}` }, 500);
+        return json({ error: `Member record failed: ${memberError.message}. The invitation may already have been sent; retry after resolving the error.` }, 500);
       }
       createdMemberId = createdMember.id;
+    }
+
+    const memberId = existingMember?.id || createdMemberId;
+    const desiredTeams = [includesMedia ? "media_club" : "", includesSac ? "sac" : ""].filter(Boolean);
+    const { data: currentTeams, error: teamsReadError } = await adminClient.from("member_team_memberships")
+      .select("team_key").eq("member_id", memberId);
+    const missingTeams = desiredTeams.filter(team => !currentTeams?.some(row => row.team_key === team));
+    let insertedTeams: string[] = [];
+    const rollback = async () => {
+      if (createdMemberId) await adminClient.from("members").delete().eq("id", createdMemberId);
+      else {
+        if (insertedTeams.includes("sac")) await callerClient.rpc("set_sac_membership", { p_member_id: memberId, p_enabled: false });
+        if (insertedTeams.includes("media_club")) await adminClient.from("member_team_memberships").delete().eq("member_id", memberId).eq("team_key", "media_club");
+      }
+      // Keep an invited Auth account so an already-sent invitation link remains valid.
+      // It has no member access until a later retry completes the application.
+      await releaseApplication();
+    };
+    if (teamsReadError) {
+      await rollback();
+      return json({ error: `Membership lookup failed: ${teamsReadError.message}` }, 500);
+    }
+    if (missingTeams.includes("media_club")) {
+      const { error: mediaTeamError } = await adminClient.from("member_team_memberships")
+        .insert({ member_id: memberId, team_key: "media_club" });
+      if (mediaTeamError) {
+        await rollback();
+        return json({ error: `Media Club membership setup failed: ${mediaTeamError.message}` }, 500);
+      }
+      insertedTeams.push("media_club");
+    }
+    if (missingTeams.includes("sac")) {
+      const { error: sacTeamError } = await callerClient.rpc("set_sac_membership", {
+        p_member_id: memberId,
+        p_enabled: true,
+      });
+      if (sacTeamError) {
+        await rollback();
+        return json({ error: `SAC membership setup failed: ${sacTeamError.message}` }, 500);
+      }
+      insertedTeams.push("sac");
     }
 
     const { error: updateError } = await adminClient.from("join_applications").update({
@@ -246,12 +346,47 @@ Deno.serve(async request => {
       reviewed_by: user.id,
     }).eq("id", applicationId).eq("status", "pending");
     if (updateError) {
-      if (createdMemberId) await adminClient.from("members").delete().eq("id", createdMemberId);
-      if (invite.user) await adminClient.auth.admin.deleteUser(invite.user.id);
-      await releaseApplication();
+      await rollback();
       return json({ error: updateError.message }, 500);
     }
-    return json({ ok: true });
+    const deliveryWarnings: string[] = [];
+    const { error: notificationError } = await adminClient.from("notifications").insert({
+      member_id: memberId,
+      notification_type: "application_approved",
+      title: `${target === "both" ? "Media Club and SAC" : target === "sac" ? "SAC" : "Media Club"} access approved`,
+      message: includesSac ? "Your SAC membership is active. Open the SAC workspace with the workspace switcher." : "Your Media Club membership is active.",
+      page: "home",
+    });
+    if (notificationError) deliveryWarnings.push("The in-app notification could not be saved.");
+
+    let approvalEmailSent = false;
+    if (existingAuthAccount) {
+      const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
+      if (!resendApiKey) deliveryWarnings.push("Approval email is not configured.");
+      else {
+        const rendered = renderApprovalEmail(application.name, target);
+        const from = Deno.env.get("APPLICATION_FROM_EMAIL")
+          || Deno.env.get("NOTIFICATION_FROM_EMAIL")
+          || "FIS Media Club <notifications@auth.fismediaclub.org>";
+        try {
+          const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `application-approval-${applicationId}`,
+            },
+            body: JSON.stringify({ from, to: [normalizedEmail], subject: rendered.subject, html: rendered.html, text: rendered.text }),
+            signal: AbortSignal.timeout(10_000),
+          });
+          approvalEmailSent = response.ok;
+        } catch {
+          approvalEmailSent = false;
+        }
+        if (!approvalEmailSent) deliveryWarnings.push("Approval email could not be sent; access is already active.");
+      }
+    }
+    return json({ ok: true, invitationSent: Boolean(invitedUserId), approvalEmailSent, existingMember: Boolean(existingMember), existingAuthAccount, applicationTarget: target, deliveryWarnings });
   }
 
   const recipientEmail = String(application.email || "").trim().toLowerCase();

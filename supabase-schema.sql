@@ -69,6 +69,10 @@ on public.member_team_memberships (team_key, member_id);
 insert into public.member_team_memberships (member_id, team_key)
 select member.id, 'media_club'
 from public.members member
+where not exists (
+  select 1 from public.member_team_memberships existing
+  where existing.member_id = member.id and existing.team_key = 'sac'
+)
 on conflict (member_id, team_key) do nothing;
 
 insert into public.member_team_memberships (member_id, team_key)
@@ -706,7 +710,7 @@ create unique index if not exists signups_active_event_member_idx on public.sign
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   member_id uuid not null references public.members(id) on delete cascade,
-  notification_type text not null check (notification_type in ('event_created', 'meeting_invite')),
+  notification_type text not null check (notification_type in ('event_created', 'meeting_invite', 'application_approved')),
   title text not null,
   message text not null,
   page text not null default 'events',
@@ -720,7 +724,7 @@ create table if not exists public.notifications (
 alter table public.notifications add column if not exists related_meeting_id uuid references public.meetings(id) on delete cascade;
 alter table public.notifications drop constraint if exists notifications_notification_type_check;
 alter table public.notifications add constraint notifications_notification_type_check
-check (notification_type in ('event_created', 'meeting_invite'));
+check (notification_type in ('event_created', 'meeting_invite', 'application_approved'));
 
 create index if not exists notifications_member_created_idx on public.notifications (member_id, created_at desc);
 create unique index if not exists notifications_member_meeting_invite_idx
@@ -746,6 +750,10 @@ begin
   from public.members member
   where lower(coalesce(member.status, 'active')) <> 'inactive'
     and coalesce((member.notification_preferences ->> 'event_created')::boolean, true)
+    and exists (
+      select 1 from public.member_team_memberships membership
+      where membership.member_id = member.id and membership.team_key = 'media_club'
+    )
   on conflict (member_id, notification_type, related_event_id) do nothing;
   return new;
 end;
@@ -785,6 +793,10 @@ begin
     new.id
   from public.member_team_memberships membership
   where membership.team_key = 'news_team'
+    and exists (
+      select 1 from public.member_team_memberships media_membership
+      where media_membership.member_id = membership.member_id and media_membership.team_key = 'media_club'
+    )
   on conflict (member_id, notification_type, related_meeting_id)
     where notification_type = 'meeting_invite' and related_meeting_id is not null
   do nothing;
@@ -826,7 +838,10 @@ begin
       and notification.notification_type = 'meeting_invite';
   end if;
 
-  if new.team_key <> 'news_team' then return new; end if;
+  if new.team_key <> 'news_team' or not exists (
+    select 1 from public.member_team_memberships media_membership
+    where media_membership.member_id = new.member_id and media_membership.team_key = 'media_club'
+  ) then return new; end if;
   target_member_id := new.member_id;
 
   insert into public.notifications (
@@ -881,6 +896,10 @@ join public.member_team_memberships membership on membership.team_key = 'news_te
 where meeting.audience = 'news_team'
   and meeting.archived_at is null
   and meeting.ends_at > now()
+  and exists (
+    select 1 from public.member_team_memberships media_membership
+    where media_membership.member_id = membership.member_id and media_membership.team_key = 'media_club'
+  )
 on conflict (member_id, notification_type, related_meeting_id)
   where notification_type = 'meeting_invite' and related_meeting_id is not null
 do nothing;
@@ -1111,6 +1130,9 @@ create table if not exists public.join_applications (
   name text not null,
   email text not null,
   year_group text,
+  application_target text not null default 'media_club',
+  current_sac_member boolean not null default false,
+  existing_member boolean not null default false,
   experience_level text,
   interests text[] not null default '{}',
   why text not null,
@@ -1125,6 +1147,15 @@ create table if not exists public.join_applications (
 alter table public.join_applications add column if not exists rejection_reason text;
 alter table public.join_applications add column if not exists reviewed_at timestamptz;
 alter table public.join_applications add column if not exists reviewed_by uuid references auth.users(id) on delete set null;
+alter table public.join_applications add column if not exists application_target text not null default 'media_club';
+alter table public.join_applications add column if not exists current_sac_member boolean not null default false;
+alter table public.join_applications add column if not exists existing_member boolean not null default false;
+alter table public.join_applications drop constraint if exists join_applications_target_check;
+alter table public.join_applications add constraint join_applications_target_check
+check (application_target in ('media_club', 'sac', 'both'));
+alter table public.join_applications drop constraint if exists join_applications_sac_grade_check;
+alter table public.join_applications add constraint join_applications_sac_grade_check
+check (application_target = 'media_club' or (year_group in ('Grade 9', 'Grade 10', 'Grade 11', 'Grade 12') and current_sac_member));
 
 alter table public.join_applications drop constraint if exists join_applications_fis_alias_email_check;
 alter table public.join_applications drop constraint if exists join_applications_fis_email_check;

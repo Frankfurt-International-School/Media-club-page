@@ -28,6 +28,8 @@ const allowedHostnames = new Set(
 const yearGroups = new Set(["Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "Adult"]);
 const experienceLevels = new Set(["Beginner", "Intermediate", "Proficient", "Advanced"]);
 const interestOptions = new Set(["Photography", "Videography", "Podcasting", "Editing", "Writing"]);
+const applicationTargets = new Set(["media_club", "sac", "both"]);
+const sacYearGroups = new Set(["Grade 9", "Grade 10", "Grade 11", "Grade 12"]);
 const fisAliasEmailPattern = /^[a-z]{2}\d{4,}@fis\.edu$/i;
 const fisSchoolEmailPattern = /^[^\s@]+@fis\.edu$/i;
 
@@ -105,6 +107,11 @@ Deno.serve(async request => {
   const lastName = text(input.lastName, 60);
   const email = text(input.email, 120).toLowerCase();
   const yearGroup = text(input.yearGroup, 20);
+  const applicationTarget = text(input.applicationTarget || "media_club", 20);
+  const includesSac = applicationTarget !== "media_club";
+  const sacOnly = applicationTarget === "sac";
+  const currentSacMember = input.currentSacMember === true;
+  const existingMember = input.existingMember === true;
   const experienceLevel = text(input.experienceLevel, 30);
   const why = String(input.why || "").trim().slice(0, 1500);
   const workLink = text(input.workLink, 500);
@@ -113,11 +120,15 @@ Deno.serve(async request => {
     ? [...new Set(input.interests.map(value => text(value, 40)).filter(value => interestOptions.has(value)))].slice(0, interestOptions.size)
     : [];
 
-  if (!yearGroups.has(yearGroup) || !experienceLevels.has(experienceLevel)) {
+  if (!applicationTargets.has(applicationTarget)) return json({ error: "Choose a valid application option." }, 400, origin);
+  if (includesSac && (!sacYearGroups.has(yearGroup) || !currentSacMember)) {
+    return json({ error: "SAC applications are for current SAC members in Grades 9–12 only." }, 400, origin);
+  }
+  if (!yearGroups.has(yearGroup) || (!sacOnly && !experienceLevels.has(experienceLevel))) {
     return json({ error: "Choose a valid year group and experience level." }, 400, origin);
   }
   const validEmail = yearGroup === "Adult" ? fisSchoolEmailPattern.test(email) : fisAliasEmailPattern.test(email);
-  if (!firstName || !lastName || !validEmail || why.length < 20) {
+  if (!firstName || !lastName || !validEmail || (!sacOnly && why.length < 20)) {
     return json({ error: "Complete every required field and use the correct FIS email for the selected year group." }, 400, origin);
   }
   if (!validHttpsUrl(workLink)) return json({ error: "Previous work links must start with https://." }, 400, origin);
@@ -136,10 +147,13 @@ Deno.serve(async request => {
     name: `${firstName} ${lastName}`,
     email,
     year_group: yearGroup,
-    experience_level: experienceLevel,
-    interests,
-    why,
-    work_link: workLink || null,
+    application_target: applicationTarget,
+    current_sac_member: currentSacMember,
+    existing_member: existingMember,
+    experience_level: sacOnly ? null : experienceLevel,
+    interests: sacOnly ? [] : interests,
+    why: sacOnly ? "" : why,
+    work_link: sacOnly ? null : workLink || null,
   });
   if (error?.code === "23505") return json({ error: "An application with this email is already awaiting review." }, 409, origin);
   if (error) {

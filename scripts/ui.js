@@ -536,7 +536,7 @@ function renderNotificationCenter() {
   const preferences = currentNotificationPreferences();
   const { maybeItems, upcomingItems } = currentGeneratedNotificationItems();
   const readReminderKeys = notificationReminderReadKeys();
-  const storedItems = state.notifications.filter(item => item.notification_type === 'meeting_invite' || preferences.event_created);
+  const storedItems = state.notifications.filter(item => ['meeting_invite', 'application_approved'].includes(item.notification_type) || preferences.event_created);
   const unread = storedItems.filter(item => !item.read_at).length
     + maybeItems.filter(item => !readReminderKeys.has(item.readKey)).length
     + upcomingItems.filter(item => !readReminderKeys.has(item.readKey)).length;

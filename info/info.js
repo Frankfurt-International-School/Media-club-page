@@ -7,6 +7,9 @@
   const siteKey = String(config.turnstileSiteKey || '');
   const emailInput = document.getElementById('join-email');
   const yearGroupInput = document.getElementById('join-year-group');
+  const sacNote = document.getElementById('sac-application-note');
+  const currentSacMemberInput = document.getElementById('current-sac-member');
+  const whyInput = form.elements.why;
   const studentAliasPattern = /^[a-z]{2}\d{4,}@fis\.edu$/i;
   const schoolEmailPattern = /^[^\s@]+@fis\.edu$/i;
   let turnstileToken = '';
@@ -41,6 +44,25 @@
         ? 'Use your FIS staff email ending in @fis.edu.'
         : 'Use your student alias: 2 letters, at least 4 numbers, then @fis.edu.');
     return valid;
+  }
+
+  function syncApplicationTarget() {
+    const target = form.elements.applicationTarget.value;
+    const includesSac = target !== 'media_club';
+    const sacOnly = target === 'sac';
+    sacNote.hidden = !includesSac;
+    currentSacMemberInput.required = includesSac;
+    form.classList.toggle('sac-only', sacOnly);
+    for (const id of ['media-experience-field', 'media-interests-field', 'media-why-field', 'media-sensitive-note', 'media-work-field']) {
+      document.getElementById(id).hidden = sacOnly;
+    }
+    whyInput.required = !sacOnly;
+    yearGroupInput.setCustomValidity(includesSac && !/^Grade (9|10|11|12)$/.test(yearGroupInput.value)
+      ? 'SAC applications are open only to current SAC members in Grades 9–12.'
+      : '');
+    document.getElementById('join-success-message').textContent = includesSac
+      ? 'We will review your application. SAC sign-ups stay locked until your account is approved and tagged as an SAC member.'
+      : 'We will review it and contact you at your FIS alias email. You do not need to create an account now.';
   }
 
   function renderTurnstile(attempt = 0) {
@@ -89,15 +111,19 @@
     }
 
     const data = new FormData(form);
+    const applicationTarget = String(data.get('applicationTarget') || 'media_club');
     const payload = {
       firstName: String(data.get('firstName') || '').trim(),
       lastName: String(data.get('lastName') || '').trim(),
       email: String(data.get('email') || '').trim().toLowerCase(),
       yearGroup: String(data.get('yearGroup') || ''),
-      experienceLevel: String(data.get('experienceLevel') || ''),
-      interests: data.getAll('interests').map(String),
-      why: String(data.get('why') || '').trim(),
-      workLink: String(data.get('workLink') || '').trim(),
+      applicationTarget,
+      currentSacMember: data.get('currentSacMember') === 'on',
+      existingMember: data.get('existingMember') === 'on',
+      experienceLevel: applicationTarget === 'sac' ? '' : String(data.get('experienceLevel') || ''),
+      interests: applicationTarget === 'sac' ? [] : data.getAll('interests').map(String),
+      why: applicationTarget === 'sac' ? '' : String(data.get('why') || '').trim(),
+      workLink: applicationTarget === 'sac' ? '' : String(data.get('workLink') || '').trim(),
       website: String(data.get('website') || ''),
       turnstileToken,
     };
@@ -125,7 +151,9 @@
   });
 
   emailInput.addEventListener('input', validateApplicationEmail);
-  yearGroupInput.addEventListener('change', syncApplicationEmailRules);
+  yearGroupInput.addEventListener('change', () => { syncApplicationEmailRules(); syncApplicationTarget(); });
+  form.querySelectorAll('input[name="applicationTarget"]').forEach(input => input.addEventListener('change', syncApplicationTarget));
   syncApplicationEmailRules();
+  syncApplicationTarget();
   renderTurnstile();
 })();

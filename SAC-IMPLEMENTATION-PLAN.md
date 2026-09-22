@@ -94,6 +94,12 @@ or URL.
 
 ## Current implementation boundary
 
-Steps 1–15 are the phase-one local code target. Steps 16–28 remain follow-up
-work. No Cloudflare setting, deployment, hosted Supabase schema, production
-member record, or live application is changed by committing this plan.
+Steps 1–15 and the application code in steps 19–21 are prepared locally. The
+application choice, Grade 9–12 check, pending queue, SAC-only approval/delete,
+approval notifications, and Media Club authorization isolation require the
+updated schema, database and Storage policies, Edge Functions,
+and both site builds to be deployed together. The reviewer must still verify
+that a declared current SAC member is on the real roster before approval.
+Steps 16–18 (roster and hosted rollout) and 22–28 remain follow-up work. No
+Cloudflare setting, deployment, hosted Supabase schema, production member
+record, or live application is changed by committing this plan.

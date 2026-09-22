@@ -305,7 +305,7 @@ test('Meeting visibility and RSVP both follow the selected audience', () => {
   assert.match(schemaSql, /insert into public\.member_team_memberships[\s\S]*?student\[\[:space:\]\]\+\)\?news/);
   assert.match(schemaSql, /create table if not exists public\.meetings[\s\S]*?audience in \('general', 'news_team', 'leadership'\)/);
   assert.match(schemaSql, /create table if not exists public\.meeting_attendees[\s\S]*?unique \(meeting_id, member_id\)/);
-  assert.match(meetingReadAccess, /not public\.is_approved_member\(\)/);
+  assert.match(meetingReadAccess, /not public\.can_access_media_club\(\)/);
   assert.match(meetingReadAccess, /target_audience = 'general'/);
   assert.match(meetingReadAccess, /target_audience = 'news_team' then return public\.is_member_of_team\('news_team'\)/);
   assert.match(meetingReadAccess, /target_audience = 'leadership' and public\.is_crew_operations_user\(\)/);
@@ -360,7 +360,7 @@ test('News Team meeting invitations are generated only for current team membersh
 
   assert.ok(start >= 0 && end > start, 'meeting notification trigger function must exist');
   assert.ok(membershipStart >= 0 && membershipEnd > membershipStart, 'team membership notification sync must exist');
-  assert.match(schemaSql, /notification_type text not null check \(notification_type in \('event_created', 'meeting_invite'\)\)/);
+  assert.match(schemaSql, /notification_type text not null check \(notification_type in \('event_created', 'meeting_invite', 'application_approved'\)\)/);
   assert.match(schemaSql, /related_meeting_id uuid references public\.meetings\(id\) on delete cascade/);
   assert.match(schemaSql, /create unique index if not exists notifications_member_meeting_invite_idx/);
   assert.match(meetingNotificationSync, /from public\.member_team_memberships membership[\s\S]*?membership\.team_key = 'news_team'/);
@@ -374,7 +374,7 @@ test('News Team meeting invitations are generated only for current team membersh
   assert.match(membershipNotificationSync, /tg_op = 'UPDATE'[\s\S]*?old\.member_id <> new\.member_id/);
   assert.match(schemaSql, /create trigger news_team_memberships_sync_notifications[\s\S]*?after insert or update or delete on public\.member_team_memberships/);
   assert.match(schemaSql, /insert into public\.notifications[\s\S]*?join public\.member_team_memberships membership on membership\.team_key = 'news_team'[\s\S]*?meeting\.ends_at > now\(\)/);
-  assert.match(uiSource, /state\.notifications\.filter\(item => item\.notification_type === 'meeting_invite' \|\| preferences\.event_created\)/);
+  assert.match(uiSource, /state\.notifications\.filter\(item => \['meeting_invite', 'application_approved'\]\.includes\(item\.notification_type\) \|\| preferences\.event_created\)/);
   assert.match(policiesSql, /create policy "Members can read own notifications"[\s\S]*?notifications\.member_id = public\.current_member_id\(\)/);
   assert.doesNotMatch(policiesSql, /create policy "Members can read own notifications"[\s\S]{0,240}?member\.email/);
 });
@@ -1584,10 +1584,10 @@ test('retired visitor RPCs remain narrow but are no longer executable by browser
     assert.match(appSource, new RegExp(`['"]${rpc}['"]`));
     assert.doesNotMatch(policiesSql, new RegExp(`grant execute on function public\\.${rpc}\\(\\) to authenticated`));
   }
-  assert.match(policiesSql, /create policy "Signed-in users can read events"[\s\S]*?not public\.is_visitor_session\(\)/);
-  assert.match(policiesSql, /create policy "Signed-in users can read equipment"[\s\S]*?not public\.is_visitor_session\(\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read events"[\s\S]*?public\.can_access_media_club\(\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read equipment"[\s\S]*?public\.can_access_media_club\(\)/);
   assert.match(policiesSql, /create policy "Signed-in users can read gallery"[\s\S]*?gallery\.project_scope = 'showcase'[\s\S]*?public\.is_member_of_team\('athletics'\)[\s\S]*?public\.is_athletics_gallery_custodian\(\)/);
-  assert.match(policiesSql, /create policy "Signed-in users can read announcements"[\s\S]*?using \(not public\.is_visitor_session\(\)\)/);
+  assert.match(policiesSql, /create policy "Signed-in users can read announcements"[\s\S]*?using \(public\.can_access_media_club\(\)\)/);
 });
 
 test('realtime changes refresh only affected datasets and coalesce bursts', () => {

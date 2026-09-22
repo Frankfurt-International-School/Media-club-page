@@ -384,10 +384,18 @@ const eligibleRecipients = async (
     .select("id, name, email, role, grade_level, status, notification_preferences");
   if (error) throw new Error(`Member subscription lookup failed: ${error.message}`);
 
+  const { data: mediaMemberships, error: mediaMembershipError } = await adminClient
+    .from("member_team_memberships")
+    .select("member_id")
+    .eq("team_key", "media_club");
+  if (mediaMembershipError) throw new Error(`Media Club audience lookup failed: ${mediaMembershipError.message}`);
+  const mediaMemberIds = new Set((mediaMemberships || []).map(membership => membership.member_id));
+
   let members = (data || []) as MemberRecord[];
   const preferenceKey = resourceType === "event" ? "email_event_updates" : "email_meeting_updates";
   members = members.filter(member =>
-    String(member.status || "").toLowerCase() !== "inactive"
+    mediaMemberIds.has(member.id)
+    && String(member.status || "").toLowerCase() !== "inactive"
     && member.notification_preferences?.[preferenceKey] === true
     && isFisEmail(member.email)
     && (resourceType !== "event" || String(member.grade_level || "").trim().toLowerCase() !== "adult")

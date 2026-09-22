@@ -129,10 +129,27 @@ h1 { max-width: 770px; margin-bottom: 20px; font-size: clamp(64px, 9vw, 118px); 
 .join-intro li::before { content: '✓'; position: absolute; left: 0; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent-pale); color: var(--accent); font-size: 10px; font-weight: 700; }
 .form-card { padding: clamp(26px,5vw,44px); border: 1px solid var(--line); border-radius: 24px; background: #fff; box-shadow: var(--shadow); }
 #join-form { display: grid; gap: 20px; }
+#join-form[hidden] { display: none; }
+#join-form [hidden] { display: none !important; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+#join-form.sac-only .year-experience-row { grid-template-columns: 1fr; }
 #join-form label, #join-form legend { color: #464850; font-size: 12px; font-weight: 600; }
+#join-form legend > span { color: var(--accent); }
 #join-form label > span { color: var(--accent); }
 #join-form label > small, #join-form legend small { display: block; margin-top: 6px; color: #858790; font-size: 9px; font-weight: 400; line-height: 1.5; }
+.application-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 9px; }
+.application-choice-grid label { position: relative; cursor: pointer; }
+.application-choice-grid input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+#join-form .application-choice-grid label > span { display: grid; gap: 4px; min-height: 72px; padding: 13px 11px; border: 1px solid #ded9db; border-radius: 10px; background: #fcfbfb; color: #464850; }
+.application-choice-grid strong { font-size: 12px; }
+.application-choice-grid small { color: #777984; font-size: 10px; line-height: 1.35; }
+#join-form .application-choice-grid input:checked + span { border-color: var(--accent); background: var(--accent-pale); box-shadow: 0 0 0 1px var(--accent); }
+#join-form .application-choice-grid input:focus-visible + span { outline: 3px solid rgba(234,122,244,.34); outline-offset: 2px; }
+.sac-application-note { display: grid; gap: 10px; padding: 15px; border: 1px solid #edcf8d; border-radius: 10px; background: #fff9ec; color: #514323; font-size: 11px; line-height: 1.5; }
+.sac-application-note > span { color: #675939; }
+#join-form .application-checkbox { display: flex; align-items: flex-start; gap: 9px; color: #514323; font-size: 11px; line-height: 1.45; cursor: pointer; }
+.application-checkbox input { flex: 0 0 auto; width: 17px; height: 17px; margin: 0; }
+#join-form .application-checkbox > span { color: inherit; }
 input, select, textarea { width: 100%; margin-top: 7px; border: 1px solid #dcd7d9; border-radius: 9px; background: #fcfbfb; color: var(--ink); padding: 11px 12px; }
 textarea { min-height: 130px; resize: vertical; }
 fieldset { min-width: 0; padding: 0; border: 0; }
@@ -215,6 +232,8 @@ footer p, .footer-links a { margin: 0; color: var(--muted); font-size: 10px; }
   .access-message { padding: 24px 20px; }
   .form-card { padding: 24px 18px; }
   .form-row { grid-template-columns: 1fr; }
+  .application-choice-grid { grid-template-columns: 1fr; }
+  #join-form .application-choice-grid label > span { min-height: 0; }
   footer .content-width { grid-template-columns: 1fr; gap: 12px; }
   .footer-links { justify-content: flex-start; }
 }

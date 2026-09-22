@@ -33,19 +33,37 @@ function renderPending() {
   const list = state.applications.filter(a => a.status === 'pending');
   const el = document.getElementById('pending-list');
   if (!list.length) { el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg><p>No pending applications.</p></div>'; return; }
-  el.innerHTML = list.map(a => `
+  el.innerHTML = list.map(applicationReviewMarkup).join('');
+}
+
+function applicationReviewMarkup(a) {
+  const targetName = { media_club: 'Media Club', sac: 'SAC', both: 'Media Club + SAC' }[a.target] || 'Unknown';
+  return `
     <div class="admin-row">
       <div>
         <div style="font-size:14px;font-weight:500;color:var(--text);">${escapeHtml(a.fname)} ${escapeHtml(a.lname)}</div>
-        <div style="font-size:12px;color:var(--text3);">${escapeHtml(a.email)} · ${escapeHtml(a.year)} · ${escapeHtml(a.exp)}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:4px;max-width:500px;">${escapeHtml(a.why)}</div>
+        <div style="font-size:12px;color:var(--text3);">${escapeHtml(a.email)} · ${escapeHtml(a.year)} · ${escapeHtml(targetName)}${a.exp ? ` · ${escapeHtml(a.exp)}` : ''}</div>
+        ${a.target !== 'media_club' ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;max-width:500px;">Applicant declared current SAC membership${a.existingMember ? ' and an existing Crew Center account' : ''}. Verify SAC membership before approval.</div>` : ''}
+        ${a.why ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;max-width:500px;">${escapeHtml(a.why)}</div>` : ''}
         ${a.interests.length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${a.interests.map(i => `<span class="badge badge-gray">${escapeHtml(i)}</span>`).join('')}</div>` : ''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="btn btn-accent btn-sm" id="approve-app-${a.id}" onclick="approveApp('${a.id}')">Approve</button>
-        <button class="btn btn-danger btn-sm" onclick="openRejectApplicationModal('${a.id}')">Reject</button>
+        ${a.target === 'media_club'
+          ? `<button class="btn btn-danger btn-sm" onclick="openRejectApplicationModal('${a.id}')">Reject</button>`
+          : `<button class="btn btn-danger btn-sm" onclick="requestDeleteSacApplication('${a.id}')">Delete request</button>`}
       </div>
-    </div>`).join('');
+    </div>`;
+}
+
+function renderSacApplications() {
+  const panel = document.getElementById('sac-review-panel');
+  const list = document.getElementById('sac-review-list');
+  if (!panel || !list) return;
+  panel.hidden = !canReviewSacApplications();
+  if (panel.hidden) return;
+  const pending = state.applications.filter(a => a.status === 'pending' && a.target === 'sac');
+  list.innerHTML = pending.length ? pending.map(applicationReviewMarkup).join('') : '<div class="empty-state"><p>No pending SAC requests.</p></div>';
 }
 
 async function edgeFunctionErrorMessage(error, fallback) {
@@ -66,7 +84,7 @@ async function approveApp(id) {
   if (!app) return;
   const button = document.getElementById(`approve-app-${id}`);
   if (button) { button.disabled = true; button.textContent = 'Approving...'; }
-  const { error } = await supabaseClient.functions.invoke('review-application', {
+  const { data, error } = await supabaseClient.functions.invoke('review-application', {
     body: { applicationId: id, decision: 'approve' },
   });
   if (error) {
@@ -74,16 +92,32 @@ async function approveApp(id) {
     showToast(await edgeFunctionErrorMessage(error, "Couldn't approve application."), 'error');
     return;
   }
-  showToast(`${app.fname} ${app.lname} approved. Invitation email sent.`);
+  showToast(`${app.fname} ${app.lname} approved.${data?.invitationSent ? ' Invitation email sent.' : data?.approvalEmailSent ? ' Approval email sent to the existing member.' : ' Existing account updated.'}`);
+  if (data?.deliveryWarnings?.length) showToast(data.deliveryWarnings.join(' '), 'error', 8000);
   await loadCrewCenterData();
-  renderAdmin();
+  if (document.getElementById('page-admin')?.classList.contains('active')) renderAdmin();
+  else renderSacApplications();
+}
+
+async function requestDeleteSacApplication(id) {
+  const app = state.applications.find(a => a.id === id && a.status === 'pending' && a.target !== 'media_club');
+  if (!app) return;
+  if (!window.confirm(`Permanently delete ${app.fname} ${app.lname}'s ${app.target === 'both' ? 'Media Club + SAC' : 'SAC'} request? This cannot be undone, and no decision email will be sent.`)) return;
+  const { error } = await supabaseClient.functions.invoke('review-application', {
+    body: { applicationId: id, decision: 'delete', confirmDelete: true },
+  });
+  if (error) { showToast(await edgeFunctionErrorMessage(error, "Couldn't delete the request."), 'error'); return; }
+  showToast('Application request permanently deleted. No email was sent.');
+  await loadCrewCenterData();
+  if (document.getElementById('page-admin')?.classList.contains('active')) renderAdmin();
+  else renderSacApplications();
 }
 
 let rejectingApplicationId = null;
 
 function openRejectApplicationModal(id) {
   const app = state.applications.find(a => a.id === id);
-  if (!app) return;
+  if (!app || app.target !== 'media_club') return;
   rejectingApplicationId = id;
   document.getElementById('reject-application-name').textContent = `The Crew Center will automatically send a private decision email to ${app.fname} ${app.lname}.`;
   document.getElementById('reject-application-reason').value = '';

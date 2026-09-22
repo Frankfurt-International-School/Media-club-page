@@ -109,6 +109,7 @@ function navigate(id, el, options = {}) {
   }
   if (page === 'about') renderAboutRecentProjects();
   if (page === 'home') renderDashboard();
+  if (page === 'sac-home') renderSacApplications();
   if (page === 'events') renderEvents();
   if (page === 'meetings') renderMeetings();
   if (page === 'signup') initSignupSheet();
