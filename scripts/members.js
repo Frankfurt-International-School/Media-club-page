@@ -23,7 +23,10 @@ function memberDirectoryTags(specialisation = '', teamKeys = []) {
   const isNewsTeam = tag => ['news team', 'student news team'].includes(tag.toLowerCase());
   const isAthletics = tag => ['athletics', 'athletics department'].includes(tag.toLowerCase());
   const isCas = tag => tag.toLowerCase() === 'cas';
+  const hasSac = teamKeys.includes('sac');
   return {
+    hasMediaClub: teamKeys.includes('media_club') || !hasSac,
+    hasSac,
     hasNewsTeam: teamKeys.includes('news_team') || tags.some(isNewsTeam),
     hasAthletics: teamKeys.includes('athletics') || tags.some(isAthletics),
     hasCas: tags.some(isCas),
@@ -31,41 +34,65 @@ function memberDirectoryTags(specialisation = '', teamKeys = []) {
   };
 }
 
+const sacTitleLabels = Object.freeze({
+  president: 'SAC President',
+  vice_president: 'SAC Vice President',
+  media_manager: 'SAC Media Manager',
+  attendance_manager: 'SAC Attendance Manager',
+  club_manager: 'SAC Club Manager',
+});
+
+function sacTitleLabel(title = '') {
+  return sacTitleLabels[normalizeSacTitle(title)] || '';
+}
+
+function sacGradeEligible(gradeLevel = '') {
+  return ['grade 9', 'grade 10', 'grade 11', 'grade 12'].includes(String(gradeLevel).trim().toLowerCase());
+}
+
+function memberDirectoryGroupRole(member) {
+  if (normalizeSacTitle(member?.sacTitle) === 'president') return 'Leader';
+  const { hasMediaClub } = memberDirectoryTags(member?.spec, member?.teamKeys);
+  return hasMediaClub ? (member?.role || 'Other') : 'SAC Member';
+}
+
 function renderMembers() {
   const q = (document.getElementById('member-search').value || '').toLowerCase();
   const rf = document.getElementById('member-role-filter').value;
   const list = state.members.filter(m => {
     const name = (m.fname + ' ' + m.lname).toLowerCase();
-    return (!q || name.includes(q) || m.spec.toLowerCase().includes(q) || m.gradeLevel.toLowerCase().includes(q)) && (!rf || m.role === rf);
+    const sacTitle = sacTitleLabel(m.sacTitle).toLowerCase();
+    return (!q || name.includes(q) || m.spec.toLowerCase().includes(q) || m.gradeLevel.toLowerCase().includes(q) || sacTitle.includes(q))
+      && (!rf || memberDirectoryGroupRole(m) === rf);
   });
   const grid = document.getElementById('members-grid');
   if (!list.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No members found.</p></div>'; return; }
   const memberCard = m => {
     const [bg, fg] = memberColor(m.color);
-    const { hasNewsTeam, hasAthletics, hasCas, specialisations } = memberDirectoryTags(m.spec, m.teamKeys);
-    const tags = `${hasCas ? '<span class="badge badge-cas">CAS</span>' : ''}${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${hasAthletics ? '<span class="badge badge-athletics">Athletics</span>' : ''}${specialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
+    const { hasMediaClub, hasSac, hasNewsTeam, hasAthletics, hasCas, specialisations } = memberDirectoryTags(m.spec, m.teamKeys);
+    const titleLabel = hasSac ? sacTitleLabel(m.sacTitle) : '';
+    const mediaRoleLabel = hasMediaClub ? (normalizeRoleName(m.role) === 'member' && hasSac ? 'Media Club Member' : m.role) : '';
+    const visibleSpecialisations = hasMediaClub ? specialisations : [];
+    const tags = `${mediaRoleLabel ? `<span class="badge badge-${memberRoleColor(m.role)}">${escapeHtml(mediaRoleLabel)}</span>` : ''}${hasSac ? '<span class="badge badge-sac">SAC</span>' : ''}${titleLabel ? `<span class="badge badge-sac-title">${escapeHtml(titleLabel)}</span>` : ''}${hasCas ? '<span class="badge badge-cas">CAS</span>' : ''}${hasNewsTeam ? '<span class="badge badge-teal">News Team</span>' : ''}${hasAthletics ? '<span class="badge badge-athletics">Athletics</span>' : ''}${visibleSpecialisations.map(tag => `<span class="badge badge-gray">${escapeHtml(tag)}</span>`).join('')}`;
     const profileDetails = [canAccessAdminPanel() ? m.email : '', m.gradeLevel].filter(Boolean).map(value => escapeHtml(value)).join(' · ');
     const safeAvatarUrl = safeExternalUrl(m.avatarUrl);
     const avatarStyle = safeAvatarUrl
       ? `background:url(&quot;${escapeHtml(safeAvatarUrl)}&quot;) center/cover;color:transparent;`
       : `background:${bg};color:${fg};`;
     return `
-      <div class="member-card">
+      <div class="member-card${normalizeSacTitle(m.sacTitle) === 'president' ? ' sac-president-card' : ''}">
         <div class="member-avatar" style="${avatarStyle}">${safeAvatarUrl ? '' : escapeHtml(initials(m.fname, m.lname))}</div>
-        <div style="flex:1;">
+        <div class="member-card-body">
           <div class="member-name">${escapeHtml(m.fname)} ${escapeHtml(m.lname)}</div>
           ${profileDetails ? `<div class="member-role">${profileDetails}</div>` : ''}
-          <div class="member-tags">
-            <span class="badge badge-${memberRoleColor(m.role)}">${escapeHtml(m.role)}</span>
-            ${tags}
-          </div>
+          <div class="member-tags">${tags}</div>
         </div>
-        ${canAccessAdminPanel() ? `<button class="btn btn-danger btn-sm" onclick="openRemoveMemberModal('${m.id}')">Remove</button>` : ''}
+        ${(canManageSacMemberships() || canAccessAdminPanel()) ? `<div class="member-card-actions">${canManageSacMemberships() ? `<button class="btn btn-ghost btn-sm sac-member-manage" onclick="openSacMembershipModal('${m.id}')">Manage SAC</button>` : ''}${canAccessAdminPanel() ? `<button class="btn btn-danger btn-sm" onclick="openRemoveMemberModal('${m.id}')">Remove</button>` : ''}</div>` : ''}
       </div>`;
   };
   const groups = new Map();
   list.forEach(member => {
-    const role = member.role || 'Other';
+    const role = memberDirectoryGroupRole(member);
     if (!groups.has(role)) groups.set(role, []);
     groups.get(role).push(member);
   });
@@ -73,6 +100,8 @@ function renderMembers() {
   grid.innerHTML = orderedGroups.map(([role, members]) => {
     const orderedMembers = [...members].sort((a, b) => {
       if (normalizeRoleName(role) === 'leader') {
+        const sacRank = member => normalizeSacTitle(member.sacTitle) === 'president' ? 0 : 1;
+        if (sacRank(a) !== sacRank(b)) return sacRank(a) - sacRank(b);
         const joinedA = a.joined_date ? new Date(`${a.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
         const joinedB = b.joined_date ? new Date(`${b.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
         if (joinedA !== joinedB) return joinedA - joinedB;
@@ -112,7 +141,7 @@ async function addMember() {
     .single();
   if (error) { showToast("Couldn't add member.", 'error'); return; }
   const directoryTags = memberDirectoryTags(specialisation);
-  const teamKeys = [directoryTags.hasNewsTeam ? 'news_team' : '', directoryTags.hasAthletics ? 'athletics' : '', directoryTags.hasCas ? 'cas' : ''].filter(Boolean);
+  const teamKeys = ['media_club', directoryTags.hasNewsTeam ? 'news_team' : '', directoryTags.hasAthletics ? 'athletics' : '', directoryTags.hasCas ? 'cas' : ''].filter(Boolean);
   let teamSyncError = null;
   if (teamKeys.length) {
     const { error: membershipError } = await supabaseClient
@@ -132,6 +161,92 @@ async function addMember() {
   }
   renderMembers();
   renderDashboard();
+}
+
+let managingSacMemberId = null;
+
+function syncSacMembershipEditor() {
+  const enabled = document.getElementById('sac-membership-enabled').checked;
+  const member = state.members.find(item => item.id === managingSacMemberId);
+  const eligible = sacGradeEligible(member?.gradeLevel);
+  document.getElementById('sac-membership-title').disabled = !enabled;
+  const overrideWrap = document.getElementById('sac-grade-override-wrap');
+  overrideWrap.hidden = !enabled || eligible || !canAddMembers();
+  if (overrideWrap.hidden) document.getElementById('sac-grade-override').checked = false;
+  const warning = document.getElementById('sac-membership-warning');
+  warning.hidden = !enabled || eligible;
+  warning.textContent = canAddMembers()
+    ? 'This member is outside Grade 9–12. Saving requires the explicit Auth Admin override below.'
+    : 'Only Grade 9–12 members may receive SAC membership. Ask an Auth Admin if an exception is required.';
+}
+
+function sacAuditDescription(entry) {
+  if (entry.action === 'membership_added') return `Added to SAC${entry.new_title ? ` as ${sacTitleLabel(entry.new_title)}` : ''}`;
+  if (entry.action === 'membership_removed') return `Removed from SAC${entry.previous_title ? ` (was ${sacTitleLabel(entry.previous_title)})` : ''}`;
+  return `Changed title from ${sacTitleLabel(entry.previous_title) || 'SAC Member'} to ${sacTitleLabel(entry.new_title) || 'SAC Member'}`;
+}
+
+async function renderSacMembershipAudit(memberId) {
+  const list = document.getElementById('sac-membership-audit');
+  list.innerHTML = '<div class="text-muted">Loading change history…</div>';
+  const { data, error } = await supabaseClient.rpc('get_sac_membership_audit', { p_member_id: memberId });
+  if (managingSacMemberId !== memberId) return;
+  if (error) {
+    list.innerHTML = '<div class="text-muted">Change history becomes available after the SAC foundation SQL is applied.</div>';
+    return;
+  }
+  list.innerHTML = data?.length
+    ? data.map(entry => `<div class="sac-audit-row"><strong>${escapeHtml(sacAuditDescription(entry))}</strong><span>${escapeHtml(entry.changed_by_name)} · ${escapeHtml(new Date(entry.changed_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}</span></div>`).join('')
+    : '<div class="text-muted">No SAC membership changes recorded yet.</div>';
+}
+
+function openSacMembershipModal(id) {
+  if (!canManageSacMemberships()) { showToast('Only the SAC President, SAC Vice President, or an Auth Admin can manage SAC membership.', 'error'); return; }
+  const member = state.members.find(item => item.id === id);
+  if (!member) return;
+  managingSacMemberId = id;
+  const { hasSac } = memberDirectoryTags(member.spec, member.teamKeys);
+  document.getElementById('sac-membership-member').textContent = `${member.name} · ${member.gradeLevel || 'No grade recorded'}`;
+  document.getElementById('sac-membership-enabled').checked = hasSac;
+  document.getElementById('sac-membership-title').value = hasSac ? normalizeSacTitle(member.sacTitle) : '';
+  document.getElementById('sac-grade-override').checked = false;
+  syncSacMembershipEditor();
+  openModal('sac-membership-modal');
+  renderSacMembershipAudit(id);
+}
+
+function closeSacMembershipModal() {
+  managingSacMemberId = null;
+  closeModal('sac-membership-modal');
+}
+
+async function saveSacMembership() {
+  if (!canManageSacMemberships()) { closeSacMembershipModal(); showToast('SAC membership management access is required.', 'error'); return; }
+  const member = state.members.find(item => item.id === managingSacMemberId);
+  if (!member) { closeSacMembershipModal(); return; }
+  const enabled = document.getElementById('sac-membership-enabled').checked;
+  const title = enabled ? document.getElementById('sac-membership-title').value || null : null;
+  const overrideGrade = enabled && document.getElementById('sac-grade-override').checked;
+  if (enabled && !sacGradeEligible(member.gradeLevel) && !overrideGrade) {
+    showToast('SAC membership is limited to Grade 9–12 unless an Auth Admin explicitly overrides it.', 'error', 7000);
+    return;
+  }
+  const button = document.getElementById('sac-membership-save');
+  button.disabled = true;
+  button.textContent = 'Saving…';
+  const { error } = await supabaseClient.rpc('set_sac_membership', {
+    p_member_id: member.id,
+    p_enabled: enabled,
+    p_title: title,
+    p_override_grade: overrideGrade,
+  });
+  button.disabled = false;
+  button.textContent = 'Save SAC membership';
+  if (error) { showToast(error.message || "Couldn't update SAC membership.", 'error', 7000); return; }
+  await loadCrewCenterData({ datasets: ['members'], silent: true });
+  closeSacMembershipModal();
+  renderMembers();
+  showToast(enabled ? `${member.name}'s SAC membership was saved.` : `${member.name} was removed from SAC. Their history was preserved.`);
 }
 
 let removingMemberId = null;

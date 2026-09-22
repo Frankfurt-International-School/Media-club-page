@@ -44,17 +44,32 @@ alter table public.members add column if not exists equipment_status_access bool
 
 create table if not exists public.member_team_memberships (
   member_id uuid not null references public.members(id) on delete cascade,
-  team_key text not null check (team_key in ('news_team', 'athletics', 'cas')),
+  team_key text not null check (team_key in ('media_club', 'news_team', 'athletics', 'cas', 'sac')),
+  team_role text,
   joined_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   primary key (member_id, team_key)
 );
 
+alter table public.member_team_memberships add column if not exists team_role text;
+alter table public.member_team_memberships add column if not exists updated_at timestamptz not null default now();
 alter table public.member_team_memberships drop constraint if exists member_team_memberships_team_key_check;
 alter table public.member_team_memberships add constraint member_team_memberships_team_key_check
-check (team_key in ('news_team', 'athletics', 'cas'));
+check (team_key in ('media_club', 'news_team', 'athletics', 'cas', 'sac'));
+alter table public.member_team_memberships drop constraint if exists member_team_memberships_team_role_check;
+alter table public.member_team_memberships add constraint member_team_memberships_team_role_check
+check (
+  (team_key = 'sac' and (team_role is null or team_role in ('president', 'vice_president', 'media_manager', 'attendance_manager', 'club_manager')))
+  or (team_key <> 'sac' and team_role is null)
+);
 
 create index if not exists member_team_memberships_team_idx
 on public.member_team_memberships (team_key, member_id);
+
+insert into public.member_team_memberships (member_id, team_key)
+select member.id, 'media_club'
+from public.members member
+on conflict (member_id, team_key) do nothing;
 
 insert into public.member_team_memberships (member_id, team_key)
 select member.id, 'news_team'
@@ -73,6 +88,103 @@ select member.id, 'cas'
 from public.members member
 where lower(coalesce(member.status, '')) ~ '(^|[[:space:]]*,[[:space:]])cas([[:space:]]*,|$)'
 on conflict (member_id, team_key) do nothing;
+
+create table if not exists public.sac_membership_audit (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid,
+  member_name text not null,
+  action text not null check (action in ('membership_added', 'membership_removed', 'title_changed')),
+  previous_title text,
+  new_title text,
+  changed_by_auth_user_id uuid,
+  changed_by_member_id uuid,
+  changed_by_name text not null,
+  changed_at timestamptz not null default now()
+);
+
+create index if not exists sac_membership_audit_member_idx
+on public.sac_membership_audit (member_id, changed_at desc);
+
+create index if not exists sac_membership_audit_changed_by_member_idx
+on public.sac_membership_audit (changed_by_member_id);
+
+create or replace function public.audit_sac_membership_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  affected_member_id uuid;
+  affected_team_key text;
+  affected_member_name text;
+  actor_member_id uuid;
+  actor_name text;
+  audit_action text;
+begin
+  if tg_op = 'DELETE' then
+    affected_member_id := old.member_id;
+    affected_team_key := old.team_key;
+  else
+    affected_member_id := new.member_id;
+    affected_team_key := new.team_key;
+  end if;
+
+  if affected_team_key <> 'sac' then
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' and old.team_role is not distinct from new.team_role then
+    return new;
+  end if;
+
+  select member.name into affected_member_name
+  from public.members member
+  where member.id = affected_member_id;
+
+  select member.id, member.name into actor_member_id, actor_name
+  from public.members member
+  where lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+
+  audit_action := case tg_op
+    when 'INSERT' then 'membership_added'
+    when 'DELETE' then 'membership_removed'
+    else 'title_changed'
+  end;
+
+  insert into public.sac_membership_audit (
+    member_id,
+    member_name,
+    action,
+    previous_title,
+    new_title,
+    changed_by_auth_user_id,
+    changed_by_member_id,
+    changed_by_name
+  ) values (
+    affected_member_id,
+    coalesce(affected_member_name, 'Removed member'),
+    audit_action,
+    case when tg_op in ('UPDATE', 'DELETE') then old.team_role else null end,
+    case when tg_op in ('INSERT', 'UPDATE') then new.team_role else null end,
+    auth.uid(),
+    actor_member_id,
+    coalesce(actor_name, auth.jwt() ->> 'email', 'System')
+  );
+
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.audit_sac_membership_change() from public;
+
+drop trigger if exists member_team_memberships_audit_sac on public.member_team_memberships;
+create trigger member_team_memberships_audit_sac
+after insert or update of team_role or delete on public.member_team_memberships
+for each row execute function public.audit_sac_membership_change();
 
 create table if not exists public.cas_attendance_settings (
   id smallint primary key default 1 check (id = 1),

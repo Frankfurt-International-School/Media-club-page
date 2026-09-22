@@ -1,5 +1,6 @@
 alter table public.members enable row level security;
 alter table public.member_team_memberships enable row level security;
+alter table public.sac_membership_audit enable row level security;
 alter table public.cas_attendance_settings enable row level security;
 alter table public.events enable row level security;
 alter table public.meetings enable row level security;
@@ -20,6 +21,7 @@ drop policy if exists "Admin Panel users can manage team memberships" on public.
 drop policy if exists "Auth Admins can manage team memberships" on public.member_team_memberships;
 drop policy if exists "Admin Panel users can add CAS memberships" on public.member_team_memberships;
 drop policy if exists "Admin Panel users can remove CAS memberships" on public.member_team_memberships;
+drop policy if exists "SAC managers can read membership audit" on public.sac_membership_audit;
 drop policy if exists "Admin Panel users can read CAS attendance settings" on public.cas_attendance_settings;
 drop policy if exists "Admin Panel users can add CAS attendance settings" on public.cas_attendance_settings;
 drop policy if exists "Admin Panel users can update CAS attendance settings" on public.cas_attendance_settings;
@@ -240,6 +242,151 @@ as $$
   limit 1;
 $$;
 
+create or replace function public.current_sac_title()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select membership.team_role
+  from public.member_team_memberships membership
+  where membership.member_id = public.current_member_id()
+    and membership.team_key = 'sac'
+  limit 1;
+$$;
+
+create or replace function public.can_manage_sac_memberships()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null
+    and not public.is_visitor_session()
+    and (
+      public.is_auth_admin()
+      or coalesce(public.current_sac_title(), '') in ('president', 'vice_president')
+    );
+$$;
+
+create or replace function public.can_review_sac_applications()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null
+    and not public.is_visitor_session()
+    and (
+      public.is_auth_admin()
+      or coalesce(public.current_sac_title(), '') = 'president'
+    );
+$$;
+
+create or replace function public.can_create_sac_events()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null
+    and not public.is_visitor_session()
+    and (
+      public.is_auth_admin()
+      or coalesce(public.current_sac_title(), '') in ('president', 'vice_president', 'attendance_manager', 'club_manager')
+    );
+$$;
+
+create or replace function public.set_sac_membership(
+  p_member_id uuid,
+  p_enabled boolean,
+  p_title text default null,
+  p_override_grade boolean default false
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_grade text;
+  normalized_title text;
+  grade_is_eligible boolean;
+begin
+  if not public.can_manage_sac_memberships() then
+    raise exception 'SAC President, SAC Vice President, or Auth Admin access is required.';
+  end if;
+
+  normalized_title := nullif(regexp_replace(lower(btrim(coalesce(p_title, ''))), '[[:space:]-]+', '_', 'g'), '');
+  if normalized_title is not null and normalized_title not in ('president', 'vice_president', 'media_manager', 'attendance_manager', 'club_manager') then
+    raise exception 'Invalid SAC title.';
+  end if;
+
+  select member.grade_level into target_grade
+  from public.members member
+  where member.id = p_member_id
+  for update;
+
+  if not found then
+    raise exception 'Member not found.';
+  end if;
+
+  if not coalesce(p_enabled, false) then
+    delete from public.member_team_memberships membership
+    where membership.member_id = p_member_id
+      and membership.team_key = 'sac';
+    return found;
+  end if;
+
+  grade_is_eligible := lower(btrim(coalesce(target_grade, ''))) in ('grade 9', 'grade 10', 'grade 11', 'grade 12');
+  if not grade_is_eligible and not (public.is_auth_admin() and coalesce(p_override_grade, false)) then
+    raise exception 'SAC membership is limited to Grade 9–12. An Auth Admin may explicitly override this rule.';
+  end if;
+  if coalesce(p_override_grade, false) and not public.is_auth_admin() then
+    raise exception 'Only an Auth Admin may override the SAC grade requirement.';
+  end if;
+
+  insert into public.member_team_memberships (member_id, team_key, team_role, updated_at)
+  values (p_member_id, 'sac', normalized_title, now())
+  on conflict (member_id, team_key) do update
+  set team_role = excluded.team_role,
+      updated_at = now();
+
+  return true;
+end;
+$$;
+
+create or replace function public.get_sac_membership_audit(p_member_id uuid)
+returns table (
+  action text,
+  previous_title text,
+  new_title text,
+  changed_by_name text,
+  changed_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_manage_sac_memberships() then
+    raise exception 'SAC membership management access is required.';
+  end if;
+
+  return query
+  select audit.action, audit.previous_title, audit.new_title, audit.changed_by_name, audit.changed_at
+  from public.sac_membership_audit audit
+  where audit.member_id = p_member_id
+  order by audit.changed_at desc
+  limit 30;
+end;
+$$;
+
 create or replace function public.can_use_personal_camera(p_member_id uuid, p_camera_name text)
 returns boolean
 language sql
@@ -337,11 +484,23 @@ end;
 $$;
 
 revoke all on function public.current_member_id() from public;
+revoke all on function public.current_sac_title() from public;
+revoke all on function public.can_manage_sac_memberships() from public;
+revoke all on function public.can_review_sac_applications() from public;
+revoke all on function public.can_create_sac_events() from public;
+revoke all on function public.set_sac_membership(uuid, boolean, text, boolean) from public;
+revoke all on function public.get_sac_membership_audit(uuid) from public;
 revoke all on function public.can_use_personal_camera(uuid, text) from public;
 revoke all on function public.is_member_of_team(text) from public;
 revoke all on function public.can_read_meeting(uuid) from public;
 revoke all on function public.can_rsvp_meeting(uuid) from public;
 grant execute on function public.current_member_id() to authenticated;
+grant execute on function public.current_sac_title() to authenticated;
+grant execute on function public.can_manage_sac_memberships() to authenticated;
+grant execute on function public.can_review_sac_applications() to authenticated;
+grant execute on function public.can_create_sac_events() to authenticated;
+grant execute on function public.set_sac_membership(uuid, boolean, text, boolean) to authenticated;
+grant execute on function public.get_sac_membership_audit(uuid) to authenticated;
 grant execute on function public.can_use_personal_camera(uuid, text) to authenticated;
 grant execute on function public.is_member_of_team(text) to authenticated;
 grant execute on function public.can_read_meeting(uuid) to authenticated;
@@ -368,6 +527,7 @@ returns table (
   personal_equipment_preferences jsonb,
   equipment_status_access boolean,
   team_keys text[],
+  sac_title text,
   is_current_user boolean
 )
 language sql
@@ -397,6 +557,13 @@ as $$
       from public.member_team_memberships membership
       where membership.member_id = member.id
     ), array[]::text[]),
+    (
+      select membership.team_role
+      from public.member_team_memberships membership
+      where membership.member_id = member.id
+        and membership.team_key = 'sac'
+      limit 1
+    ),
     lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   from public.members member
   where public.is_approved_member()
@@ -1850,6 +2017,14 @@ create policy "Admin Panel users can remove CAS memberships"
 on public.member_team_memberships for delete
 to authenticated
 using (team_key = 'cas' and public.is_admin_panel_user());
+
+revoke all on table public.sac_membership_audit from anon, authenticated;
+grant select on table public.sac_membership_audit to authenticated;
+
+create policy "SAC managers can read membership audit"
+on public.sac_membership_audit for select
+to authenticated
+using ((select public.can_manage_sac_memberships()));
 
 revoke all on table public.cas_attendance_settings from anon, authenticated;
 grant select, insert, update on table public.cas_attendance_settings to authenticated;

@@ -111,6 +111,30 @@ function canAddMembers() {
 
 window.canAddCrewCenterMembers = canAddMembers;
 
+function normalizeSacTitle(title = '') {
+  return String(title).trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+function currentSacTitle() {
+  return normalizeSacTitle(currentMemberRecord()?.sacTitle);
+}
+
+function canManageSacMemberships() {
+  return canAddMembers() || ['president', 'vice_president'].includes(currentSacTitle());
+}
+
+function canReviewSacApplications() {
+  return canAddMembers() || currentSacTitle() === 'president';
+}
+
+function canCreateSacEvents() {
+  return canAddMembers() || ['president', 'vice_president', 'attendance_manager', 'club_manager'].includes(currentSacTitle());
+}
+
+window.canManageSacMemberships = canManageSacMemberships;
+window.canReviewSacApplications = canReviewSacApplications;
+window.canCreateSacEvents = canCreateSacEvents;
+
 window.canAccessCrewCenterAdminPanel = canAccessAdminPanel;
 
 function canManageCrewOperations() {
@@ -591,6 +615,7 @@ function normalizeMember(member, index = 0) {
     teamKeys: Array.isArray(member.team_keys)
       ? member.team_keys.filter(Boolean)
       : (member.member_team_memberships || []).map(membership => membership.team_key).filter(Boolean),
+    sacTitle: normalizeSacTitle(member.sac_title || ''),
     avatarUrl: member.avatar_url || '',
     avatarPath: member.avatar_path || '',
     sidebarCustomized: Boolean(member.sidebar_customized),

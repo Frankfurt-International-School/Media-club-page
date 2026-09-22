@@ -497,6 +497,7 @@
         <option>Moderator</option>
         <option>Faculty</option>
         <option>Member</option>
+        <option>SAC Member</option>
       </select>
     </div>
     <div class="grid2" id="members-grid"></div>
@@ -1085,6 +1086,37 @@
       <div class="form-group"><label class="form-label">Specialisation / team</label><input class="form-input" id="mem-spec" placeholder="News Team, Athletics, Photography..." /></div>
     </div>
     <button class="btn btn-accent" style="width:100%;" onclick="addMember()">Add member</button>
+  </div>
+</div>
+
+<!-- Manage SAC Membership Modal -->
+<div class="modal-backdrop" id="sac-membership-modal" role="dialog" aria-modal="true" aria-labelledby="sac-membership-modal-title">
+  <div class="modal sac-membership-modal" style="position:relative;">
+    <button class="modal-close" onclick="closeSacMembershipModal()" aria-label="Close SAC membership editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title" id="sac-membership-modal-title">Manage SAC membership</div>
+    <div class="modal-sub" id="sac-membership-member"></div>
+    <section class="sac-membership-editor">
+      <label class="sidebar-customize-toggle"><span><strong>Current SAC member</strong><span class="text-muted" style="display:block;">Only tagged members will be allowed to use future SAC sign-up sheets.</span></span><input id="sac-membership-enabled" type="checkbox" onchange="syncSacMembershipEditor()"></label>
+      <div class="form-group">
+        <label class="form-label" for="sac-membership-title">SAC title</label>
+        <select class="form-select" id="sac-membership-title">
+          <option value="">SAC Member · no officer title</option>
+          <option value="president">SAC President</option>
+          <option value="vice_president">SAC Vice President</option>
+          <option value="media_manager">SAC Media Manager</option>
+          <option value="attendance_manager">SAC Attendance Manager</option>
+          <option value="club_manager">SAC Club Manager</option>
+        </select>
+        <div class="text-muted" style="font-size:11px;margin-top:6px;">A member may hold one SAC title. SAC membership remains their base rank.</div>
+      </div>
+      <div class="sac-membership-warning" id="sac-membership-warning" hidden></div>
+      <label class="confirmation-ack" id="sac-grade-override-wrap" hidden><input id="sac-grade-override" type="checkbox"><span>I am using the Auth Admin override for the Grade 9–12 requirement.</span></label>
+      <button class="btn btn-accent" id="sac-membership-save" style="width:100%;justify-content:center;" onclick="saveSacMembership()">Save SAC membership</button>
+    </section>
+    <section class="sac-audit-panel" aria-labelledby="sac-audit-title">
+      <div class="section-head" id="sac-audit-title">Change history</div>
+      <div id="sac-membership-audit" aria-live="polite"></div>
+    </section>
   </div>
 </div>
 

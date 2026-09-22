@@ -81,7 +81,7 @@ test('authority tiers preserve the Auth Admin and faculty distinction', () => {
   assert.deepEqual(capabilities({ role: 'Member' }), { admin: false, addMembers: false, equipment: false, createMeetings: false, facultyConfirmation: false, otherSignups: false, equipmentStatus: false, schedule: false });
 });
 
-test('CAS, News Team, and Athletics are canonical secondary member tags before specialisations', () => {
+test('Media Club, SAC, CAS, News Team, and Athletics remain distinct directory memberships', () => {
   const tags = JSON.parse(JSON.stringify(runFunctions(
     ['memberDirectoryTags'],
     {},
@@ -89,16 +89,88 @@ test('CAS, News Team, and Athletics are canonical secondary member tags before s
   )));
 
   assert.deepEqual(tags, {
+    hasMediaClub: true,
+    hasSac: false,
     hasNewsTeam: true,
     hasAthletics: true,
     hasCas: true,
     specialisations: ['Photography', 'Video'],
   });
+  const sacOnly = JSON.parse(JSON.stringify(runFunctions(
+    ['memberDirectoryTags'],
+    {},
+    "memberDirectoryTags('active', ['sac'])",
+  )));
+  assert.equal(sacOnly.hasMediaClub, false);
+  assert.equal(sacOnly.hasSac, true);
+  assert.match(appSource, /hasSac \? '<span class="badge badge-sac">SAC<\/span>'/);
   assert.match(appSource, /hasCas \? '<span class="badge badge-cas">CAS<\/span>'/);
   assert.match(appSource, /hasNewsTeam \? '<span class="badge badge-teal">News Team<\/span>'/);
   assert.match(appSource, /hasAthletics \? '<span class="badge badge-athletics">Athletics<\/span>'/);
   assert.match(appStyles, /\.badge-athletics \{[^}]*background: var\(--accent-dim\);[^}]*color: var\(--accent\)/);
-  assert.match(appSource, /badge-\$\{memberRoleColor\(m\.role\)\}[\s\S]*?\$\{tags\}/);
+  assert.match(appStyles, /\.badge-sac \{[^}]*background: var\(--accent-dim\);[^}]*color: var\(--accent\)/);
+});
+
+test('SAC membership titles and authority are database-enforced and directory-visible', () => {
+  const setSacMembership = extractSqlFunction('set_sac_membership');
+  const manageSacMemberships = extractSqlFunction('can_manage_sac_memberships');
+  const reviewSacApplications = extractSqlFunction('can_review_sac_applications');
+  const createSacEvents = extractSqlFunction('can_create_sac_events');
+  const memberDirectory = extractSqlFunction('get_member_directory');
+
+  assert.match(schemaSql, /team_key in \('media_club', 'news_team', 'athletics', 'cas', 'sac'\)/);
+  assert.match(schemaSql, /team_role in \('president', 'vice_president', 'media_manager', 'attendance_manager', 'club_manager'\)/);
+  assert.match(schemaSql, /select member\.id, 'media_club'[\s\S]*?on conflict \(member_id, team_key\) do nothing/);
+  assert.match(schemaSql, /create table if not exists public\.sac_membership_audit/);
+  assert.match(schemaSql, /create trigger member_team_memberships_audit_sac[\s\S]*?after insert or update of team_role or delete/);
+  assert.match(schemaSql, /revoke all on function public\.audit_sac_membership_change\(\) from public/);
+
+  assert.match(manageSacMemberships, /'president', 'vice_president'/);
+  assert.match(reviewSacApplications, /= 'president'/);
+  assert.doesNotMatch(reviewSacApplications, /vice_president|faculty/);
+  assert.match(createSacEvents, /'president', 'vice_president', 'attendance_manager', 'club_manager'/);
+  assert.doesNotMatch(createSacEvents, /media_manager|faculty/);
+  assert.match(setSacMembership, /for update/);
+  assert.match(setSacMembership, /'grade 9', 'grade 10', 'grade 11', 'grade 12'/);
+  assert.match(setSacMembership, /public\.is_auth_admin\(\) and coalesce\(p_override_grade, false\)/);
+  assert.match(setSacMembership, /delete from public\.member_team_memberships[\s\S]*?team_key = 'sac'/);
+  assert.match(setSacMembership, /on conflict \(member_id, team_key\) do update[\s\S]*?team_role = excluded\.team_role/);
+  assert.match(memberDirectory, /sac_title text/);
+  assert.match(memberDirectory, /membership\.team_key = 'sac'[\s\S]*?limit 1/);
+  assert.match(policiesSql, /create policy "SAC managers can read membership audit"[\s\S]*?public\.can_manage_sac_memberships\(\)/);
+  assert.match(policiesSql, /revoke all on table public\.sac_membership_audit from anon, authenticated/);
+
+  const capabilities = title => JSON.parse(JSON.stringify(runFunctions(
+    ['currentMemberRecord', 'canAddMembers', 'normalizeSacTitle', 'currentSacTitle', 'canManageSacMemberships', 'canReviewSacApplications', 'canCreateSacEvents'],
+    {
+      state: {
+        currentUser: { email: 'sac@fis.edu', name: 'SAC Student', isAdmin: false },
+        members: [{ email: 'sac@fis.edu', name: 'SAC Student', isCurrentUser: true, sacTitle: title }],
+      },
+      window: { CREW_CENTER_AUTH_USER: { email: 'sac@fis.edu' }, CREW_CENTER_IS_ADMIN: false },
+    },
+    '({ manage: canManageSacMemberships(), review: canReviewSacApplications(), createEvents: canCreateSacEvents() })',
+  )));
+  assert.deepEqual(capabilities('President'), { manage: true, review: true, createEvents: true });
+  assert.deepEqual(capabilities('Vice President'), { manage: true, review: false, createEvents: true });
+  assert.deepEqual(capabilities('Media Manager'), { manage: false, review: false, createEvents: false });
+  assert.deepEqual(capabilities('Attendance Manager'), { manage: false, review: false, createEvents: true });
+  assert.deepEqual(capabilities('Club Manager'), { manage: false, review: false, createEvents: true });
+  assert.deepEqual(capabilities(''), { manage: false, review: false, createEvents: false });
+
+  const directoryRole = (teamKeys, sacTitle, role = 'Member') => runFunctions(
+    ['normalizeSacTitle', 'memberDirectoryTags', 'memberDirectoryGroupRole'],
+    {},
+    `memberDirectoryGroupRole({ spec: 'active', teamKeys: ${JSON.stringify(teamKeys)}, sacTitle: ${JSON.stringify(sacTitle)}, role: ${JSON.stringify(role)} })`,
+  );
+  assert.equal(directoryRole(['sac'], '', 'Member'), 'SAC Member');
+  assert.equal(directoryRole(['media_club', 'sac'], '', 'Member'), 'Member');
+  assert.equal(directoryRole(['sac'], 'president', 'Member'), 'Leader');
+  assert.match(appSource, /const visibleSpecialisations = hasMediaClub \? specialisations : \[\]/);
+  assert.match(appSource, /sac-president-card/);
+  assert.match(appSource, /SAC President/);
+  assert.match(indexHtml, /id="sac-membership-modal"/);
+  assert.match(appSource, /supabaseClient\.rpc\('set_sac_membership'/);
 });
 
 test('public.members CAS tags are the attendance tracker source of truth', () => {
@@ -221,7 +293,7 @@ test('Meeting visibility and RSVP both follow the selected audience', () => {
   const meetingReadAccess = extractSqlFunction('can_read_meeting');
   const meetingRsvpAccess = extractSqlFunction('can_rsvp_meeting');
   assert.match(schemaSql, /create table if not exists public\.member_team_memberships/);
-  assert.match(schemaSql, /team_key text not null check \(team_key in \('news_team', 'athletics', 'cas'\)\)/);
+  assert.match(schemaSql, /team_key text not null check \(team_key in \('media_club', 'news_team', 'athletics', 'cas', 'sac'\)\)/);
   assert.match(schemaSql, /insert into public\.member_team_memberships[\s\S]*?student\[\[:space:\]\]\+\)\?news/);
   assert.match(schemaSql, /create table if not exists public\.meetings[\s\S]*?audience in \('general', 'news_team', 'leadership'\)/);
   assert.match(schemaSql, /create table if not exists public\.meeting_attendees[\s\S]*?unique \(meeting_id, member_id\)/);
@@ -533,10 +605,12 @@ test('member directory email access is limited to Auth Admin and Faculty server-
   assert.doesNotMatch(appSource, /<div class="member-role">\$\{escapeHtml\(m\.email\)\}/);
 
   const renderDirectory = privileged => runFunctions(
-    ['normalizeRoleName', 'memberRankPriority', 'memberRoleColor', 'memberDirectoryTags', 'renderMembers'],
+    ['normalizeRoleName', 'normalizeSacTitle', 'memberRankPriority', 'memberRoleColor', 'memberDirectoryTags', 'sacTitleLabel', 'memberDirectoryGroupRole', 'renderMembers'],
     {
-      state: { members: [{ id: 'member-1', fname: 'Test', lname: 'Student', name: 'Test Student', email: 'ts1234@fis.edu', gradeLevel: 'Grade 11', role: 'Member', spec: 'Photography', color: '#fff', avatarUrl: '', joined_date: '2026-01-01' }] },
+      state: { members: [{ id: 'member-1', fname: 'Test', lname: 'Student', name: 'Test Student', email: 'ts1234@fis.edu', gradeLevel: 'Grade 11', role: 'Member', spec: 'Photography', teamKeys: ['media_club'], sacTitle: '', color: '#fff', avatarUrl: '', joined_date: '2026-01-01' }] },
       canAccessAdminPanel: () => privileged,
+      canManageSacMemberships: () => false,
+      sacTitleLabels: { president: 'SAC President', vice_president: 'SAC Vice President', media_manager: 'SAC Media Manager', attendance_manager: 'SAC Attendance Manager', club_manager: 'SAC Club Manager' },
       memberColor: () => ['#fff', '#111'],
       safeExternalUrl: () => '',
       escapeHtml: value => String(value),

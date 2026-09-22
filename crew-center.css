@@ -931,6 +931,27 @@
     cursor: pointer;
   }
   .member-card:hover { border-color: var(--border2); }
+  .member-card.sac-president-card {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(164,1,52,.42);
+    background: linear-gradient(135deg, rgba(164,1,52,.16), var(--bg2) 62%);
+    box-shadow: inset 4px 0 0 var(--accent), 0 10px 24px rgba(164,1,52,.08);
+  }
+  .member-card.sac-president-card::after {
+    content: 'SAC';
+    position: absolute;
+    right: 10px;
+    bottom: -12px;
+    color: rgba(164,1,52,.07);
+    font-family: var(--font-head);
+    font-size: 64px;
+    line-height: 1;
+    letter-spacing: .04em;
+    pointer-events: none;
+  }
+  .member-card.sac-president-card > * { position: relative; z-index: 1; }
+  .member-card.sac-president-card .member-name { color: var(--accent); font-weight: 700; }
   .member-avatar {
     width: 42px; height: 42px;
     border-radius: 50%;
@@ -945,6 +966,11 @@
   .member-name { font-size: 14px; font-weight: 500; color: var(--text); }
   .member-role { font-size: 12px; color: var(--text3); }
   .member-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .member-card { flex-wrap: wrap; }
+  .member-card-body { flex: 1; min-width: 0; }
+  .member-card-actions { display: flex; flex: 1 1 100%; align-items: stretch; gap: 6px; margin-left: 56px; }
+  .member-card-actions .btn { flex: 1 1 0; justify-content: center; }
+  .sac-member-manage { border-color: rgba(164,1,52,.24); color: var(--accent); }
   .member-role-section { grid-column: 1 / -1; margin-bottom: 12px; }
   .member-role-section + .member-role-section { margin-top: 8px; }
   .member-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -952,6 +978,20 @@
   .member-section-count { font-size: 11px; color: var(--text3); }
   .member-section-line { height: 1px; flex: 1; background: linear-gradient(90deg, var(--border2), transparent); }
   .member-section-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .badge-sac { border: 1px solid rgba(164,1,52,.26); background: var(--accent-dim); color: var(--accent); }
+  .badge-sac-title { border: 1px solid rgba(31,37,47,.22); background: #252c38; color: #fff; }
+  [data-theme="dark"] .badge-sac-title { border-color: rgba(255,255,255,.2); background: #f1f3f7; color: #202631; }
+  .sac-membership-modal { max-width: 620px; }
+  .sac-membership-editor { display: grid; gap: 14px; padding: 15px; border: 1px solid rgba(164,1,52,.2); border-radius: 14px; background: linear-gradient(135deg,rgba(164,1,52,.08),var(--bg3)); }
+  .sac-membership-editor .form-group { margin: 0; }
+  .sac-membership-warning { padding: 10px 12px; border: 1px solid rgba(255,190,92,.38); border-radius: 10px; background: var(--amber-dim); color: #875b16; font-size: 11px; line-height: 1.5; }
+  [data-theme="dark"] .sac-membership-warning { color: var(--amber); }
+  .sac-audit-panel { margin-top: 18px; }
+  .sac-audit-panel .section-head { margin-bottom: 8px; }
+  #sac-membership-audit { display: grid; gap: 7px; max-height: 190px; overflow-y: auto; }
+  .sac-audit-row { display: grid; gap: 3px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg3); }
+  .sac-audit-row strong { color: var(--text); font-size: 11px; }
+  .sac-audit-row span { color: var(--text3); font-size: 9px; }
 
   /* ── SIGNUP SHEET ── */
   .signup-sheet-card { overflow-x: auto; }
@@ -2376,6 +2416,7 @@
     .equipment-device-console-stage img { width: min(82%, 410px); height: 195px; }
     .equipment-device-console-body { padding: 22px 20px 20px; }
     .member-section-grid { grid-template-columns: 1fr; }
+    .member-card-actions { margin-left: 0; }
     .event-card { gap: 12px; padding: 15px 14px; }
     .event-card-heading { align-items: stretch; flex-direction: column; gap: 8px; }
     .event-card-badges { justify-content: flex-start; }
