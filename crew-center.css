@@ -939,17 +939,18 @@
     box-shadow: inset 4px 0 0 var(--accent), 0 10px 24px rgba(164,1,52,.08);
   }
   .member-card.sac-president-card::after {
-    content: 'SAC';
+    content: '';
     position: absolute;
-    right: 10px;
-    bottom: -12px;
-    color: rgba(164,1,52,.07);
-    font-family: var(--font-head);
-    font-size: 64px;
-    line-height: 1;
-    letter-spacing: .04em;
+    right: 8px;
+    bottom: -5px;
+    width: 120px;
+    height: 90px;
+    background: url('assets/sac-warriors-mark.png') center / contain no-repeat;
+    mix-blend-mode: multiply;
+    opacity: .26;
     pointer-events: none;
   }
+  [data-theme="dark"] .member-card.sac-president-card::after { filter: invert(1); mix-blend-mode: screen; opacity: .2; }
   .member-card.sac-president-card > * { position: relative; z-index: 1; }
   .member-card.sac-president-card .member-name { color: var(--accent); font-weight: 700; }
   .member-avatar {

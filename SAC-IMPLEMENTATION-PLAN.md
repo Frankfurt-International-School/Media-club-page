@@ -58,8 +58,8 @@ or URL.
 11. Add frontend capability helpers matching the database authority matrix.
 12. Add directory tags for SAC-only and dual members without changing existing
    Media Club role data.
-13. Place the SAC President in the Leaders section and give that card a distinct
-   SAC visual treatment.
+13. Place the SAC President after all Media Club leaders in the Leaders section
+   and give that card a distinct treatment with the Warriors mark.
 14. Add a focused membership editor for allowed managers, including the single
    title selector, grade warning, override acknowledgement, and change history.
 15. Validate the foundation with database-policy, business-rule, desktop, and

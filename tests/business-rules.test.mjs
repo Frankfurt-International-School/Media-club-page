@@ -166,8 +166,16 @@ test('SAC membership titles and authority are database-enforced and directory-vi
   assert.equal(directoryRole(['sac'], '', 'Member'), 'SAC Member');
   assert.equal(directoryRole(['media_club', 'sac'], '', 'Member'), 'Member');
   assert.equal(directoryRole(['sac'], 'president', 'Member'), 'Leader');
+  const leaderOrder = sacTitle => runFunctions(
+    ['normalizeSacTitle', 'memberLeaderOrderPriority'],
+    {},
+    `memberLeaderOrderPriority({ sacTitle: ${JSON.stringify(sacTitle)} })`,
+  );
+  assert.equal(leaderOrder(''), 0, 'Media Club leaders should sort first');
+  assert.equal(leaderOrder('president'), 1, 'SAC President should follow Media Club leaders');
   assert.match(appSource, /const visibleSpecialisations = hasMediaClub \? specialisations : \[\]/);
   assert.match(appSource, /sac-president-card/);
+  assert.match(appStyles, /sac-president-card::after[\s\S]*?assets\/sac-warriors-mark\.png/);
   assert.match(appSource, /SAC President/);
   assert.match(indexHtml, /id="sac-membership-modal"/);
   assert.match(appSource, /supabaseClient\.rpc\('set_sac_membership'/);

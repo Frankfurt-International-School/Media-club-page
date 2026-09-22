@@ -56,6 +56,10 @@ function memberDirectoryGroupRole(member) {
   return hasMediaClub ? (member?.role || 'Other') : 'SAC Member';
 }
 
+function memberLeaderOrderPriority(member) {
+  return normalizeSacTitle(member?.sacTitle) === 'president' ? 1 : 0;
+}
+
 function renderMembers() {
   const q = (document.getElementById('member-search').value || '').toLowerCase();
   const rf = document.getElementById('member-role-filter').value;
@@ -100,8 +104,8 @@ function renderMembers() {
   grid.innerHTML = orderedGroups.map(([role, members]) => {
     const orderedMembers = [...members].sort((a, b) => {
       if (normalizeRoleName(role) === 'leader') {
-        const sacRank = member => normalizeSacTitle(member.sacTitle) === 'president' ? 0 : 1;
-        if (sacRank(a) !== sacRank(b)) return sacRank(a) - sacRank(b);
+        const sacOrder = memberLeaderOrderPriority(a) - memberLeaderOrderPriority(b);
+        if (sacOrder) return sacOrder;
         const joinedA = a.joined_date ? new Date(`${a.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
         const joinedB = b.joined_date ? new Date(`${b.joined_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
         if (joinedA !== joinedB) return joinedA - joinedB;
