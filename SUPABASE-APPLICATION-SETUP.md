@@ -59,9 +59,13 @@ members to `/signin` on the origin where the request was made. Send members to
 `https://fismediaclub.org/signin` so new recovery links use the custom domain. The
 password-reset request does not require an Edge Function. If Supabase returns an
 expired or invalid invitation/recovery link, the Crew Center clears the stale
-password-setup state and shows a focused **Get a new access link** screen. The member
-enters their FIS email and receives a fresh recovery link instead of remaining stuck
-on a password form that cannot be submitted.
+password-setup state and explains that the member does **not** need to apply again.
+They enter the FIS email used for their approved account and request a fresh
+**reset-password email**. Supabase's password-recovery flow is used here; the
+browser cannot resend an admin invitation. Members should open only the newest
+link and check spam if the email is not in their inbox. The password form also
+has a **Get another password link** escape route if the session expires while it
+is open. The email request does not disclose whether an account exists.
 
 ## 3. Create the Edge Function
 
@@ -137,7 +141,7 @@ an alias email you control, then test:
    **Forgot password?**, and confirm that the newest email link opens the Reset
    Password screen on `fismediaclub.org` before the dashboard. Recovery links are
    single-use.
-4. Expired link: open `/signin#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired` and confirm it shows **Get a new access link**, only asks for the FIS email, and does not show the unusable password form.
+4. Expired link: open `/signin#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired` and confirm it explains what happened, asks only for the FIS email, offers **Email me a new password link**, and does not show the unusable password form. Also test **Get another password link** from the password screen and confirm it returns to the FIS-email recovery screen rather than leaving the user on password setup.
 5. Resend: confirm the Auth messages are delivered from
    `Media Club Crew Center <no-reply@auth.fismediaclub.org>`, the rejection message
    uses the configured application/notification sender, and SPF and DKIM pass in the

@@ -344,6 +344,17 @@ authStyle.textContent = `
     display: flex;
   }
 
+  .auth-setup-recovery {
+    margin-top: 16px;
+  }
+
+  .auth-setup-recovery p {
+    color: #6c757d;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0 0 8px;
+  }
+
   :root[data-theme="dark"] .auth-gate {
     background:
       linear-gradient(135deg, rgba(164,1,52,0.22), transparent 36%),
@@ -360,6 +371,7 @@ authStyle.textContent = `
   :root[data-theme="dark"] .auth-gate-kicker,
   :root[data-theme="dark"] .auth-public-option p,
   :root[data-theme="dark"] .auth-gate-note,
+  :root[data-theme="dark"] .auth-setup-recovery p,
   :root[data-theme="dark"] .auth-legal { color: #858a97; }
   :root[data-theme="dark"] .auth-gate-sub,
   :root[data-theme="dark"] .auth-gate-label,
@@ -427,7 +439,7 @@ document.body.insertAdjacentHTML("afterbegin", `
         </label>
         <button class="auth-gate-button" id="auth-gate-submit" type="submit">Sign in</button>
         <div class="auth-expired-actions" id="auth-expired-actions">
-          <button class="auth-gate-button" id="auth-expired-resend" type="button">Send me a new access link</button>
+          <button class="auth-gate-button" id="auth-expired-resend" type="button">Email me a new password link</button>
           <button class="auth-secondary-button" id="auth-expired-back" type="button">Back to sign in</button>
         </div>
       </form>
@@ -445,6 +457,10 @@ document.body.insertAdjacentHTML("afterbegin", `
           <input class="auth-gate-input" id="auth-confirm-password" type="password" autocomplete="new-password" minlength="8" required>
         </div>
         <button class="auth-gate-button" id="auth-password-setup-submit" type="submit">Set password</button>
+        <div class="auth-setup-recovery">
+          <p>Link expired or not working? Get another password link. You do not need to apply again.</p>
+          <button class="auth-secondary-button" id="auth-setup-recovery" type="button">Get another password link</button>
+        </div>
       </form>
       <p class="auth-gate-note">Please submit an application for an account.</p>
       <div class="auth-legal" aria-label="Privacy and legal information">
@@ -473,6 +489,7 @@ const authExpiredActions = document.getElementById("auth-expired-actions");
 const authExpiredResend = document.getElementById("auth-expired-resend");
 const authExpiredBack = document.getElementById("auth-expired-back");
 const passwordSetupForm = document.getElementById("auth-password-setup-form");
+const authSetupRecovery = document.getElementById("auth-setup-recovery");
 const authLookupActions = document.getElementById("auth-lookup-actions");
 const authLookupRetry = document.getElementById("auth-lookup-retry");
 let pendingApprovalCheckUser = null;
@@ -482,6 +499,10 @@ const normalizePasswordSetupMode = mode => ["invite", "recovery"].includes(Strin
   : "";
 const authHashParams = new URLSearchParams(window.location.hash.slice(1));
 const authSearchParams = new URLSearchParams(window.location.search);
+const authCallbackHasCredentials = Boolean(
+  authHashParams.get("access_token") || authHashParams.get("refresh_token")
+  || authHashParams.get("token_hash") || authSearchParams.get("code")
+);
 const authLinkErrorCode = authHashParams.get("error_code") || authSearchParams.get("error_code") || "";
 const authLinkErrorDescription = authHashParams.get("error_description") || authSearchParams.get("error_description") || "";
 const authLinkFailure = Boolean(
@@ -617,7 +638,7 @@ function setPasswordResetBusy(isBusy) {
   authPasswordReset.disabled = isBusy;
   authPasswordReset.textContent = isBusy ? "Sending..." : "Forgot password?";
   authExpiredResend.disabled = isBusy;
-  authExpiredResend.textContent = isBusy ? "Sending..." : "Send me a new access link";
+  authExpiredResend.textContent = isBusy ? "Sending..." : "Email me a new password link";
   authEmail.disabled = isBusy;
   authSubmit.disabled = isBusy;
 }
@@ -965,12 +986,12 @@ async function allowCrewCenterUser(user) {
 
 function applySignInPresentation() {
   const recoveringExpiredLink = Boolean(pendingAuthLinkFailure);
-  document.getElementById("auth-gate-title").textContent = recoveringExpiredLink ? "Get a new access link" : "Sign in";
+  document.getElementById("auth-gate-title").textContent = recoveringExpiredLink ? "Invitation link not working?" : "Sign in";
   document.querySelector(".auth-gate-sub").textContent = recoveringExpiredLink
-    ? "Enter your FIS email below. We will send a fresh link so you can choose your password."
+    ? "Enter the FIS email from your approved application to get a new password setup link. You do not need to apply again."
     : "Use the account created for you in Supabase to open the Media Club dashboard.";
   document.querySelector(".auth-gate-note").textContent = recoveringExpiredLink
-    ? "The fresh link is single-use. Open only the newest Media Club email."
+    ? "Check your inbox and spam folder for the reset-password email. Open only the newest link; each link works once."
     : "Please submit an application for an account.";
   authPasswordField.hidden = recoveringExpiredLink;
   authPassword.disabled = recoveringExpiredLink;
@@ -981,8 +1002,8 @@ function applySignInPresentation() {
   document.getElementById("auth-public-option").style.display = recoveringExpiredLink ? "none" : "block";
   if (recoveringExpiredLink) {
     setAuthError(pendingAuthLinkFailure.expired
-      ? "That access link expired or was already used. Request a new one below."
-      : "That access link could not be used. Request a new one below.");
+      ? "That invitation or password link expired or was already used. Request a new password link below."
+      : "That invitation or password link could not be used. Request a new password link below.");
     setTimeout(() => authEmail.focus(), 0);
   }
 }
@@ -1021,7 +1042,7 @@ async function activateCrewCenterUser(user, options = {}) {
   authActivationPromise = (async () => {
     if (!await allowCrewCenterUser(user)) return false;
     if (signOutRequested || activationSequence !== authActivationSequence) return false;
-    if (requirePasswordSetup) showPasswordSetup(requestedPasswordSetupMode);
+    if (requirePasswordSetup) showPasswordSetup(requestedPasswordSetupMode, user.email);
     else revealDashboard(user);
     return true;
   })();
@@ -1080,10 +1101,11 @@ document.getElementById("auth-lookup-signout").addEventListener("click", async (
   await signOutCrewCenterSession();
 });
 
-function showPasswordSetup(mode = passwordSetupMode || "invite") {
+function showPasswordSetup(mode = passwordSetupMode || "invite", accountEmail = "") {
   const normalizedMode = normalizePasswordSetupMode(mode) || "invite";
   pendingAuthLinkFailure = null;
   rememberPendingPasswordSetup(normalizedMode);
+  if (accountEmail) authEmail.value = accountEmail;
   document.body.classList.add("auth-locked");
   document.body.classList.remove("auth-ready");
   authForm.style.display = "none";
@@ -1097,6 +1119,27 @@ function showPasswordSetup(mode = passwordSetupMode || "invite") {
   document.querySelector(".auth-gate-note").textContent = "Use at least 8 characters. You will use this password the next time you sign in.";
   document.getElementById("auth-password-setup-submit").textContent = passwordSetupSubmitLabel();
 }
+
+function showMissingPasswordLinkRecovery() {
+  clearPendingPasswordSetup();
+  pendingAuthLinkFailure = { expired: true };
+  history.replaceState({ page: "signin" }, "", "/signin");
+  showSignIn();
+}
+
+async function returnToPasswordLinkRecovery() {
+  const email = authEmail.value;
+  await signOutCrewCenterSession();
+  authEmail.value = email;
+  showMissingPasswordLinkRecovery();
+}
+
+function isUnusablePasswordLinkError(error) {
+  return error?.name === "AuthSessionMissingError"
+    || ["session_not_found", "session_expired", "refresh_token_not_found", "refresh_token_already_used", "bad_jwt", "invite_not_found", "otp_expired"].includes(error?.code);
+}
+
+authSetupRecovery.addEventListener("click", returnToPasswordLinkRecovery);
 
 passwordSetupForm.addEventListener("submit", async event => {
   event.preventDefault();
@@ -1121,6 +1164,10 @@ passwordSetupForm.addEventListener("submit", async event => {
     passwordSetupForm.style.display = "none";
     await activateCrewCenterUser(data.user, { force: true });
   } catch (error) {
+    if (isUnusablePasswordLinkError(error)) {
+      await returnToPasswordLinkRecovery();
+      return;
+    }
     setAuthError(error.name === "CrewCenterTimeoutError"
       ? "Password setup is taking too long because authentication is temporarily unavailable. Please try again."
       : error.message || "Could not set the password.");
@@ -1154,7 +1201,7 @@ async function requestPasswordReset() {
     );
     if (error) throw error;
     setAuthMessage(
-      "If a Media Club account uses that email, a fresh access link has been sent. Open the newest Media Club email; older links will not work.",
+      "If an approved Crew Center account uses that email, a fresh password link has been sent. Check your inbox and spam folder, then open the newest reset-password email; older links will not work.",
       "success"
     );
   } catch (error) {
@@ -1223,7 +1270,8 @@ if (window.crewCenterSupabase) {
       authStartupSettled = true;
       const user = session?.user;
       if (event === "SIGNED_OUT" || !user) {
-        showSignIn();
+        if (!pendingAuthLinkFailure && passwordSetupRequired() && !authCallbackHasCredentials) showMissingPasswordLinkRecovery();
+        else showSignIn();
         return;
       }
       if (signOutRequested) return;
@@ -1267,6 +1315,7 @@ if (window.crewCenterSupabase) {
       requirePasswordSetup: passwordSetupRequired(),
       passwordSetupMode,
     });
+    else if (!pendingAuthLinkFailure && passwordSetupRequired() && !authCallbackHasCredentials) showMissingPasswordLinkRecovery();
     else showSignIn();
   }).catch(error => {
     if (authStartupSettled) return;
