@@ -181,6 +181,63 @@ test('SAC membership titles and authority are database-enforced and directory-vi
   assert.match(appSource, /supabaseClient\.rpc\('set_sac_membership'/);
 });
 
+test('SAC Events are independent, creator-restricted, and link only to current livestreams', () => {
+  const canView = extractSqlFunction('can_view_sac_events');
+  const canCreate = extractSqlFunction('can_create_sac_events');
+  const validLink = extractSqlFunction('sac_event_link_is_valid');
+  const linkChoices = extractSqlFunction('get_sac_linkable_livestreams');
+
+  assert.match(schemaSql, /create table if not exists public\.sac_events/);
+  assert.match(schemaSql, /linked_media_event_id uuid references public\.events\(id\) on delete set null/);
+  assert.match(schemaSql, /constraint sac_events_time_window_check check \(ends_at > starts_at\)/);
+  assert.match(schemaSql, /create trigger events_sync_linked_sac_windows[\s\S]*?after update of date, ends_at, category, archived_at/);
+  assert.match(schemaSql, /if new\.archived_at is not null then[\s\S]*?set linked_media_event_id = null/);
+  assert.match(schemaSql, /set starts_at = new\.date, ends_at = new\.ends_at/);
+  assert.match(canView, /public\.is_approved_member\(\)/);
+  assert.match(canView, /member\.grade_level/);
+  assert.match(canView, /membership\.team_key = 'sac'/);
+  assert.match(canCreate, /'president', 'vice_president', 'attendance_manager', 'club_manager'/);
+  assert.doesNotMatch(canCreate, /media_manager/);
+  assert.match(validLink, /media_event\.category = 'Livestream'/);
+  assert.match(validLink, /media_event\.archived_at is null/);
+  assert.match(validLink, /media_event\.date = p_starts_at/);
+  assert.match(validLink, /media_event\.ends_at = p_ends_at/);
+  assert.match(linkChoices, /public\.can_create_sac_events\(\)/);
+  assert.match(policiesSql, /alter table public\.sac_events enable row level security/);
+  assert.match(policiesSql, /revoke all on table public\.sac_events from anon, authenticated/);
+  assert.match(policiesSql, /grant update \(title, description, location, starts_at, ends_at, linked_media_event_id\)/);
+  assert.match(policiesSql, /create policy "SAC event creators can add events"[\s\S]*?created_by_auth_user_id = \(select auth\.uid\(\)\)[\s\S]*?sac_event_link_is_valid/);
+  assert.match(policiesSql, /create policy "SAC event creators can edit events"[\s\S]*?sac_event_link_is_valid/);
+  assert.doesNotMatch(policiesSql, /create policy "[^"]+"\s+on public\.sac_events for delete/);
+  assert.match(indexHtml, /href="\/sac\/events"[^>]*data-page="sac-events"/);
+  assert.match(appSource, /'\/sac\/events': 'sac-events'/);
+  assert.match(appSource, /supabaseClient\.from\('sac_events'\)\.insert\(payload\)/);
+  assert.match(appSource, /supabaseClient\.from\('sac_events'\)\.update\(payload\)/);
+  assert.match(appSource, /supabaseClient\.rpc\('get_sac_linkable_livestreams'\)/);
+  assert.match(appSource, /refreshMediaSignupSacLinks\(ev\.id\)/);
+  assert.match(indexHtml, /id="sheet-sac-linked" hidden/);
+  assert.match(appSource, /const requestedWorkspace = workspaceFromSearch\(destination\.search\)/);
+});
+
+test('linked events cross between the correct SAC and Media Club hosts', () => {
+  const names = ['normalizeWorkspaceHostname', 'workspaceFromHostname', 'workspaceSearchForSelection', 'sacEventUrl', 'sacEventMediaSignupUrl'];
+  const linksFrom = origin => JSON.parse(JSON.stringify(runFunctions(names, {
+    URL, URLSearchParams, window: { location: new URL(origin) },
+  }, "({ sac: sacEventUrl('sac-id'), media: sacEventMediaSignupUrl('media-id') })")));
+  assert.deepEqual(linksFrom('https://fismediaclub.org/dashboard'), {
+    sac: 'https://sac.fismediaclub.org/sac/events?event=sac-id',
+    media: 'https://fismediaclub.org/signups?event=media-id',
+  });
+  assert.deepEqual(linksFrom('https://sac.fismediaclub.org/sac/events'), {
+    sac: 'https://sac.fismediaclub.org/sac/events?event=sac-id',
+    media: 'https://fismediaclub.org/signups?event=media-id',
+  });
+  assert.deepEqual(linksFrom('http://localhost:8765/dashboard'), {
+    sac: '/sac/events?event=sac-id&workspace=sac',
+    media: '/signups?event=media-id',
+  });
+});
+
 test('public.members CAS tags are the attendance tracker source of truth', () => {
   const tracked = (spec, teamKeys = []) => runFunctions(
     ['memberDirectoryTags', 'memberHasCas'],

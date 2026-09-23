@@ -376,6 +376,64 @@ alter table public.events add constraint events_festival_schedule_check check (
   )
 );
 
+-- SAC service events are independent from Media Club productions. A linked
+-- livestream supplies the live schedule; starts_at/ends_at retain a snapshot
+-- if that Media Club event is later archived or removed.
+create table if not exists public.sac_events (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(btrim(title)) between 1 and 120),
+  description text not null default '' check (char_length(description) <= 4000),
+  location text not null default '' check (char_length(location) <= 200),
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  linked_media_event_id uuid references public.events(id) on delete set null,
+  created_by_auth_user_id uuid default auth.uid() references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint sac_events_time_window_check check (ends_at > starts_at)
+);
+
+create index if not exists sac_events_starts_at_idx on public.sac_events (starts_at);
+create index if not exists sac_events_linked_media_event_idx on public.sac_events (linked_media_event_id)
+where linked_media_event_id is not null;
+
+drop trigger if exists sac_events_touch_updated_at on public.sac_events;
+create trigger sac_events_touch_updated_at
+before update on public.sac_events
+for each row execute function public.touch_event_updated_at();
+
+-- Keep linked SAC windows aligned when production staff edit the livestream.
+-- Archiving a Media Club event unlinks SAC while preserving its last schedule.
+create or replace function public.sync_linked_sac_event_windows()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.archived_at is not null then
+    update public.sac_events
+    set linked_media_event_id = null
+    where linked_media_event_id = new.id;
+  elsif new.category <> 'Livestream' then
+    update public.sac_events
+    set linked_media_event_id = null
+    where linked_media_event_id = new.id;
+  else
+    update public.sac_events
+    set starts_at = new.date, ends_at = new.ends_at
+    where linked_media_event_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.sync_linked_sac_event_windows() from public;
+drop trigger if exists events_sync_linked_sac_windows on public.events;
+create trigger events_sync_linked_sac_windows
+after update of date, ends_at, category, archived_at on public.events
+for each row execute function public.sync_linked_sac_event_windows();
+
 create table if not exists public.meetings (
   id uuid primary key default gen_random_uuid(),
   title text not null check (char_length(btrim(title)) between 1 and 120),

@@ -100,6 +100,13 @@ approval notifications, and Media Club authorization isolation require the
 updated schema, database and Storage policies, Edge Functions,
 and both site builds to be deployed together. The reviewer must still verify
 that a declared current SAC member is on the real roster before approval.
-Steps 16–18 (roster and hosted rollout) and 22–28 remain follow-up work. No
-Cloudflare setting, deployment, hosted Supabase schema, production member
-record, or live application is changed by committing this plan.
+Steps 22–23 now have a local SAC Events route, event editor, optional Media Club
+livestream link, a small return link on the corresponding Media Club sign-up
+sheet, and matching database schema/RLS. A link follows subsequent Media Club
+schedule edits and is removed if that production is archived or no longer a
+livestream. These features are not live until the new schema and
+policies are applied and both site builds are deployed. Steps 16–18 (roster and
+hosted rollout) and 24–28 (time-slot sign-ups, meetings, attendance, and final
+dashboard work) remain follow-up work. No Cloudflare setting, deployment,
+hosted Supabase schema, production member record, or live application is
+changed by committing this plan.

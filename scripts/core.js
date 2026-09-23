@@ -1098,6 +1098,7 @@ function renderCurrentPage() {
   if (activePage === 'about') renderAboutRecentProjects();
   if (activePage === 'home') renderDashboard();
   if (activePage === 'sac-home') renderSacApplications();
+  if (activePage === 'sac-events') renderSacEvents();
   if (activePage === 'events') renderEvents();
   if (activePage === 'meetings') renderMeetings();
   if (activePage === 'signup') initSignupSheet();

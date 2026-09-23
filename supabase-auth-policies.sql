@@ -3,6 +3,7 @@ alter table public.member_team_memberships enable row level security;
 alter table public.sac_membership_audit enable row level security;
 alter table public.cas_attendance_settings enable row level security;
 alter table public.events enable row level security;
+alter table public.sac_events enable row level security;
 alter table public.meetings enable row level security;
 alter table public.meeting_attendees enable row level security;
 alter table public.signups enable row level security;
@@ -42,6 +43,9 @@ drop policy if exists "Admins can update events" on public.events;
 drop policy if exists "Production staff can update events" on public.events;
 drop policy if exists "Production staff can add events" on public.events;
 drop policy if exists "Production staff can delete events" on public.events;
+drop policy if exists "Eligible members can read SAC events" on public.sac_events;
+drop policy if exists "SAC event creators can add events" on public.sac_events;
+drop policy if exists "SAC event creators can edit events" on public.sac_events;
 drop policy if exists "Audience members can read meetings" on public.meetings;
 drop policy if exists "Audience members can read meeting attendees" on public.meeting_attendees;
 drop policy if exists "Approved members can read meetings" on public.meetings;
@@ -325,6 +329,72 @@ as $$
     );
 $$;
 
+create or replace function public.can_view_sac_events()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_approved_member()
+    and (
+      public.is_auth_admin()
+      or exists (
+        select 1
+        from public.members member
+        where member.id = public.current_member_id()
+          and (
+            replace(lower(member.role), ' ', '-') = 'faculty'
+            or member.grade_level ~* '(^|[^0-9])(9|10|11|12)([^0-9]|$)'
+            or exists (
+              select 1 from public.member_team_memberships membership
+              where membership.member_id = member.id and membership.team_key = 'sac'
+            )
+          )
+      )
+    );
+$$;
+
+create or replace function public.sac_event_link_is_valid(
+  p_media_event_id uuid,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_media_event_id is null
+    or (
+      public.can_create_sac_events()
+      and exists (
+        select 1 from public.events media_event
+        where media_event.id = p_media_event_id
+          and media_event.category = 'Livestream'
+          and media_event.archived_at is null
+          and media_event.date = p_starts_at
+          and media_event.ends_at = p_ends_at
+      )
+    );
+$$;
+
+create or replace function public.get_sac_linkable_livestreams()
+returns table (id uuid, title text, starts_at timestamptz, ends_at timestamptz, location text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select event.id, event.title, event.date, event.ends_at, event.location
+  from public.events event
+  where public.can_create_sac_events()
+    and event.category = 'Livestream'
+    and event.archived_at is null
+  order by event.date desc;
+$$;
+
 create or replace function public.set_sac_membership(
   p_member_id uuid,
   p_enabled boolean,
@@ -513,6 +583,9 @@ revoke all on function public.current_sac_title() from public;
 revoke all on function public.can_manage_sac_memberships() from public;
 revoke all on function public.can_review_sac_applications() from public;
 revoke all on function public.can_create_sac_events() from public;
+revoke all on function public.can_view_sac_events() from public;
+revoke all on function public.sac_event_link_is_valid(uuid, timestamptz, timestamptz) from public;
+revoke all on function public.get_sac_linkable_livestreams() from public;
 revoke all on function public.set_sac_membership(uuid, boolean, text, boolean) from public;
 revoke all on function public.get_sac_membership_audit(uuid) from public;
 revoke all on function public.can_use_personal_camera(uuid, text) from public;
@@ -525,6 +598,9 @@ grant execute on function public.current_sac_title() to authenticated;
 grant execute on function public.can_manage_sac_memberships() to authenticated;
 grant execute on function public.can_review_sac_applications() to authenticated;
 grant execute on function public.can_create_sac_events() to authenticated;
+grant execute on function public.can_view_sac_events() to authenticated;
+grant execute on function public.sac_event_link_is_valid(uuid, timestamptz, timestamptz) to authenticated;
+grant execute on function public.get_sac_linkable_livestreams() to authenticated;
 grant execute on function public.set_sac_membership(uuid, boolean, text, boolean) to authenticated;
 grant execute on function public.get_sac_membership_audit(uuid) to authenticated;
 grant execute on function public.can_use_personal_camera(uuid, text) to authenticated;
@@ -2148,6 +2224,34 @@ create policy "Production staff can add events"
 on public.events for insert
 to authenticated
 with check (public.is_crew_operations_user());
+
+revoke all on table public.sac_events from anon, authenticated;
+grant select, insert on table public.sac_events to authenticated;
+grant update (title, description, location, starts_at, ends_at, linked_media_event_id)
+on table public.sac_events to authenticated;
+
+create policy "Eligible members can read SAC events"
+on public.sac_events for select
+to authenticated
+using ((select public.can_view_sac_events()));
+
+create policy "SAC event creators can add events"
+on public.sac_events for insert
+to authenticated
+with check (
+  (select public.can_create_sac_events())
+  and created_by_auth_user_id = (select auth.uid())
+  and public.sac_event_link_is_valid(linked_media_event_id, starts_at, ends_at)
+);
+
+create policy "SAC event creators can edit events"
+on public.sac_events for update
+to authenticated
+using ((select public.can_create_sac_events()))
+with check (
+  (select public.can_create_sac_events())
+  and public.sac_event_link_is_valid(linked_media_event_id, starts_at, ends_at)
+);
 
 create policy "Approved members can read meetings"
 on public.meetings for select

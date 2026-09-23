@@ -50,6 +50,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span class="nav-label">Dashboard</span>
     </a>
+    <a href="/sac/events" class="nav-item" data-page="sac-events" data-category="sac" data-label="SAC Events" data-workspace-scope="sac">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="nav-label">Events</span>
+    </a>
     <div class="nav-section-label" data-nav-category="main" data-workspace-scope="media">Main</div>
     <a href="/dashboard" class="nav-item active" data-page="home" data-category="main" data-label="Dashboard" data-workspace-scope="media" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -315,7 +319,7 @@
         <div class="sac-home-mark" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></div>
       </section>
       <section class="sac-home-grid" aria-label="SAC workspace areas">
-        <article class="sac-home-card"><div class="sac-home-card-number">01</div><h2>Athletic events</h2><p>SAC event details and linked Media Club livestreams will appear here as they are added.</p><span>Workspace foundation ready</span></article>
+        <a class="sac-home-card" href="/sac/events"><div class="sac-home-card-number">01</div><h2>Athletic events</h2><p>See upcoming SAC service events, including events linked to Media Club livestreams.</p><span>Open SAC Events →</span></a>
         <article class="sac-home-card"><div class="sac-home-card-number">02</div><h2>Time-slot sign-ups</h2><p>Event service will use clear, scheduled spots instead of the Media Club production-role layout.</p><span>Planned next phase</span></article>
         <article class="sac-home-card"><div class="sac-home-card-number">03</div><h2>Meetings and attendance</h2><p>SAC leaders will have a focused place to coordinate meetings and event attendance.</p><span>Planned next phase</span></article>
       </section>
@@ -325,6 +329,19 @@
         <div id="sac-review-list"></div>
       </section>
     </div>
+  </div>
+
+  <div id="page-sac-events" class="page">
+    <div class="sac-events-head">
+      <div>
+        <div class="page-kicker">Student Athletic Council / Events</div>
+        <h1 class="page-title">Athletic events</h1>
+        <p class="page-sub">Plan SAC service at games and school athletics events. Time-slot sign-ups will have their own page.</p>
+      </div>
+      <button type="button" class="btn btn-accent" id="sac-event-create" onclick="openSacEventEditor()" hidden>Create SAC event</button>
+    </div>
+    <div class="sac-events-toolbar"><button type="button" class="btn btn-ghost btn-sm" id="sac-events-past-toggle" aria-pressed="false" onclick="togglePastSacEvents()">Show past events</button></div>
+    <div id="sac-events-list" aria-live="polite"></div>
   </div>
 
   <!-- ── DASHBOARD ── -->
@@ -409,6 +426,7 @@
       <label class="form-label">Select event</label>
       <select class="form-select" id="sheet-event-select" onchange="renderSignupSheet()"></select>
     </div>
+    <div class="sac-linked-callout" id="sheet-sac-linked" hidden aria-live="polite"></div>
     <div class="card mb16 signup-sheet-card">
       <div class="flex-between mb12 signup-sheet-summary">
         <div>
@@ -1094,6 +1112,27 @@
   </div>
 </div>
 
+<!-- SAC Event Editor -->
+<div class="modal-backdrop" id="sac-event-modal" role="dialog" aria-modal="true" aria-labelledby="sac-event-modal-title">
+  <div class="modal sac-event-modal" style="position:relative;max-width:600px;">
+    <button type="button" class="modal-close" onclick="closeModal('sac-event-modal')" aria-label="Close SAC event editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+    <div class="modal-title" id="sac-event-modal-title">Create SAC event</div>
+    <div class="modal-sub">Create an independent event or align it with an existing Media Club livestream.</div>
+    <form id="sac-event-form" onsubmit="saveSacEvent(event)">
+      <div class="form-group"><label class="form-label" for="sac-event-title">Event title *</label><input class="form-input" id="sac-event-title" maxlength="120" required placeholder="Warriors home game" /></div>
+      <div class="form-group"><label class="form-label" for="sac-event-linked">Media Club livestream (optional)</label><select class="form-select" id="sac-event-linked" onchange="syncSacEventLinkFields()"><option value="">Independent SAC event</option></select><div class="sac-event-field-help" id="sac-event-link-help">Linking uses the livestream's date and time. SAC service sign-ups will be separate.</div></div>
+      <div class="form-row3">
+        <div class="form-group"><label class="form-label" for="sac-event-date">Date *</label><input class="form-input" id="sac-event-date" type="date" required /></div>
+        <div class="form-group"><label class="form-label" for="sac-event-start">Start *</label><input class="form-input" id="sac-event-start" type="time" required /></div>
+        <div class="form-group"><label class="form-label" for="sac-event-end">End *</label><input class="form-input" id="sac-event-end" type="time" required /></div>
+      </div>
+      <div class="form-group"><label class="form-label" for="sac-event-location">Location</label><input class="form-input" id="sac-event-location" maxlength="200" placeholder="Sports hall" /></div>
+      <div class="form-group"><label class="form-label" for="sac-event-description">What will SAC do?</label><textarea class="form-textarea" id="sac-event-description" maxlength="4000" rows="3" placeholder="A short description for members"></textarea></div>
+      <div class="sac-event-form-actions"><button type="button" class="btn btn-ghost" onclick="closeModal('sac-event-modal')">Cancel</button><button type="submit" class="btn btn-accent" id="sac-event-save">Create event</button></div>
+    </form>
+  </div>
+</div>
+
 <!-- Manage SAC Membership Modal -->
 <div class="modal-backdrop" id="sac-membership-modal" role="dialog" aria-modal="true" aria-labelledby="sac-membership-modal-title">
   <div class="modal sac-membership-modal" style="position:relative;">
@@ -1318,6 +1357,7 @@
 <script src="scripts/ui.js"></script>
 <script src="scripts/dashboard.js"></script>
 <script src="scripts/events.js"></script>
+<script src="scripts/sac-events.js"></script>
 <script src="scripts/meetings.js"></script>
 <script src="scripts/signups.js"></script>
 <script src="scripts/crew-schedule.js"></script>

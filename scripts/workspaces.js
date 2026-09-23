@@ -33,6 +33,7 @@ function memberCanAccessSacWorkspace(member, isAdmin = false, isVisitor = false)
   if (isVisitor) return false;
   if (isAdmin) return true;
   if (!member) return false;
+  if (Array.isArray(member.teamKeys) && member.teamKeys.includes('sac')) return true;
   const gradeLevel = String(member.gradeLevel || '').trim().toLowerCase();
   const role = String(member.role || '').trim().toLowerCase().replace(/\s+/g, '-');
   if (gradeLevel === 'adult' || role === 'faculty') return true;
@@ -71,8 +72,8 @@ function currentCrewCenterWorkspace() {
 
 function workspacePageFor(page, workspace = activeCrewCenterWorkspace) {
   if (!page) return page;
-  if (workspace === 'sac') return ['sac-home', 'profile'].includes(page) ? page : 'sac-home';
-  return page === 'sac-home' ? 'home' : page;
+  if (workspace === 'sac') return ['sac-home', 'sac-events', 'profile'].includes(page) ? page : 'sac-home';
+  return ['sac-home', 'sac-events'].includes(page) ? 'home' : page;
 }
 
 function workspaceUrlForPage(page, workspace = activeCrewCenterWorkspace, locationLike = window.location) {
@@ -217,6 +218,7 @@ function syncCrewCenterWorkspaceFromLocation() {
 }
 
 function resetCrewCenterWorkspace() {
+  window.resetSacEventsState?.();
   activeCrewCenterWorkspace = 'media';
   applyWorkspacePresentation();
 }

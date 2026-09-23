@@ -354,6 +354,7 @@ function renderSignupSheet() {
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
   if (!ev) {
+    refreshMediaSignupSacLinks(null);
     document.getElementById('sheet-table').innerHTML = '<tbody><tr><td>No upcoming events available.</td></tr></tbody>';
     document.getElementById('sheet-event-title').textContent = 'No upcoming events';
     document.getElementById('sheet-event-time').textContent = '—';
@@ -366,6 +367,7 @@ function renderSignupSheet() {
     return;
   }
   document.getElementById('signup-entry-card').style.display = '';
+  refreshMediaSignupSacLinks(ev.id);
   renderSignupAttendanceOptions(ev);
   updateSignupAttendanceFields();
   renderSignupNameField();

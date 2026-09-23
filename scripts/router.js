@@ -1,10 +1,11 @@
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", "sac-events": "SAC Events", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   about: '/about',
   home: '/dashboard',
+  'sac-events': '/sac/events',
   events: '/events',
   meetings: '/meetings',
   signup: '/signups',
@@ -22,6 +23,7 @@ const routePages = {
   '/': 'home',
   '/about': 'about',
   '/dashboard': 'home',
+  '/sac/events': 'sac-events',
   '/events': 'events',
   '/meetings': 'meetings',
   '/signup': 'signup',
@@ -110,6 +112,7 @@ function navigate(id, el, options = {}) {
   if (page === 'about') renderAboutRecentProjects();
   if (page === 'home') renderDashboard();
   if (page === 'sac-home') renderSacApplications();
+  if (page === 'sac-events') renderSacEvents();
   if (page === 'events') renderEvents();
   if (page === 'meetings') renderMeetings();
   if (page === 'signup') initSignupSheet();
@@ -173,6 +176,8 @@ function installNativeLinkNavigation() {
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if ((link.target && link.target !== '_self') || link.hasAttribute('download')) return;
     const destination = new URL(link.href, window.location.href);
+    const requestedWorkspace = workspaceFromSearch(destination.search);
+    if (requestedWorkspace && requestedWorkspace !== currentCrewCenterWorkspace()) return;
     const page = pageForDestination(destination);
     if (!page) return;
     event.preventDefault();
