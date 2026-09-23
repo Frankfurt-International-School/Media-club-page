@@ -4,6 +4,7 @@ alter table public.sac_membership_audit enable row level security;
 alter table public.cas_attendance_settings enable row level security;
 alter table public.events enable row level security;
 alter table public.sac_events enable row level security;
+alter table public.sac_slot_signups enable row level security;
 alter table public.meetings enable row level security;
 alter table public.meeting_attendees enable row level security;
 alter table public.signups enable row level security;
@@ -46,6 +47,7 @@ drop policy if exists "Production staff can delete events" on public.events;
 drop policy if exists "Eligible members can read SAC events" on public.sac_events;
 drop policy if exists "SAC event creators can add events" on public.sac_events;
 drop policy if exists "SAC event creators can edit events" on public.sac_events;
+drop policy if exists "SAC members can read slot signups" on public.sac_slot_signups;
 drop policy if exists "Audience members can read meetings" on public.meetings;
 drop policy if exists "Audience members can read meeting attendees" on public.meeting_attendees;
 drop policy if exists "Approved members can read meetings" on public.meetings;
@@ -526,6 +528,155 @@ as $$
     );
 $$;
 
+create or replace function public.can_read_sac_slot_signups()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_approved_member()
+    and (public.is_auth_admin() or public.is_member_of_team('sac'));
+$$;
+
+-- All booking writes pass through this function. Locking the event serializes
+-- competing claims, and the table's exclusion constraint protects a member
+-- against overlapping bookings in different SAC events.
+create or replace function public.claim_sac_scoreboard_slot(
+  p_event_id uuid,
+  p_slot_start timestamptz,
+  p_member_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_event public.sac_events%rowtype;
+  target_member public.members%rowtype;
+  target_member_id uuid;
+  actor_member_id uuid;
+  slot_index integer;
+  slot_end_time timestamptz;
+  candidate_spot integer;
+  saved_id uuid;
+begin
+  if not public.is_approved_member() then
+    raise exception 'An approved Crew Center account is required.';
+  end if;
+
+  actor_member_id := public.current_member_id();
+  target_member_id := coalesce(p_member_id, actor_member_id);
+  if target_member_id is null then
+    raise exception 'Choose an SAC member.';
+  end if;
+  if not public.is_auth_admin()
+    and (not public.is_member_of_team('sac') or target_member_id <> actor_member_id) then
+    raise exception 'Only Auth Admin can assign another SAC member.';
+  end if;
+
+  select member.* into target_member
+  from public.members member
+  join public.member_team_memberships membership
+    on membership.member_id = member.id and membership.team_key = 'sac'
+  where member.id = target_member_id;
+  if not found then
+    raise exception 'Only a current SAC-tagged member can claim a spot.';
+  end if;
+
+  select sac_event.* into target_event
+  from public.sac_events sac_event
+  where sac_event.id = p_event_id
+  for update;
+  if not found then
+    raise exception 'SAC event not found.';
+  end if;
+  if p_slot_start is null or p_slot_start < target_event.starts_at or p_slot_start >= target_event.ends_at then
+    raise exception 'Choose a current SAC event time slot.';
+  end if;
+
+  slot_index := floor(extract(epoch from (p_slot_start - target_event.starts_at))
+    / (target_event.slot_interval_minutes * 60))::integer;
+  if p_slot_start <> target_event.starts_at
+      + make_interval(mins => slot_index * target_event.slot_interval_minutes) then
+    raise exception 'Choose a generated SAC time slot.';
+  end if;
+  slot_end_time := least(
+    p_slot_start + make_interval(mins => target_event.slot_interval_minutes),
+    target_event.ends_at
+  );
+  if slot_end_time <= now() then
+    raise exception 'This SAC time slot has already ended.';
+  end if;
+  if exists (
+    select 1 from public.sac_slot_signups signup
+    where signup.member_id = target_member_id
+      and signup.cancelled_at is null
+      and tstzrange(signup.slot_start, signup.slot_end, '[)')
+        && tstzrange(p_slot_start, slot_end_time, '[)')
+  ) then
+    raise exception 'This member already has an overlapping SAC spot.';
+  end if;
+
+  for candidate_spot in 1..target_event.scoreboard_spots loop
+    if not exists (
+      select 1 from public.sac_slot_signups signup
+      where signup.event_id = p_event_id
+        and signup.slot_start = p_slot_start
+        and signup.spot_number = candidate_spot
+        and signup.cancelled_at is null
+    ) then
+      insert into public.sac_slot_signups (
+        event_id, member_id, member_name_snapshot, slot_start, slot_end,
+        spot_number, created_by_auth_user_id
+      ) values (
+        p_event_id, target_member_id, target_member.name, p_slot_start,
+        slot_end_time, candidate_spot, auth.uid()
+      ) returning id into saved_id;
+      return saved_id;
+    end if;
+  end loop;
+  raise exception 'This Scoreboard time slot is full.';
+end;
+$$;
+
+create or replace function public.cancel_sac_scoreboard_slot(p_signup_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_signup public.sac_slot_signups%rowtype;
+begin
+  if not public.is_approved_member() then
+    raise exception 'An approved Crew Center account is required.';
+  end if;
+
+  select signup.* into target_signup
+  from public.sac_slot_signups signup
+  where signup.id = p_signup_id
+  for update;
+  if not found then raise exception 'SAC signup not found.'; end if;
+  if target_signup.cancelled_at is not null then return false; end if;
+  if not public.is_auth_admin()
+    and (not public.is_member_of_team('sac')
+      or target_signup.member_id is distinct from public.current_member_id()) then
+    raise exception 'You may cancel only your own SAC spot.';
+  end if;
+
+  update public.sac_slot_signups
+  set cancelled_at = now(), cancelled_by_auth_user_id = auth.uid()
+  where id = p_signup_id;
+  return true;
+end;
+$$;
+
+revoke all on function public.can_read_sac_slot_signups() from public, anon, authenticated;
+revoke all on function public.claim_sac_scoreboard_slot(uuid, timestamptz, uuid) from public, anon, authenticated;
+revoke all on function public.cancel_sac_scoreboard_slot(uuid) from public, anon, authenticated;
+
 create or replace function public.can_read_meeting(p_meeting_id uuid)
 returns boolean
 language plpgsql
@@ -605,6 +756,9 @@ grant execute on function public.set_sac_membership(uuid, boolean, text, boolean
 grant execute on function public.get_sac_membership_audit(uuid) to authenticated;
 grant execute on function public.can_use_personal_camera(uuid, text) to authenticated;
 grant execute on function public.is_member_of_team(text) to authenticated;
+grant execute on function public.can_read_sac_slot_signups() to authenticated;
+grant execute on function public.claim_sac_scoreboard_slot(uuid, timestamptz, uuid) to authenticated;
+grant execute on function public.cancel_sac_scoreboard_slot(uuid) to authenticated;
 grant execute on function public.can_read_meeting(uuid) to authenticated;
 grant execute on function public.can_rsvp_meeting(uuid) to authenticated;
 
@@ -2227,7 +2381,7 @@ with check (public.is_crew_operations_user());
 
 revoke all on table public.sac_events from anon, authenticated;
 grant select, insert on table public.sac_events to authenticated;
-grant update (title, description, location, starts_at, ends_at, linked_media_event_id)
+grant update (title, description, location, starts_at, ends_at, linked_media_event_id, slot_interval_minutes, scoreboard_spots)
 on table public.sac_events to authenticated;
 
 create policy "Eligible members can read SAC events"
@@ -2252,6 +2406,14 @@ with check (
   (select public.can_create_sac_events())
   and public.sac_event_link_is_valid(linked_media_event_id, starts_at, ends_at)
 );
+
+revoke all on table public.sac_slot_signups from anon, authenticated;
+grant select on table public.sac_slot_signups to authenticated;
+
+create policy "SAC members can read slot signups"
+on public.sac_slot_signups for select
+to authenticated
+using ((select public.can_read_sac_slot_signups()));
 
 create policy "Approved members can read meetings"
 on public.meetings for select

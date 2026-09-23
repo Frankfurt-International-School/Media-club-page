@@ -205,7 +205,7 @@ test('SAC Events are independent, creator-restricted, and link only to current l
   assert.match(linkChoices, /public\.can_create_sac_events\(\)/);
   assert.match(policiesSql, /alter table public\.sac_events enable row level security/);
   assert.match(policiesSql, /revoke all on table public\.sac_events from anon, authenticated/);
-  assert.match(policiesSql, /grant update \(title, description, location, starts_at, ends_at, linked_media_event_id\)/);
+  assert.match(policiesSql, /grant update \(title, description, location, starts_at, ends_at, linked_media_event_id, slot_interval_minutes, scoreboard_spots\)/);
   assert.match(policiesSql, /create policy "SAC event creators can add events"[\s\S]*?created_by_auth_user_id = \(select auth\.uid\(\)\)[\s\S]*?sac_event_link_is_valid/);
   assert.match(policiesSql, /create policy "SAC event creators can edit events"[\s\S]*?sac_event_link_is_valid/);
   assert.doesNotMatch(policiesSql, /create policy "[^"]+"\s+on public\.sac_events for delete/);
@@ -220,22 +220,73 @@ test('SAC Events are independent, creator-restricted, and link only to current l
 });
 
 test('linked events cross between the correct SAC and Media Club hosts', () => {
-  const names = ['normalizeWorkspaceHostname', 'workspaceFromHostname', 'workspaceSearchForSelection', 'sacEventUrl', 'sacEventMediaSignupUrl'];
+  const names = ['normalizeWorkspaceHostname', 'workspaceFromHostname', 'workspaceSearchForSelection', 'sacEventUrl', 'sacSignupUrl', 'sacEventMediaSignupUrl'];
   const linksFrom = origin => JSON.parse(JSON.stringify(runFunctions(names, {
     URL, URLSearchParams, window: { location: new URL(origin) },
-  }, "({ sac: sacEventUrl('sac-id'), media: sacEventMediaSignupUrl('media-id') })")));
+  }, "({ sac: sacEventUrl('sac-id'), signup: sacSignupUrl('sac-id'), media: sacEventMediaSignupUrl('media-id') })")));
   assert.deepEqual(linksFrom('https://fismediaclub.org/dashboard'), {
     sac: 'https://sac.fismediaclub.org/sac/events?event=sac-id',
+    signup: 'https://sac.fismediaclub.org/sac/signups?event=sac-id',
     media: 'https://fismediaclub.org/signups?event=media-id',
   });
   assert.deepEqual(linksFrom('https://sac.fismediaclub.org/sac/events'), {
     sac: 'https://sac.fismediaclub.org/sac/events?event=sac-id',
+    signup: 'https://sac.fismediaclub.org/sac/signups?event=sac-id',
     media: 'https://fismediaclub.org/signups?event=media-id',
   });
   assert.deepEqual(linksFrom('http://localhost:8765/dashboard'), {
     sac: '/sac/events?event=sac-id&workspace=sac',
+    signup: '/sac/signups?event=sac-id&workspace=sac',
     media: '/signups?event=media-id',
   });
+});
+
+test('SAC Scoreboard sheet generates bounded time slots and retains partial final interval', () => {
+  const generate = runFunctions(['generateSacSlots'], { Date, Number, Math, Array },
+    `generateSacSlots({ starts_at: '2026-09-23T10:00:00Z', ends_at: '2026-09-23T11:15:00Z', slot_interval_minutes: 30 })`);
+  assert.deepEqual(JSON.parse(JSON.stringify(generate)), [
+    { start: '2026-09-23T10:00:00.000Z', end: '2026-09-23T10:30:00.000Z' },
+    { start: '2026-09-23T10:30:00.000Z', end: '2026-09-23T11:00:00.000Z' },
+    { start: '2026-09-23T11:00:00.000Z', end: '2026-09-23T11:15:00.000Z' },
+  ]);
+  const eligibility = teamKeys => runFunctions(['canClaimSacSlot'], {
+    canAddMembers: () => false,
+    currentMemberRecord: () => ({ teamKeys }),
+  }, 'canClaimSacSlot()');
+  assert.equal(eligibility(['media_club']), false, 'a Media Club account alone must be preview-only');
+  assert.equal(eligibility(['sac']), true);
+  assert.equal(runFunctions(['canClaimSacSlot'], {
+    canAddMembers: () => true,
+    currentMemberRecord: () => null,
+  }, 'canClaimSacSlot()'), true, 'Auth Admin may assign a current SAC member');
+  assert.match(indexHtml, /href="\/sac\/signups"[^>]*data-page="sac-signups"/);
+  assert.match(indexHtml, /id="page-sac-signups"/);
+  assert.match(appSource, /'\/sac\/signups': 'sac-signups'/);
+  assert.match(appSource, /Only current SAC-tagged members can claim Scoreboard shifts/);
+  assert.match(appSource, /supabaseClient\.rpc\('claim_sac_scoreboard_slot'/);
+  assert.match(appSource, /supabaseClient\.rpc\('cancel_sac_scoreboard_slot'/);
+});
+
+test('SAC booking authority, capacity, cancellation and nonoverlap are database-enforced', () => {
+  const claim = extractSqlFunction('claim_sac_scoreboard_slot');
+  const cancel = extractSqlFunction('cancel_sac_scoreboard_slot');
+  const read = extractSqlFunction('can_read_sac_slot_signups');
+  assert.match(schemaSql, /slot_interval_minutes smallint not null default 30/);
+  assert.match(schemaSql, /scoreboard_spots smallint not null default 2/);
+  assert.match(schemaSql, /create table if not exists public\.sac_slot_signups/);
+  assert.match(schemaSql, /create unique index if not exists sac_slot_signups_active_spot_idx/);
+  assert.match(schemaSql, /exclude using gist \([\s\S]*?tstzrange\(slot_start, slot_end, '\[\)'\) with &&/);
+  assert.match(read, /public\.is_auth_admin\(\) or public\.is_member_of_team\('sac'\)/);
+  assert.match(claim, /not public\.is_member_of_team\('sac'\) or target_member_id <> actor_member_id/);
+  assert.match(claim, /membership\.team_key = 'sac'/);
+  assert.match(claim, /for update/);
+  assert.match(claim, /1\.\.target_event\.scoreboard_spots/);
+  assert.match(cancel, /target_signup\.member_id is distinct from public\.current_member_id\(\)/);
+  assert.match(policiesSql, /revoke all on table public\.sac_slot_signups from anon, authenticated/);
+  assert.match(policiesSql, /grant select on table public\.sac_slot_signups to authenticated/);
+  assert.doesNotMatch(policiesSql, /grant (?:insert|update|delete) on table public\.sac_slot_signups to authenticated/);
+  assert.match(policiesSql, /create policy "SAC members can read slot signups"[\s\S]*?can_read_sac_slot_signups\(\)/);
+  assert.match(policiesSql, /grant execute on function public\.claim_sac_scoreboard_slot\(uuid, timestamptz, uuid\) to authenticated/);
 });
 
 test('public.members CAS tags are the attendance tracker source of truth', () => {

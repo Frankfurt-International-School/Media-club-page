@@ -386,12 +386,23 @@ create table if not exists public.sac_events (
   location text not null default '' check (char_length(location) <= 200),
   starts_at timestamptz not null,
   ends_at timestamptz not null,
+  slot_interval_minutes smallint not null default 30,
+  scoreboard_spots smallint not null default 2,
   linked_media_event_id uuid references public.events(id) on delete set null,
   created_by_auth_user_id uuid default auth.uid() references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint sac_events_time_window_check check (ends_at > starts_at)
 );
+
+alter table public.sac_events add column if not exists slot_interval_minutes smallint not null default 30;
+alter table public.sac_events add column if not exists scoreboard_spots smallint not null default 2;
+alter table public.sac_events drop constraint if exists sac_events_slot_interval_check;
+alter table public.sac_events add constraint sac_events_slot_interval_check
+check (slot_interval_minutes between 15 and 120 and slot_interval_minutes % 5 = 0);
+alter table public.sac_events drop constraint if exists sac_events_scoreboard_spots_check;
+alter table public.sac_events add constraint sac_events_scoreboard_spots_check
+check (scoreboard_spots between 2 and 12);
 
 create index if not exists sac_events_starts_at_idx on public.sac_events (starts_at);
 create index if not exists sac_events_linked_media_event_idx on public.sac_events (linked_media_event_id)
@@ -433,6 +444,60 @@ drop trigger if exists events_sync_linked_sac_windows on public.events;
 create trigger events_sync_linked_sac_windows
 after update of date, ends_at, category, archived_at on public.events
 for each row execute function public.sync_linked_sac_event_windows();
+
+-- Each row records one occupied place in a generated Scoreboard time interval.
+-- Cancellations are soft so attendance and assignment history remain intact.
+create table if not exists public.sac_slot_signups (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.sac_events(id) on delete restrict,
+  member_id uuid references public.members(id) on delete set null,
+  member_name_snapshot text not null,
+  slot_start timestamptz not null,
+  slot_end timestamptz not null,
+  spot_number smallint not null check (spot_number between 1 and 12),
+  created_by_auth_user_id uuid references auth.users(id) on delete set null default auth.uid(),
+  signed_up_at timestamptz not null default now(),
+  cancelled_at timestamptz,
+  cancelled_by_auth_user_id uuid references auth.users(id) on delete set null,
+  constraint sac_slot_signups_window_check check (slot_end > slot_start)
+);
+
+create index if not exists sac_slot_signups_event_start_idx
+on public.sac_slot_signups (event_id, slot_start);
+create unique index if not exists sac_slot_signups_active_spot_idx
+on public.sac_slot_signups (event_id, slot_start, spot_number)
+where cancelled_at is null;
+alter table public.sac_slot_signups drop constraint if exists sac_slot_signups_member_no_overlap;
+alter table public.sac_slot_signups add constraint sac_slot_signups_member_no_overlap
+exclude using gist (
+  member_id with =,
+  tstzrange(slot_start, slot_end, '[)') with &&
+)
+where (cancelled_at is null and member_id is not null);
+
+create or replace function public.guard_sac_event_slot_settings()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if (new.slot_interval_minutes is distinct from old.slot_interval_minutes
+      or new.scoreboard_spots is distinct from old.scoreboard_spots)
+    and exists (
+      select 1 from public.sac_slot_signups signup
+      where signup.event_id = old.id and signup.cancelled_at is null
+    ) then
+    raise exception 'Cancel active SAC signups before changing interval length or Scoreboard spots.';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.guard_sac_event_slot_settings() from public;
+drop trigger if exists sac_events_guard_slot_settings on public.sac_events;
+create trigger sac_events_guard_slot_settings
+before update of slot_interval_minutes, scoreboard_spots on public.sac_events
+for each row execute function public.guard_sac_event_slot_settings();
 
 create table if not exists public.meetings (
   id uuid primary key default gen_random_uuid(),

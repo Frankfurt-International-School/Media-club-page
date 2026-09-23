@@ -47,6 +47,14 @@ function sacEventUrl(eventId) {
   return `${productionHost ? destination.origin : ''}/sac/events${workspaceSearch}`;
 }
 
+function sacSignupUrl(eventId) {
+  const productionHost = ['fismediaclub.org', 'sac.fismediaclub.org'].includes(normalizeWorkspaceHostname(window.location.hostname));
+  const destination = productionHost ? new URL('https://sac.fismediaclub.org') : window.location;
+  const query = new URLSearchParams({ event: eventId });
+  const workspaceSearch = workspaceSearchForSelection('sac', destination.hostname, query.toString());
+  return `${productionHost ? destination.origin : ''}/sac/signups${workspaceSearch}`;
+}
+
 async function refreshMediaSignupSacLinks(mediaEventId) {
   const container = document.getElementById('sheet-sac-linked');
   if (!container) return;
@@ -58,7 +66,7 @@ async function refreshMediaSignupSacLinks(mediaEventId) {
     const { data, error } = await supabaseClient.from('sac_events')
       .select('id,title').eq('linked_media_event_id', mediaEventId).order('starts_at', { ascending: true });
     if (request !== mediaSacLinkRequest || document.getElementById('sheet-event-select')?.value !== mediaEventId || error || !data?.length) return;
-    container.innerHTML = `<div><strong>Also coordinated by SAC</strong><span>Student Athletic Council service is planned separately from this production crew.</span></div><div class="sac-linked-actions">${data.map(item => `<a class="btn btn-ghost btn-sm" href="${escapeHtml(sacEventUrl(item.id))}">${escapeHtml(item.title)} · SAC event →</a>`).join('')}</div>`;
+    container.innerHTML = `<div><strong>Also coordinated by SAC</strong><span>SAC Scoreboard shifts have their own sign-up sheet. Only current SAC members can claim a spot.</span></div><div class="sac-linked-actions">${data.map(item => `<a class="btn btn-ghost btn-sm" href="${escapeHtml(sacSignupUrl(item.id))}">${escapeHtml(item.title)} · SAC shifts →</a>`).join('')}</div>`;
     container.hidden = false;
   } catch (_error) {
     // Older deployments without the SAC event table simply omit the callout.
@@ -88,7 +96,7 @@ function paintSacEvents() {
       <div><div class="page-kicker">${escapeHtml(formatBerlinCalendarDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</div><h2>${escapeHtml(event.title)}</h2>
         <div class="sac-event-meta"><span>${escapeHtml(sacEventTimeLabel(event))} Berlin time</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ''}</div>
         ${event.description ? `<p class="sac-event-description">${escapeHtml(event.description)}</p>` : ''}
-        <div class="sac-event-actions"><span class="sac-event-link-label">${escapeHtml(linkLabel)}</span>${mediaUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(mediaUrl)}">Media Club sign-up sheet</a>` : ''}${canCreateSacEvents() ? `<button class="btn btn-ghost btn-sm" type="button" data-sac-edit-id="${escapeHtml(event.id)}">Edit event</button>` : ''}</div>
+        <div class="sac-event-actions"><span class="sac-event-link-label">${escapeHtml(linkLabel)}</span><a class="btn btn-accent btn-sm" href="${escapeHtml(sacSignupUrl(event.id))}">Scoreboard shifts</a>${mediaUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(mediaUrl)}">Media Club sign-up sheet</a>` : ''}${canCreateSacEvents() ? `<button class="btn btn-ghost btn-sm" type="button" data-sac-edit-id="${escapeHtml(event.id)}">Edit event</button>` : ''}</div>
       </div>
     </article>`;
   }).join('');
@@ -107,7 +115,7 @@ async function renderSacEvents() {
   let linkResult;
   try {
     [eventResult, linkResult] = await Promise.all([
-      supabaseClient.from('sac_events').select('id,title,description,location,starts_at,ends_at,linked_media_event_id').order('starts_at', { ascending: true }),
+      supabaseClient.from('sac_events').select('id,title,description,location,starts_at,ends_at,slot_interval_minutes,scoreboard_spots,linked_media_event_id').order('starts_at', { ascending: true }),
       canCreateSacEvents() ? supabaseClient.rpc('get_sac_linkable_livestreams') : Promise.resolve({ data: [], error: null }),
     ]);
   } catch (_error) {
@@ -177,6 +185,8 @@ async function openSacEventEditor(id = null) {
     document.getElementById('sac-event-end').value = berlinTimeLabel(existing.ends_at);
     document.getElementById('sac-event-location').value = existing.location || '';
     document.getElementById('sac-event-description').value = existing.description || '';
+    document.getElementById('sac-event-interval').value = existing.slot_interval_minutes || 30;
+    document.getElementById('sac-event-spots').value = existing.scoreboard_spots || 2;
     if (existing.linked_media_event_id && !sacEventLinkable(existing.linked_media_event_id)) {
       select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(existing.linked_media_event_id)}" disabled>Linked livestream unavailable — choose another option</option>`);
     }
@@ -203,6 +213,12 @@ async function saveSacEvent(event) {
   const end = document.getElementById('sac-event-end').value;
   const startTimestamp = linked ? Date.parse(linked.starts_at) : berlinTimestamp(date, start);
   const endTimestamp = linked ? Date.parse(linked.ends_at) : berlinTimestamp(date, end);
+  const interval = Number(document.getElementById('sac-event-interval').value);
+  const spots = Number(document.getElementById('sac-event-spots').value);
+  if (!Number.isInteger(interval) || interval < 15 || interval > 120 || interval % 5 !== 0 || !Number.isInteger(spots) || spots < 2 || spots > 12) {
+    showToast('Use 15–120 minutes in five-minute steps and at least two Scoreboard spots.', 'error');
+    return;
+  }
   if (!title || title.length > 120 || !Number.isFinite(startTimestamp) || !Number.isFinite(endTimestamp) || endTimestamp <= startTimestamp) {
     showToast('Enter a title and a valid event window. Independent events must end later on the same day.', 'error', 6000);
     return;
@@ -213,6 +229,8 @@ async function saveSacEvent(event) {
     location: document.getElementById('sac-event-location').value.trim(),
     starts_at: new Date(startTimestamp).toISOString(),
     ends_at: new Date(endTimestamp).toISOString(),
+    slot_interval_minutes: interval,
+    scoreboard_spots: spots,
     linked_media_event_id: linkedId,
   };
   const button = document.getElementById('sac-event-save');

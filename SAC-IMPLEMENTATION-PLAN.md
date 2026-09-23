@@ -100,13 +100,21 @@ approval notifications, and Media Club authorization isolation require the
 updated schema, database and Storage policies, Edge Functions,
 and both site builds to be deployed together. The reviewer must still verify
 that a declared current SAC member is on the real roster before approval.
-Steps 22–23 now have a local SAC Events route, event editor, optional Media Club
-livestream link, a small return link on the corresponding Media Club sign-up
-sheet, and matching database schema/RLS. A link follows subsequent Media Club
-schedule edits and is removed if that production is archived or no longer a
-livestream. These features are not live until the new schema and
-policies are applied and both site builds are deployed. Steps 16–18 (roster and
-hosted rollout) and 24–28 (time-slot sign-ups, meetings, attendance, and final
-dashboard work) remain follow-up work. No Cloudflare setting, deployment,
-hosted Supabase schema, production member record, or live application is
-changed by committing this plan.
+Steps 22–26 now have local SAC Events and Sign-up Sheets routes. Events can be
+independent or linked to a Media Club livestream. The SAC sheet generates
+30-minute Scoreboard shifts with two places by default, with per-event interval
+and capacity settings editable before bookings exist. Current SAC members may
+claim multiple non-overlapping shifts and freely cancel their own bookings;
+Auth Admins may assign and cancel for any current SAC member. Membership,
+capacity, and overlap are enforced in database functions and constraints, not
+only in the interface. Eligible nonmembers see a locked schedule preview and
+the SAC application link. Linked Media Club sign-up sheets point directly to
+the matching SAC sheet. If an event schedule changes after booking, affected
+bookings remain visible for review and cancellation rather than disappearing.
+These features are not live until the new schema and policies are applied and
+both site builds are deployed. Steps 16–18 (roster and hosted rollout) and
+27–28 (meetings, attendance, and final dashboard work) remain follow-up work.
+The application-to-membership-to-signup path still needs a live authenticated
+test after an approved rollout. No Cloudflare setting, deployment, hosted
+Supabase schema, production member record, or live application is changed by
+committing this plan.

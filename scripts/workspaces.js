@@ -72,8 +72,8 @@ function currentCrewCenterWorkspace() {
 
 function workspacePageFor(page, workspace = activeCrewCenterWorkspace) {
   if (!page) return page;
-  if (workspace === 'sac') return ['sac-home', 'sac-events', 'profile'].includes(page) ? page : 'sac-home';
-  return ['sac-home', 'sac-events'].includes(page) ? 'home' : page;
+  if (workspace === 'sac') return ['sac-home', 'sac-events', 'sac-signups', 'profile'].includes(page) ? page : 'sac-home';
+  return ['sac-home', 'sac-events', 'sac-signups'].includes(page) ? 'home' : page;
 }
 
 function workspaceUrlForPage(page, workspace = activeCrewCenterWorkspace, locationLike = window.location) {
@@ -219,6 +219,7 @@ function syncCrewCenterWorkspaceFromLocation() {
 
 function resetCrewCenterWorkspace() {
   window.resetSacEventsState?.();
+  window.resetSacSignupsState?.();
   activeCrewCenterWorkspace = 'media';
   applyWorkspacePresentation();
 }

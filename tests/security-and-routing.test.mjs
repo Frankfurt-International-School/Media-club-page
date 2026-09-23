@@ -110,6 +110,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/dashboard.js',
     'scripts/events.js',
     'scripts/sac-events.js',
+    'scripts/sac-signups.js',
     'scripts/meetings.js',
     'scripts/signups.js',
     'scripts/crew-schedule.js',
@@ -561,7 +562,9 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
   assert.equal(logic.resolveWorkspaceSelection('sac', true), 'sac');
   assert.equal(logic.workspacePageFor('events', 'sac'), 'sac-home');
   assert.equal(logic.workspacePageFor('sac-events', 'sac'), 'sac-events');
+  assert.equal(logic.workspacePageFor('sac-signups', 'sac'), 'sac-signups');
   assert.equal(logic.workspacePageFor('sac-events', 'media'), 'home');
+  assert.equal(logic.workspacePageFor('sac-signups', 'media'), 'home');
   assert.equal(logic.workspacePageFor('profile', 'sac'), 'profile');
   assert.equal(logic.workspacePageFor('sac-home', 'media'), 'home');
 
@@ -659,7 +662,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.doesNotMatch(indexHtml, /<button\b[^>]*role="tab"/);
 
   const sidebarLinks = [...indexHtml.matchAll(/<a\b[^>]*class="nav-item[^>]*data-page="[^"]+"[^>]*>/g)].map(match => match[0]);
-  assert.equal(sidebarLinks.length, 15);
+  assert.equal(sidebarLinks.length, 16);
   sidebarLinks.forEach(link => {
     assert.match(link, /href="\/[^"]+"/);
     assert.doesNotMatch(link, /onclick=/);
