@@ -3,12 +3,7 @@
 // ══════════════════════════════
 const galleryColors = { Photo: ['#EEEDFE','#b49dff'], Video: ['#FAECE7','#ff7b5e'], Podcast: ['#E1F5EE','#4ef0c4'], Design: ['#FAEEDA','#ffb547'] };
 const galleryTabFilters = { all: 'all', photo: 'Photo', video: 'Video', podcast: 'Podcast', design: 'Design' };
-const galleryIcons = {
-  Photo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
-  Video: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
-  Podcast: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
-  Design: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
-};
+const galleryEmojis = { Photo: '📷', Video: '🎬', Podcast: '🎙️', Design: '🎨' };
 
 function galleryViewFromUrl() {
   return new URLSearchParams(window.location.search).get('view') === 'athletics' ? 'athletics' : 'showcase';
@@ -77,10 +72,11 @@ function openGalleryProject(card) {
   if (url) window.open(url, '_blank', 'noopener');
 }
 
-function applyGalleryBackgrounds(grid) {
-  grid.querySelectorAll('[data-image-url]').forEach(card => {
-    const url = safeExternalUrl(card.dataset.imageUrl);
-    if (url) card.style.backgroundImage = `url(${JSON.stringify(url)})`;
+function prepareGalleryImages(grid) {
+  grid.querySelectorAll('.gallery-cover').forEach(image => {
+    const showPlaceholder = () => image.remove();
+    if (image.complete && !image.naturalWidth) showPlaceholder();
+    else image.addEventListener('error', showPlaceholder, { once: true });
   });
 }
 
@@ -164,19 +160,28 @@ function renderGallery() {
   }
   const currentMemberId = currentMemberRecord()?.id;
   const galleryCard = g => {
-    const [gbg, gfg] = galleryColors[g.type] || ['#1a1a1d','#a09eb8'];
+    const [gbg] = galleryColors[g.type] || ['#EEEDFE'];
     const canDelete = state.currentUser.isAdmin || (currentMemberId && g.memberId === currentMemberId);
     const imageUrl = safeExternalUrl(g.image_url);
     const projectUrl = safeExternalUrl(g.link) || imageUrl;
     const producedLabel = g.producedOn ? formatBerlinCalendarDate(g.producedOn, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
     const eventLabel = g.eventTitle ? `${g.eventDate ? `${formatEventDate(g.eventDate)} · ` : ''}${g.eventTitle}` : '';
     return `
-      <article class="gallery-item${imageUrl ? ' has-img' : ''}" style="${imageUrl ? '' : `background:linear-gradient(145deg,${gbg},var(--bg3));`}" data-project-url="${escapeHtml(projectUrl)}"${imageUrl ? ` data-image-url="${escapeHtml(imageUrl)}"` : ''}>
+      <article class="gallery-item" style="--gallery-card-wash:${gbg}" data-project-url="${escapeHtml(projectUrl)}">
         <button type="button" class="gallery-open-target" aria-label="Open ${escapeHtml(g.title)}" onclick="openGalleryProject(this.parentElement)"><span class="visually-hidden">Open ${escapeHtml(g.title)}</span></button>
-        ${g.scope === 'athletics' ? '<span class="gallery-scope-badge">Athletics · private</span>' : ''}
-        ${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}
-        ${imageUrl ? '' : `<div style="color:${gfg};opacity:0.6;">${galleryIcons[g.type] || ''}</div>`}
-        <div class="gallery-overlay"><div class="gallery-card-meta"><div class="gallery-card-title">${escapeHtml(g.title)}</div><div class="gallery-card-author">${escapeHtml(g.author)} · ${escapeHtml(g.type)}</div>${eventLabel ? `<div class="gallery-card-event"><span>Linked event</span>${escapeHtml(eventLabel)}</div>` : ''}${producedLabel ? `<div class="gallery-card-date">Produced ${escapeHtml(producedLabel)}</div>` : ''}${g.desc ? `<div class="gallery-overlay-title">${escapeHtml(g.desc)}</div>` : ''}</div></div>
+        <div class="gallery-card-media">
+          <div class="gallery-card-placeholder" aria-hidden="true"><span>${galleryEmojis[g.type] || '🗂️'}</span><small>${escapeHtml(g.type)} project</small></div>
+          ${imageUrl ? `<img class="gallery-cover" src="${escapeHtml(imageUrl)}" alt="" loading="lazy">` : ''}
+          ${g.scope === 'athletics' ? '<span class="gallery-scope-badge">Athletics · private</span>' : ''}
+        </div>
+        <div class="gallery-card-content">
+          <div class="gallery-card-kind">${escapeHtml(g.type)}</div>
+          <h3 class="gallery-card-title">${escapeHtml(g.title)}</h3>
+          <div class="gallery-card-author">${escapeHtml(g.author)}</div>
+          ${eventLabel ? `<div class="gallery-card-event"><span>Linked event</span>${escapeHtml(eventLabel)}</div>` : ''}
+          ${g.desc ? `<p class="gallery-card-description">${escapeHtml(g.desc)}</p>` : ''}
+          ${producedLabel || canDelete ? `<div class="gallery-card-footer">${producedLabel ? `<span>Produced ${escapeHtml(producedLabel)}</span>` : '<span></span>'}${canDelete ? `<button class="btn btn-danger btn-sm gallery-delete" onclick="event.stopPropagation();requestDeleteGalleryProject('${g.id}')">Delete</button>` : ''}</div>` : ''}
+        </div>
       </article>`;
   };
   if (view === 'athletics') {
@@ -196,12 +201,12 @@ function renderGallery() {
         <div class="gallery-category-items">${projects.map(galleryCard).join('')}</div>
       </section>`;
     }).join('');
-    applyGalleryBackgrounds(grid);
+    prepareGalleryImages(grid);
     return;
   }
   if (f !== 'all') {
     grid.innerHTML = list.map(galleryCard).join('');
-    applyGalleryBackgrounds(grid);
+    prepareGalleryImages(grid);
     return;
   }
   const categoryOrder = ['Photo', 'Video', 'Podcast', 'Design'];
@@ -217,7 +222,7 @@ function renderGallery() {
       <div class="gallery-category-items">${projects.map(galleryCard).join('')}</div>
     </section>`;
   }).join('');
-  applyGalleryBackgrounds(grid);
+  prepareGalleryImages(grid);
 }
 
 function updateSlidingTab(row) {
