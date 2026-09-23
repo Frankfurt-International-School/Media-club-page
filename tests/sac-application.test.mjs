@@ -55,6 +55,10 @@ test('server validates SAC eligibility and persists the selected target without 
 });
 
 test('review access is scoped to Media Club, SAC, or combined applications', () => {
+  for (const action of ['read', 'update']) {
+    assert.match(policies, new RegExp(`drop policy if exists "Authorized reviewers can ${action} join applications" on public\\.join_applications;`));
+    assert.match(policies, new RegExp(`create policy "Authorized reviewers can ${action} join applications"`));
+  }
   assert.match(policies, /application_target = 'media_club' and public\.is_admin_panel_user\(\)/);
   assert.match(policies, /application_target = 'sac' and public\.can_review_sac_applications\(\)/);
   assert.match(reviewFunction, /target === "media_club" && memberRole === "faculty"/);

@@ -84,6 +84,8 @@ drop policy if exists "Admins can manage announcements" on public.announcements;
 drop policy if exists "Signed-in users can submit join applications" on public.join_applications;
 drop policy if exists "Admins can read join applications" on public.join_applications;
 drop policy if exists "Admins can manage join applications" on public.join_applications;
+drop policy if exists "Authorized reviewers can read join applications" on public.join_applications;
+drop policy if exists "Authorized reviewers can update join applications" on public.join_applications;
 revoke insert on table public.join_applications from anon, authenticated;
 drop policy if exists "Members can read own notifications" on public.notifications;
 
