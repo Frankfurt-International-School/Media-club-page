@@ -143,13 +143,16 @@ function navigate(id, el, options = {}) {
 
 function openPageFromUrl() {
   const canSyncWorkspace = Boolean(window.CREW_CENTER_AUTH_USER || window.CREW_CENTER_IS_VISITOR || window.CREW_CENTER_IS_ADMIN);
-  const workspace = (canSyncWorkspace ? window.syncCrewCenterWorkspaceFromLocation?.() : null)
+  // Keep deep links intact until the session and member record establish access.
+  // loadCrewCenterInitialData() initializes the workspace after loading members.
+  if (!canSyncWorkspace) return;
+  const workspace = window.syncCrewCenterWorkspaceFromLocation?.()
     || (typeof currentCrewCenterWorkspace === 'function' ? currentCrewCenterWorkspace() : 'media');
   const requestedPage = pageFromPath();
   const page = typeof workspacePageFor === 'function' ? workspacePageFor(requestedPage) : requestedPage;
   if (page !== requestedPage) {
     history.replaceState({ page, workspace }, '', workspaceUrlForPage(page, workspace));
-  } else if (canSyncWorkspace && typeof workspaceSearchForSelection === 'function') {
+  } else if (typeof workspaceSearchForSelection === 'function') {
     const canonicalSearch = workspaceSearchForSelection(workspace, window.location.hostname, window.location.search);
     if (canonicalSearch !== window.location.search) {
       history.replaceState({ page, workspace }, '', `${window.location.pathname}${canonicalSearch}${window.location.hash}`);

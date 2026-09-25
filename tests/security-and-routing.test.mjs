@@ -12,6 +12,7 @@ const appSource = crewCenterScriptPaths
 const appStyles = readFileSync(new URL('../crew-center.css', import.meta.url), 'utf8');
 const coreSource = readFileSync(new URL('../scripts/core.js', import.meta.url), 'utf8');
 const workspaceSource = readFileSync(new URL('../scripts/workspaces.js', import.meta.url), 'utf8');
+const routerSource = readFileSync(new URL('../scripts/router.js', import.meta.url), 'utf8');
 const initSource = readFileSync(new URL('../scripts/init.js', import.meta.url), 'utf8');
 const headersFile = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
 const redirectsFile = readFileSync(new URL('../_redirects', import.meta.url), 'utf8');
@@ -607,6 +608,60 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
   assert.match(indexHtml, /id="page-sac-home"/);
   assert.match(coreSource, /await loadCrewCenterData\(\{ datasets: \['members'\] \}\);\s*window\.initializeCrewCenterWorkspace\?\.\(\)/);
   assert.doesNotMatch(extractWorkspaceFunction('workspaceUrlForPage'), /https:\/\/fismediaclub\.org/, 'ordinary page routing must remain same-origin');
+});
+
+test('a SAC deep link is preserved until authentication can resolve workspace access', () => {
+  const start = routerSource.indexOf('function openPageFromUrl()');
+  const end = routerSource.indexOf("\nwindow.addEventListener('popstate'", start);
+  assert.ok(start > -1 && end > start);
+  for (const [pathname, search, page] of [
+    ['/sac/events', '', 'sac-events'],
+    ['/sac/signups', '?event=game-1', 'sac-signups'],
+  ]) {
+    const route = { pathname, search };
+    const replacements = [];
+    const navigations = [];
+    let authorizedWorkspace = 'sac';
+    const context = {
+      window: {
+        location: route,
+        syncCrewCenterWorkspaceFromLocation: () => authorizedWorkspace,
+        CREW_CENTER_AUTH_USER: null,
+        CREW_CENTER_IS_VISITOR: false,
+        CREW_CENTER_IS_ADMIN: false,
+      },
+      history: { replaceState: (_state, _title, url) => {
+        replacements.push(url);
+        const destination = new URL(url, 'https://sac.fismediaclub.org');
+        route.pathname = destination.pathname;
+        route.search = destination.search;
+      } },
+      pageFromPath: () => route.pathname === pathname ? page : 'home',
+      workspacePageFor: requestedPage => context.window.CREW_CENTER_AUTH_USER && authorizedWorkspace === 'sac' ? requestedPage : 'home',
+      workspaceUrlForPage: requestedPage => requestedPage === page ? `${pathname}${search}` : '/dashboard?workspace=media',
+      workspaceSearchForSelection: (_workspace, _hostname, requestedSearch) => requestedSearch,
+      currentCrewCenterWorkspace: () => 'media',
+      navItemForPage: () => null,
+      navigate: requestedPage => navigations.push(requestedPage),
+    };
+    vm.runInNewContext(`${routerSource.slice(start, end)}\nglobalThis.openRoute = openPageFromUrl;`, context);
+
+    context.openRoute();
+    assert.equal(`${route.pathname}${route.search}`, `${pathname}${search}`, 'startup must preserve the deep link before checking the member');
+    assert.deepEqual(replacements, []);
+    assert.deepEqual(navigations, []);
+
+    context.window.CREW_CENTER_AUTH_USER = { id: 'approved-member' };
+    context.openRoute();
+    assert.equal(`${route.pathname}${route.search}`, `${pathname}${search}`, 'an eligible member keeps the SAC deep link');
+    assert.deepEqual(replacements, []);
+    assert.deepEqual(navigations, [page]);
+
+    authorizedWorkspace = 'media';
+    context.openRoute();
+    assert.equal(route.pathname, '/dashboard', 'an ineligible member still falls back to Media Club');
+    assert.deepEqual(replacements, ['/dashboard?workspace=media']);
+  }
 });
 
 test('workspace choices navigate to the correct production host in both directions', () => {
