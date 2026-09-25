@@ -126,6 +126,29 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
   assert.doesNotMatch(redirectsFile, /^\s*\/\*/m, 'Cloudflare native SPA fallback must not override matching static HTML pages');
 });
 
+test('SAC deep-link refreshes resolve shared assets from the deployment root', () => {
+  const baseHref = indexHtml.match(/<base href="([^"]+)">/)?.[1];
+  assert.equal(baseHref, '/', 'the app is deployed at the root on both hostnames');
+  const assets = [
+    'crew-center.css',
+    'supabase-config.js',
+    'scripts/core.js',
+    'scripts/sac-events.js',
+    'scripts/sac-signups.js',
+    'assets/media-club-logo.png',
+    'assets/sac-warriors-mark.png',
+  ];
+  for (const host of ['sac.fismediaclub.org', 'fismediaclub.org']) {
+    for (const route of ['/sac/events', '/sac/signups']) {
+      const documentUrl = new URL(route, `https://${host}`);
+      const baseUrl = new URL(baseHref, documentUrl);
+      for (const asset of assets) {
+        assert.equal(new URL(asset, baseUrl).pathname, `/${asset}`, `${host}${route} must not request a nested asset`);
+      }
+    }
+  }
+});
+
 test('production builds content-version local scripts and stylesheets', () => {
   assert.match(buildSource, /localAssets\.filter\(path => \/\\\.\(\?:css\|js\)\$\//);
   assert.match(buildSource, /createHash\('sha256'\)[\s\S]*?slice\(0, 12\)/);
