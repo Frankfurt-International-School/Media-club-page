@@ -68,6 +68,14 @@ function sacDirectoryMembers() {
   });
 }
 
+function renderSacDashboard() {
+  const count = document.getElementById('sac-home-member-count');
+  if (!count || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return;
+  count.textContent = state.dataLoaded.members
+    ? String(state.members.filter(member => member.teamKeys?.includes('sac')).length)
+    : '—';
+}
+
 function renderSacMembers() {
   const grid = document.getElementById('sac-members-grid');
   const count = document.getElementById('sac-members-count');

@@ -11,6 +11,7 @@ const members = read('scripts/members.js');
 const signups = read('scripts/sac-signups.js');
 const policies = read('supabase-auth-policies.sql');
 const core = read('scripts/core.js');
+const schema = read('supabase-schema.sql');
 
 function functionSource(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -49,6 +50,69 @@ test('SAC directory shows current tagged members only', () => {
   const result = vm.runInNewContext(`${functionSource(members, 'sacDirectoryMembers')}\nsacDirectoryMembers().map(member => member.id)`, context);
   assert.deepEqual(Array.from(result), ['dual', 'sac']);
   assert.match(policies, /create or replace function public\.get_member_directory\(\)[\s\S]*?public\.is_approved_member\(\)/);
+});
+
+test('SAC dashboard count follows approved SAC tags rather than grade eligibility', () => {
+  assert.ok(html.includes('id="sac-home-member-count"'));
+  const count = { textContent: '' };
+  const context = {
+    state: { dataLoaded: { members: true }, members: [
+      { teamKeys: ['sac'] }, { teamKeys: ['media_club', 'sac'] }, { teamKeys: ['media_club'], gradeLevel: 'Grade 11' },
+    ] },
+    document: { getElementById: id => id === 'sac-home-member-count' ? count : null },
+    currentCrewCenterWorkspace: () => 'sac',
+    canAccessSacWorkspace: () => true,
+  };
+  vm.runInNewContext(`${functionSource(members, 'renderSacDashboard')}\nrenderSacDashboard()`, context);
+  assert.equal(count.textContent, '2');
+  assert.match(core, /if \(activePage === 'sac-home'\) \{ renderSacDashboard\(\);/);
+  assert.match(router, /if \(page === 'sac-home'\) \{ renderSacDashboard\(\);/);
+});
+
+test('SAC meetings and attendance have distinct workspace routes and database boundaries', () => {
+  for (const [page, route] of [['sac-meetings', '/sac/meetings'], ['sac-attendance', '/sac/attendance']]) {
+    assert.match(html, new RegExp(`href="${route}"[^>]*data-page="${page}"`));
+    assert.ok(html.includes(`id="page-${page}"`));
+    assert.ok(router.includes(`'${page}': '${route}'`));
+    assert.ok(router.includes(`'${route}': '${page}'`));
+    assert.ok(workspaces.includes(`'${page}'`));
+  }
+  assert.match(schema, /create table if not exists public\.sac_meetings/);
+  assert.match(schema, /create table if not exists public\.sac_attendance/);
+  assert.match(schema, /sac_attendance_one_target_check check \(\(event_id is null\) <> \(meeting_id is null\)\)/);
+  assert.match(schema, /sac_attendance_event_member_key unique \(event_id, member_id\)/);
+  assert.match(schema, /sac_attendance_meeting_member_key unique \(meeting_id, member_id\)/);
+  assert.match(policies, /on public\.sac_meetings for select[\s\S]*?public\.can_view_sac_events\(\)/);
+  assert.match(policies, /on public\.sac_meetings for insert[\s\S]*?public\.can_create_sac_events\(\)[\s\S]*?created_by_auth_user_id = \(select auth\.uid\(\)\)/);
+  assert.match(policies, /on public\.sac_meetings for update[\s\S]*?public\.can_create_sac_events\(\)/);
+  assert.match(policies, /on public\.sac_attendance for select[\s\S]*?public\.can_create_sac_events\(\)/);
+  assert.match(policies, /revoke all on table public\.sac_attendance from anon, authenticated;\s*grant select on table public\.sac_attendance to authenticated/);
+});
+
+test('SAC attendance RPC enforces each whole-event roll and four marks', () => {
+  const rpc = policies.match(/create or replace function public\.mark_sac_attendance\([\s\S]*?\n\$\$;/)?.[0];
+  assert.ok(rpc);
+  assert.match(rpc, /if not public\.can_create_sac_events\(\)/);
+  assert.match(rpc, /'present', 'late', 'absent', 'excused'/);
+  assert.match(rpc, /public\.sac_slot_signups[\s\S]*?cancelled_at is null/);
+  assert.match(rpc, /public\.member_team_memberships[\s\S]*?team_key = 'sac'/);
+  const roll = policies.match(/create or replace function public\.get_sac_attendance_roll\([\s\S]*?\n\$\$;/)?.[0];
+  assert.ok(roll);
+  assert.match(roll, /if not public\.can_create_sac_events\(\)/);
+  assert.match(roll, /public\.sac_slot_signups[\s\S]*?signup\.cancelled_at is null/);
+  assert.match(roll, /public\.member_team_memberships[\s\S]*?membership\.team_key = 'sac'/);
+});
+
+test('nonmanagers cannot open the SAC attendance route', () => {
+  const source = functionSource(workspaces, 'workspacePageFor');
+  const denied = vm.runInNewContext(`${source}\nworkspacePageFor('sac-attendance', 'sac')`, {
+    canCreateSacEvents: () => false,
+  });
+  const permitted = vm.runInNewContext(`${source}\nworkspacePageFor('sac-attendance', 'sac')`, {
+    canCreateSacEvents: () => true,
+  });
+  assert.equal(denied, 'sac-home');
+  assert.equal(permitted, 'sac-attendance');
 });
 
 test('My Shifts includes only this member’s active upcoming bookings', () => {

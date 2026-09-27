@@ -96,7 +96,7 @@ function paintSacEvents() {
       <div><div class="page-kicker">${escapeHtml(formatBerlinCalendarDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</div><h2>${escapeHtml(event.title)}</h2>
         <div class="sac-event-meta"><span>${escapeHtml(sacEventTimeLabel(event))} Berlin time</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ''}</div>
         ${event.description ? `<p class="sac-event-description">${escapeHtml(event.description)}</p>` : ''}
-        <div class="sac-event-actions"><span class="sac-event-link-label">${escapeHtml(linkLabel)}</span><a class="btn btn-accent btn-sm" href="${escapeHtml(sacSignupUrl(event.id))}">Scoreboard shifts</a>${mediaUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(mediaUrl)}">Media Club sign-up sheet</a>` : ''}${canCreateSacEvents() ? `<button class="btn btn-ghost btn-sm" type="button" data-sac-edit-id="${escapeHtml(event.id)}">Edit event</button>` : ''}</div>
+        <div class="sac-event-actions"><span class="sac-event-link-label">${escapeHtml(linkLabel)}</span><a class="btn btn-accent btn-sm" href="${escapeHtml(sacSignupUrl(event.id))}">Scoreboard shifts</a>${mediaUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(mediaUrl)}">Media Club sign-up sheet</a>` : ''}${canCreateSacEvents() ? `<button class="btn btn-ghost btn-sm" type="button" data-sac-edit-id="${escapeHtml(event.id)}">Edit event</button><a class="btn btn-ghost btn-sm" href="${escapeHtml(pageUrl('sac-attendance', { kind: 'event', item: event.id }))}">Attendance</a>` : ''}</div>
       </div>
     </article>`;
   }).join('');

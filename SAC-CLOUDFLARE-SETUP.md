@@ -187,19 +187,25 @@ Use a private browser session after DNS and TLS become active.
    https://sac.fismediaclub.org/sac/signups
    https://sac.fismediaclub.org/sac/my-shifts
    https://sac.fismediaclub.org/sac/members
+   https://sac.fismediaclub.org/sac/meetings
+   https://sac.fismediaclub.org/sac/attendance
    https://sac.fismediaclub.org/profile
    ```
 
 4. Confirm an eligible Grade 9-or-above account opens in SAC mode.
 5. Confirm the workspace switcher can open Media Club and return to SAC.
-6. Confirm a Grade 8 account cannot use SAC signups even if it manipulates the
-   URL or browser request.
+6. Confirm a Grade 8 account without an Auth-Admin-approved SAC membership
+   override cannot use SAC signups even if it manipulates the URL or request.
 7. Confirm a non-SAC Grade 9-or-above member sees a locked SAC signup preview
    without names or claim controls.
 8. Confirm a current SAC member's claim immediately displays their name on the
    sheet and appears in My Shifts. Confirm Members lists only current SAC tags.
 9. Confirm only Auth Admin or a SAC President, Vice President, Attendance
    Manager, or Club Manager can create or modify an SAC event.
+   Confirm the same roles can create or edit SAC meetings and record whole-event
+   attendance; other eligible members can view meetings but cannot open the
+   attendance roll. Event rolls must list only active Scoreboard bookers and
+   meeting rolls all current SAC members.
 10. Request one controlled password-recovery email from the SAC hostname and
     confirm its link returns to the allowed SAC sign-in URL.
 11. Confirm `fismediaclub.org` continues to open Media Club by default.

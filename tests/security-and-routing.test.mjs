@@ -111,7 +111,9 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/dashboard.js',
     'scripts/events.js',
     'scripts/sac-events.js',
+    'scripts/sac-meetings.js',
     'scripts/sac-signups.js',
+    'scripts/sac-attendance.js',
     'scripts/meetings.js',
     'scripts/signups.js',
     'scripts/crew-schedule.js',
@@ -135,12 +137,14 @@ test('SAC deep-link refreshes resolve shared assets from the deployment root', (
     'supabase-config.js',
     'scripts/core.js',
     'scripts/sac-events.js',
+    'scripts/sac-meetings.js',
     'scripts/sac-signups.js',
+    'scripts/sac-attendance.js',
     'assets/media-club-logo.png',
     'assets/sac-warriors-mark.png',
   ];
   for (const host of ['sac.fismediaclub.org', 'fismediaclub.org']) {
-    for (const route of ['/sac/events', '/sac/signups', '/sac/my-shifts', '/sac/members']) {
+    for (const route of ['/sac/events', '/sac/signups', '/sac/my-shifts', '/sac/members', '/sac/meetings', '/sac/attendance']) {
       const documentUrl = new URL(route, `https://${host}`);
       const baseUrl = new URL(baseHref, documentUrl);
       for (const asset of assets) {
@@ -589,10 +593,14 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
   assert.equal(logic.workspacePageFor('sac-signups', 'sac'), 'sac-signups');
   assert.equal(logic.workspacePageFor('sac-my-shifts', 'sac'), 'sac-my-shifts');
   assert.equal(logic.workspacePageFor('sac-members', 'sac'), 'sac-members');
+  assert.equal(logic.workspacePageFor('sac-meetings', 'sac'), 'sac-meetings');
+  assert.equal(logic.workspacePageFor('sac-attendance', 'sac'), 'sac-attendance');
   assert.equal(logic.workspacePageFor('sac-events', 'media'), 'home');
   assert.equal(logic.workspacePageFor('sac-signups', 'media'), 'home');
   assert.equal(logic.workspacePageFor('sac-my-shifts', 'media'), 'home');
   assert.equal(logic.workspacePageFor('sac-members', 'media'), 'home');
+  assert.equal(logic.workspacePageFor('sac-meetings', 'media'), 'home');
+  assert.equal(logic.workspacePageFor('sac-attendance', 'media'), 'home');
   assert.equal(logic.workspacePageFor('profile', 'sac'), 'profile');
   assert.equal(logic.workspacePageFor('sac-home', 'media'), 'home');
 
@@ -623,6 +631,8 @@ test('a SAC deep link is preserved until authentication can resolve workspace ac
     ['/sac/signups', '?event=game-1', 'sac-signups'],
     ['/sac/my-shifts', '', 'sac-my-shifts'],
     ['/sac/members', '', 'sac-members'],
+    ['/sac/meetings', '', 'sac-meetings'],
+    ['/sac/attendance', '?kind=meeting&item=meeting-1', 'sac-attendance'],
   ]) {
     const route = { pathname, search };
     const replacements = [];
@@ -746,7 +756,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.doesNotMatch(indexHtml, /<button\b[^>]*role="tab"/);
 
   const sidebarLinks = [...indexHtml.matchAll(/<a\b[^>]*class="nav-item[^>]*data-page="[^"]+"[^>]*>/g)].map(match => match[0]);
-  assert.equal(sidebarLinks.length, 18);
+  assert.equal(sidebarLinks.length, 20);
   sidebarLinks.forEach(link => {
     assert.match(link, /href="\/[^"]+"/);
     assert.doesNotMatch(link, /onclick=/);

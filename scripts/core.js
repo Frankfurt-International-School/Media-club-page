@@ -993,6 +993,8 @@ async function loadCrewCenterInitialData() {
     'sac-home': canReviewSacApplications() ? ['applications'] : [],
     'sac-members': [],
     'sac-my-shifts': [],
+    'sac-meetings': [],
+    'sac-attendance': [],
     events: ['events'],
     meetings: ['meetings'],
     signup: ['events', 'equipment'],
@@ -1105,11 +1107,13 @@ function renderCurrentPage() {
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
   if (activePage === 'about') renderAboutRecentProjects();
   if (activePage === 'home') renderDashboard();
-  if (activePage === 'sac-home') renderSacApplications();
+  if (activePage === 'sac-home') { renderSacDashboard(); renderSacApplications(); }
   if (activePage === 'sac-events') renderSacEvents();
   if (activePage === 'sac-signups') renderSacSignups();
   if (activePage === 'sac-my-shifts') renderSacMyShifts();
   if (activePage === 'sac-members') renderSacMembers();
+  if (activePage === 'sac-meetings') renderSacMeetings();
+  if (activePage === 'sac-attendance') renderSacAttendance();
   if (activePage === 'events') renderEvents();
   if (activePage === 'meetings') renderMeetings();
   if (activePage === 'signup') initSignupSheet();

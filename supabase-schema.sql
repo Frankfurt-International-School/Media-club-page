@@ -413,6 +413,26 @@ create trigger sac_events_touch_updated_at
 before update on public.sac_events
 for each row execute function public.touch_event_updated_at();
 
+-- SAC meetings have their own schedule and no RSVP or CAS relationship.
+create table if not exists public.sac_meetings (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(btrim(title)) between 1 and 120),
+  description text not null default '' check (char_length(description) <= 4000),
+  location text not null default '' check (char_length(location) <= 200),
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  created_by_auth_user_id uuid default auth.uid() references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint sac_meetings_time_window_check check (ends_at > starts_at)
+);
+
+create index if not exists sac_meetings_starts_at_idx on public.sac_meetings (starts_at);
+drop trigger if exists sac_meetings_touch_updated_at on public.sac_meetings;
+create trigger sac_meetings_touch_updated_at
+before update on public.sac_meetings
+for each row execute function public.touch_event_updated_at();
+
 -- Keep linked SAC windows aligned when production staff edit the livestream.
 -- Archiving a Media Club event unlinks SAC while preserving its last schedule.
 create or replace function public.sync_linked_sac_event_windows()
@@ -461,6 +481,25 @@ create table if not exists public.sac_slot_signups (
   cancelled_by_auth_user_id uuid references auth.users(id) on delete set null,
   constraint sac_slot_signups_window_check check (slot_end > slot_start)
 );
+
+-- One whole-event mark per person. The two nullable targets are exclusive.
+-- A member name snapshot preserves the record if that member is later removed.
+create table if not exists public.sac_attendance (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid references public.sac_events(id) on delete restrict,
+  meeting_id uuid references public.sac_meetings(id) on delete restrict,
+  member_id uuid references public.members(id) on delete set null,
+  member_name_snapshot text not null,
+  status text not null check (status in ('present', 'late', 'absent', 'excused')),
+  marked_at timestamptz not null default now(),
+  marked_by_auth_user_id uuid references auth.users(id) on delete set null,
+  constraint sac_attendance_one_target_check check ((event_id is null) <> (meeting_id is null)),
+  constraint sac_attendance_event_member_key unique (event_id, member_id),
+  constraint sac_attendance_meeting_member_key unique (meeting_id, member_id)
+);
+
+create index if not exists sac_attendance_event_idx on public.sac_attendance (event_id) where event_id is not null;
+create index if not exists sac_attendance_meeting_idx on public.sac_attendance (meeting_id) where meeting_id is not null;
 
 create index if not exists sac_slot_signups_event_start_idx
 on public.sac_slot_signups (event_id, slot_start);

@@ -1,7 +1,7 @@
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", "sac-events": "SAC Events", "sac-signups": "SAC Sign-up Sheets", "sac-my-shifts": "My SAC Shifts", "sac-members": "SAC Members", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", "sac-events": "SAC Events", "sac-signups": "SAC Sign-up Sheets", "sac-my-shifts": "My SAC Shifts", "sac-members": "SAC Members", "sac-meetings": "SAC Meetings", "sac-attendance": "SAC Attendance", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   about: '/about',
   home: '/dashboard',
@@ -9,6 +9,8 @@ const pageRoutes = {
   'sac-signups': '/sac/signups',
   'sac-my-shifts': '/sac/my-shifts',
   'sac-members': '/sac/members',
+  'sac-meetings': '/sac/meetings',
+  'sac-attendance': '/sac/attendance',
   events: '/events',
   meetings: '/meetings',
   signup: '/signups',
@@ -30,6 +32,8 @@ const routePages = {
   '/sac/signups': 'sac-signups',
   '/sac/my-shifts': 'sac-my-shifts',
   '/sac/members': 'sac-members',
+  '/sac/meetings': 'sac-meetings',
+  '/sac/attendance': 'sac-attendance',
   '/events': 'events',
   '/meetings': 'meetings',
   '/signup': 'signup',
@@ -82,6 +86,9 @@ function navigate(id, el, options = {}) {
   if (page === 'meetings' && isVisitorSession()) {
     page = 'home';
   }
+  if (page === 'sac-attendance' && !canCreateSacEvents()) {
+    page = 'sac-home';
+  }
   if (page === 'equipment-status' && !canAccessEquipmentStatus()) {
     page = 'home';
   }
@@ -117,11 +124,13 @@ function navigate(id, el, options = {}) {
   }
   if (page === 'about') renderAboutRecentProjects();
   if (page === 'home') renderDashboard();
-  if (page === 'sac-home') renderSacApplications();
+  if (page === 'sac-home') { renderSacDashboard(); renderSacApplications(); }
   if (page === 'sac-events') renderSacEvents();
   if (page === 'sac-signups') renderSacSignups();
   if (page === 'sac-my-shifts') renderSacMyShifts();
   if (page === 'sac-members') renderSacMembers();
+  if (page === 'sac-meetings') renderSacMeetings();
+  if (page === 'sac-attendance') renderSacAttendance();
   if (page === 'events') renderEvents();
   if (page === 'meetings') renderMeetings();
   if (page === 'signup') initSignupSheet();

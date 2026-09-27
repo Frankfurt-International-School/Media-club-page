@@ -72,8 +72,9 @@ function currentCrewCenterWorkspace() {
 
 function workspacePageFor(page, workspace = activeCrewCenterWorkspace) {
   if (!page) return page;
-  if (workspace === 'sac') return ['sac-home', 'sac-events', 'sac-signups', 'sac-my-shifts', 'sac-members', 'profile'].includes(page) ? page : 'sac-home';
-  return ['sac-home', 'sac-events', 'sac-signups', 'sac-my-shifts', 'sac-members'].includes(page) ? 'home' : page;
+  if (workspace === 'sac' && page === 'sac-attendance' && typeof canCreateSacEvents === 'function' && !canCreateSacEvents()) return 'sac-home';
+  if (workspace === 'sac') return ['sac-home', 'sac-events', 'sac-signups', 'sac-my-shifts', 'sac-members', 'sac-meetings', 'sac-attendance', 'profile'].includes(page) ? page : 'sac-home';
+  return ['sac-home', 'sac-events', 'sac-signups', 'sac-my-shifts', 'sac-members', 'sac-meetings', 'sac-attendance'].includes(page) ? 'home' : page;
 }
 
 function workspaceUrlForPage(page, workspace = activeCrewCenterWorkspace, locationLike = window.location) {
@@ -151,6 +152,9 @@ function applyWorkspacePresentation({ animate = false } = {}) {
     if (choice.dataset.workspaceChoice === 'sac') choice.disabled = !sacAccess;
     if (choice.dataset.workspaceChoice === 'media') choice.disabled = !mediaAccess;
   });
+  const attendanceManager = isSac && canCreateSacEvents();
+  document.querySelector('.nav-item[data-page="sac-attendance"]')?.toggleAttribute('hidden', !attendanceManager);
+  document.getElementById('sac-home-attendance-card')?.toggleAttribute('hidden', !attendanceManager);
   closeWorkspaceMenu();
   window.applySidebarPreferences?.();
   if (animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -219,7 +223,9 @@ function syncCrewCenterWorkspaceFromLocation() {
 
 function resetCrewCenterWorkspace() {
   window.resetSacEventsState?.();
+  window.resetSacMeetingsState?.();
   window.resetSacSignupsState?.();
+  window.resetSacAttendanceState?.();
   activeCrewCenterWorkspace = 'media';
   applyWorkspacePresentation();
 }

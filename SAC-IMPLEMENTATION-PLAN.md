@@ -117,9 +117,18 @@ My Shifts shows a member's upcoming active bookings. Successful Scoreboard
 claims are confirmed immediately, and the sheet reloads before announcing that
 the booking is visible. SAC booking changes refresh open sheets through the
 RLS-protected Realtime publication after the policy SQL is applied.
+Steps 27–28 now also have local SAC Meetings and Attendance routes and a SAC
+dashboard member count. The count uses current SAC tags, not Grade 9–12
+workspace eligibility. Eligible members can view meeting schedules, while Auth
+Admin, President, Vice President, Attendance Manager, and Club Manager can
+create or edit meetings and record attendance. Each event roll contains members
+with active Scoreboard bookings for that event, once per person. Each meeting
+roll contains all current SAC members. Marks are Present, Late, Absent, and
+Excused; no mark is shown as Not marked. Database functions enforce the roll
+membership and allowed marks, and attendance is one mark per whole activity.
 These features are not live until the new schema and policies are applied and
-both site builds are deployed. Steps 16–18 (roster and hosted rollout) and
-27–28 (meetings, attendance, and final dashboard work) remain follow-up work.
+both site builds are deployed. Steps 16–18 (roster and hosted rollout) remain
+follow-up work. Live authenticated testing of the new routes also remains.
 The application-to-membership-to-signup path still needs a live authenticated
 test after an approved rollout. No Cloudflare setting, deployment, hosted
 Supabase schema, production member record, or live application is changed by

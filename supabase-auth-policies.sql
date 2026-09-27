@@ -4,7 +4,9 @@ alter table public.sac_membership_audit enable row level security;
 alter table public.cas_attendance_settings enable row level security;
 alter table public.events enable row level security;
 alter table public.sac_events enable row level security;
+alter table public.sac_meetings enable row level security;
 alter table public.sac_slot_signups enable row level security;
+alter table public.sac_attendance enable row level security;
 alter table public.meetings enable row level security;
 alter table public.meeting_attendees enable row level security;
 alter table public.signups enable row level security;
@@ -48,6 +50,10 @@ drop policy if exists "Eligible members can read SAC events" on public.sac_event
 drop policy if exists "SAC event creators can add events" on public.sac_events;
 drop policy if exists "SAC event creators can edit events" on public.sac_events;
 drop policy if exists "SAC members can read slot signups" on public.sac_slot_signups;
+drop policy if exists "Eligible members can read SAC meetings" on public.sac_meetings;
+drop policy if exists "SAC leaders can add meetings" on public.sac_meetings;
+drop policy if exists "SAC leaders can edit meetings" on public.sac_meetings;
+drop policy if exists "SAC attendance managers can read marks" on public.sac_attendance;
 drop policy if exists "Audience members can read meetings" on public.meetings;
 drop policy if exists "Audience members can read meeting attendees" on public.meeting_attendees;
 drop policy if exists "Approved members can read meetings" on public.meetings;
@@ -675,9 +681,116 @@ begin
 end;
 $$;
 
+-- Only designated leaders see an attendance roll. Event rows come from active
+-- Scoreboard bookings; meeting rows come from current SAC membership.
+create or replace function public.get_sac_attendance_roll(p_kind text, p_item_id uuid)
+returns table (member_id uuid, member_name text, attendance_status text)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.can_create_sac_events() then
+    raise exception 'SAC attendance management access is required.';
+  end if;
+  if p_kind = 'event' then
+    if not exists (select 1 from public.sac_events where id = p_item_id) then
+      raise exception 'SAC event not found.';
+    end if;
+    return query
+      select booked.member_id, booked.member_name,
+        mark.status
+      from (
+        select signup.member_id, max(coalesce(member.name, signup.member_name_snapshot)) as member_name
+        from public.sac_slot_signups signup
+        left join public.members member on member.id = signup.member_id
+        where signup.event_id = p_item_id and signup.cancelled_at is null
+          and signup.member_id is not null
+        group by signup.member_id
+      ) booked
+      left join public.sac_attendance mark
+        on mark.event_id = p_item_id and mark.member_id = booked.member_id
+      order by booked.member_name;
+  elsif p_kind = 'meeting' then
+    if not exists (select 1 from public.sac_meetings where id = p_item_id) then
+      raise exception 'SAC meeting not found.';
+    end if;
+    return query
+      select member.id, member.name, mark.status
+      from public.member_team_memberships membership
+      join public.members member on member.id = membership.member_id
+      left join public.sac_attendance mark
+        on mark.meeting_id = p_item_id and mark.member_id = member.id
+      where membership.team_key = 'sac'
+      order by member.name;
+  else
+    raise exception 'Choose a SAC event or meeting.';
+  end if;
+end;
+$$;
+
+create or replace function public.mark_sac_attendance(
+  p_kind text, p_item_id uuid, p_member_id uuid, p_status text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_name text;
+begin
+  if not public.can_create_sac_events() then
+    raise exception 'SAC attendance management access is required.';
+  end if;
+  if p_status not in ('present', 'late', 'absent', 'excused') or p_status is null then
+    raise exception 'Choose Present, Late, Absent, or Excused.';
+  end if;
+  if p_kind = 'event' then
+    if not exists (select 1 from public.sac_events where id = p_item_id) then
+      raise exception 'SAC event not found.';
+    end if;
+    perform 1 from public.sac_slot_signups signup
+    where signup.event_id = p_item_id and signup.member_id = p_member_id
+      and signup.cancelled_at is null
+    limit 1 for share;
+    if not found then raise exception 'Only active Scoreboard bookings appear on this event roll.'; end if;
+    select member.name into target_name from public.members member where member.id = p_member_id;
+    if target_name is null then raise exception 'SAC member not found.'; end if;
+    insert into public.sac_attendance (event_id, member_id, member_name_snapshot, status, marked_by_auth_user_id)
+    values (p_item_id, p_member_id, target_name, p_status, auth.uid())
+    on conflict on constraint sac_attendance_event_member_key do update
+      set status = excluded.status, member_name_snapshot = excluded.member_name_snapshot,
+        marked_at = now(), marked_by_auth_user_id = auth.uid();
+  elsif p_kind = 'meeting' then
+    if not exists (select 1 from public.sac_meetings where id = p_item_id) then
+      raise exception 'SAC meeting not found.';
+    end if;
+    select member.name into target_name
+    from public.members member
+    join public.member_team_memberships membership
+      on membership.member_id = member.id and membership.team_key = 'sac'
+    where member.id = p_member_id
+    for share of membership;
+    if target_name is null then raise exception 'Only current SAC members appear on this meeting roll.'; end if;
+    insert into public.sac_attendance (meeting_id, member_id, member_name_snapshot, status, marked_by_auth_user_id)
+    values (p_item_id, p_member_id, target_name, p_status, auth.uid())
+    on conflict on constraint sac_attendance_meeting_member_key do update
+      set status = excluded.status, member_name_snapshot = excluded.member_name_snapshot,
+        marked_at = now(), marked_by_auth_user_id = auth.uid();
+  else
+    raise exception 'Choose a SAC event or meeting.';
+  end if;
+  return true;
+end;
+$$;
+
 revoke all on function public.can_read_sac_slot_signups() from public, anon, authenticated;
 revoke all on function public.claim_sac_scoreboard_slot(uuid, timestamptz, uuid) from public, anon, authenticated;
 revoke all on function public.cancel_sac_scoreboard_slot(uuid) from public, anon, authenticated;
+revoke all on function public.get_sac_attendance_roll(text, uuid) from public, anon, authenticated;
+revoke all on function public.mark_sac_attendance(text, uuid, uuid, text) from public, anon, authenticated;
 
 create or replace function public.can_read_meeting(p_meeting_id uuid)
 returns boolean
@@ -759,6 +872,8 @@ grant execute on function public.get_sac_membership_audit(uuid) to authenticated
 grant execute on function public.can_use_personal_camera(uuid, text) to authenticated;
 grant execute on function public.is_member_of_team(text) to authenticated;
 grant execute on function public.can_read_sac_slot_signups() to authenticated;
+grant execute on function public.get_sac_attendance_roll(text, uuid) to authenticated;
+grant execute on function public.mark_sac_attendance(text, uuid, uuid, text) to authenticated;
 grant execute on function public.claim_sac_scoreboard_slot(uuid, timestamptz, uuid) to authenticated;
 grant execute on function public.cancel_sac_scoreboard_slot(uuid) to authenticated;
 grant execute on function public.can_read_meeting(uuid) to authenticated;
@@ -2408,6 +2523,38 @@ with check (
   (select public.can_create_sac_events())
   and public.sac_event_link_is_valid(linked_media_event_id, starts_at, ends_at)
 );
+
+revoke all on table public.sac_meetings from anon, authenticated;
+grant select, insert on table public.sac_meetings to authenticated;
+grant update (title, description, location, starts_at, ends_at)
+on table public.sac_meetings to authenticated;
+
+create policy "Eligible members can read SAC meetings"
+on public.sac_meetings for select
+to authenticated
+using ((select public.can_view_sac_events()));
+
+create policy "SAC leaders can add meetings"
+on public.sac_meetings for insert
+to authenticated
+with check (
+  (select public.can_create_sac_events())
+  and created_by_auth_user_id = (select auth.uid())
+);
+
+create policy "SAC leaders can edit meetings"
+on public.sac_meetings for update
+to authenticated
+using ((select public.can_create_sac_events()))
+with check ((select public.can_create_sac_events()));
+
+revoke all on table public.sac_attendance from anon, authenticated;
+grant select on table public.sac_attendance to authenticated;
+
+create policy "SAC attendance managers can read marks"
+on public.sac_attendance for select
+to authenticated
+using ((select public.can_create_sac_events()));
 
 revoke all on table public.sac_slot_signups from anon, authenticated;
 grant select on table public.sac_slot_signups to authenticated;
