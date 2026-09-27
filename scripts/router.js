@@ -1,12 +1,14 @@
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", "sac-events": "SAC Events", "sac-signups": "SAC Sign-up Sheets", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", "sac-events": "SAC Events", "sac-signups": "SAC Sign-up Sheets", "sac-my-shifts": "My SAC Shifts", "sac-members": "SAC Members", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   about: '/about',
   home: '/dashboard',
   'sac-events': '/sac/events',
   'sac-signups': '/sac/signups',
+  'sac-my-shifts': '/sac/my-shifts',
+  'sac-members': '/sac/members',
   events: '/events',
   meetings: '/meetings',
   signup: '/signups',
@@ -26,6 +28,8 @@ const routePages = {
   '/dashboard': 'home',
   '/sac/events': 'sac-events',
   '/sac/signups': 'sac-signups',
+  '/sac/my-shifts': 'sac-my-shifts',
+  '/sac/members': 'sac-members',
   '/events': 'events',
   '/meetings': 'meetings',
   '/signup': 'signup',
@@ -116,6 +120,8 @@ function navigate(id, el, options = {}) {
   if (page === 'sac-home') renderSacApplications();
   if (page === 'sac-events') renderSacEvents();
   if (page === 'sac-signups') renderSacSignups();
+  if (page === 'sac-my-shifts') renderSacMyShifts();
+  if (page === 'sac-members') renderSacMembers();
   if (page === 'events') renderEvents();
   if (page === 'meetings') renderMeetings();
   if (page === 'signup') initSignupSheet();

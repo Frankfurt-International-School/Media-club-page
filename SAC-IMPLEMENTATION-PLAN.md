@@ -111,6 +111,12 @@ only in the interface. Eligible nonmembers see a locked schedule preview and
 the SAC application link. Linked Media Club sign-up sheets point directly to
 the matching SAC sheet. If an event schedule changes after booking, affected
 bookings remain visible for review and cancellation rather than disappearing.
+The SAC workspace also has local Members and My Shifts routes. Members shows
+current SAC-tagged people, separate from Grade 9–12 workspace eligibility.
+My Shifts shows a member's upcoming active bookings. Successful Scoreboard
+claims are confirmed immediately, and the sheet reloads before announcing that
+the booking is visible. SAC booking changes refresh open sheets through the
+RLS-protected Realtime publication after the policy SQL is applied.
 These features are not live until the new schema and policies are applied and
 both site builds are deployed. Steps 16–18 (roster and hosted rollout) and
 27–28 (meetings, attendance, and final dashboard work) remain follow-up work.

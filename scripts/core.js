@@ -991,6 +991,8 @@ async function loadCrewCenterInitialData() {
     about: ['gallery'],
     home: ['events', 'gallery', 'equipment', 'announcements'],
     'sac-home': canReviewSacApplications() ? ['applications'] : [],
+    'sac-members': [],
+    'sac-my-shifts': [],
     events: ['events'],
     meetings: ['meetings'],
     signup: ['events', 'equipment'],
@@ -1030,7 +1032,7 @@ function queueRealtimeDataLoad(...datasets) {
 
 function refreshVisitorDataForPage(page) {
   if (!isVisitorSession()) {
-    if (page === 'members' && (!state.dataUpdatedAt.members || Date.now() - state.dataUpdatedAt.members > 120000)) {
+    if (['members', 'sac-members'].includes(page) && (!state.dataUpdatedAt.members || Date.now() - state.dataUpdatedAt.members > 120000)) {
       loadCrewCenterData({ datasets: ['members'], silent: true });
     }
     return;
@@ -1076,6 +1078,12 @@ function subscribeToCrewCenterChanges() {
       queueRealtimeDataLoad(...datasets);
     });
   });
+  channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'sac_slot_signups' }, () => {
+    if (currentCrewCenterWorkspace() !== 'sac' || !canClaimSacSlot()) return;
+    const page = document.querySelector('.page.active')?.id;
+    if (page === 'page-sac-signups') renderSacSignups();
+    if (page === 'page-sac-my-shifts') renderSacMyShifts();
+  });
   window.CREW_CENTER_REALTIME_CHANNEL = channel.subscribe();
 }
 
@@ -1100,6 +1108,8 @@ function renderCurrentPage() {
   if (activePage === 'sac-home') renderSacApplications();
   if (activePage === 'sac-events') renderSacEvents();
   if (activePage === 'sac-signups') renderSacSignups();
+  if (activePage === 'sac-my-shifts') renderSacMyShifts();
+  if (activePage === 'sac-members') renderSacMembers();
   if (activePage === 'events') renderEvents();
   if (activePage === 'meetings') renderMeetings();
   if (activePage === 'signup') initSignupSheet();

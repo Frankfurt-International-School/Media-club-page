@@ -59,6 +59,14 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
       <span class="nav-label">Sign-up sheets</span>
     </a>
+    <a href="/sac/my-shifts" class="nav-item" data-page="sac-my-shifts" data-category="sac" data-label="My SAC Shifts" data-workspace-scope="sac">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="nav-label">My shifts</span>
+    </a>
+    <a href="/sac/members" class="nav-item" data-page="sac-members" data-category="sac" data-label="SAC Members" data-workspace-scope="sac">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      <span class="nav-label">Members</span>
+    </a>
     <div class="nav-section-label" data-nav-category="main" data-workspace-scope="media">Main</div>
     <a href="/dashboard" class="nav-item active" data-page="home" data-category="main" data-label="Dashboard" data-workspace-scope="media" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -326,7 +334,8 @@
       <section class="sac-home-grid" aria-label="SAC workspace areas">
         <a class="sac-home-card" href="/sac/events"><div class="sac-home-card-number">01</div><h2>Athletic events</h2><p>See upcoming SAC service events, including events linked to Media Club livestreams.</p><span>Open SAC Events →</span></a>
         <a class="sac-home-card" href="/sac/signups"><div class="sac-home-card-number">02</div><h2>Time-slot sign-ups</h2><p>Choose a Scoreboard shift from clear 30-minute intervals, with two spots in each.</p><span>Open sign-up sheets →</span></a>
-        <article class="sac-home-card"><div class="sac-home-card-number">03</div><h2>Meetings and attendance</h2><p>SAC leaders will have a focused place to coordinate meetings and event attendance.</p><span>Planned next phase</span></article>
+        <a class="sac-home-card" href="/sac/my-shifts"><div class="sac-home-card-number">03</div><h2>My shifts</h2><p>See your confirmed Scoreboard bookings and return to an event sheet if plans change.</p><span>View my shifts →</span></a>
+        <a class="sac-home-card" href="/sac/members"><div class="sac-home-card-number">04</div><h2>SAC members</h2><p>Find current SAC members and leadership in a focused directory.</p><span>Open members →</span></a>
       </section>
       <section class="sac-review-panel" id="sac-review-panel" aria-labelledby="sac-review-title" hidden>
         <div class="section-head" id="sac-review-title">SAC membership requests</div>
@@ -362,6 +371,31 @@
       <select class="form-select" id="sac-signup-event-select" onchange="selectSacSignupEvent(this.value)"></select>
     </div>
     <div id="sac-signups-content" aria-live="polite"></div>
+  </div>
+
+  <div id="page-sac-my-shifts" class="page">
+    <section class="sac-events-head">
+      <div>
+        <div class="page-kicker">Student Athletic Council / My shifts</div>
+        <h1 class="page-title">My Scoreboard shifts</h1>
+        <p class="page-sub">Your booked shifts appear here as soon as they are saved. No separate confirmation is needed.</p>
+      </div>
+      <a class="btn btn-accent" href="/sac/signups">Find a shift</a>
+    </section>
+    <div id="sac-my-shifts-content" aria-live="polite"></div>
+  </div>
+
+  <div id="page-sac-members" class="page">
+    <section class="sac-events-head">
+      <div>
+        <div class="page-kicker">Student Athletic Council / Members</div>
+        <h1 class="page-title">SAC members</h1>
+        <p class="page-sub">Current SAC-tagged members and their council titles. Grade eligibility alone does not add someone to this directory.</p>
+      </div>
+      <span class="sac-members-count" id="sac-members-count"></span>
+    </section>
+    <div class="sac-members-toolbar"><label class="form-label" for="sac-member-search">Find a member</label><input class="form-input" type="search" id="sac-member-search" placeholder="Search name or title" oninput="renderSacMembers()"></div>
+    <div class="sac-members-grid" id="sac-members-grid" aria-live="polite"></div>
   </div>
 
   <!-- ── DASHBOARD ── -->

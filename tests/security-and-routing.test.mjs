@@ -140,7 +140,7 @@ test('SAC deep-link refreshes resolve shared assets from the deployment root', (
     'assets/sac-warriors-mark.png',
   ];
   for (const host of ['sac.fismediaclub.org', 'fismediaclub.org']) {
-    for (const route of ['/sac/events', '/sac/signups']) {
+    for (const route of ['/sac/events', '/sac/signups', '/sac/my-shifts', '/sac/members']) {
       const documentUrl = new URL(route, `https://${host}`);
       const baseUrl = new URL(baseHref, documentUrl);
       for (const asset of assets) {
@@ -587,8 +587,12 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
   assert.equal(logic.workspacePageFor('events', 'sac'), 'sac-home');
   assert.equal(logic.workspacePageFor('sac-events', 'sac'), 'sac-events');
   assert.equal(logic.workspacePageFor('sac-signups', 'sac'), 'sac-signups');
+  assert.equal(logic.workspacePageFor('sac-my-shifts', 'sac'), 'sac-my-shifts');
+  assert.equal(logic.workspacePageFor('sac-members', 'sac'), 'sac-members');
   assert.equal(logic.workspacePageFor('sac-events', 'media'), 'home');
   assert.equal(logic.workspacePageFor('sac-signups', 'media'), 'home');
+  assert.equal(logic.workspacePageFor('sac-my-shifts', 'media'), 'home');
+  assert.equal(logic.workspacePageFor('sac-members', 'media'), 'home');
   assert.equal(logic.workspacePageFor('profile', 'sac'), 'profile');
   assert.equal(logic.workspacePageFor('sac-home', 'media'), 'home');
 
@@ -617,6 +621,8 @@ test('a SAC deep link is preserved until authentication can resolve workspace ac
   for (const [pathname, search, page] of [
     ['/sac/events', '', 'sac-events'],
     ['/sac/signups', '?event=game-1', 'sac-signups'],
+    ['/sac/my-shifts', '', 'sac-my-shifts'],
+    ['/sac/members', '', 'sac-members'],
   ]) {
     const route = { pathname, search };
     const replacements = [];
@@ -740,7 +746,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.doesNotMatch(indexHtml, /<button\b[^>]*role="tab"/);
 
   const sidebarLinks = [...indexHtml.matchAll(/<a\b[^>]*class="nav-item[^>]*data-page="[^"]+"[^>]*>/g)].map(match => match[0]);
-  assert.equal(sidebarLinks.length, 16);
+  assert.equal(sidebarLinks.length, 18);
   sidebarLinks.forEach(link => {
     assert.match(link, /href="\/[^"]+"/);
     assert.doesNotMatch(link, /onclick=/);

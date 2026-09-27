@@ -2693,6 +2693,12 @@ end $$;
 
 do $$
 begin
+  alter publication supabase_realtime add table public.sac_slot_signups;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
   alter publication supabase_realtime add table public.gallery;
 exception when duplicate_object then null;
 end $$;

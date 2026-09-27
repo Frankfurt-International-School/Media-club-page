@@ -1,8 +1,9 @@
 // SAC sign-ups are time-first. Database RPCs own eligibility, capacity, and overlap checks.
-const sacSignupsState = { events: [], signups: [], selectedEventId: null, assignedMemberId: null, request: 0 };
+const sacSignupsState = { events: [], signups: [], selectedEventId: null, assignedMemberId: null, request: 0, myShiftsRequest: 0 };
 
 function resetSacSignupsState() {
   sacSignupsState.request += 1;
+  sacSignupsState.myShiftsRequest += 1;
   sacSignupsState.events = [];
   sacSignupsState.signups = [];
   sacSignupsState.selectedEventId = null;
@@ -11,6 +12,8 @@ function resetSacSignupsState() {
   const content = document.getElementById('sac-signups-content');
   if (select) select.textContent = '';
   if (content) content.textContent = '';
+  const myShifts = document.getElementById('sac-my-shifts-content');
+  if (myShifts) myShifts.textContent = '';
 }
 
 window.resetSacSignupsState = resetSacSignupsState;
@@ -39,6 +42,13 @@ function sacSignupTimeRange(slot) {
   const end = sameDay ? berlinTimeLabel(slot.end)
     : formatBerlinDateTime(slot.end, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return `${berlinTimeLabel(slot.start)}–${end}`;
+}
+
+function sacBookingMatchesSlot(booking, slot) {
+  const bookingStart = Date.parse(booking.slot_start);
+  const bookingEnd = Date.parse(booking.slot_end);
+  return Number.isFinite(bookingStart) && Number.isFinite(bookingEnd)
+    && bookingStart === Date.parse(slot.start) && bookingEnd === Date.parse(slot.end);
 }
 
 function sacSignupMembers() {
@@ -75,22 +85,21 @@ function paintSacSignupSheet() {
   const ownId = currentMemberRecord()?.id;
   const selectedMemberId = selectedSacSignupMemberId() || (isAdmin ? (sacSignupMembers()[0]?.id || '') : ownId);
   const bookings = sacSignupsState.signups;
-  const slotKeys = new Set(slots.map(slot => `${slot.start}|${slot.end}`));
-  const orphaned = canClaim ? bookings.filter(booking => !slotKeys.has(`${booking.slot_start}|${booking.slot_end}`)) : [];
+  const orphaned = canClaim ? bookings.filter(booking => !slots.some(slot => sacBookingMatchesSlot(booking, slot))) : [];
   const members = sacSignupMembers();
   const memberSelect = isAdmin
     ? `<div class="sac-signup-assign"><label class="form-label" for="sac-signup-assign-member">Assign an SAC member</label><select class="form-select" id="sac-signup-assign-member" onchange="setSacSignupAssignee(this.value)">${members.map(member => `<option value="${escapeHtml(member.id)}" ${member.id === selectedMemberId ? 'selected' : ''}>${escapeHtml(member.name)}</option>`).join('')}</select><small>Auth Admin can assign any current SAC member. Other SAC members can sign up only themselves.</small></div>`
     : '';
   const intro = `<div class="sac-signup-intro"><div><span class="page-kicker">${escapeHtml(formatBerlinDateTime(event.starts_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</span><h2>${escapeHtml(event.title)}</h2><p>${escapeHtml(sacEventTimeLabel(event))} Berlin time${event.location ? ` · ${escapeHtml(event.location)}` : ''}</p></div><span class="sac-signup-role">Scoreboard · ${escapeHtml(String(event.scoreboard_spots || 2))} spots / shift</span></div>`;
   const access = canClaim
-    ? `<div class="sac-signup-access">${isAdmin ? 'Choose a current SAC member, then assign a time slot.' : 'You may claim more than one shift as long as the times do not overlap. You can cancel your own shifts.'}</div>${memberSelect}`
+    ? `<div class="sac-signup-access">${isAdmin ? 'Choose a current SAC member, then assign a time slot.' : 'Claiming a spot books it immediately. Your name appears on the sheet and in <a href="/sac/my-shifts">My shifts</a>; there is no pending approval. You may claim non-overlapping shifts and cancel your own bookings.'}</div>${memberSelect}`
     : `<div class="sac-signup-locked"><strong>Preview only — SAC membership required</strong><p>Only current SAC-tagged members can claim Scoreboard shifts. If you already belong to SAC, apply using your FIS email and request the SAC option so an Auth Admin can verify your membership.</p><a class="btn btn-accent btn-sm" href="https://info.fismediaclub.org/#join">Request SAC access</a></div>`;
   let lastDay = '';
   const rows = slots.map(slot => {
     const day = berlinDateKey(slot.start);
     const heading = day !== lastDay ? `<h3 class="sac-signup-day">${escapeHtml(formatBerlinDateTime(slot.start, { weekday: 'long', day: 'numeric', month: 'long' }))}</h3>` : '';
     lastDay = day;
-    const occupants = canClaim ? bookings.filter(booking => booking.slot_start === slot.start && booking.slot_end === slot.end) : [];
+    const occupants = canClaim ? bookings.filter(booking => sacBookingMatchesSlot(booking, slot)) : [];
     const ownBooking = occupants.find(booking => booking.member_id === selectedMemberId);
     const full = occupants.length >= Number(event.scoreboard_spots || 2);
     const ended = Date.parse(slot.end) <= Date.now();
@@ -144,7 +153,7 @@ async function renderSacSignups() {
     if (!selected || !canClaimSacSlot()) {
       sacSignupsState.signups = [];
       paintSacSignupSheet();
-      return;
+      return true;
     }
     const { data: signups, error: signupError } = await supabaseClient.from('sac_slot_signups')
       .select('id,member_id,member_name_snapshot,slot_start,slot_end,spot_number')
@@ -153,10 +162,67 @@ async function renderSacSignups() {
     if (signupError) throw signupError;
     sacSignupsState.signups = signups || [];
     paintSacSignupSheet();
+    return true;
   } catch (error) {
     if (request !== sacSignupsState.request) return;
     content.innerHTML = '<div class="empty-state" role="alert"><p>SAC sign-up sheets are unavailable. The new database schema and permissions may need to be applied.</p></div>';
     showToast(error?.message || 'Could not load SAC sign-up sheets.', 'error', 7000);
+    return false;
+  }
+}
+
+function sacUpcomingOwnShifts(signups, memberId, now = Date.now()) {
+  return signups.filter(signup => signup.member_id === memberId && !signup.cancelled_at && Date.parse(signup.slot_end) > now)
+    .sort((a, b) => Date.parse(a.slot_start) - Date.parse(b.slot_start));
+}
+
+async function renderSacMyShifts() {
+  const content = document.getElementById('sac-my-shifts-content');
+  if (!content || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return false;
+  const request = ++sacSignupsState.myShiftsRequest;
+  const ownId = currentMemberRecord()?.id;
+  if (!canClaimSacSlot()) {
+    content.innerHTML = '<div class="sac-signup-locked"><strong>SAC membership required</strong><p>Current SAC members can book Scoreboard shifts. Eligible Crew Center members can preview the <a href="/sac/signups">sign-up sheet</a> and <a href="https://info.fismediaclub.org/#join">request SAC access</a>.</p></div>';
+    return true;
+  }
+  if (!ownId) {
+    content.innerHTML = '<div class="empty-state" role="status"><p>No SAC member record is linked to this account.</p></div>';
+    return true;
+  }
+  if (!supabaseClient) {
+    content.innerHTML = '<div class="empty-state" role="alert"><p>My shifts cannot load until Supabase is configured.</p></div>';
+    return false;
+  }
+  content.innerHTML = '<div class="empty-state" role="status"><p>Loading your SAC shifts…</p></div>';
+  try {
+    const { data, error } = await supabaseClient.from('sac_slot_signups')
+      .select('id,event_id,member_id,slot_start,slot_end,spot_number,cancelled_at')
+      .eq('member_id', ownId).is('cancelled_at', null)
+      .gt('slot_end', new Date().toISOString()).order('slot_start', { ascending: true });
+    if (request !== sacSignupsState.myShiftsRequest) return false;
+    if (error) throw error;
+    const shifts = sacUpcomingOwnShifts(data || [], ownId);
+    if (!shifts.length) {
+      content.innerHTML = '<div class="empty-state" role="status"><p>You have no upcoming SAC shifts yet.</p><a class="btn btn-accent btn-sm" href="/sac/signups">Find a Scoreboard shift</a></div>';
+      return true;
+    }
+    const ids = [...new Set(shifts.map(shift => shift.event_id))];
+    const { data: events, error: eventError } = await supabaseClient.from('sac_events')
+      .select('id,title,location').in('id', ids);
+    if (request !== sacSignupsState.myShiftsRequest) return false;
+    if (eventError) throw eventError;
+    const eventById = new Map((events || []).map(event => [event.id, event]));
+    content.innerHTML = `<div class="sac-my-shifts-list">${shifts.map(shift => {
+      const event = eventById.get(shift.event_id);
+      const slot = { start: shift.slot_start, end: shift.slot_end };
+      return `<article class="sac-my-shift"><div><span class="page-kicker">${escapeHtml(formatBerlinDateTime(shift.slot_start, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</span><h2>${escapeHtml(event?.title || 'SAC event')}</h2><p>${escapeHtml(sacSignupTimeRange(slot))} Berlin time · Scoreboard spot ${escapeHtml(String(shift.spot_number))}${event?.location ? ` · ${escapeHtml(event.location)}` : ''}</p><span class="badge badge-sac">Booked</span></div><div class="sac-my-shift-actions"><a class="btn btn-ghost btn-sm" href="${escapeHtml(sacSignupUrl(shift.event_id))}">View sheet</a><button class="btn btn-ghost btn-sm" type="button" data-sac-cancel-id="${escapeHtml(shift.id)}">Cancel shift</button></div></article>`;
+    }).join('')}</div>`;
+    return true;
+  } catch (error) {
+    if (request !== sacSignupsState.myShiftsRequest) return false;
+    content.innerHTML = '<div class="empty-state" role="alert"><p>Your SAC shifts are unavailable. Try refreshing this page.</p></div>';
+    showToast(error?.message || 'Could not load your SAC shifts.', 'error', 7000);
+    return false;
   }
 }
 
@@ -179,8 +245,8 @@ async function claimSacSignupSlot(slotStart, button) {
       p_member_id: canAddMembers() ? memberId : null,
     });
     if (error) throw error;
-    showToast('Scoreboard spot saved.');
-    renderSacSignups();
+    if (await renderSacSignups()) showToast('Booked — your name is on the sheet.');
+    else showToast('Spot saved, but the sheet could not refresh. Reload to confirm.', 'error', 7000);
   } catch (error) {
     button.disabled = false;
     showToast(error?.message || 'Could not claim this spot.', 'error', 7000);
@@ -193,8 +259,10 @@ async function cancelSacSignupSlot(signupId, button) {
   try {
     const { error } = await supabaseClient.rpc('cancel_sac_scoreboard_slot', { p_signup_id: signupId });
     if (error) throw error;
-    showToast('Scoreboard spot cancelled.');
-    renderSacSignups();
+    const refreshed = document.querySelector('.page.active')?.id === 'page-sac-my-shifts'
+      ? await renderSacMyShifts() : await renderSacSignups();
+    if (refreshed) showToast('Scoreboard spot cancelled.');
+    else showToast('Spot cancelled, but this page could not refresh. Reload to confirm.', 'error', 7000);
   } catch (error) {
     button.disabled = false;
     showToast(error?.message || 'Could not cancel this spot.', 'error', 7000);
@@ -204,6 +272,11 @@ async function cancelSacSignupSlot(signupId, button) {
 document.getElementById('sac-signups-content')?.addEventListener('click', event => {
   const claim = event.target.closest('[data-sac-claim-start]');
   if (claim) { claimSacSignupSlot(claim.dataset.sacClaimStart, claim); return; }
+  const cancel = event.target.closest('[data-sac-cancel-id]');
+  if (cancel) cancelSacSignupSlot(cancel.dataset.sacCancelId, cancel);
+});
+
+document.getElementById('sac-my-shifts-content')?.addEventListener('click', event => {
   const cancel = event.target.closest('[data-sac-cancel-id]');
   if (cancel) cancelSacSignupSlot(cancel.dataset.sacCancelId, cancel);
 });

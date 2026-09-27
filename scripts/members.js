@@ -60,6 +60,48 @@ function memberLeaderOrderPriority(member) {
   return normalizeSacTitle(member?.sacTitle) === 'president' ? 1 : 0;
 }
 
+function sacDirectoryMembers() {
+  const titleOrder = { president: 0, vice_president: 1, media_manager: 2, attendance_manager: 3, club_manager: 4 };
+  return state.members.filter(member => member.teamKeys?.includes('sac')).sort((a, b) => {
+    const rank = (titleOrder[normalizeSacTitle(a.sacTitle)] ?? 5) - (titleOrder[normalizeSacTitle(b.sacTitle)] ?? 5);
+    return rank || a.name.localeCompare(b.name);
+  });
+}
+
+function renderSacMembers() {
+  const grid = document.getElementById('sac-members-grid');
+  const count = document.getElementById('sac-members-count');
+  if (!grid || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return;
+  const all = sacDirectoryMembers();
+  const query = document.getElementById('sac-member-search')?.value.trim().toLowerCase() || '';
+  const visible = all.filter(member => `${member.name} ${sacTitleLabel(member.sacTitle)} ${member.gradeLevel}`.toLowerCase().includes(query));
+  count.textContent = `${all.length} current member${all.length === 1 ? '' : 's'}`;
+  if (!state.dataLoaded.members) {
+    grid.innerHTML = '<div class="empty-state" role="status"><p>Loading SAC members…</p></div>';
+    return;
+  }
+  if (!visible.length) {
+    grid.innerHTML = `<div class="empty-state" role="status"><p>${all.length ? 'No SAC members match your search.' : 'No SAC members have been added yet.'}</p></div>`;
+    return;
+  }
+  grid.innerHTML = visible.map(member => {
+    const [bg, fg] = memberColor(member.color);
+    const avatarUrl = safeExternalUrl(member.avatarUrl);
+    const avatarStyle = avatarUrl
+      ? `background:url(&quot;${escapeHtml(avatarUrl)}&quot;) center/cover;color:transparent;`
+      : `background:${bg};color:${fg};`;
+    const title = sacTitleLabel(member.sacTitle);
+    const dual = member.teamKeys.includes('media_club');
+    return `<article class="sac-directory-card">
+      <div class="member-avatar" style="${avatarStyle}">${avatarUrl ? '' : escapeHtml(initials(member.fname, member.lname))}</div>
+      <div class="sac-directory-body"><h2>${escapeHtml(member.name)}</h2><p>${escapeHtml(member.gradeLevel || 'Grade not listed')}</p>
+        <div class="member-tags"><span class="badge badge-sac">SAC Member</span>${title ? `<span class="badge badge-sac-title">${escapeHtml(title)}</span>` : ''}${dual ? '<span class="badge badge-gray">Also Media Club</span>' : ''}</div>
+      </div>
+      ${canManageSacMemberships() ? `<button class="btn btn-ghost btn-sm sac-member-manage" type="button" onclick="openSacMembershipModal('${escapeHtml(member.id)}')">Manage SAC</button>` : ''}
+    </article>`;
+  }).join('');
+}
+
 function renderMembers() {
   const q = (document.getElementById('member-search').value || '').toLowerCase();
   const rf = document.getElementById('member-role-filter').value;
@@ -250,6 +292,7 @@ async function saveSacMembership() {
   await loadCrewCenterData({ datasets: ['members'], silent: true });
   closeSacMembershipModal();
   renderMembers();
+  if (currentCrewCenterWorkspace() === 'sac') renderSacMembers();
   showToast(enabled ? `${member.name}'s SAC membership was saved.` : `${member.name} was removed from SAC. Their history was preserved.`);
 }
 
