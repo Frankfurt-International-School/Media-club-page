@@ -1,5 +1,5 @@
 // SAC sign-ups are time-first. Database RPCs own eligibility, capacity, and overlap checks.
-const sacSignupsState = { events: [], signups: [], selectedEventId: null, assignedMemberId: null, request: 0, myShiftsRequest: 0 };
+const sacSignupsState = { events: [], signups: [], selectedEventId: null, assignedMemberId: null, memberQuery: '', request: 0, myShiftsRequest: 0 };
 
 function resetSacSignupsState() {
   sacSignupsState.request += 1;
@@ -8,6 +8,7 @@ function resetSacSignupsState() {
   sacSignupsState.signups = [];
   sacSignupsState.selectedEventId = null;
   sacSignupsState.assignedMemberId = null;
+  sacSignupsState.memberQuery = '';
   const select = document.getElementById('sac-signup-event-select');
   const content = document.getElementById('sac-signups-content');
   if (select) select.textContent = '';
@@ -55,16 +56,52 @@ function sacSignupMembers() {
   return state.members.filter(member => Array.isArray(member.teamKeys) && member.teamKeys.includes('sac'));
 }
 
+function normalizeSacSignupSearch(value) {
+  return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+}
+
+function sacSignupMatchingMembers(query) {
+  const search = normalizeSacSignupSearch(query);
+  if (!search) return [];
+  return sacSignupMembers().filter(member =>
+    normalizeSacSignupSearch(member.name).includes(search)
+      || normalizeSacSignupSearch(member.email).includes(search));
+}
+
 function selectedSacSignupMemberId() {
-  return canAddMembers()
-    ? sacSignupsState.assignedMemberId || sacSignupMembers()[0]?.id || ''
-    : currentMemberRecord()?.id || '';
+  if (!canAddMembers()) return currentMemberRecord()?.id || '';
+  return sacSignupMembers().some(member => member.id === sacSignupsState.assignedMemberId)
+    ? sacSignupsState.assignedMemberId : '';
 }
 
 function setSacSignupAssignee(memberId) {
-  if (!canAddMembers() || !sacSignupMembers().some(member => member.id === memberId)) return;
+  const member = canAddMembers() ? sacSignupMembers().find(item => item.id === memberId) : null;
+  if (!member) return;
   sacSignupsState.assignedMemberId = memberId;
+  sacSignupsState.memberQuery = member.name;
   paintSacSignupSheet();
+  document.getElementById('sac-signup-assign-member')?.focus();
+}
+
+function paintSacSignupMemberMatches() {
+  const input = document.getElementById('sac-signup-assign-member');
+  const results = document.getElementById('sac-signup-member-matches');
+  const status = document.getElementById('sac-signup-member-status');
+  if (!input || !results || !status || !canAddMembers()) return;
+  const selected = sacSignupMembers().find(member => member.id === selectedSacSignupMemberId());
+  const query = input.value.trim();
+  const matches = selected ? [] : sacSignupMatchingMembers(query);
+  if (selected) {
+    status.textContent = `Matched ${selected.name}${selected.email ? ` · ${selected.email}` : ''}. Ready to assign a spot.`;
+  } else if (!query) {
+    status.textContent = 'Type a current SAC member’s name or FIS email, then choose a match.';
+  } else if (!matches.length) {
+    status.textContent = 'No current SAC member matches. Check the Members page or try their FIS email.';
+  } else {
+    status.textContent = `${matches.length} matching SAC member${matches.length === 1 ? '' : 's'}.${matches.length > 6 ? ' Showing six; type more to narrow.' : ' Choose the correct person.'}`;
+  }
+  results.hidden = !matches.length;
+  results.innerHTML = matches.slice(0, 6).map(member => `<button class="sac-signup-member-match" type="button" data-sac-member-id="${escapeHtml(member.id)}"><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml([member.gradeLevel, member.email].filter(Boolean).join(' · '))}</small></button>`).join('');
 }
 
 function paintSacSignupSheet() {
@@ -83,16 +120,17 @@ function paintSacSignupSheet() {
   const canClaim = canClaimSacSlot();
   const isAdmin = canAddMembers();
   const ownId = currentMemberRecord()?.id;
-  const selectedMemberId = selectedSacSignupMemberId() || (isAdmin ? (sacSignupMembers()[0]?.id || '') : ownId);
+  const selectedMemberId = selectedSacSignupMemberId();
   const bookings = sacSignupsState.signups;
   const orphaned = canClaim ? bookings.filter(booking => !slots.some(slot => sacBookingMatchesSlot(booking, slot))) : [];
   const members = sacSignupMembers();
+  const selectedMember = members.find(member => member.id === selectedMemberId);
   const memberSelect = isAdmin
-    ? `<div class="sac-signup-assign"><label class="form-label" for="sac-signup-assign-member">Assign an SAC member</label><select class="form-select" id="sac-signup-assign-member" onchange="setSacSignupAssignee(this.value)">${members.map(member => `<option value="${escapeHtml(member.id)}" ${member.id === selectedMemberId ? 'selected' : ''}>${escapeHtml(member.name)}</option>`).join('')}</select><small>Auth Admin can assign any current SAC member. Other SAC members can sign up only themselves.</small></div>`
+    ? `<div class="sac-signup-assign"><label class="form-label" for="sac-signup-assign-member">Assign an SAC member</label><input class="form-input" id="sac-signup-assign-member" type="search" autocomplete="off" value="${escapeHtml(selectedMember?.name || sacSignupsState.memberQuery)}" placeholder="Type a member name or FIS email" aria-controls="sac-signup-member-matches" aria-describedby="sac-signup-member-status"><div class="sac-signup-member-matches" id="sac-signup-member-matches" role="group" aria-label="Matching SAC members" hidden></div><small id="sac-signup-member-status" role="status" aria-live="polite"></small><small>Auth Admin can assign any current SAC member. Other SAC members can sign up only themselves.</small></div>`
     : '';
   const intro = `<div class="sac-signup-intro"><div><span class="page-kicker">${escapeHtml(formatBerlinDateTime(event.starts_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</span><h2>${escapeHtml(event.title)}</h2><p>${escapeHtml(sacEventTimeLabel(event))} Berlin time${event.location ? ` · ${escapeHtml(event.location)}` : ''}</p></div><span class="sac-signup-role">Scoreboard · ${escapeHtml(String(event.scoreboard_spots || 2))} spots / shift</span></div>`;
   const access = canClaim
-    ? `<div class="sac-signup-access">${isAdmin ? 'Choose a current SAC member, then assign a time slot.' : 'Claiming a spot books it immediately. Your name appears on the sheet and in <a href="/sac/my-shifts">My shifts</a>; there is no pending approval. You may claim non-overlapping shifts and cancel your own bookings.'}</div>${memberSelect}`
+    ? `<div class="sac-signup-access">${isAdmin ? 'Type a current SAC member’s name and choose their match before assigning a slot.' : 'Claiming a spot books it immediately. Your name appears on the sheet and in <a href="/sac/my-shifts">My shifts</a>; there is no pending approval. You may claim non-overlapping shifts and cancel your own bookings.'}</div>${memberSelect}`
     : `<div class="sac-signup-locked"><strong>Preview only — SAC membership required</strong><p>Only current SAC-tagged members can claim Scoreboard shifts. If you already belong to SAC, apply using your FIS email and request the SAC option so an Auth Admin can verify your membership.</p><a class="btn btn-accent btn-sm" href="https://info.fismediaclub.org/#join">Request SAC access</a></div>`;
   let lastDay = '';
   const rows = slots.map(slot => {
@@ -122,6 +160,7 @@ function paintSacSignupSheet() {
     ? `<section class="sac-signup-warning" role="alert"><strong>Event schedule changed — ${orphaned.length} booking${orphaned.length === 1 ? '' : 's'} need review</strong><p>These existing bookings no longer match the current event window. They were kept so members can see and cancel them; choose a new shift after cancelling.</p>${orphaned.map(booking => `<div>${escapeHtml(booking.member_name_snapshot)} · ${escapeHtml(formatBerlinDateTime(booking.slot_start, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} <button class="sac-signup-cancel" type="button" data-sac-cancel-id="${escapeHtml(booking.id)}" ${isAdmin || booking.member_id === ownId ? '' : 'hidden'}>Cancel booking</button></div>`).join('')}</section>`
     : '';
   content.innerHTML = `${intro}${access}${changedSchedule}<div class="sac-signup-grid">${rows}</div>`;
+  if (isAdmin) paintSacSignupMemberMatches();
 }
 
 async function renderSacSignups() {
@@ -245,7 +284,10 @@ async function claimSacSignupSlot(slotStart, button) {
       p_member_id: canAddMembers() ? memberId : null,
     });
     if (error) throw error;
-    if (await renderSacSignups()) showToast('Booked — your name is on the sheet.');
+    if (await renderSacSignups()) {
+      const member = canAddMembers() ? sacSignupMembers().find(item => item.id === memberId) : null;
+      showToast(member ? `Booked for ${member.name} — they are on the sheet.` : 'Booked — your name is on the sheet.');
+    }
     else showToast('Spot saved, but the sheet could not refresh. Reload to confirm.', 'error', 7000);
   } catch (error) {
     button.disabled = false;
@@ -270,10 +312,20 @@ async function cancelSacSignupSlot(signupId, button) {
 }
 
 document.getElementById('sac-signups-content')?.addEventListener('click', event => {
+  const member = event.target.closest('[data-sac-member-id]');
+  if (member) { setSacSignupAssignee(member.dataset.sacMemberId); return; }
   const claim = event.target.closest('[data-sac-claim-start]');
   if (claim) { claimSacSignupSlot(claim.dataset.sacClaimStart, claim); return; }
   const cancel = event.target.closest('[data-sac-cancel-id]');
   if (cancel) cancelSacSignupSlot(cancel.dataset.sacCancelId, cancel);
+});
+
+document.getElementById('sac-signups-content')?.addEventListener('input', event => {
+  if (event.target.id !== 'sac-signup-assign-member' || !canAddMembers()) return;
+  sacSignupsState.memberQuery = event.target.value;
+  sacSignupsState.assignedMemberId = null;
+  document.querySelectorAll('#sac-signups-content [data-sac-claim-start]').forEach(button => button.remove());
+  paintSacSignupMemberMatches();
 });
 
 document.getElementById('sac-my-shifts-content')?.addEventListener('click', event => {

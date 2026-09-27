@@ -138,6 +138,42 @@ test('a stored booking matches its generated slot across timestamp formats', () 
   assert.ok(signups.includes('bookings.filter(booking => !slots.some(slot => sacBookingMatchesSlot(booking, slot)))'));
 });
 
+test('Auth Admin must explicitly match a current SAC member before assigning a slot', () => {
+  const context = {
+    state: { members: [
+      { id: 'sac-1', name: 'Alex Rivers', email: 'alex@fis.edu', teamKeys: ['sac'] },
+      { id: 'sac-2', name: 'Alex Rivers', email: 'alex2@fis.edu', teamKeys: ['sac'] },
+      { id: 'media', name: 'Alex Media', email: 'media@fis.edu', teamKeys: ['media_club'], gradeLevel: 'Grade 11' },
+    ] },
+    sacSignupsState: { assignedMemberId: null },
+    canAddMembers: () => true,
+    currentMemberRecord: () => ({ id: 'admin' }),
+  };
+  const source = `${functionSource(signups, 'sacSignupMembers')}\n${functionSource(signups, 'selectedSacSignupMemberId')}`;
+  assert.equal(vm.runInNewContext(`${source}\nselectedSacSignupMemberId()`, context), '', 'no member is selected by default');
+  context.sacSignupsState.assignedMemberId = 'media';
+  assert.equal(vm.runInNewContext(`${source}\nselectedSacSignupMemberId()`, context), '', 'a non-SAC ID is never assignable');
+  context.sacSignupsState.assignedMemberId = 'sac-2';
+  assert.equal(vm.runInNewContext(`${source}\nselectedSacSignupMemberId()`, context), 'sac-2');
+  assert.match(signups, /<input class="form-input" id="sac-signup-assign-member" type="search"/);
+  assert.doesNotMatch(signups, /<select class="form-select" id="sac-signup-assign-member"/);
+});
+
+test('typed SAC member search filters current members and distinguishes identical names', () => {
+  const context = {
+    state: { members: [
+      { id: 'a', name: 'Alex Rivers', email: 'alex@fis.edu', teamKeys: ['sac'] },
+      { id: 'b', name: 'Alex Rivers', email: 'alex2@fis.edu', teamKeys: ['sac'] },
+      { id: 'c', name: 'Alex Media', email: 'media@fis.edu', teamKeys: ['media_club'] },
+    ] },
+  };
+  const source = `${functionSource(signups, 'sacSignupMembers')}\n${functionSource(signups, 'normalizeSacSignupSearch')}\n${functionSource(signups, 'sacSignupMatchingMembers')}`;
+  const byName = vm.runInNewContext(`${source}\nsacSignupMatchingMembers('  ALEX   RIVERS ').map(member => member.id)`, context);
+  const byEmail = vm.runInNewContext(`${source}\nsacSignupMatchingMembers('alex2@fis.edu').map(member => member.id)`, context);
+  assert.deepEqual(Array.from(byName), ['a', 'b']);
+  assert.deepEqual(Array.from(byEmail), ['b']);
+});
+
 test('claim confirmation waits until the saved booking is visible on the sheet', async () => {
   let finishRefresh;
   const messages = [];

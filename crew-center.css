@@ -726,6 +726,12 @@
   .sac-signup-warning > div + div { margin-top: 7px; }
   .sac-signup-assign { margin-top: 14px; max-width: 440px; }
   .sac-signup-assign small { display: block; margin-top: 5px; color: var(--text3); }
+  .sac-signup-member-matches { display: grid; gap: 5px; margin-top: 6px; padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); }
+  .sac-signup-member-matches[hidden] { display: none; }
+  .sac-signup-member-match { width: 100%; padding: 9px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; text-align: left; }
+  .sac-signup-member-match:hover, .sac-signup-member-match:focus-visible { background: var(--accent-dim2); outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sac-signup-member-match strong { display: block; font-size: 12px; }
+  .sac-signup-member-match small { margin-top: 2px; }
   .sac-signup-grid { margin-top: 24px; display: grid; gap: 9px; }
   .sac-signup-day { margin: 21px 0 4px; color: var(--text); font-size: 16px; }
   .sac-signup-day:first-child { margin-top: 0; }
