@@ -29,6 +29,16 @@ create table if not exists public.members (
   joined_date date not null default current_date
 );
 
+-- Keep a server-timestamped receipt for each published pair of legal documents.
+-- The client cannot supply or edit accepted_at (see column grants in auth policies).
+create table if not exists public.user_legal_agreements (
+  auth_user_id uuid not null references auth.users(id) on delete cascade,
+  terms_version text not null,
+  privacy_version text not null,
+  accepted_at timestamptz not null default now(),
+  primary key (auth_user_id, terms_version, privacy_version)
+);
+
 alter table public.members add column if not exists grade_level text;
 alter table public.members add column if not exists avatar_url text;
 alter table public.members add column if not exists avatar_path text;

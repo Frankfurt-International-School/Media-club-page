@@ -8,6 +8,12 @@ window.CREW_CENTER_SUPABASE = {
 const fisAliasEmailPattern = /^[a-z]{2}\d{4,}@fis\.edu$/i;
 const fisSchoolEmailPattern = /^[^\s@]+@fis\.edu$/i;
 const fisAliasEmailMessage = "Use your school alias email: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu (for example, XX12345@fis.edu).";
+// The hashes are checked against the published HTML by tests. Change either document,
+// update its date and hash here, and existing members will see the new agreement.
+const legalDocumentVersions = Object.freeze({ terms: "2026-09-28-831101336107", privacy: "2026-09-28-6e0502d45cbc" });
+const authEntryIsSac = window.location.hostname === "sac.fismediaclub.org"
+  || /^\/sac(?:\/|$)/.test(window.location.pathname)
+  || new URLSearchParams(window.location.search).get("workspace") === "sac";
 window.isFisAliasEmail = email => fisAliasEmailPattern.test(String(email || "").trim());
 window.isFisSchoolEmail = email => fisSchoolEmailPattern.test(String(email || "").trim());
 window.FIS_ALIAS_EMAIL_MESSAGE = fisAliasEmailMessage;
@@ -355,6 +361,109 @@ authStyle.textContent = `
     margin: 0 0 8px;
   }
 
+  .auth-gate-card.legal-step {
+    width: min(100%, 520px);
+    padding: clamp(24px, 5vw, 38px);
+    border-radius: 28px;
+    background: rgba(255,255,255,0.86);
+    border-color: rgba(255,255,255,0.9);
+    box-shadow: 0 28px 90px rgba(31,28,52,0.13), 0 1px 8px rgba(31,28,52,0.05);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .legal-step .auth-gate-brand { margin-bottom: 30px; }
+  .legal-step .auth-gate-title {
+    font: 700 clamp(27px, 5vw, 34px)/1.13 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: -0.04em;
+    margin-bottom: 10px;
+  }
+  .legal-step .auth-gate-sub { font-size: 14px; line-height: 1.6; margin-bottom: 22px; }
+  .auth-legal-agreement { display: grid; gap: 16px; }
+  .auth-legal-kicker {
+    display: inline-flex;
+    width: max-content;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: rgba(164,1,52,0.08);
+    color: #8e1240;
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .auth-legal-docs { display: grid; gap: 9px; }
+  .auth-legal-doc {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-height: 68px;
+    padding: 12px 14px;
+    border: 1px solid rgba(33,37,41,0.09);
+    border-radius: 17px;
+    background: rgba(255,255,255,0.78);
+    color: #20232c;
+    text-decoration: none;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .auth-legal-doc:hover {
+    transform: translateY(-2px);
+    border-color: rgba(164,1,52,0.33);
+    box-shadow: 0 8px 24px rgba(31,28,52,0.08);
+  }
+  .auth-legal-doc:focus-visible,
+  .auth-legal-actions button:focus-visible {
+    outline: 3px solid rgba(164,1,52,0.32);
+    outline-offset: 3px;
+  }
+  .auth-legal-doc-icon {
+    display: grid;
+    place-items: center;
+    width: 39px;
+    height: 39px;
+    flex: none;
+    border-radius: 12px;
+    background: #f3e7ec;
+    color: #9a1741;
+    font-size: 19px;
+  }
+  .auth-legal-doc-copy { display: grid; gap: 2px; min-width: 0; }
+  .auth-legal-doc-copy strong { font-size: 13px; letter-spacing: -0.01em; }
+  .auth-legal-doc-copy small { color: #69707b; font-size: 11px; }
+  .auth-legal-doc-arrow { margin-left: auto; color: #7a7f88; font-size: 18px; }
+  .auth-legal-meaning { margin: 0; color: #535a65; font-size: 12px; line-height: 1.55; }
+  .auth-legal-actions { display: grid; gap: 9px; }
+  .auth-legal-accept {
+    min-height: 52px;
+    border: 0;
+    border-radius: 14px;
+    background: #a40134;
+    color: #fff;
+    cursor: pointer;
+    font: 700 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    box-shadow: 0 8px 19px rgba(164,1,52,0.17);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+  .auth-legal-accept:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(164,1,52,0.22); }
+  .auth-legal-accept:disabled { cursor: wait; opacity: 0.62; transform: none; }
+  .auth-legal-secondary { display: flex; justify-content: center; gap: 14px; }
+  .auth-legal-secondary button {
+    padding: 8px;
+    border: 0;
+    background: transparent;
+    color: #686e78;
+    cursor: pointer;
+    font: 600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .auth-legal-secondary button:hover { color: #a40134; }
+  @media (max-width: 520px) {
+    .auth-gate { padding: 14px; }
+    .auth-gate-card.legal-step { border-radius: 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .auth-legal-doc, .auth-legal-accept { transition: none; }
+  }
+
   :root[data-theme="dark"] .auth-gate {
     background:
       linear-gradient(135deg, rgba(164,1,52,0.22), transparent 36%),
@@ -401,6 +510,18 @@ authStyle.textContent = `
     border-color: rgba(255,255,255,0.10);
     color: #b9bdc7;
   }
+  :root[data-theme="dark"] .auth-gate-card.legal-step {
+    background: rgba(25,26,34,0.92);
+    border-color: rgba(255,255,255,0.11);
+  }
+  :root[data-theme="dark"] .auth-legal-kicker { background: rgba(234,122,244,0.14); color: #f0a8f7; }
+  :root[data-theme="dark"] .auth-legal-doc { background: rgba(255,255,255,0.045); border-color: rgba(255,255,255,0.12); color: #f2f3f5; }
+  :root[data-theme="dark"] .auth-legal-doc:hover { border-color: rgba(240,168,247,0.45); }
+  :root[data-theme="dark"] .auth-legal-doc-icon { background: rgba(234,122,244,0.13); color: #f0a8f7; }
+  :root[data-theme="dark"] .auth-legal-doc-copy small,
+  :root[data-theme="dark"] .auth-legal-meaning,
+  :root[data-theme="dark"] .auth-legal-secondary button { color: #b9bdc7; }
+  :root[data-theme="dark"] .auth-legal-accept { background: #c41b57; }
 `;
 document.head.appendChild(authStyle);
 
@@ -408,14 +529,14 @@ document.body.insertAdjacentHTML("afterbegin", `
   <section class="auth-gate" aria-labelledby="auth-gate-title">
     <div class="auth-gate-card">
       <div class="auth-gate-brand">
-        <img class="auth-gate-logo" src="assets/media-club-logo.png" width="128" height="128" alt="Media Club logo">
+        <img class="auth-gate-logo" src="${authEntryIsSac ? "assets/sac-warriors-mark.png" : "assets/media-club-logo.png"}" width="128" height="128" alt="${authEntryIsSac ? "Frankfurt Warriors" : "Media Club"} logo">
         <div>
-          <div class="auth-gate-name">Media Club</div>
-          <div class="auth-gate-kicker">FIS Student Media Club</div>
+          <div class="auth-gate-name">${authEntryIsSac ? "SAC" : "Media Club"}</div>
+          <div class="auth-gate-kicker">${authEntryIsSac ? "Student Athletic Council" : "FIS Student Media Club"}</div>
         </div>
       </div>
-      <h1 class="auth-gate-title" id="auth-gate-title">Sign in</h1>
-      <p class="auth-gate-sub">Use the account created for you in Supabase to open the Media Club dashboard.</p>
+      <h1 class="auth-gate-title" id="auth-gate-title" tabindex="-1">Sign in</h1>
+      <p class="auth-gate-sub">Use your approved Crew Center account to sign in.</p>
       <div class="auth-gate-error" id="auth-gate-error" role="alert" aria-live="polite"></div>
       <div class="auth-lookup-actions" id="auth-lookup-actions">
         <button class="auth-gate-button" id="auth-lookup-retry" type="button">Retry account check</button>
@@ -443,6 +564,29 @@ document.body.insertAdjacentHTML("afterbegin", `
           <button class="auth-secondary-button" id="auth-expired-back" type="button">Back to sign in</button>
         </div>
       </form>
+      <div class="auth-legal-agreement" id="auth-legal-agreement" hidden>
+        <span class="auth-legal-kicker">One clear step · Your choice</span>
+        <div class="auth-legal-docs" aria-label="Documents to review">
+          <a class="auth-legal-doc" href="/terms" target="_blank" rel="noopener noreferrer">
+            <span class="auth-legal-doc-icon" aria-hidden="true">§</span>
+            <span class="auth-legal-doc-copy"><strong>Terms of Use</strong><small>Rules for using Crew Center</small></span>
+            <span class="auth-legal-doc-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="auth-legal-doc" href="/privacy" target="_blank" rel="noopener noreferrer">
+            <span class="auth-legal-doc-icon" aria-hidden="true">◈</span>
+            <span class="auth-legal-doc-copy"><strong>Privacy &amp; Data</strong><small>What information is used and why</small></span>
+            <span class="auth-legal-doc-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+        <p class="auth-legal-meaning">By continuing, you agree to the Terms of Use and acknowledge that you have been given the Privacy &amp; Data notice. This is not consent to optional data uses.</p>
+        <div class="auth-legal-actions">
+          <button class="auth-legal-accept" id="auth-legal-accept" type="button">Agree &amp; continue <span aria-hidden="true">→</span></button>
+          <div class="auth-legal-secondary">
+            <button id="auth-legal-retry" type="button" hidden>Retry check</button>
+            <button id="auth-legal-signout" type="button">Sign out</button>
+          </div>
+        </div>
+      </div>
       <div class="auth-public-option" id="auth-public-option">
         <p>Not a member yet? Learn about Media Club, see a sample dashboard, and apply without creating a visitor account.</p>
         <a class="auth-public-link" href="https://info.fismediaclub.org/">Open the public Media Club site <span aria-hidden="true">→</span></a>
@@ -492,6 +636,11 @@ const passwordSetupForm = document.getElementById("auth-password-setup-form");
 const authSetupRecovery = document.getElementById("auth-setup-recovery");
 const authLookupActions = document.getElementById("auth-lookup-actions");
 const authLookupRetry = document.getElementById("auth-lookup-retry");
+const authGateCard = document.querySelector(".auth-gate-card");
+const legalAgreement = document.getElementById("auth-legal-agreement");
+const legalAccept = document.getElementById("auth-legal-accept");
+const legalRetry = document.getElementById("auth-legal-retry");
+let pendingLegalUser = null;
 let pendingApprovalCheckUser = null;
 const pendingPasswordSetupKey = "crew-center-pending-password-setup";
 const normalizePasswordSetupMode = mode => ["invite", "recovery"].includes(String(mode || "").toLowerCase())
@@ -925,6 +1074,9 @@ function releasePendingSidebar(authEpoch) {
 }
 
 function revealDashboard(user) {
+  pendingLegalUser = null;
+  legalAgreement.hidden = true;
+  authGateCard.classList.remove("legal-step");
   const previousUserId = window.CREW_CENTER_AUTH_USER?.id || "";
   applySignedInUser(user);
   if (previousUserId !== user.id) window.CREW_CENTER_AUTH_EPOCH += 1;
@@ -968,7 +1120,7 @@ async function allowCrewCenterUser(user) {
         authLookupActions.classList.remove("visible");
         if (approvedMember) return true;
         await signOutCrewCenterSession();
-        setAuthError("This email is not linked to an approved Media Club account. New students must apply with their school alias email.");
+        setAuthError("This email is not linked to an approved Crew Center account. New students must apply with their school alias email.");
         return false;
       }
       lastError = error;
@@ -980,7 +1132,7 @@ async function allowCrewCenterUser(user) {
     return false;
   }
   await signOutCrewCenterSession();
-  setAuthError("This email is not linked to an approved Media Club account. New students must apply with their school alias email.");
+  setAuthError("This email is not linked to an approved Crew Center account. New students must apply with their school alias email.");
   return false;
 }
 
@@ -989,7 +1141,7 @@ function applySignInPresentation() {
   document.getElementById("auth-gate-title").textContent = recoveringExpiredLink ? "Invitation link not working?" : "Sign in";
   document.querySelector(".auth-gate-sub").textContent = recoveringExpiredLink
     ? "Enter the FIS email from your approved application to get a new password setup link. You do not need to apply again."
-    : "Use the account created for you in Supabase to open the Media Club dashboard.";
+    : "Use your approved Crew Center account to sign in.";
   document.querySelector(".auth-gate-note").textContent = recoveringExpiredLink
     ? "Check your inbox and spam folder for the reset-password email. Open only the newest link; each link works once."
     : "Please submit an application for an account.";
@@ -1009,6 +1161,9 @@ function applySignInPresentation() {
 }
 
 function showSignIn() {
+  pendingLegalUser = null;
+  legalAgreement.hidden = true;
+  authGateCard.classList.remove("legal-step");
   if (window.CREW_CENTER_AUTH_USER) window.CREW_CENTER_AUTH_EPOCH += 1;
   window.CREW_CENTER_AUTH_USER = null;
   window.CREW_CENTER_IS_ADMIN = false;
@@ -1018,12 +1173,66 @@ function showSignIn() {
   document.body.classList.remove("auth-ready");
   authForm.style.display = "block";
   passwordSetupForm.style.display = "none";
+  document.querySelector(".auth-gate-note").hidden = false;
   window.stopCrewCenterLiveUpdates?.();
   if (!passwordSetupRequired() && window.location.pathname !== "/signin") {
     history.replaceState({ page: "signin" }, "", "/signin");
   }
   setAuthBusy(false);
   applySignInPresentation();
+}
+
+function needsLegalAgreement(record) {
+  return record?.terms_version !== legalDocumentVersions.terms
+    || record?.privacy_version !== legalDocumentVersions.privacy;
+}
+
+function showLegalAgreement(user, checkFailed = false) {
+  pendingLegalUser = user;
+  document.body.classList.add("auth-locked");
+  document.body.classList.remove("auth-ready");
+  authGateCard.classList.add("legal-step");
+  authForm.style.display = "none";
+  passwordSetupForm.style.display = "none";
+  document.getElementById("auth-public-option").style.display = "none";
+  document.querySelector(".auth-gate-note").hidden = true;
+  document.getElementById("auth-gate-title").textContent = "Before you continue";
+  document.querySelector(".auth-gate-sub").textContent = "Please review the current documents for Media Club and SAC. You will only see this again if either document changes.";
+  legalAgreement.hidden = false;
+  legalAccept.disabled = checkFailed;
+  legalRetry.hidden = !checkFailed;
+  if (!checkFailed) setAuthError("");
+  document.getElementById("auth-gate-title").focus();
+}
+
+async function checkLegalAgreement(user, activationSequence) {
+  let data;
+  let error;
+  try {
+    ({ data, error } = await withCrewCenterTimeout(
+      window.crewCenterSupabase.from("user_legal_agreements").select("terms_version, privacy_version")
+        .eq("auth_user_id", user.id)
+        .eq("terms_version", legalDocumentVersions.terms)
+        .eq("privacy_version", legalDocumentVersions.privacy)
+        .maybeSingle(),
+      authOperationTimeoutMs,
+      "The agreement check timed out."
+    ));
+  } catch (requestError) {
+    error = requestError;
+  }
+  if (signOutRequested || activationSequence !== authActivationSequence) return false;
+  if (error) {
+    showLegalAgreement(user, true);
+    setAuthError("We couldn't check your agreement right now. Retry when the connection is available.");
+    console.warn("The legal agreement check failed.", error);
+    return false;
+  }
+  if (needsLegalAgreement(data)) {
+    showLegalAgreement(user);
+    return false;
+  }
+  return true;
 }
 
 async function activateCrewCenterUser(user, options = {}) {
@@ -1043,7 +1252,7 @@ async function activateCrewCenterUser(user, options = {}) {
     if (!await allowCrewCenterUser(user)) return false;
     if (signOutRequested || activationSequence !== authActivationSequence) return false;
     if (requirePasswordSetup) showPasswordSetup(requestedPasswordSetupMode, user.email);
-    else revealDashboard(user);
+    else if (await checkLegalAgreement(user, activationSequence)) revealDashboard(user);
     return true;
   })();
   try {
@@ -1059,6 +1268,7 @@ async function signOutCrewCenterSession() {
   authActivationSequence += 1;
   authActivationPromise = null;
   authActivationUserId = "";
+  pendingLegalUser = null;
   pendingApprovalCheckUser = null;
   authLookupActions.classList.remove("visible");
   authPassword.value = "";
@@ -1101,7 +1311,60 @@ document.getElementById("auth-lookup-signout").addEventListener("click", async (
   await signOutCrewCenterSession();
 });
 
+legalAccept.addEventListener("click", async () => {
+  const user = pendingLegalUser;
+  if (!user || legalAccept.disabled) return;
+  const sequence = authActivationSequence;
+  legalAccept.disabled = true;
+  legalAccept.textContent = "Saving your choice…";
+  setAuthError("");
+  try {
+    const { error } = await withCrewCenterTimeout(
+      window.crewCenterSupabase.from("user_legal_agreements").insert({
+        auth_user_id: user.id,
+        terms_version: legalDocumentVersions.terms,
+        privacy_version: legalDocumentVersions.privacy,
+      }),
+      authOperationTimeoutMs,
+      "Saving the agreement timed out."
+    );
+    if (error && error.code !== "23505") throw error;
+    if (signOutRequested || sequence !== authActivationSequence || pendingLegalUser?.id !== user.id) return;
+    if (await checkLegalAgreement(user, sequence)) revealDashboard(user);
+  } catch (error) {
+    if (signOutRequested || sequence !== authActivationSequence) return;
+    console.warn("The legal agreement could not be saved.", error);
+    setAuthError("Your choice could not be saved. Please retry; the dashboard will stay locked until it is confirmed.");
+  } finally {
+    legalAccept.disabled = !legalRetry.hidden;
+    legalAccept.innerHTML = 'Agree &amp; continue <span aria-hidden="true">→</span>';
+  }
+});
+
+legalRetry.addEventListener("click", async () => {
+  if (!pendingLegalUser) return;
+  const user = pendingLegalUser;
+  legalRetry.disabled = true;
+  legalRetry.textContent = "Checking…";
+  signOutRequested = false;
+  try {
+    await activateCrewCenterUser(user, { force: true });
+  } catch (error) {
+    console.warn("The legal agreement retry failed.", error);
+    setAuthError("We couldn't check your agreement right now. Please try again.");
+  } finally {
+    legalRetry.disabled = false;
+    legalRetry.textContent = "Retry check";
+  }
+});
+
+document.getElementById("auth-legal-signout").addEventListener("click", signOutCrewCenterSession);
+
 function showPasswordSetup(mode = passwordSetupMode || "invite", accountEmail = "") {
+  pendingLegalUser = null;
+  legalAgreement.hidden = true;
+  authGateCard.classList.remove("legal-step");
+  document.querySelector(".auth-gate-note").hidden = false;
   const normalizedMode = normalizePasswordSetupMode(mode) || "invite";
   pendingAuthLinkFailure = null;
   rememberPendingPasswordSetup(normalizedMode);
@@ -1114,8 +1377,8 @@ function showPasswordSetup(mode = passwordSetupMode || "invite", accountEmail = 
   const isRecovery = normalizedMode === "recovery";
   document.getElementById("auth-gate-title").textContent = isRecovery ? "Reset your password" : "Set your password";
   document.querySelector(".auth-gate-sub").textContent = isRecovery
-    ? "Choose a new password for your Media Club account."
-    : "Choose a password to finish creating your Media Club account.";
+    ? "Choose a new password for your Crew Center account."
+    : "Choose a password to finish creating your Crew Center account.";
   document.querySelector(".auth-gate-note").textContent = "Use at least 8 characters. You will use this password the next time you sign in.";
   document.getElementById("auth-password-setup-submit").textContent = passwordSetupSubmitLabel();
 }

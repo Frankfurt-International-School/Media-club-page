@@ -5,6 +5,23 @@ Turnstile-protected Edge Function. Complete `PUBLIC-PORTAL-SETUP.md` before test
 new applications; this document covers the staff review and invitation half of the
 workflow.
 
+## Member Terms and Privacy acknowledgment (local code, not live)
+
+The sign-in flow checks `public.user_legal_agreements` before it opens Crew
+Center. Each receipt stores the signed-in Auth user ID, the published Terms and
+Privacy document versions, and a database-generated timestamp. Owner-only RLS
+allows members to read and add their own receipts; they cannot edit timestamps.
+The page asks again when either version changes. Acceptance of the Terms and
+acknowledgment of the Privacy notice are separate from consent for optional
+processing.
+
+During a separately authorized rollout, apply the updated `supabase-schema.sql`
+and then `supabase-auth-policies.sql` **before** deploying the corresponding
+Crew Center build. If the table or policy is missing, the sign-in screen stays
+locked and offers a retry rather than silently granting access. The school/IT
+privacy reviewer should review the updated Terms and Privacy copy before that
+rollout. A Git commit alone does not apply SQL or publish the new page.
+
 ## SAC application rollout (not yet live)
 
 The public Join form can offer **Media Club**, **SAC**, or **Both**. SAC choices

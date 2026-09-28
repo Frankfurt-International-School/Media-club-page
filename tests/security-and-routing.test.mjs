@@ -261,13 +261,13 @@ test('password recovery stays locked until the member saves a new password', () 
   const activationEnd = authSource.indexOf('\nasync function signOutCrewCenterSession()', activationStart);
   const activationSource = authSource.slice(activationStart, activationEnd);
   assert.match(activationSource, /options\.requirePasswordSetup === true \|\| passwordSetupRequired\(\)/);
-  assert.match(activationSource, /if \(requirePasswordSetup\) showPasswordSetup\(requestedPasswordSetupMode, user\.email\);\s*else revealDashboard\(user\);/);
+  assert.match(activationSource, /if \(requirePasswordSetup\) showPasswordSetup\(requestedPasswordSetupMode, user\.email\);\s*else if \(await checkLegalAgreement\(user, activationSequence\)\) revealDashboard\(user\);/);
 
   const setupStart = authSource.indexOf('function showPasswordSetup(');
   const setupEnd = authSource.indexOf('\npasswordSetupForm.addEventListener', setupStart);
   const setupSource = authSource.slice(setupStart, setupEnd);
   assert.match(setupSource, /"Reset your password"/);
-  assert.match(setupSource, /"Choose a new password for your Media Club account\."/);
+  assert.match(setupSource, /"Choose a new password for your Crew Center account\."/);
   assert.match(authSource, /passwordSetupMode === "recovery" \? "Save new password" : "Set password"/);
   assert.match(setupSource, /You will use this password the next time you sign in\./);
 

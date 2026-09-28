@@ -1,4 +1,18 @@
 alter table public.members enable row level security;
+alter table public.user_legal_agreements enable row level security;
+revoke all on table public.user_legal_agreements from anon, authenticated;
+grant select on table public.user_legal_agreements to authenticated;
+grant insert (auth_user_id, terms_version, privacy_version) on table public.user_legal_agreements to authenticated;
+drop policy if exists "Members can read own legal agreements" on public.user_legal_agreements;
+drop policy if exists "Members can record own legal agreements" on public.user_legal_agreements;
+create policy "Members can read own legal agreements"
+on public.user_legal_agreements for select
+to authenticated
+using ((select auth.uid()) = auth_user_id);
+create policy "Members can record own legal agreements"
+on public.user_legal_agreements for insert
+to authenticated
+with check ((select auth.uid()) = auth_user_id);
 alter table public.member_team_memberships enable row level security;
 alter table public.sac_membership_audit enable row level security;
 alter table public.cas_attendance_settings enable row level security;

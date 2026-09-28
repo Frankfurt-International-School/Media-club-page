@@ -26,7 +26,7 @@ test('sign-in, member settings, and public application surface expose legal link
 });
 
 test('privacy notice is dated, contactable, and accurately names the active processors', () => {
-  assert.match(privacy, /Last updated: 18 September 2026/);
+  assert.match(privacy, /Last updated: 28 September 2026/);
   assert.match(privacy, /mailto:shenghan_lang@fis\.edu/);
   assert.match(privacy, /Supabase[\s\S]*Cloudflare[\s\S]*Resend/);
   assert.match(privacy, /Ireland \(<code>eu-west-1<\/code>\)/);
@@ -40,7 +40,7 @@ test('privacy notice is dated, contactable, and accurately names the active proc
 });
 
 test('terms set a clear sensitive-information rule without shifting all responsibility to students', () => {
-  assert.match(terms, /Last updated: 19 September 2026/);
+  assert.match(terms, /Last updated: 28 September 2026/);
   assert.match(terms, /Do not enter or upload passwords, medical information, home addresses, private phone numbers or financial information/);
   assert.match(terms, /Do not share another person's private information without their permission/);
   assert.match(terms, /If sensitive information is shared by mistake, contact/);
