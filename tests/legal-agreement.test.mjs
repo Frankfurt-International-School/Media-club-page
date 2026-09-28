@@ -57,3 +57,10 @@ test('the agreement has accessible document links, explicit action, retry, and s
   const agreementMarkup = auth.slice(auth.indexOf('id="auth-legal-agreement"'), auth.indexOf('id="auth-password-setup-form"'));
   assert.doesNotMatch(agreementMarkup, /<input[^>]*type="checkbox"/);
 });
+
+test('announcing the agreement heading does not draw a focus box around it', () => {
+  assert.match(auth, /document\.getElementById\("auth-gate-title"\)\.focus\(\)/);
+  assert.match(auth, /\.auth-gate-title\[tabindex="-1"\]:focus \{ outline: none; \}/);
+  assert.match(auth, /\.auth-legal-doc:focus-visible/);
+  assert.match(auth, /\.auth-legal-actions button:focus-visible/);
+});

@@ -97,6 +97,8 @@ authStyle.textContent = `
     margin-bottom: 6px;
   }
 
+  .auth-gate-title[tabindex="-1"]:focus { outline: none; }
+
   .auth-gate-sub {
     color: #495057;
     font-size: 14px;
