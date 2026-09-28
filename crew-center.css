@@ -1252,7 +1252,8 @@
   .sac-page-hero::before {
     width: 210px;
     aspect-ratio: 430 / 320;
-    top: -29px;
+    top: auto;
+    bottom: -62px;
     right: 16px;
     background-image: url('assets/sac-warriors-mark.png');
     opacity: .14;
@@ -2471,6 +2472,7 @@
     .filter-row > .form-input, .filter-row > .form-select { flex: 1 1 100%; max-width: none !important; }
     .page-hero { align-items: stretch; flex-direction: column; gap: 18px; min-height: 0; padding: 22px 20px; }
     .page-hero::before { width: 145px; top: -30px; right: -36px; opacity: .06; }
+    .sac-page-hero::before { top: auto; bottom: -28px; right: -20px; }
     .equipment-status-hero::before, .deployment-hero::before { width: 145px; top: -30px; right: -36px; opacity: .06; }
     .page-hero-actions, .page-hero-actions .btn { width: 100%; }
     .page-hero-actions .btn { justify-content: center; }

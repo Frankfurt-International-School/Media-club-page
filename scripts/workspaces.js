@@ -16,6 +16,14 @@ function workspaceFromSearch(search = '') {
   return ['media', 'sac'].includes(requested) ? requested : null;
 }
 
+function updateWorkspaceFavicon(workspace) {
+  const favicon = document.getElementById('workspace-favicon');
+  if (favicon) favicon.href = workspace === 'sac' ? 'assets/sac-warriors-mark.png' : 'assets/media-club-logo.png';
+}
+
+// Show the requested workspace brand while authentication resolves; access is checked later.
+updateWorkspaceFavicon(workspaceFromSearch(window.location.search) || workspaceFromHostname(window.location.hostname));
+
 function resolvedWorkspaceForLocation(hostname, search, sacAccess, mediaAccess = true) {
   const requested = workspaceFromSearch(search) || workspaceFromHostname(hostname);
   return resolveWorkspaceSelection(requested, sacAccess, mediaAccess);
@@ -127,6 +135,7 @@ function applyWorkspacePresentation({ animate = false } = {}) {
   const isSac = activeCrewCenterWorkspace === 'sac';
   document.documentElement.dataset.workspace = activeCrewCenterWorkspace;
   document.title = isSac ? 'FIS Student Athletic Council' : 'FIS Media Club';
+  updateWorkspaceFavicon(activeCrewCenterWorkspace);
 
   const name = document.getElementById('workspace-name');
   const subtitle = document.getElementById('workspace-subtitle');

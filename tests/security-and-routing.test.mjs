@@ -622,6 +622,19 @@ test('SAC hostname selection remains separate from SAC authorization', () => {
   assert.doesNotMatch(extractWorkspaceFunction('workspaceUrlForPage'), /https:\/\/fismediaclub\.org/, 'ordinary page routing must remain same-origin');
 });
 
+test('browser tab icon follows the requested and resolved workspace', () => {
+  assert.match(indexHtml, /<link rel="icon"[^>]*id="workspace-favicon"/);
+  const icon = { href: 'assets/media-club-logo.png' };
+  const context = { document: { getElementById: id => id === 'workspace-favicon' ? icon : null } };
+  vm.runInNewContext(`${extractWorkspaceFunction('updateWorkspaceFavicon')}\nglobalThis.updateWorkspaceFavicon = updateWorkspaceFavicon;`, context);
+  context.updateWorkspaceFavicon('sac');
+  assert.equal(icon.href, 'assets/sac-warriors-mark.png');
+  context.updateWorkspaceFavicon('media');
+  assert.equal(icon.href, 'assets/media-club-logo.png');
+  assert.match(workspaceSource, /updateWorkspaceFavicon\(workspaceFromSearch\(window\.location\.search\) \|\| workspaceFromHostname\(window\.location\.hostname\)\)/);
+  assert.match(workspaceSource, /function applyWorkspacePresentation[\s\S]*?document\.title =[\s\S]*?updateWorkspaceFavicon\(activeCrewCenterWorkspace\)/);
+});
+
 test('a SAC deep link is preserved until authentication can resolve workspace access', () => {
   const start = routerSource.indexOf('function openPageFromUrl()');
   const end = routerSource.indexOf("\nwindow.addEventListener('popstate'", start);
