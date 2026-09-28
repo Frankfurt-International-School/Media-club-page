@@ -22,6 +22,7 @@ const fontsCss = readFileSync(new URL('../assets/fonts/fonts.css', import.meta.u
 const fisLogo = readFileSync(new URL('../assets/fis-logo.png', import.meta.url));
 const mediaClubLogo = readFileSync(new URL('../assets/media-club-logo.png', import.meta.url));
 const sacWarriorsMark = readFileSync(new URL('../assets/sac-warriors-mark.png', import.meta.url));
+const sacWarriorsLogo = readFileSync(new URL('../assets/sac-warriors-logo.svg', import.meta.url), 'utf8');
 const buildSource = readFileSync(new URL('../tools/build-static.mjs', import.meta.url), 'utf8');
 const aboutImageNames = [
   'tech-show-crew-portrait.webp',
@@ -142,6 +143,7 @@ test('SAC deep-link refreshes resolve shared assets from the deployment root', (
     'scripts/sac-attendance.js',
     'assets/media-club-logo.png',
     'assets/sac-warriors-mark.png',
+    'assets/sac-warriors-logo.svg',
   ];
   for (const host of ['sac.fismediaclub.org', 'fismediaclub.org']) {
     for (const route of ['/sac/events', '/sac/signups', '/sac/my-shifts', '/sac/members', '/sac/meetings', '/sac/attendance']) {
@@ -628,9 +630,14 @@ test('browser tab icon follows the requested and resolved workspace', () => {
   const context = { document: { getElementById: id => id === 'workspace-favicon' ? icon : null } };
   vm.runInNewContext(`${extractWorkspaceFunction('updateWorkspaceFavicon')}\nglobalThis.updateWorkspaceFavicon = updateWorkspaceFavicon;`, context);
   context.updateWorkspaceFavicon('sac');
-  assert.equal(icon.href, 'assets/sac-warriors-mark.png');
+  assert.equal(icon.href, 'assets/sac-warriors-logo.svg');
+  assert.equal(icon.type, 'image/svg+xml');
+  assert.match(sacWarriorsLogo, /<svg[^>]*viewBox="0 0 384 290\.999983"/);
+  assert.match(sacWarriorsLogo, /<image[^>]*xlink:href="data:image\/png;base64,/);
+  assert.doesNotMatch(sacWarriorsLogo, /<script\b|(?:xlink:)?href="https?:/i);
   context.updateWorkspaceFavicon('media');
   assert.equal(icon.href, 'assets/media-club-logo.png');
+  assert.equal(icon.type, 'image/png');
   assert.match(workspaceSource, /updateWorkspaceFavicon\(workspaceFromSearch\(window\.location\.search\) \|\| workspaceFromHostname\(window\.location\.hostname\)\)/);
   assert.match(workspaceSource, /function applyWorkspacePresentation[\s\S]*?document\.title =[\s\S]*?updateWorkspaceFavicon\(activeCrewCenterWorkspace\)/);
 });

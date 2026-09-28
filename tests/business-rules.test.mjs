@@ -887,9 +887,9 @@ test('Crew Schedule and attendance are Auth Admin-only in the UI and database', 
   assert.match(crewScheduleAccess, /select public\.is_auth_admin\(\)/);
   assert.doesNotMatch(crewScheduleAccess, /is_admin_panel_user|leader|co-leader|faculty/);
   assert.match(policiesSql, /create or replace function public\.mark_signup_attendance[\s\S]*?if not public\.is_crew_schedule_user\(\)[\s\S]*?Auth Admin access is required\./);
-  assert.match(policiesSql, /event\.ends_at into event_starts_at, event_ends_at[\s\S]*?event_ends_at \+ interval '24 hours'[\s\S]*?Attendance closed 24 hours after the event ended/);
-  assert.match(appSource, /function crewAttendanceWindow\([\s\S]*?endsAt \+ 24 \* 60 \* 60 \* 1000/);
-  assert.match(appSource, /Completed productions remain editable until 24 hours after their end time/);
+  assert.match(policiesSql, /event\.ends_at into event_starts_at, event_ends_at[\s\S]*?event_ends_at \+ interval '120 hours'[\s\S]*?Attendance closed 120 hours after the event ended/);
+  assert.match(appSource, /function crewAttendanceWindow\([\s\S]*?endsAt \+ 120 \* 60 \* 60 \* 1000/);
+  assert.match(appSource, /Completed productions remain editable until 120 hours after their end time/);
   assert.match(appSource, /if \(page === 'crew-deployment' && !canAccessCrewSchedule\(\)\)/);
   assert.match(markAttendance, /updateCrewAttendanceUi\(eventId, signupId, status, true\)[\s\S]*?supabaseClient\.rpc\('mark_signup_attendance'/);
   assert.doesNotMatch(markAttendance, /renderCrewDeployment\(\)/, 'a single attendance save must not rebuild the deployment list');
@@ -1597,8 +1597,18 @@ test('Student Supervisor reserve priorities exclude Photographer in the UI and d
   assert.match(signupPolicy, /reserve_role_2 in \('MIXING', 'OBS', 'Robocam', 'Handheld 1', 'Handheld 2', 'Handheld 3 \(optional\)', 'Wireless'\)/);
 });
 
-test('Crew Schedule defaults to unfinished productions and keeps completed events editable for 24 hours', () => {
+test('Crew Schedule defaults to unfinished productions and keeps completed events editable for 120 hours', () => {
   const dates = ['2026-08-18', '2026-08-21', '2026-09-02'];
+  const eventStart = Date.parse('2026-09-02T10:00:00Z');
+  const eventEnd = Date.parse('2026-09-02T11:00:00Z');
+  const attendanceWindowAt = now => JSON.parse(JSON.stringify(runFunctions(
+    ['crewAttendanceWindow'],
+    { timeValue: () => eventStart, eventEndTimestamp: () => eventEnd },
+    `crewAttendanceWindow({ date: '2026-09-02' }, ${now})`,
+  )));
+  assert.equal(attendanceWindowAt(eventStart - 10 * 60 * 1000).isOpen, true);
+  assert.equal(attendanceWindowAt(eventEnd + 120 * 60 * 60 * 1000).isOpen, true);
+  assert.equal(attendanceWindowAt(eventEnd + 120 * 60 * 60 * 1000 + 1).isOpen, false);
   assert.equal(runFunctions(['defaultCrewDeploymentDate'], {}, `defaultCrewDeploymentDate(${JSON.stringify(dates)}, 'upcoming')`), '2026-08-18');
   assert.equal(runFunctions(['defaultCrewDeploymentDate'], {}, `defaultCrewDeploymentDate(${JSON.stringify(dates)}, 'past')`), '2026-09-02');
   assert.match(appSource, /view === 'past' \? isPastEvent\(event, now\) : !isPastEvent\(event, now\)/);
@@ -1607,7 +1617,7 @@ test('Crew Schedule defaults to unfinished productions and keeps completed event
   assert.match(appSource, /if \(page === 'crew-deployment'\) openCrewDeployment\(\)/);
   assert.match(appSource, /if \(!attendanceOpen\) \{[\s\S]*?deployment-attendance-log/);
   assert.match(appSource, /Recorded by \$\{escapeHtml\(recorder\)\}/);
-  assert.match(appSource, /Completed productions remain editable until 24 hours after their end time/);
+  assert.match(appSource, /Completed productions remain editable until 120 hours after their end time/);
 });
 
 test('Crew Schedule explains whether each member covers the full game, joins, or leaves', () => {

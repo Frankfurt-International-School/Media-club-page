@@ -18,7 +18,10 @@ function workspaceFromSearch(search = '') {
 
 function updateWorkspaceFavicon(workspace) {
   const favicon = document.getElementById('workspace-favicon');
-  if (favicon) favicon.href = workspace === 'sac' ? 'assets/sac-warriors-mark.png' : 'assets/media-club-logo.png';
+  if (!favicon) return;
+  const isSac = workspace === 'sac';
+  favicon.type = isSac ? 'image/svg+xml' : 'image/png';
+  favicon.href = isSac ? 'assets/sac-warriors-logo.svg' : 'assets/media-club-logo.png';
 }
 
 // Show the requested workspace brand while authentication resolves; access is checked later.

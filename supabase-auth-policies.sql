@@ -2337,8 +2337,8 @@ begin
   if now() < event_starts_at - interval '10 minutes' then
     raise exception 'Attendance opens 10 minutes before the event starts.';
   end if;
-  if now() > event_ends_at + interval '24 hours' then
-    raise exception 'Attendance closed 24 hours after the event ended.';
+  if now() > event_ends_at + interval '120 hours' then
+    raise exception 'Attendance closed 120 hours after the event ended.';
   end if;
 
   select member.name into marker_name

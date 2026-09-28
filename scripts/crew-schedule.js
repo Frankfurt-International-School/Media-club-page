@@ -92,7 +92,7 @@ function crewAttendanceWindow(event, now = Date.now()) {
   const startsAt = timeValue(event.date, event.game1Start || event.time || '00:00');
   const endsAt = eventEndTimestamp(event) || startsAt;
   const opensAt = startsAt - 10 * 60 * 1000;
-  const closesAt = endsAt + 24 * 60 * 60 * 1000;
+  const closesAt = endsAt + 120 * 60 * 60 * 1000;
   return { startsAt, endsAt, opensAt, closesAt, isOpen: now >= opensAt && now <= closesAt };
 }
 
@@ -125,7 +125,7 @@ function updateCrewDeploymentControls(dates, selectedDate) {
     button.setAttribute('aria-pressed', String(active));
   });
   if (help) help.textContent = crewDeploymentView === 'past'
-    ? 'Completed productions remain editable until 24 hours after their end time; the newest log opens first.'
+    ? 'Completed productions remain editable until 120 hours after their end time; the newest log opens first.'
     : 'The nearest unfinished production is selected automatically.';
 }
 
