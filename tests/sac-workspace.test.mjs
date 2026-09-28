@@ -174,6 +174,56 @@ test('typed SAC member search filters current members and distinguishes identica
   assert.deepEqual(Array.from(byEmail), ['b']);
 });
 
+test('choosing an SAC assignee updates slot actions without rebuilding the sheet', () => {
+  let sheetPaints = 0;
+  let actionPaints = 0;
+  const input = { value: '', focus() {} };
+  const context = {
+    state: { members: [{ id: 'sac-1', name: 'Alex Rivers', teamKeys: ['sac'] }] },
+    sacSignupsState: { assignedMemberId: null, memberQuery: '' },
+    canAddMembers: () => true,
+    document: { getElementById: () => input },
+    paintSacSignupSheet: () => { sheetPaints += 1; },
+    paintSacSignupMemberMatches: () => {},
+    paintSacSignupActions: () => { actionPaints += 1; },
+  };
+  vm.runInNewContext(`${functionSource(signups, 'sacSignupMembers')}\n${functionSource(signups, 'setSacSignupAssignee')}\nsetSacSignupAssignee('sac-1')`, context);
+  assert.equal(context.sacSignupsState.assignedMemberId, 'sac-1');
+  assert.equal(input.value, 'Alex Rivers');
+  assert.equal(sheetPaints, 0);
+  assert.equal(actionPaints, 1);
+});
+
+test('refreshing an SAC booking keeps the sheet visible while data loads', async () => {
+  let finishEvents;
+  const attributes = new Map();
+  const content = {
+    innerHTML: 'Existing shift rows',
+    querySelectorAll: () => [],
+    setAttribute: (key, value) => attributes.set(key, value),
+    removeAttribute: key => attributes.delete(key),
+  };
+  const select = { innerHTML: '', value: '', disabled: false };
+  const context = {
+    document: { getElementById: id => id === 'sac-signup-event-select' ? select : content },
+    currentCrewCenterWorkspace: () => 'sac',
+    canAccessSacWorkspace: () => true,
+    canClaimSacSlot: () => false,
+    sacSignupsState: { request: 0, events: [], selectedEventId: null, signups: [] },
+    supabaseClient: { from: () => ({ select() { return this; }, order() { return new Promise(resolve => { finishEvents = resolve; }); } }) },
+    window: { location: { search: '' } },
+    URLSearchParams,
+    paintSacSignupSheet: () => {},
+    showToast: () => {},
+  };
+  const pending = vm.runInNewContext(`${functionSource(signups, 'renderSacSignups')}\nrenderSacSignups(true)`, context);
+  assert.equal(content.innerHTML, 'Existing shift rows');
+  assert.equal(attributes.get('aria-busy'), 'true');
+  finishEvents({ data: [], error: null });
+  assert.equal(await pending, true);
+  assert.equal(attributes.has('aria-busy'), false);
+});
+
 test('claim confirmation waits until the saved booking is visible on the sheet', async () => {
   let finishRefresh;
   const messages = [];
@@ -200,4 +250,6 @@ test('SAC booking updates refresh active SAC pages through the protected publica
   assert.ok(policies.includes('using ((select public.can_read_sac_slot_signups()))'));
   assert.ok(core.includes("table: 'sac_slot_signups'"));
   assert.ok(core.includes("if (currentCrewCenterWorkspace() !== 'sac' || !canClaimSacSlot()) return"));
+  assert.ok(core.includes('if (sacSignupsState.mutationInFlight) return'));
+  assert.ok(core.includes("if (page === 'page-sac-signups') renderSacSignups(true)"));
 });

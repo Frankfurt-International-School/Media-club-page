@@ -1,5 +1,5 @@
 // SAC sign-ups are time-first. Database RPCs own eligibility, capacity, and overlap checks.
-const sacSignupsState = { events: [], signups: [], selectedEventId: null, assignedMemberId: null, memberQuery: '', request: 0, myShiftsRequest: 0 };
+const sacSignupsState = { events: [], signups: [], selectedEventId: null, assignedMemberId: null, memberQuery: '', request: 0, myShiftsRequest: 0, mutationInFlight: false };
 
 function resetSacSignupsState() {
   sacSignupsState.request += 1;
@@ -9,6 +9,7 @@ function resetSacSignupsState() {
   sacSignupsState.selectedEventId = null;
   sacSignupsState.assignedMemberId = null;
   sacSignupsState.memberQuery = '';
+  sacSignupsState.mutationInFlight = false;
   const select = document.getElementById('sac-signup-event-select');
   const content = document.getElementById('sac-signups-content');
   if (select) select.textContent = '';
@@ -79,8 +80,10 @@ function setSacSignupAssignee(memberId) {
   if (!member) return;
   sacSignupsState.assignedMemberId = memberId;
   sacSignupsState.memberQuery = member.name;
-  paintSacSignupSheet();
-  document.getElementById('sac-signup-assign-member')?.focus();
+  const input = document.getElementById('sac-signup-assign-member');
+  if (input) { input.value = member.name; input.focus(); }
+  paintSacSignupMemberMatches();
+  paintSacSignupActions();
 }
 
 function paintSacSignupMemberMatches() {
@@ -102,6 +105,34 @@ function paintSacSignupMemberMatches() {
   }
   results.hidden = !matches.length;
   results.innerHTML = matches.slice(0, 6).map(member => `<button class="sac-signup-member-match" type="button" data-sac-member-id="${escapeHtml(member.id)}"><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml([member.gradeLevel, member.email].filter(Boolean).join(' · '))}</small></button>`).join('');
+}
+
+function sacSignupAction(slot, occupants, selectedMemberId, spotCount, isAdmin) {
+  const ownBooking = occupants.some(booking => booking.member_id === selectedMemberId && selectedMemberId);
+  const full = occupants.length >= spotCount;
+  const ended = Date.parse(slot.end) <= Date.now();
+  if (ownBooking) return '<span class="sac-signup-status">Booked</span>';
+  if (full) return '<span class="sac-signup-status">Full</span>';
+  if (ended) return '<span class="sac-signup-status">Ended</span>';
+  return selectedMemberId
+    ? `<button class="btn btn-accent btn-sm" type="button" data-sac-claim-start="${escapeHtml(slot.start)}">${isAdmin ? 'Assign spot' : 'Claim spot'}</button>`
+    : '';
+}
+
+function paintSacSignupActions() {
+  const content = document.getElementById('sac-signups-content');
+  const event = sacSignupsState.events.find(item => item.id === sacSignupsState.selectedEventId);
+  if (!content || !event) return;
+  const slots = generateSacSlots(event);
+  const rows = content.querySelectorAll('.sac-signup-slot .sac-signup-action');
+  if (rows.length !== slots.length) return;
+  const selectedMemberId = selectedSacSignupMemberId();
+  const spotCount = Number(event.scoreboard_spots || 2);
+  rows.forEach((row, index) => {
+    const occupants = sacSignupsState.signups.filter(booking => sacBookingMatchesSlot(booking, slots[index]));
+    row.innerHTML = sacSignupAction(slots[index], occupants, selectedMemberId, spotCount, canAddMembers());
+    if (content.getAttribute('aria-busy') === 'true') row.querySelector('button')?.setAttribute('disabled', '');
+  });
 }
 
 function paintSacSignupSheet() {
@@ -126,7 +157,7 @@ function paintSacSignupSheet() {
   const members = sacSignupMembers();
   const selectedMember = members.find(member => member.id === selectedMemberId);
   const memberSelect = isAdmin
-    ? `<div class="sac-signup-assign"><label class="form-label" for="sac-signup-assign-member">Assign an SAC member</label><input class="form-input" id="sac-signup-assign-member" type="search" autocomplete="off" value="${escapeHtml(selectedMember?.name || sacSignupsState.memberQuery)}" placeholder="Type a member name or FIS email" aria-controls="sac-signup-member-matches" aria-describedby="sac-signup-member-status"><div class="sac-signup-member-matches" id="sac-signup-member-matches" role="group" aria-label="Matching SAC members" hidden></div><small id="sac-signup-member-status" role="status" aria-live="polite"></small><small>Auth Admin can assign any current SAC member. Other SAC members can sign up only themselves.</small></div>`
+    ? `<div class="sac-signup-assign"><label class="form-label" for="sac-signup-assign-member">Assign an SAC member</label><div class="sac-signup-search"><input class="form-input" id="sac-signup-assign-member" type="search" autocomplete="off" value="${escapeHtml(selectedMember?.name || sacSignupsState.memberQuery)}" placeholder="Type a member name or FIS email" aria-controls="sac-signup-member-matches" aria-describedby="sac-signup-member-status"><div class="sac-signup-member-matches" id="sac-signup-member-matches" role="group" aria-label="Matching SAC members" hidden></div></div><small id="sac-signup-member-status" role="status" aria-live="polite"></small><small>Auth Admin can assign any current SAC member. Other SAC members can sign up only themselves.</small></div>`
     : '';
   const intro = `<div class="sac-signup-intro"><div><span class="page-kicker">${escapeHtml(formatBerlinDateTime(event.starts_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</span><h2>${escapeHtml(event.title)}</h2><p>${escapeHtml(sacEventTimeLabel(event))} Berlin time${event.location ? ` · ${escapeHtml(event.location)}` : ''}</p></div><span class="sac-signup-role">Scoreboard · ${escapeHtml(String(event.scoreboard_spots || 2))} spots / shift</span></div>`;
   const access = canClaim
@@ -138,9 +169,6 @@ function paintSacSignupSheet() {
     const heading = day !== lastDay ? `<h3 class="sac-signup-day">${escapeHtml(formatBerlinDateTime(slot.start, { weekday: 'long', day: 'numeric', month: 'long' }))}</h3>` : '';
     lastDay = day;
     const occupants = canClaim ? bookings.filter(booking => sacBookingMatchesSlot(booking, slot)) : [];
-    const ownBooking = occupants.find(booking => booking.member_id === selectedMemberId);
-    const full = occupants.length >= Number(event.scoreboard_spots || 2);
-    const ended = Date.parse(slot.end) <= Date.now();
     const places = canClaim
       ? Array.from({ length: Number(event.scoreboard_spots || 2) }, (_, index) => {
           const booking = occupants.find(item => Number(item.spot_number) === index + 1);
@@ -149,11 +177,7 @@ function paintSacSignupSheet() {
           return `<span class="sac-signup-place ${booking ? 'filled' : ''}">${booking ? escapeHtml(booking.member_name_snapshot) : `Spot ${index + 1} open`}${cancel}</span>`;
         }).join('')
       : '<span class="sac-signup-place preview">Member details hidden</span>';
-    const action = canClaim && !ended && !ownBooking && !full && selectedMemberId
-      ? `<button class="btn btn-accent btn-sm" type="button" data-sac-claim-start="${escapeHtml(slot.start)}">${isAdmin ? 'Assign spot' : 'Claim spot'}</button>`
-      : canClaim && ownBooking ? '<span class="sac-signup-status">Booked</span>'
-        : canClaim && full ? '<span class="sac-signup-status">Full</span>'
-          : canClaim && ended ? '<span class="sac-signup-status">Ended</span>' : '';
+    const action = canClaim ? sacSignupAction(slot, occupants, selectedMemberId, Number(event.scoreboard_spots || 2), isAdmin) : '';
     return `${heading}<article class="sac-signup-slot"><div class="sac-signup-time"><strong>${escapeHtml(sacSignupTimeRange(slot))}</strong><span>${canClaim ? `${occupants.length}/${escapeHtml(String(event.scoreboard_spots || 2))} filled` : 'Preview'}</span></div><div class="sac-signup-places">${places}</div><div class="sac-signup-action">${action}</div></article>`;
   }).join('');
   const changedSchedule = orphaned.length
@@ -163,14 +187,20 @@ function paintSacSignupSheet() {
   if (isAdmin) paintSacSignupMemberMatches();
 }
 
-async function renderSacSignups() {
+async function renderSacSignups(preserveContent = false) {
   const select = document.getElementById('sac-signup-event-select');
   const content = document.getElementById('sac-signups-content');
   if (!select || !content || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return;
   const request = ++sacSignupsState.request;
-  content.innerHTML = '<div class="empty-state" role="status"><p>Loading SAC sign-up sheets…</p></div>';
+  if (preserveContent) {
+    content.setAttribute('aria-busy', 'true');
+    content.querySelectorAll('button[data-sac-claim-start], button[data-sac-cancel-id]').forEach(button => { button.disabled = true; });
+  } else {
+    content.innerHTML = '<div class="empty-state" role="status"><p>Loading SAC sign-up sheets…</p></div>';
+  }
   if (!supabaseClient) {
     content.innerHTML = '<div class="empty-state" role="alert"><p>Sign-up sheets cannot load until Supabase is configured.</p></div>';
+    content.removeAttribute('aria-busy');
     return;
   }
   try {
@@ -204,9 +234,14 @@ async function renderSacSignups() {
     return true;
   } catch (error) {
     if (request !== sacSignupsState.request) return;
-    content.innerHTML = '<div class="empty-state" role="alert"><p>SAC sign-up sheets are unavailable. The new database schema and permissions may need to be applied.</p></div>';
+    if (!preserveContent) content.innerHTML = '<div class="empty-state" role="alert"><p>SAC sign-up sheets are unavailable. The new database schema and permissions may need to be applied.</p></div>';
     showToast(error?.message || 'Could not load SAC sign-up sheets.', 'error', 7000);
     return false;
+  } finally {
+    if (request === sacSignupsState.request) {
+      content.removeAttribute('aria-busy');
+      content.querySelectorAll('button[data-sac-claim-start], button[data-sac-cancel-id]').forEach(button => { button.disabled = false; });
+    }
   }
 }
 
@@ -273,10 +308,13 @@ function selectSacSignupEvent(eventId) {
 }
 
 async function claimSacSignupSlot(slotStart, button) {
-  if (!canClaimSacSlot() || !sacSignupsState.selectedEventId) return;
+  if (!canClaimSacSlot() || !sacSignupsState.selectedEventId || sacSignupsState.mutationInFlight) return;
   const memberId = selectedSacSignupMemberId();
   if (!memberId) { showToast('Choose a current SAC member first.', 'error'); return; }
+  sacSignupsState.mutationInFlight = true;
+  const originalLabel = button.textContent;
   button.disabled = true;
+  button.textContent = 'Saving…';
   try {
     const { error } = await supabaseClient.rpc('claim_sac_scoreboard_slot', {
       p_event_id: sacSignupsState.selectedEventId,
@@ -284,30 +322,39 @@ async function claimSacSignupSlot(slotStart, button) {
       p_member_id: canAddMembers() ? memberId : null,
     });
     if (error) throw error;
-    if (await renderSacSignups()) {
+    if (await renderSacSignups(true)) {
       const member = canAddMembers() ? sacSignupMembers().find(item => item.id === memberId) : null;
       showToast(member ? `Booked for ${member.name} — they are on the sheet.` : 'Booked — your name is on the sheet.');
     }
     else showToast('Spot saved, but the sheet could not refresh. Reload to confirm.', 'error', 7000);
   } catch (error) {
     button.disabled = false;
+    button.textContent = originalLabel;
     showToast(error?.message || 'Could not claim this spot.', 'error', 7000);
+  } finally {
+    sacSignupsState.mutationInFlight = false;
   }
 }
 
 async function cancelSacSignupSlot(signupId, button) {
-  if (!canClaimSacSlot()) return;
+  if (!canClaimSacSlot() || sacSignupsState.mutationInFlight) return;
+  sacSignupsState.mutationInFlight = true;
+  const originalLabel = button.textContent;
   button.disabled = true;
+  button.textContent = 'Cancelling…';
   try {
     const { error } = await supabaseClient.rpc('cancel_sac_scoreboard_slot', { p_signup_id: signupId });
     if (error) throw error;
     const refreshed = document.querySelector('.page.active')?.id === 'page-sac-my-shifts'
-      ? await renderSacMyShifts() : await renderSacSignups();
+      ? await renderSacMyShifts() : await renderSacSignups(true);
     if (refreshed) showToast('Scoreboard spot cancelled.');
     else showToast('Spot cancelled, but this page could not refresh. Reload to confirm.', 'error', 7000);
   } catch (error) {
     button.disabled = false;
+    button.textContent = originalLabel;
     showToast(error?.message || 'Could not cancel this spot.', 'error', 7000);
+  } finally {
+    sacSignupsState.mutationInFlight = false;
   }
 }
 
@@ -324,8 +371,8 @@ document.getElementById('sac-signups-content')?.addEventListener('input', event 
   if (event.target.id !== 'sac-signup-assign-member' || !canAddMembers()) return;
   sacSignupsState.memberQuery = event.target.value;
   sacSignupsState.assignedMemberId = null;
-  document.querySelectorAll('#sac-signups-content [data-sac-claim-start]').forEach(button => button.remove());
   paintSacSignupMemberMatches();
+  paintSacSignupActions();
 });
 
 document.getElementById('sac-my-shifts-content')?.addEventListener('click', event => {

@@ -359,25 +359,26 @@
   </div>
 
   <div id="page-sac-events" class="page">
-    <div class="sac-events-head">
-      <div>
+    <section class="page-hero sac-page-hero sac-events-head">
+      <div class="page-hero-copy">
         <div class="page-kicker">Student Athletic Council / Events</div>
         <h1 class="page-title">Athletic events</h1>
         <p class="page-sub">Plan SAC service at games and school athletics events. Scoreboard shifts have separate sign-up sheets.</p>
       </div>
-      <button type="button" class="btn btn-accent" id="sac-event-create" onclick="openSacEventEditor()" hidden>Create SAC event</button>
-    </div>
+      <div class="page-hero-actions"><button type="button" class="btn btn-accent" id="sac-event-create" onclick="openSacEventEditor()" hidden>Create SAC event</button></div>
+    </section>
     <div class="sac-events-toolbar"><button type="button" class="btn btn-ghost btn-sm" id="sac-events-past-toggle" aria-pressed="false" onclick="togglePastSacEvents()">Show past events</button></div>
     <div id="sac-events-list" aria-live="polite"></div>
   </div>
 
   <div id="page-sac-signups" class="page">
-    <section class="sac-events-head">
-      <div>
+    <section class="page-hero sac-page-hero sac-events-head">
+      <div class="page-hero-copy">
         <div class="page-kicker">Student Athletic Council / Sign-up sheets</div>
         <h1 class="page-title">Scoreboard shifts</h1>
         <p class="page-sub">Choose a time that works for you. Scoreboard shifts have two spots by default; adjacent shifts are allowed.</p>
       </div>
+      <div class="page-hero-actions"><a class="btn btn-accent" href="/sac/my-shifts">My shifts →</a></div>
     </section>
     <div class="sac-signups-toolbar">
       <label class="form-label" for="sac-signup-event-select">SAC event</label>
@@ -387,20 +388,20 @@
   </div>
 
   <div id="page-sac-my-shifts" class="page">
-    <section class="sac-events-head">
-      <div>
+    <section class="page-hero sac-page-hero sac-events-head">
+      <div class="page-hero-copy">
         <div class="page-kicker">Student Athletic Council / My shifts</div>
         <h1 class="page-title">My Scoreboard shifts</h1>
         <p class="page-sub">Your booked shifts appear here as soon as they are saved. No separate confirmation is needed.</p>
       </div>
-      <a class="btn btn-accent" href="/sac/signups">Find a shift</a>
+      <div class="page-hero-actions"><a class="btn btn-accent" href="/sac/signups">Find a shift</a></div>
     </section>
     <div id="sac-my-shifts-content" aria-live="polite"></div>
   </div>
 
   <div id="page-sac-members" class="page">
-    <section class="sac-events-head">
-      <div>
+    <section class="page-hero sac-page-hero sac-events-head">
+      <div class="page-hero-copy">
         <div class="page-kicker">Student Athletic Council / Members</div>
         <h1 class="page-title">SAC members</h1>
         <p class="page-sub">Current SAC-tagged members and their council titles. Grade eligibility alone does not add someone to this directory.</p>
@@ -412,17 +413,17 @@
   </div>
 
   <div id="page-sac-meetings" class="page">
-    <section class="sac-events-head">
-      <div><div class="page-kicker">Student Athletic Council / Meetings</div><h1 class="page-title">SAC meetings</h1><p class="page-sub">Council meetings have a separate schedule from Media Club. Attendance is recorded for the whole meeting.</p></div>
-      <button type="button" class="btn btn-accent" id="sac-meeting-create" onclick="openSacMeetingEditor()" hidden>Create meeting</button>
+    <section class="page-hero sac-page-hero sac-events-head">
+      <div class="page-hero-copy"><div class="page-kicker">Student Athletic Council / Meetings</div><h1 class="page-title">SAC meetings</h1><p class="page-sub">Council meetings have a separate schedule from Media Club. Attendance is recorded for the whole meeting.</p></div>
+      <div class="page-hero-actions"><button type="button" class="btn btn-accent" id="sac-meeting-create" onclick="openSacMeetingEditor()" hidden>Create meeting</button></div>
     </section>
     <div class="sac-events-toolbar"><button type="button" class="btn btn-ghost btn-sm" id="sac-meetings-past-toggle" aria-pressed="false" onclick="togglePastSacMeetings()">Show past meetings</button></div>
     <div id="sac-meetings-list" aria-live="polite"></div>
   </div>
 
   <div id="page-sac-attendance" class="page">
-    <section class="sac-events-head">
-      <div><div class="page-kicker">Student Athletic Council / Attendance</div><h1 class="page-title">SAC attendance</h1><p class="page-sub">Record one attendance mark per person for an entire SAC event or meeting.</p></div>
+    <section class="page-hero sac-page-hero sac-events-head">
+      <div class="page-hero-copy"><div class="page-kicker">Student Athletic Council / Attendance</div><h1 class="page-title">SAC attendance</h1><p class="page-sub">Record one attendance mark per person for an entire SAC event or meeting.</p></div>
     </section>
     <div class="sac-attendance-toolbar">
       <label class="form-label" for="sac-attendance-kind">Activity</label><select class="form-select" id="sac-attendance-kind" onchange="selectSacAttendanceKind(this.value)"><option value="event">Athletic event</option><option value="meeting">SAC meeting</option></select>
