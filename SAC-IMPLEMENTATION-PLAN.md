@@ -117,6 +117,12 @@ My Shifts shows a member's upcoming active bookings. Successful Scoreboard
 claims are confirmed immediately, and the sheet reloads before announcing that
 the booking is visible. SAC booking changes refresh open sheets through the
 RLS-protected Realtime publication after the policy SQL is applied.
+My Shifts also prepares a local calendar download for each of the member's own
+upcoming active bookings. Each file uses the saved shift times, event title and
+location, with a link to its sign-up sheet. Calendar copies must be updated or
+removed manually after a booking changes or is cancelled. The export adds no
+new database access or external calendar connection; hosted calendar downloads
+and imports still need verification after deployment.
 Steps 27–28 now also have local SAC Meetings and Attendance routes and a SAC
 dashboard member count. The count uses current SAC tags, not Grade 9–12
 workspace eligibility. Eligible members can view meeting schedules, while Auth

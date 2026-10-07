@@ -1,11 +1,13 @@
 // SAC sign-ups are time-first. Database RPCs own eligibility, capacity, and overlap checks.
-const sacSignupsState = { events: [], signups: [], selectedEventId: null, assignedMemberId: null, memberQuery: '', request: 0, myShiftsRequest: 0, mutationInFlight: false };
+const sacSignupsState = { events: [], signups: [], myShifts: [], myShiftEvents: [], selectedEventId: null, assignedMemberId: null, memberQuery: '', request: 0, myShiftsRequest: 0, mutationInFlight: false };
 
 function resetSacSignupsState() {
   sacSignupsState.request += 1;
   sacSignupsState.myShiftsRequest += 1;
   sacSignupsState.events = [];
   sacSignupsState.signups = [];
+  sacSignupsState.myShifts = [];
+  sacSignupsState.myShiftEvents = [];
   sacSignupsState.selectedEventId = null;
   sacSignupsState.assignedMemberId = null;
   sacSignupsState.memberQuery = '';
@@ -250,10 +252,73 @@ function sacUpcomingOwnShifts(signups, memberId, now = Date.now()) {
     .sort((a, b) => Date.parse(a.slot_start) - Date.parse(b.slot_start));
 }
 
+function escapeSacCalendarText(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/\r\n|\r|\n/g, '\\n')
+    .replace(/;/g, '\\;').replace(/,/g, '\\,');
+}
+
+function foldSacCalendarLine(value) {
+  const encoder = new TextEncoder();
+  const lines = [];
+  let line = '';
+  for (const character of value) {
+    if (encoder.encode(line + character).length > 75) {
+      lines.push(line);
+      line = ' ';
+    }
+    line += character;
+  }
+  lines.push(line);
+  return lines.join('\r\n');
+}
+
+function buildSacShiftCalendar(shift, event, signupUrl, now = Date.now()) {
+  const start = Date.parse(shift?.slot_start);
+  const end = Date.parse(shift?.slot_end);
+  if (!shift?.id || shift.cancelled_at || !event?.id || event.id !== shift.event_id
+    || !Number.isFinite(start) || !Number.isFinite(end) || end <= start || end <= now
+    || !Number.isFinite(now)) return '';
+  const timestamp = value => new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const description = `Your SAC Scoreboard shift, spot ${shift.spot_number}.\nCheck the sign-up sheet for the latest details. If your booking changes or is cancelled, update or remove this entry in your calendar.`;
+  // UTC preserves the booked instant across Berlin daylight-saving changes.
+  return [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//FIS SAC//Scoreboard Shifts//EN',
+    'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    `UID:sac-scoreboard-${encodeURIComponent(shift.id)}@sac.fismediaclub.org`,
+    `DTSTAMP:${timestamp(now)}`, `DTSTART:${timestamp(start)}`, `DTEND:${timestamp(end)}`,
+    'STATUS:CONFIRMED', 'CLASS:PRIVATE',
+    `SUMMARY:${escapeSacCalendarText(`SAC Scoreboard shift — ${event.title || 'SAC event'}`)}`,
+    `DESCRIPTION:${escapeSacCalendarText(description)}`,
+    `LOCATION:${escapeSacCalendarText(event.location || 'Location to be confirmed')}`,
+    `URL:${signupUrl}`, 'END:VEVENT', 'END:VCALENDAR', '',
+  ].map(foldSacCalendarLine).join('\r\n');
+}
+
+function downloadSacShiftCalendar(signupId) {
+  if (currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace() || !canClaimSacSlot()) return;
+  const ownId = currentMemberRecord()?.id;
+  const shift = sacUpcomingOwnShifts(sacSignupsState.myShifts, ownId).find(item => item.id === signupId);
+  const event = sacSignupsState.myShiftEvents.find(item => item.id === shift?.event_id);
+  const signupUrl = shift ? new URL(sacSignupUrl(shift.event_id), window.location.origin).href : '';
+  const calendar = buildSacShiftCalendar(shift, event, signupUrl);
+  if (!calendar) { showToast('This shift is unavailable. Refresh My shifts before adding it to your calendar.', 'error'); return; }
+  const url = URL.createObjectURL(new Blob([calendar], { type: 'text/calendar;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `sac-scoreboard-${new Date(shift.slot_start).toISOString().slice(0, 10)}.ics`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('Calendar file downloaded. Open it in your calendar app.');
+}
+
 async function renderSacMyShifts() {
   const content = document.getElementById('sac-my-shifts-content');
   if (!content || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return false;
   const request = ++sacSignupsState.myShiftsRequest;
+  sacSignupsState.myShifts = [];
+  sacSignupsState.myShiftEvents = [];
   const ownId = currentMemberRecord()?.id;
   if (!canClaimSacSlot()) {
     content.innerHTML = '<div class="sac-signup-locked"><strong>SAC membership required</strong><p>Current SAC members can book Scoreboard shifts. Eligible Crew Center members can preview the <a href="/sac/signups">sign-up sheet</a> and <a href="https://info.fismediaclub.org/#join">request SAC access</a>.</p></div>';
@@ -286,10 +351,12 @@ async function renderSacMyShifts() {
     if (request !== sacSignupsState.myShiftsRequest) return false;
     if (eventError) throw eventError;
     const eventById = new Map((events || []).map(event => [event.id, event]));
-    content.innerHTML = `<div class="sac-my-shifts-list">${shifts.map(shift => {
+    sacSignupsState.myShifts = shifts;
+    sacSignupsState.myShiftEvents = events || [];
+    content.innerHTML = `<p class="sac-calendar-note">Add a shift to your calendar with a downloaded calendar file. If you change or cancel a booking, update or remove the calendar entry too.</p><div class="sac-my-shifts-list">${shifts.map(shift => {
       const event = eventById.get(shift.event_id);
       const slot = { start: shift.slot_start, end: shift.slot_end };
-      return `<article class="sac-my-shift"><div><span class="page-kicker">${escapeHtml(formatBerlinDateTime(shift.slot_start, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</span><h2>${escapeHtml(event?.title || 'SAC event')}</h2><p>${escapeHtml(sacSignupTimeRange(slot))} Berlin time · Scoreboard spot ${escapeHtml(String(shift.spot_number))}${event?.location ? ` · ${escapeHtml(event.location)}` : ''}</p><span class="badge badge-sac">Booked</span></div><div class="sac-my-shift-actions"><a class="btn btn-ghost btn-sm" href="${escapeHtml(sacSignupUrl(shift.event_id))}">View sheet</a><button class="btn btn-ghost btn-sm" type="button" data-sac-cancel-id="${escapeHtml(shift.id)}">Cancel shift</button></div></article>`;
+      return `<article class="sac-my-shift"><div><span class="page-kicker">${escapeHtml(formatBerlinDateTime(shift.slot_start, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</span><h2>${escapeHtml(event?.title || 'SAC event')}</h2><p>${escapeHtml(sacSignupTimeRange(slot))} Berlin time · Scoreboard spot ${escapeHtml(String(shift.spot_number))}${event?.location ? ` · ${escapeHtml(event.location)}` : ''}</p><span class="badge badge-sac">Booked</span></div><div class="sac-my-shift-actions">${event ? `<button class="btn btn-ghost btn-sm" type="button" data-sac-calendar-id="${escapeHtml(shift.id)}" aria-label="Add your ${escapeHtml(event.title || 'SAC event')} shift to calendar">Add to calendar</button>` : ''}<a class="btn btn-ghost btn-sm" href="${escapeHtml(sacSignupUrl(shift.event_id))}">View sheet</a><button class="btn btn-ghost btn-sm" type="button" data-sac-cancel-id="${escapeHtml(shift.id)}">Cancel shift</button></div></article>`;
     }).join('')}</div>`;
     return true;
   } catch (error) {
@@ -376,6 +443,8 @@ document.getElementById('sac-signups-content')?.addEventListener('input', event 
 });
 
 document.getElementById('sac-my-shifts-content')?.addEventListener('click', event => {
+  const calendar = event.target.closest('[data-sac-calendar-id]');
+  if (calendar) { downloadSacShiftCalendar(calendar.dataset.sacCalendarId); return; }
   const cancel = event.target.closest('[data-sac-cancel-id]');
   if (cancel) cancelSacSignupSlot(cancel.dataset.sacCancelId, cancel);
 });

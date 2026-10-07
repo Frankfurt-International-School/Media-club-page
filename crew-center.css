@@ -757,6 +757,7 @@
   #sac-my-shifts-content .empty-state p { margin-bottom: 18px; line-height: 1.65; }
   #sac-my-shifts-content .btn { padding: 9px 18px; font-size: 13px; line-height: 1.4; letter-spacing: .08em; }
   .sac-my-shifts-list { display: grid; gap: 10px; }
+  .sac-calendar-note { margin: 0 0 16px; color: var(--text2); font-size: 13px; line-height: 1.65; }
   .sac-my-shift { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 23px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg2); }
   .sac-my-shift h2 { margin: 5px 0; color: var(--text); font-size: 20px; }
   .sac-my-shift p { margin: 0 0 10px; color: var(--text2); font-size: 12px; }
