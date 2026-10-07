@@ -3,8 +3,10 @@
 ## Project and source of truth
 
 - Work in this repository: `/Users/shenghanlang/Documents/GitHub/Media-club-page`.
-- Treat the checked-out code, SQL, tests, and setup documents here as the implementation source of truth.
+- Treat the checked-out code, SQL, and tests here as the implementation source of truth.
 - Inspect the relevant implementation before changing it. Preserve unrelated work and existing visual, authorization, and routing behavior.
+- Keep searches, file reads, tool output, and updates focused on the current task without skipping required verification.
+- Do not create or maintain progress plans or setup/tutorial Markdown unless the user asks. Do not read those guides routinely; consult a specific guide only when needed for the task.
 
 ## Connected services and plugins
 
@@ -13,6 +15,7 @@
 - Read-only inspection is appropriate for diagnosis. Only mutate hosted data, authentication settings, DNS, deployments, email configuration, or other external state when the user's request clearly authorizes that exact action.
 - Never place API keys, access tokens, passwords, private user data, or dashboard secrets in the repository, logs, commits, or user-facing output.
 - Verify the project, account, environment, and exact target before any live change. Report what was changed and what remains local-only.
+- Use the Supabase plugin for hosted inspection and authorized SQL changes, never computer use. Apply reviewed incremental migrations; do not automatically rerun complete schema or policy files.
 
 ## Implementation boundaries
 
