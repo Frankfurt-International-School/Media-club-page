@@ -62,6 +62,8 @@ test('SAC dashboard count follows approved SAC tags rather than grade eligibilit
     document: { getElementById: id => id === 'sac-home-member-count' ? count : null },
     currentCrewCenterWorkspace: () => 'sac',
     canAccessSacWorkspace: () => true,
+    updateDashboardGreeting() {},
+    renderSacPersonalDashboard() {},
   };
   vm.runInNewContext(`${functionSource(members, 'renderSacDashboard')}\nrenderSacDashboard()`, context);
   assert.equal(count.textContent, '2');

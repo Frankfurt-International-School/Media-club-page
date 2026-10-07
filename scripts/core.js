@@ -1084,8 +1084,14 @@ function subscribeToCrewCenterChanges() {
     if (currentCrewCenterWorkspace() !== 'sac' || !canClaimSacSlot()) return;
     if (sacSignupsState.mutationInFlight) return;
     const page = document.querySelector('.page.active')?.id;
+    if (page === 'page-sac-home') renderSacDashboard();
     if (page === 'page-sac-signups') renderSacSignups(true);
     if (page === 'page-sac-my-shifts') renderSacMyShifts();
+  });
+  ['sac_events', 'sac_meetings'].forEach(table => {
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+      if (currentCrewCenterWorkspace() === 'sac' && document.querySelector('.page.active')?.id === 'page-sac-home') renderSacDashboard();
+    });
   });
   window.CREW_CENTER_REALTIME_CHANNEL = channel.subscribe();
 }

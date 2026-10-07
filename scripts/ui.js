@@ -253,8 +253,8 @@ function applyCheckedState(input, checked) {
 }
 
 function updateDashboardGreeting() {
-  const el = document.getElementById('dashboard-greeting');
-  if (!el) return;
+  const elements = ['dashboard-greeting', 'sac-home-greeting'].map(id => document.getElementById(id)).filter(Boolean);
+  if (!elements.length) return;
   const berlinHour = Number(new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Berlin',
     hour: '2-digit',
@@ -268,7 +268,7 @@ function updateDashboardGreeting() {
   const firstName = isVisitorSession()
     ? 'Visitor'
     : splitName(currentMemberRecord()?.name || '').fname;
-  el.textContent = firstName ? `${greeting}, ${firstName}` : greeting;
+  elements.forEach(el => { el.textContent = firstName ? `${greeting}, ${firstName}` : greeting; });
 }
 
 function updateUserSurfaces() {

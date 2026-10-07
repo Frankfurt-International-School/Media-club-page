@@ -333,14 +333,23 @@
       <section class="sac-home-hero" aria-labelledby="sac-home-title">
         <div class="sac-home-copy">
           <div class="page-kicker">Student Athletic Council</div>
-          <h1 class="page-title" id="sac-home-title">SAC workspace</h1>
-          <p class="page-sub">A dedicated place for athletic-event service, time-slot sign-ups, meetings, and attendance.</p>
-          <div class="sac-home-access"><span aria-hidden="true"></span> Access is based on your approved member record, never on the website address.</div>
+          <h1 class="page-title" id="sac-home-title"><span id="sac-home-greeting">Your SAC dashboard</span> <span class="sac-greeting-wave" aria-hidden="true">👋</span></h1>
+          <p class="page-sub">Your shifts, your council, and what's coming up next.</p>
+          <div class="sac-home-access"><span aria-hidden="true"></span><span id="sac-home-member-label"></span></div>
         </div>
         <div class="sac-home-mark" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></div>
       </section>
       <section class="sac-home-metrics" aria-label="SAC at a glance">
+        <a class="sac-home-metric" href="/sac/my-shifts"><span class="page-kicker">Your schedule</span><strong id="sac-home-shift-count" aria-live="polite">—</strong><span>Upcoming Scoreboard shifts</span><small>View my shifts →</small></a>
         <a class="sac-home-metric" href="/sac/members"><span class="page-kicker">Current council</span><strong id="sac-home-member-count" aria-live="polite">—</strong><span>SAC members</span><small>View member directory →</small></a>
+      </section>
+      <section class="sac-dashboard-panel" aria-labelledby="sac-home-next-title">
+        <div class="sac-dashboard-section-head"><h2 id="sac-home-next-title">Your next shift</h2><a href="/sac/my-shifts">All my shifts →</a></div>
+        <div id="sac-home-next-shift" aria-live="polite"></div>
+      </section>
+      <section class="sac-dashboard-panel" aria-labelledby="sac-home-upcoming-title">
+        <div class="sac-dashboard-section-head"><h2 id="sac-home-upcoming-title">Up next at SAC</h2></div>
+        <div id="sac-home-upcoming" class="sac-dashboard-upcoming" aria-live="polite"></div>
       </section>
       <section class="sac-home-grid" aria-label="SAC workspace areas">
         <a class="sac-home-card" href="/sac/events"><div class="sac-home-card-number">01</div><h2>Athletic events</h2><p>See upcoming SAC service events, including events linked to Media Club livestreams.</p><span>Open SAC Events →</span></a>
@@ -1479,6 +1488,7 @@
 <script src="scripts/sac-events.js"></script>
 <script src="scripts/sac-meetings.js"></script>
 <script src="scripts/sac-signups.js"></script>
+<script src="scripts/sac-dashboard.js"></script>
 <script src="scripts/sac-attendance.js"></script>
 <script src="scripts/meetings.js"></script>
 <script src="scripts/signups.js"></script>

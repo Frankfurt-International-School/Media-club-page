@@ -74,6 +74,8 @@ function renderSacDashboard() {
   count.textContent = state.dataLoaded.members
     ? String(state.members.filter(member => member.teamKeys?.includes('sac')).length)
     : '—';
+  updateDashboardGreeting();
+  renderSacPersonalDashboard();
 }
 
 function renderSacMembers() {
