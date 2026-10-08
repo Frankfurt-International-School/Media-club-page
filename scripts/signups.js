@@ -2,6 +2,69 @@
 // SIGN-UP SHEETS
 // ══════════════════════════════
 const signupSheetPeriodSelection = new Map();
+let mediaSignupSaveInFlight = false;
+
+function clearSignupFormErrors() {
+  document.querySelectorAll('#signup-entry-card [aria-invalid]').forEach(input => input.removeAttribute('aria-invalid'));
+  document.querySelectorAll('#signup-entry-card .signup-field-error').forEach(error => { error.textContent = ''; });
+  const status = document.getElementById('signup-submit-status');
+  if (status) { status.textContent = ''; status.setAttribute('role', 'status'); }
+}
+
+function showSignupFormError(message, fieldIds = []) {
+  const status = document.getElementById('signup-submit-status');
+  if (status) { status.textContent = message; status.setAttribute('role', 'alert'); }
+  else showToast(message, 'error', 6000);
+  fieldIds.forEach(id => {
+    document.getElementById(id)?.setAttribute('aria-invalid', 'true');
+    const error = document.getElementById(`${id}-error`);
+    if (error) error.textContent = message;
+  });
+  const first = document.getElementById(fieldIds[0]);
+  first?.focus({ preventScroll: true });
+  first?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+
+function setMediaSignupBusy(pending) {
+  const button = document.getElementById('signup-submit');
+  if (button) button.disabled = pending;
+  document.getElementById('signup-entry-card')?.setAttribute('aria-busy', String(pending));
+  const label = document.getElementById('signup-submit-label');
+  if (label) label.textContent = pending ? 'Saving…' : document.getElementById('signup-confirmation')?.value === 'maybe' ? 'Save Maybe signup' : 'Confirm signup';
+}
+
+function renderSignupBookingSummary() {
+  const details = document.getElementById('signup-booking-details');
+  if (!details) return;
+  const event = state.events.find(item => item.id === document.getElementById('sheet-event-select')?.value);
+  const member = selectedMediaSignupMember();
+  const attendance = event ? selectedAttendanceWindow(event) : null;
+  const roleFree = event?.isFestival && ['setup', 'takedown'].includes(attendance?.type);
+  const role = document.getElementById('signup-role')?.value || '';
+  const maybe = document.getElementById('signup-confirmation')?.value === 'maybe';
+  const deadline = event ? timeValue(event.date, event.setupStart || event.game1Start || event.time) - 2 * 60 * 60 * 1000 : null;
+  const memberDetails = member && canSignupForOtherMembers() ? [member.gradeLevel, member.email].filter(Boolean).join(' · ') : '';
+  let roleLabel = roleFree ? `${attendance.type === 'setup' ? 'Setup' : 'Takedown'} · no production role needed` : role || 'Choose a production role';
+  if (!roleFree && role === signupRoleLabels.student_supervisor) roleLabel += ` · reserves: ${document.getElementById('signup-reserve-role-1')?.value || 'choose first'} → ${document.getElementById('signup-reserve-role-2')?.value || 'choose second'}`;
+  if (!roleFree && role === signupRoleLabels.mixing && document.getElementById('signup-mixer-obs-reserve')?.checked) roleLabel += ' · OBS cover if needed';
+  const rows = [
+    ['Member', member ? `${member.name}${memberDetails ? ` · ${memberDetails}` : ''}` : 'Choose a matched member'],
+    ['Event', event ? `${event.title} · ${fmtDate(event.date)}` : 'Choose an event'],
+    ['Role', roleLabel],
+    ['Attendance', attendance ? `${attendanceLabel({ attendanceType: attendance.type, attendanceStart: new Date(attendance.start).toISOString(), attendanceEnd: new Date(attendance.end).toISOString() })} · Berlin time` : 'Choose valid arrival and leaving times'],
+    ['Commitment', maybe ? `Maybe · confirm by ${deadline ? formatBerlinDateTime(deadline, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'the event deadline'} Berlin time` : 'Confirmed'],
+  ];
+  if (!roleFree && role === signupRoleLabels.photographer) rows.push(['Camera', document.getElementById('signup-camera-source-select')?.value === 'own'
+    ? member?.personalEquipmentPreferences?.cameraName || 'Add a personal camera in Settings'
+    : 'Club equipment · reserve or collect a camera separately']);
+  details.innerHTML = rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
+  if (!mediaSignupSaveInFlight) setMediaSignupBusy(false);
+}
+
+['input', 'change'].forEach(type => document.getElementById('signup-entry-card')?.addEventListener(type, () => {
+  clearSignupFormErrors();
+  renderSignupBookingSummary();
+}));
 
 function initSignupSheet() {
   const sel = document.getElementById('sheet-event-select');
@@ -379,6 +442,7 @@ function renderSignupSheet() {
   if (maybeOption) maybeOption.disabled = maybeClosed;
   if (maybeClosed && document.getElementById('signup-confirmation')?.value === 'maybe') document.getElementById('signup-confirmation').value = 'confirmed';
   if (confirmationHelp) confirmationHelp.textContent = maybeClosed ? 'The Maybe deadline has passed; new signups must be confirmed.' : `Maybe signups must be confirmed by ${formatBerlinDateTime(maybeDeadline, { dateStyle: 'medium', timeStyle: 'short' })} Berlin time.`;
+  renderSignupBookingSummary();
   document.getElementById('sheet-event-title').textContent = ev.title;
   document.getElementById('sheet-event-time').textContent = `${fmtDate(ev.date)} · ${eventScheduleTimeLabel(ev)} · ${ev.loc || 'TBC'}${sportsScheduleCaption(ev) ? ' · ' + sportsScheduleCaption(ev) : ''}${isstScheduleCaption(ev) ? ' · ' + isstScheduleCaption(ev) : ''}${festivalScheduleCaption(ev) ? ' · ' + festivalScheduleCaption(ev) : ''}`;
   const periods = signupSheetPeriods(ev);
@@ -473,33 +537,26 @@ async function confirmMaybeSignup(eventId, signupId) {
 }
 
 async function addSignupRow() {
+  if (mediaSignupSaveInFlight) return;
   if (isVisitorSession()) {
     showToast('Visitors can view events, but cannot sign up for roles.', 'error');
     return;
   }
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
+  clearSignupFormErrors();
+  if (!ev) { showSignupFormError('Choose an available event before signing up.'); return; }
   const canChooseMember = canSignupForOtherMembers();
   const nameInput = document.getElementById('signup-name');
-  const name = nameInput.value.trim().replace(/\s+/g, ' ');
-  if (!name) {
-    setSignupNameHelp('Write your full name as displayed on the Members page.', 'error');
-    showToast('Write your full name as displayed on the Members page.', 'error');
-    return;
-  }
   const matchingMembers = validateSignupNameInput(true);
-  if (matchingMembers.length === 0) {
-    showToast('Name not found. Check the spelling or copy it from the Members page.', 'error');
+  const member = matchingMembers[0];
+  if (!member) {
+    showSignupFormError(canChooseMember ? 'Choose a member match before assigning a signup.' : "Couldn't match your account to a member record. Refresh or contact an Auth Admin.", ['signup-name']);
     return;
   }
-  if (matchingMembers.length > 1) {
-    showToast('More than one member has this name. Ask an administrator to make the member records unique.', 'error');
-    return;
-  }
-  const matchedMember = matchingMembers[0];
   const role = document.getElementById('signup-role').value;
   if (role && eventRoleCapacity(ev, role) === 0) {
-    showToast('That role is not open for this event.', 'error');
+    showSignupFormError('That role is not open for this event.', ['signup-role']);
     renderSignupSheet();
     return;
   }
@@ -513,53 +570,43 @@ async function addSignupRow() {
   const reserveRole2 = isStudentSupervisor ? document.getElementById('signup-reserve-role-2').value : null;
   const attendance = selectedAttendanceWindow(ev);
   if (!attendance) {
-    showToast('Please choose valid arrival and leaving times.', 'error');
+    showSignupFormError('Please choose valid arrival and leaving times.', document.getElementById('signup-attendance')?.value === 'custom' ? ['signup-start-time', 'signup-end-time'] : ['signup-attendance']);
     return;
   }
   const roleFreeAttendance = ev.isFestival && ['setup', 'takedown'].includes(attendance.type);
-  if (!roleFreeAttendance && !role) { showToast('Please choose an available role.', 'error'); return; }
+  if (!roleFreeAttendance && !role) { showSignupFormError('Please choose an available role.', ['signup-role']); return; }
   if (isStudentSupervisor && (!reserveRole1 || !reserveRole2 || reserveRole1 === reserveRole2)) {
-    showToast('Choose two different reserve roles in priority order.', 'error');
+    showSignupFormError('Choose two different reserve roles in priority order.', ['signup-reserve-role-1', 'signup-reserve-role-2']);
     return;
   }
   if (isStudentSupervisor && [reserveRole1, reserveRole2].some(reserveRole => !availableReserveRoleLabels().includes(reserveRole))) {
-    showToast('Student Supervisors cannot use Photographer as a reserve role.', 'error', 6000);
+    showSignupFormError('Student Supervisors cannot use Photographer as a reserve role.', ['signup-reserve-role-1', 'signup-reserve-role-2']);
     updateReserveRoleFields();
     return;
   }
   const eventStart = timeValue(ev.date, ev.setupStart || ev.game1Start || ev.time);
   const eventEnd = timeValue(ev.date, ev.takedownEnd || ev.game4End || ev.game3End || ev.game2End || ev.game1End || ev.endTime || '23:59');
   if (attendance.type === 'custom' && (attendance.start < eventStart || attendance.end > eventEnd)) {
-    showToast('Custom attendance must be within the event times.', 'error');
+    showSignupFormError('Custom attendance must be within the event times.', ['signup-start-time', 'signup-end-time']);
     return;
   }
   const confirmationStatus = document.getElementById('signup-confirmation')?.value === 'maybe' ? 'maybe' : 'confirmed';
   if (confirmationStatus === 'maybe' && eventStart - Date.now() <= 2 * 60 * 60 * 1000) {
-    showToast('Maybe signups close two hours before the event starts. Please confirm now or leave the role open.', 'error', 6000);
+    showSignupFormError('Maybe signups close two hours before the event starts. Please confirm now or leave the role open.', ['signup-confirmation']);
     return;
   }
   const overlappingRoleSignups = ev.signups.filter(signup => signup.role === role && signupOverlaps(signup, attendance));
   const roleCapacity = eventRoleCapacity(ev, role);
   if (!roleFreeAttendance && overlappingRoleSignups.length >= roleCapacity) {
-    showToast(`${roleCapacity > 1 ? 'All slots are' : 'Slot is'} occupied for ${role} during that time.`, 'error');
+    showSignupFormError(`${roleCapacity > 1 ? 'All slots are' : 'Slot is'} occupied for ${role} during that time.`, ['signup-role']);
     renderSignupSheet();
     return;
   }
-  const signedInMember = currentMemberRecord();
-  nameInput.value = matchedMember.name;
-  const member = canChooseMember ? matchedMember : signedInMember;
-  if (!member) {
-    showToast("Couldn't match your account to a member record.", 'error');
-    return;
-  }
-  if (!canChooseMember && member.id !== matchedMember.id) {
-    showToast('You can only sign up using your own full name.', 'error');
-    return;
-  }
+  nameInput.value = member.name;
   const personalCameraName = member.personalEquipmentPreferences?.cameraName?.trim() || '';
   const equipmentSource = role === signupRoleLabels.photographer && document.getElementById('signup-camera-source-select')?.value === 'own' ? 'own' : 'club';
   if (equipmentSource === 'own' && !personalCameraName) {
-    showToast('Add a personal camera in Settings before using My camera for a Photographer signup.', 'error', 6000);
+    showSignupFormError('Add a personal camera in Settings before using My camera for a Photographer signup.', ['signup-camera-source-select']);
     renderSignupCameraSource();
     return;
   }
@@ -567,66 +614,80 @@ async function addSignupRow() {
     const conflict = state.events.flatMap(candidate => candidate.signups.map(signup => ({ event: candidate, signup })))
       .find(candidate => candidate.event.id !== ev.id && candidate.signup.memberId === member.id && signupOverlaps(candidate.signup, attendance));
     if (conflict) {
-      showToast(`${member.name} is already assigned to ${conflict.event.title} during that time.`, 'error', 6000);
+      showSignupFormError(`${member.name} is already assigned to ${conflict.event.title} during that time.`, ['signup-attendance']);
       return;
     }
   }
-  const { data: signup, error } = await supabaseClient
-    .from('signups')
-    .insert({
-      event_id: ev.id,
-      member_id: member.id,
-      signup_role: roleFreeAttendance ? null : role,
-      reserve_role_1: roleFreeAttendance ? null : reserveRole1,
-      reserve_role_2: roleFreeAttendance ? null : reserveRole2,
-      equipment_source: equipmentSource,
-      own_camera_name: equipmentSource === 'own' ? personalCameraName : null,
-      attendance_type: attendance.type,
-      attendance_start: new Date(attendance.start).toISOString(),
-      attendance_end: new Date(attendance.end).toISOString(),
-      confirmation_status: confirmationStatus,
-    })
-    .select('id, member_id, signup_role, role_slot, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role)')
-    .single();
-  if (error) {
-    if (error.code === '23505' || error.code === '23P01') {
-      const crossEventConflict = error.message?.includes('signups_member_cross_event_no_overlap');
-      showToast(error.code === '23P01' ? crossEventConflict ? 'You already have another event assignment during that time.' : 'Slot occupied during that time.' : 'You are already signed up for this event.', 'error');
-      await loadCrewCenterData();
+  const actorId = window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id;
+  mediaSignupSaveInFlight = true;
+  setMediaSignupBusy(true);
+  try {
+    const { data: signup, error } = await supabaseClient
+      .from('signups')
+      .insert({
+        event_id: ev.id,
+        member_id: member.id,
+        signup_role: roleFreeAttendance ? null : role,
+        reserve_role_1: roleFreeAttendance ? null : reserveRole1,
+        reserve_role_2: roleFreeAttendance ? null : reserveRole2,
+        equipment_source: equipmentSource,
+        own_camera_name: equipmentSource === 'own' ? personalCameraName : null,
+        attendance_type: attendance.type,
+        attendance_start: new Date(attendance.start).toISOString(),
+        attendance_end: new Date(attendance.end).toISOString(),
+        confirmation_status: confirmationStatus,
+      })
+      .select('id, member_id, signup_role, role_slot, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role)')
+      .single();
+    if ((window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id) !== actorId) return;
+    if (error) {
+      if (error.code === '23505' || error.code === '23P01') {
+        const crossEventConflict = error.message?.includes('signups_member_cross_event_no_overlap');
+        showSignupFormError(error.code === '23P01' ? crossEventConflict ? 'This member already has another event assignment during that time.' : 'Slot occupied during that time.' : 'This member is already signed up for this event.', ['signup-role']);
+        await loadCrewCenterData();
+        return;
+      }
+      const safeMessage = /role is not open|signup slots are available/i.test(error.message || '') ? error.message : "Couldn't save signup.";
+      showSignupFormError(safeMessage);
       return;
     }
-    const safeMessage = /role is not open|signup slots are available/i.test(error.message || '') ? error.message : "Couldn't save signup.";
-    showToast(safeMessage, 'error', 6000);
-    return;
+    const currentEvent = state.events.find(event => event.id === ev.id);
+    if (currentEvent && !currentEvent.signups.some(item => item.id === signup.id)) currentEvent.signups.push({
+      id: signup.id,
+      memberId: signup.member_id,
+      name: signup.members?.name || member.name,
+      role: signup.signup_role || '',
+      roleSlot: Number(signup.role_slot) || 1,
+      reserveRole1: signup.reserve_role_1 || '',
+      reserveRole2: signup.reserve_role_2 || '',
+      equipmentSource: signup.equipment_source === 'own' ? 'own' : 'club',
+      ownCameraName: signup.own_camera_name || '',
+      attendanceType: signup.attendance_type || attendance.type,
+      attendanceStart: signup.attendance_start,
+      attendanceEnd: signup.attendance_end,
+      attendanceStatus: signup.attendance_status || 'not_taken',
+      attendanceMarkedAt: signup.attendance_marked_at || '',
+      attendanceMarkedBy: signup.attendance_marked_by || '',
+      attendanceMarkedByName: signup.attendance_marked_by_name || '',
+      confirmationStatus: signup.confirmation_status || 'confirmed',
+      confirmationDeadline: signup.confirmation_deadline || '',
+      confirmedAt: signup.confirmed_at || '',
+      ts: formatBerlinDateTime(signup.signed_up_at, { dateStyle: 'medium', timeStyle: 'short' }),
+      signedUpAt: signup.signed_up_at || '',
+    });
+    document.getElementById('signup-name').value = '';
+    clearSignupNameValidation();
+    document.getElementById('signup-confirmation').value = 'confirmed';
+    showToast(confirmationStatus === 'maybe' ? `${member.name} is tentatively signed up. Confirm before the deadline.` : `${member.name} signed up for ${ev.title}!`);
+    renderSignupSheet();
+    const status = document.getElementById('signup-submit-status');
+    if (status) status.textContent = `${confirmationStatus === 'maybe' ? 'Tentative signup saved' : 'Confirmed signup saved'} for ${ev.title}. Your booking is now on the sheet.`;
+  } catch (_error) {
+    if ((window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id) === actorId) showSignupFormError("Couldn't save signup. Check your connection and try again; your choices have been kept.");
+  } finally {
+    mediaSignupSaveInFlight = false;
+    setMediaSignupBusy(false);
   }
-  ev.signups.push({
-    id: signup.id,
-    memberId: signup.member_id,
-    name: signup.members?.name || member.name,
-    role: signup.signup_role || '',
-    roleSlot: Number(signup.role_slot) || 1,
-    reserveRole1: signup.reserve_role_1 || '',
-    reserveRole2: signup.reserve_role_2 || '',
-    equipmentSource: signup.equipment_source === 'own' ? 'own' : 'club',
-    ownCameraName: signup.own_camera_name || '',
-    attendanceType: signup.attendance_type || attendance.type,
-    attendanceStart: signup.attendance_start,
-    attendanceEnd: signup.attendance_end,
-    attendanceStatus: signup.attendance_status || 'not_taken',
-    attendanceMarkedAt: signup.attendance_marked_at || '',
-    attendanceMarkedBy: signup.attendance_marked_by || '',
-    attendanceMarkedByName: signup.attendance_marked_by_name || '',
-    confirmationStatus: signup.confirmation_status || 'confirmed',
-    confirmationDeadline: signup.confirmation_deadline || '',
-    confirmedAt: signup.confirmed_at || '',
-    ts: formatBerlinDateTime(signup.signed_up_at, { dateStyle: 'medium', timeStyle: 'short' }),
-    signedUpAt: signup.signed_up_at || '',
-  });
-  document.getElementById('signup-name').value = '';
-  clearSignupNameValidation();
-  document.getElementById('signup-confirmation').value = 'confirmed';
-  showToast(confirmationStatus === 'maybe' ? `${member.name} is tentatively signed up. Confirm before the deadline.` : `${member.name} signed up for ${ev.title}!`);
-  renderSignupSheet();
 }
 
 function requestRemoveSignup(eventId, signupId, expired = false) {

@@ -439,7 +439,18 @@ function renderSignupNameField() {
   if (!input) return;
   const help = document.getElementById('signup-name-help');
   const canChooseMember = canSignupForOtherMembers();
-  input.placeholder = 'Name as shown on the Members page';
+  const actorId = window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id || '';
+  if (input.dataset.actorId !== actorId || input.dataset.memberChooser !== String(canChooseMember)) {
+    delete input.dataset.memberId;
+    if (canChooseMember) input.value = '';
+  }
+  input.dataset.actorId = actorId;
+  input.dataset.memberChooser = String(canChooseMember);
+  const subtitle = document.getElementById('signup-entry-subtitle');
+  if (subtitle) subtitle.textContent = canChooseMember
+    ? 'Choose a member match and an available time and role, then review the details before assigning the signup.'
+    : 'Choose your time and role, review the details below, then confirm your signup.';
+  input.placeholder = 'Type a member name or FIS email';
   input.readOnly = !canChooseMember;
   if (help) help.hidden = !canChooseMember;
   if (!canChooseMember) {
@@ -449,6 +460,7 @@ function renderSignupNameField() {
   } else {
     input.removeAttribute('aria-label');
   }
+  paintSignupMemberMatches();
   renderSignupCameraSource();
 }
 
@@ -459,7 +471,41 @@ function normalizedSignupName(value = '') {
 function matchingSignupMembers(value) {
   const normalized = normalizedSignupName(value);
   if (!normalized) return [];
-  return state.members.filter(member => normalizedSignupName(member.name) === normalized);
+  return state.members.filter(member => normalizedSignupName(member.name).includes(normalized)
+    || normalizedSignupName(member.email || '').includes(normalized));
+}
+
+function selectedMediaSignupMember() {
+  if (!canSignupForOtherMembers()) return currentMemberRecord();
+  const input = document.getElementById('signup-name');
+  const member = state.members.find(candidate => candidate.id === input?.dataset.memberId);
+  return member && normalizedSignupName(member.name) === normalizedSignupName(input.value) ? member : null;
+}
+
+function selectMediaSignupMember(memberId) {
+  if (!canSignupForOtherMembers() || isVisitorSession()) return;
+  const member = state.members.find(candidate => candidate.id === memberId);
+  const input = document.getElementById('signup-name');
+  if (!member || !input) return;
+  input.dataset.memberId = member.id;
+  input.value = member.name;
+  if (typeof clearSignupFormErrors === 'function') clearSignupFormErrors();
+  validateSignupNameInput();
+  input.focus();
+}
+
+function paintSignupMemberMatches() {
+  const input = document.getElementById('signup-name');
+  const results = document.getElementById('signup-member-matches');
+  if (!input || !results) return;
+  const canChoose = canSignupForOtherMembers() && !isVisitorSession();
+  const matches = canChoose && !selectedMediaSignupMember() ? matchingSignupMembers(input.value) : [];
+  results.hidden = !matches.length;
+  results.innerHTML = matches.slice(0, 6).map(member => `<button class="signup-member-match" type="button" data-media-signup-member="${escapeHtml(member.id)}"><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml([member.gradeLevel, member.email].filter(Boolean).join(' · '))}</small></button>`).join('');
+  if (canChoose && !selectedMediaSignupMember()) setSignupNameHelp(!input.value.trim()
+    ? 'Type a name or FIS email, then choose the correct member.'
+    : matches.length ? `${matches.length} matching member${matches.length === 1 ? '' : 's'}. Choose a match${matches.length > 6 ? '; type more to narrow the results' : ''}.`
+      : 'No matching member. Try their FIS email or check Members.');
 }
 
 function setSignupNameHelp(message, status = '') {
@@ -471,40 +517,33 @@ function setSignupNameHelp(message, status = '') {
 }
 
 function clearSignupNameValidation() {
-  setSignupNameHelp('Enter the full name exactly as displayed on the Members page. Capitalization does not matter.');
+  const input = document.getElementById('signup-name');
+  if (input) delete input.dataset.memberId;
+  setSignupNameHelp('Type a name or FIS email, then choose the correct member.');
+  paintSignupMemberMatches();
   renderSignupCameraSource();
 }
 
 function validateSignupNameInput(canonicalize = false) {
   const input = document.getElementById('signup-name');
-  const value = input?.value || '';
-  if (!value.trim()) {
-    setSignupNameHelp('Enter the full name exactly as displayed on the Members page. Capitalization does not matter.');
-    renderSignupCameraSource();
-    return [];
-  }
-  const matches = matchingSignupMembers(value);
-  if (!matches.length) {
-    setSignupNameHelp('Name not found. Check the spelling or copy the name from the Members page.', 'error');
-    renderSignupCameraSource();
-    return [];
-  }
-  if (matches.length > 1) {
-    setSignupNameHelp('More than one member has this name. Ask an administrator for help.', 'error');
-    renderSignupCameraSource();
-    return matches;
-  }
-  if (canonicalize) input.value = matches[0].name;
-  setSignupNameHelp(`Matched to ${matches[0].name}.`, 'valid');
+  const member = selectedMediaSignupMember();
+  if (member) {
+    if (canonicalize && input) input.value = member.name;
+    setSignupNameHelp(`Matched to ${member.name}${canSignupForOtherMembers() && member.email ? ` · ${member.email}` : ''}.`, 'valid');
+  } else setSignupNameHelp(canSignupForOtherMembers() ? 'Choose a member match before assigning a signup.' : "Couldn't link your account to a member record. Refresh or contact an Auth Admin.", 'error');
+  paintSignupMemberMatches();
   renderSignupCameraSource();
-  return matches;
+  return member ? [member] : [];
 }
 
 function signupMemberForEquipmentPreference() {
-  const inputName = document.getElementById('signup-name')?.value || '';
-  const matches = matchingSignupMembers(inputName);
-  return matches.length === 1 ? matches[0] : canSignupForOtherMembers() ? null : currentMemberRecord();
+  return selectedMediaSignupMember();
 }
+
+document.addEventListener('click', event => {
+  const match = event.target.closest?.('[data-media-signup-member]');
+  if (match) selectMediaSignupMember(match.dataset.mediaSignupMember);
+});
 
 function renderSignupCameraSource() {
   const panel = document.getElementById('signup-camera-source');
@@ -515,6 +554,7 @@ function renderSignupCameraSource() {
   panel.hidden = !photographerSelected;
   if (!photographerSelected) {
     delete panel.dataset.preferenceContext;
+    if (typeof renderSignupBookingSummary === 'function') renderSignupBookingSummary();
     return;
   }
 
@@ -533,6 +573,7 @@ function renderSignupCameraSource() {
   summary.innerHTML = select.value === 'own'
     ? `<span class="signup-camera-status-dot"></span><strong>Personal kit armed</strong><span>${escapeHtml(cameraName)}</span>`
     : '<span class="signup-camera-status-dot club"></span><strong>Club equipment</strong><span>Reserve or collect a club camera separately.</span>';
+  if (typeof renderSignupBookingSummary === 'function') renderSignupBookingSummary();
 }
 
 const datasetLabels = {

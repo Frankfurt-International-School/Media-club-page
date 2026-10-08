@@ -547,30 +547,35 @@
     <div class="card signup-entry-card" id="signup-entry-card">
       <div class="signup-entry-head">
         <div class="signup-entry-title">Join this event</div>
-        <div class="signup-entry-sub">Choose the member and time first, then claim a production role that is still open for that period.</div>
+        <div class="signup-entry-sub" id="signup-entry-subtitle">Choose your time and role, review the details below, then confirm your signup.</div>
       </div>
       <div class="signup-window-picker" id="signup-window-picker" aria-live="polite"></div>
       <div class="signup-entry-grid" id="signup-entry-grid">
         <div class="form-group signup-field" id="signup-member-field">
           <label class="form-label" for="signup-name">Member</label>
-          <input class="form-input" id="signup-name" autocomplete="off" placeholder="Name as shown on the Members page" oninput="clearSignupNameValidation()" onblur="validateSignupNameInput(true)" />
-          <div class="signup-name-help" id="signup-name-help">Enter the full name exactly as displayed on the Members page. Capitalization does not matter.</div>
+          <input class="form-input" id="signup-name" autocomplete="off" placeholder="Type a member name or FIS email" aria-controls="signup-member-matches" aria-describedby="signup-name-help signup-name-error" oninput="clearSignupNameValidation()" />
+          <div class="signup-member-matches" id="signup-member-matches" role="group" aria-label="Matching Media Club members" hidden></div>
+          <div class="signup-name-help" id="signup-name-help">Type a name or FIS email, then choose the correct member.</div>
+          <div class="signup-field-error" id="signup-name-error"></div>
         </div>
         <div class="form-group signup-field attendance-choice" id="signup-attendance-choice">
           <label class="form-label" for="signup-attendance">Staying for</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-attendance" onchange="updateSignupAttendanceFields()"></select></div>
+          <div class="signup-select-shell"><select class="form-select" id="signup-attendance" aria-describedby="signup-attendance-guidance signup-attendance-error" onchange="updateSignupAttendanceFields()"></select></div>
           <div class="signup-name-help" id="signup-attendance-guidance"></div>
+          <div class="signup-field-error" id="signup-attendance-error"></div>
+          <div class="form-row2 signup-custom-inline" id="signup-custom-time-fields" style="display:none;">
+            <div class="form-group" style="margin:0"><label class="form-label" for="signup-start-time">Arrival time</label><input class="form-input" id="signup-start-time" type="time" aria-describedby="signup-start-time-error" onchange="renderSignupRoleOptionsForCurrentEvent()" /><div class="signup-field-error" id="signup-start-time-error"></div></div>
+            <div class="form-group" style="margin:0"><label class="form-label" for="signup-end-time">Leaving time</label><input class="form-input" id="signup-end-time" type="time" aria-describedby="signup-end-time-error" onchange="renderSignupRoleOptionsForCurrentEvent()" /><div class="signup-field-error" id="signup-end-time-error"></div></div>
+          </div>
         </div>
         <div class="form-group signup-field" id="signup-role-group">
           <label class="form-label" for="signup-role">Production role</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-role" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
+          <div class="signup-select-shell"><select class="form-select" id="signup-role" aria-describedby="signup-role-error" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
+          <div class="signup-field-error" id="signup-role-error"></div>
         </div>
       </div>
-      <div class="sidebar-customize-toggle" style="margin-top:14px;"><span><strong>Can you definitely attend?</strong><span class="text-muted" id="signup-confirmation-help" style="display:block;">Choose Maybe if you still need to confirm. You must confirm two hours before the event starts.</span></span><select class="form-select" id="signup-confirmation" style="width:150px;"><option value="confirmed">Yes, confirmed</option><option value="maybe">Maybe</option></select></div>
-      <div class="form-row2" id="signup-custom-time-fields" style="display:none;margin-top:14px;">
-        <div class="form-group" style="margin:0"><label class="form-label">Arrival time</label><input class="form-input" id="signup-start-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
-        <div class="form-group" style="margin:0"><label class="form-label">Leaving time</label><input class="form-input" id="signup-end-time" type="time" onchange="renderSignupRoleOptionsForCurrentEvent()" /></div>
-      </div>
+      <div class="sidebar-customize-toggle signup-commitment"><span><label for="signup-confirmation"><strong>Can you definitely attend?</strong></label><span class="text-muted" id="signup-confirmation-help" style="display:block;">Choose Maybe if you still need to confirm. You must confirm two hours before the event starts.</span></span><select class="form-select" id="signup-confirmation" aria-describedby="signup-confirmation-help signup-confirmation-error"><option value="confirmed">Yes, confirmed</option><option value="maybe">Maybe</option></select></div>
+      <div class="signup-field-error" id="signup-confirmation-error"></div>
       <div class="signup-camera-source" id="signup-camera-source" hidden>
         <div class="signup-camera-source-copy">
           <div class="signup-camera-source-kicker"><span aria-hidden="true"></span> Photographer loadout</div>
@@ -579,14 +584,15 @@
         </div>
         <div class="signup-camera-source-control">
           <label class="form-label" for="signup-camera-source-select">Equipment</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-camera-source-select" onchange="renderSignupCameraSource()"><option value="club">Club equipment</option><option value="own">My camera</option></select></div>
+          <div class="signup-select-shell"><select class="form-select" id="signup-camera-source-select" aria-describedby="signup-camera-source-select-error" onchange="renderSignupCameraSource()"><option value="club">Club equipment</option><option value="own">My camera</option></select></div>
+          <div class="signup-field-error" id="signup-camera-source-select-error"></div>
         </div>
         <div class="signup-camera-source-summary" id="signup-camera-source-summary"></div>
         <a class="signup-camera-settings-link" href="/profile?tab=personalisation">Edit personal camera</a>
       </div>
       <div class="signup-reserve-fields" id="signup-reserve-fields">
-        <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-1">Reserve priority 1</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-1" onchange="syncReserveRoleOptions()"></select></div></div>
-        <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-2">Reserve priority 2</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-2" onchange="syncReserveRoleOptions()"></select></div></div>
+        <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-1">Reserve priority 1</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-1" aria-describedby="signup-reserve-role-1-error" onchange="syncReserveRoleOptions()"></select></div><div class="signup-field-error" id="signup-reserve-role-1-error"></div></div>
+        <div class="form-group" style="margin:0"><label class="form-label" for="signup-reserve-role-2">Reserve priority 2</label><div class="signup-select-shell"><select class="form-select" id="signup-reserve-role-2" aria-describedby="signup-reserve-role-2-error" onchange="syncReserveRoleOptions()"></select></div><div class="signup-field-error" id="signup-reserve-role-2-error"></div></div>
         <div class="signup-reserve-note">At 10 minutes before the overall event start, the first vacant role is activated for the supervisor's attendance window. A real signup always takes precedence. Photography is excluded because the supervisor must remain in the stream area.</div>
       </div>
       <div class="signup-mixer-reserve" id="signup-mixer-reserve" hidden>
@@ -595,9 +601,10 @@
           <span><strong>Cover MIXING and OBS if needed</strong><small>If OBS is still unclaimed 10 minutes before this Lower or Upper Field game, you will cover both MIXING and OBS for your attendance window. A direct OBS signup always takes precedence.</small></span>
         </label>
       </div>
-      <div class="signup-entry-actions"><button class="btn btn-accent" onclick="addSignupRow()">
+      <section class="signup-booking-summary" aria-labelledby="signup-booking-title"><div class="signup-booking-head"><h3 id="signup-booking-title">Review your signup</h3><span>Preview · not saved yet</span></div><dl class="signup-booking-details" id="signup-booking-details"></dl></section>
+      <div class="signup-entry-actions"><div id="signup-submit-status" role="status" aria-live="polite"></div><button class="btn btn-accent" type="button" id="signup-submit" onclick="addSignupRow()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Sign up
+          <span id="signup-submit-label">Confirm signup</span>
         </button></div>
     </div>
   </div>
