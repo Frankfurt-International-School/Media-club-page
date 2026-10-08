@@ -58,7 +58,18 @@ async function renderSacMeetings() {
     if (error) throw error;
     sacMeetingsState.meetings = data || [];
     sacMeetingsState.loaded = true;
+    const requestedMeetingId = new URLSearchParams(window.location.search).get('meeting');
+    const requestedMeeting = sacMeetingsState.meetings.find(meeting => meeting.id === requestedMeetingId);
+    if (requestedMeeting && Date.parse(requestedMeeting.ends_at) < Date.now()) sacMeetingsState.showPast = true;
     paintSacMeetings();
+    if (requestedMeeting) requestAnimationFrame(() => {
+      if (request !== sacMeetingsState.request || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()
+        || !document.getElementById('page-sac-meetings')?.classList.contains('active')
+        || new URLSearchParams(window.location.search).get('meeting') !== requestedMeetingId) return;
+      const card = document.getElementById(`sac-meeting-${requestedMeeting.id}`);
+      card?.focus({ preventScroll: true });
+      card?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+    });
   } catch (_error) {
     if (request === sacMeetingsState.request) list.innerHTML = '<div class="empty-state" role="alert"><p>SAC meetings are unavailable. The local database update may not be applied yet.</p></div>';
   }

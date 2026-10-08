@@ -347,7 +347,7 @@
         <div class="sac-dashboard-section-head"><h2 id="sac-home-next-title">Your next shift</h2><a href="/sac/my-shifts">All my shifts →</a></div>
         <div id="sac-home-next-shift" aria-live="polite"></div>
       </section>
-      <section class="sac-dashboard-panel" aria-labelledby="sac-home-upcoming-title">
+      <section class="sac-dashboard-panel" id="sac-dashboard-upcoming-panel" aria-labelledby="sac-home-upcoming-title">
         <div class="sac-dashboard-section-head"><h2 id="sac-home-upcoming-title">Up next at SAC</h2></div>
         <div id="sac-home-upcoming" class="sac-dashboard-upcoming" aria-live="polite"></div>
       </section>
@@ -847,8 +847,13 @@
 
   <!-- ── PROFILE ── -->
   <div id="page-profile" class="page">
-    <div class="page-title mb8">Settings</div>
-    <div class="page-sub mb24">Manage your account, appearance, navigation, and notifications.</div>
+    <div class="page-title mb8" id="profile-title">Settings</div>
+    <div class="page-sub mb24" id="profile-subtitle">Manage your account, appearance, navigation, and notifications.</div>
+    <section class="sac-settings-summary" id="sac-settings-summary" aria-label="Your SAC profile" hidden>
+      <div class="sac-settings-mark" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></div>
+      <div class="sac-settings-identity"><span class="page-kicker">Student Athletic Council</span><h2 id="sac-settings-name"></h2><p><span id="sac-settings-membership"></span><span class="sac-settings-grade" id="sac-settings-grade"></span></p><small>Your profile picture and theme are shared with Crew Center. Contact your SAC President, Vice President, or an Auth Admin to update membership or council roles.</small></div>
+      <div class="sac-settings-links"><a class="btn btn-ghost btn-sm" id="sac-settings-shifts-link" href="/sac/my-shifts">My shifts →</a><a class="btn btn-ghost btn-sm" id="sac-settings-request-link" href="https://info.fismediaclub.org/#join" hidden>Request SAC access</a></div>
+    </section>
     <div class="settings-layout">
       <nav class="settings-nav" role="tablist" aria-label="Settings sections">
         <a href="/profile?tab=profile" id="settings-tab-profile" class="active" data-settings-tab="profile" role="tab" aria-selected="true" tabindex="0" aria-controls="settings-panel-profile" onkeydown="handleTabKeydown(event)">Profile</a>
@@ -904,11 +909,16 @@
         </div>
       </section>
       <section class="profile-panel" id="dashboard-preferences-panel" data-settings-section="dashboard" role="tabpanel" aria-labelledby="dashboard-settings-tab" tabindex="0" hidden>
-        <div class="profile-panel-head"><h3>Dashboard</h3><p>Choose and order the information shown on your dashboard. These preferences follow your account across devices.</p></div>
-        <div class="profile-panel-body">
+        <div class="profile-panel-head"><h3>Dashboard</h3><p id="dashboard-preferences-description">Choose and order the information shown on your dashboard. These preferences follow your account across devices.</p></div>
+        <div class="profile-panel-body" id="media-dashboard-preferences">
           <div class="dashboard-preference-group"><div class="dashboard-preference-heading"><strong>Statistics</strong><span>Choose 2–4</span></div><div class="dashboard-choice-list" id="dashboard-stat-choices"></div></div>
           <div class="dashboard-preference-group"><div class="dashboard-preference-heading"><strong>Information sections</strong><span>Choose 1–3</span></div><div class="dashboard-choice-list" id="dashboard-section-choices"></div></div>
           <div class="dashboard-preference-actions"><button class="btn btn-accent" id="dashboard-preference-save" onclick="saveDashboardPreferences()">Save dashboard</button><button class="btn btn-ghost" onclick="resetDashboardPreferenceForm()">Restore recommended</button><span class="text-muted">Your Next up card always remains visible.</span></div>
+        </div>
+        <div class="profile-panel-body" id="sac-dashboard-preferences" hidden>
+          <div class="sac-preference-row"><div><strong id="sac-setting-name-label">Personal greeting</strong><p>Include your first name in the SAC dashboard greeting.</p></div><button class="sac-preference-switch" id="sac-setting-show-name" type="button" role="switch" aria-checked="true" aria-labelledby="sac-setting-name-label" data-sac-preference-toggle></button></div>
+          <div class="sac-preference-row"><div><strong id="sac-setting-activities-label">Upcoming activities</strong><p>Show upcoming athletic events and council meetings. Your next shift stays visible.</p></div><button class="sac-preference-switch" id="sac-setting-show-activities" type="button" role="switch" aria-checked="true" aria-labelledby="sac-setting-activities-label" data-sac-preference-toggle></button></div>
+          <div class="sac-preference-actions"><button class="btn btn-accent" type="button" data-sac-preferences-save>Save SAC dashboard</button><span class="text-muted" id="sac-settings-save-status" role="status" aria-live="polite"></span></div>
         </div>
       </section>
       <section class="profile-panel" id="sidebar-preferences-panel" data-settings-section="sidebar" role="tabpanel" aria-labelledby="settings-tab-sidebar" tabindex="0" hidden>
@@ -1488,6 +1498,7 @@
 <script src="scripts/sac-events.js"></script>
 <script src="scripts/sac-meetings.js"></script>
 <script src="scripts/sac-signups.js"></script>
+<script src="scripts/sac-settings.js"></script>
 <script src="scripts/sac-dashboard.js"></script>
 <script src="scripts/sac-attendance.js"></script>
 <script src="scripts/meetings.js"></script>

@@ -23,7 +23,7 @@ function harness({ tagged = true, access = true, results = {}, pending } = {}) {
     currentMemberRecord: () => member, sacTitleLabel: () => 'SAC Vice President',
     escapeHtml: value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'),
     formatBerlinDateTime: date => date, sacSignupTimeRange: () => '12:00–12:30',
-    sacSignupUrl: id => `/sac/signups?event=${id}`, pageUrl: page => page === 'sac-meetings' ? '/sac/meetings' : '/sac/events',
+    sacSignupUrl: id => `/sac/signups?event=${id}`, pageUrl: (page, params = {}) => `${page === 'sac-meetings' ? '/sac/meetings' : '/sac/events'}${Object.keys(params).length ? `?${new URLSearchParams(params)}` : ''}`,
     sacUpcomingOwnShifts: (rows, id, time) => rows.filter(item => item.member_id === id && !item.cancelled_at && Date.parse(item.slot_end) > time).sort((a, b) => Date.parse(a.slot_start) - Date.parse(b.slot_start)),
     supabaseClient: { from(table) {
       const query = { table, filters: [], fields: '' }; queries.push(query);
@@ -67,11 +67,22 @@ test('dashboard combines upcoming events and meetings chronologically and keeps 
   await h.context.renderSacPersonalDashboard();
   const output = h.elements['sac-home-upcoming'].innerHTML;
   assert.ok(output.indexOf('Council meeting') < output.indexOf('Basketball'));
+  assert.match(output, /\/sac\/meetings\?meeting=meeting/);
   assert.match(h.elements['sac-home-next-shift'].innerHTML, /could not load/i);
   assert.equal(h.elements['sac-home-shift-count'].textContent, '—');
   const empty = harness(); await empty.context.renderSacPersonalDashboard();
   assert.match(empty.elements['sac-home-next-shift'].innerHTML, /No upcoming shifts/);
   assert.match(empty.elements['sac-home-upcoming'].innerHTML, /No upcoming events or meetings/);
+});
+
+test('hiding SAC activities skips their preview queries while preserving the personal shift summary', async () => {
+  const h = harness();
+  h.elements['sac-dashboard-upcoming-panel'] = { hidden: false };
+  h.context.sacDashboardPreferences = () => ({ showName: true, showActivities: false });
+  await h.context.renderSacPersonalDashboard();
+  assert.equal(h.elements['sac-dashboard-upcoming-panel'].hidden, true);
+  assert.deepEqual(h.queries.map(query => query.table), ['sac_slot_signups']);
+  assert.match(h.elements['sac-home-next-shift'].innerHTML, /No upcoming shifts/);
 });
 
 test('reset and account changes prevent an old dashboard request from painting personal data', async () => {

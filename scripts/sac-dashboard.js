@@ -30,6 +30,9 @@ async function renderSacPersonalDashboard() {
   const member = currentMemberRecord();
   const ownId = member?.id;
   const isSacMember = Boolean(ownId && member.teamKeys?.includes('sac'));
+  const showActivities = typeof sacDashboardPreferences !== 'function' || sacDashboardPreferences().showActivities;
+  const activitiesPanel = document.getElementById('sac-dashboard-upcoming-panel');
+  if (activitiesPanel) activitiesPanel.hidden = !showActivities;
   document.getElementById('sac-home-member-label').textContent = isSacMember
     ? sacTitleLabel(member.sacTitle) || 'SAC Member'
     : 'SAC preview · Membership required to book shifts';
@@ -46,8 +49,8 @@ async function renderSacPersonalDashboard() {
   const now = Date.now();
   const timestamp = new Date(now).toISOString();
   const results = await Promise.allSettled([
-    supabaseClient.from('sac_events').select('id,title,location,starts_at,ends_at').gt('ends_at', timestamp).order('starts_at', { ascending: true }).limit(3),
-    supabaseClient.from('sac_meetings').select('id,title,location,starts_at,ends_at').gt('ends_at', timestamp).order('starts_at', { ascending: true }).limit(3),
+    showActivities ? supabaseClient.from('sac_events').select('id,title,location,starts_at,ends_at').gt('ends_at', timestamp).order('starts_at', { ascending: true }).limit(3) : Promise.resolve({ data: [], error: null }),
+    showActivities ? supabaseClient.from('sac_meetings').select('id,title,location,starts_at,ends_at').gt('ends_at', timestamp).order('starts_at', { ascending: true }).limit(3) : Promise.resolve({ data: [], error: null }),
     isSacMember
       ? supabaseClient.from('sac_slot_signups').select('id,event_id,member_id,slot_start,slot_end,spot_number,cancelled_at,sac_events(id,title,location)')
         .eq('member_id', ownId).is('cancelled_at', null).gt('slot_end', timestamp).order('slot_start', { ascending: true })
@@ -75,7 +78,7 @@ async function renderSacPersonalDashboard() {
     ? (result.value.data || []).filter(item => Date.parse(item.ends_at) > Date.now()).map(item => ({ ...item, kind: index === 0 ? 'event' : 'meeting' })) : [])
     .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at)).slice(0, 3);
   const errors = results.slice(0, 2).flatMap((result, index) => loaded(result) ? [] : [index === 0 ? 'Events' : 'Meetings']);
-  upcoming.innerHTML = activities.map(item => `<a class="sac-dashboard-activity" href="${escapeHtml(pageUrl(item.kind === 'event' ? 'sac-events' : 'sac-meetings', item.kind === 'event' ? { event: item.id } : {}))}"><span class="page-kicker">${item.kind === 'event' ? 'Athletic event' : 'Council meeting'}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(formatBerlinDateTime(item.starts_at, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} · Berlin time</p>${item.location ? `<p>${escapeHtml(item.location)}</p>` : ''}<span class="sac-dashboard-activity-link">View ${item.kind} →</span></a>`).join('')
+  upcoming.innerHTML = activities.map(item => `<a class="sac-dashboard-activity" href="${escapeHtml(pageUrl(item.kind === 'event' ? 'sac-events' : 'sac-meetings', item.kind === 'event' ? { event: item.id } : { meeting: item.id }))}"><span class="page-kicker">${item.kind === 'event' ? 'Athletic event' : 'Council meeting'}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(formatBerlinDateTime(item.starts_at, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} · Berlin time</p>${item.location ? `<p>${escapeHtml(item.location)}</p>` : ''}<span class="sac-dashboard-activity-link">View ${item.kind} →</span></a>`).join('')
     || (errors.length ? '' : sacDashboardNotice('No upcoming events or meetings yet. Check back soon.'));
   if (errors.length) upcoming.innerHTML += sacDashboardNotice(`${errors.join(' and ')} could not load. Please try again.`, true);
 }

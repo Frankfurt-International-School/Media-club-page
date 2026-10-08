@@ -268,7 +268,9 @@ function updateDashboardGreeting() {
   const firstName = isVisitorSession()
     ? 'Visitor'
     : splitName(currentMemberRecord()?.name || '').fname;
-  elements.forEach(el => { el.textContent = firstName ? `${greeting}, ${firstName}` : greeting; });
+  const sacGreeting = document.getElementById('sac-home-greeting');
+  const showSacName = typeof sacDashboardPreferences !== 'function' || sacDashboardPreferences().showName;
+  elements.forEach(el => { el.textContent = firstName && (el !== sacGreeting || showSacName) ? `${greeting}, ${firstName}` : greeting; });
 }
 
 function updateUserSurfaces() {
@@ -291,6 +293,7 @@ function updateUserSurfaces() {
     document.getElementById('profile-preview-email').textContent = '';
   }
   updateDashboardGreeting();
+  renderProfileWorkspace();
 }
 
 function syncCurrentUserWithMemberRecord() {
@@ -325,6 +328,8 @@ window.applyCrewCenterAuthUser = function(user) {
 function renderProfile() {
   updateUserSurfaces();
   updateThemeChoices();
+  renderProfileWorkspace();
+  const isSac = currentCrewCenterWorkspace() === 'sac';
   const memberSettingsAvailable = !isVisitorSession() && (!state.dataLoaded.members || Boolean(currentMemberRecord()));
   [
     ['settings-tab-personalisation', 'settings-panel-personalisation'],
@@ -335,13 +340,17 @@ function renderProfile() {
   ].forEach(([tabId, panelId]) => {
     const tab = document.getElementById(tabId);
     const panel = document.getElementById(panelId);
-    if (tab) tab.style.display = memberSettingsAvailable ? '' : 'none';
-    if (panel) panel.style.display = memberSettingsAvailable ? '' : 'none';
+    const available = memberSettingsAvailable && (!isSac || tabId === 'dashboard-settings-tab');
+    if (tab) tab.style.display = available ? '' : 'none';
+    if (panel) panel.style.display = available ? '' : 'none';
   });
-  renderDashboardSettings();
-  renderSidebarSettings();
-  renderNotificationSettings();
-  renderPersonalEquipmentSettings();
+  if (isSac) renderSacDashboardSettings();
+  else {
+    renderDashboardSettings();
+    renderSidebarSettings();
+    renderNotificationSettings();
+    renderPersonalEquipmentSettings();
+  }
   document.getElementById('profile-photo-remove').style.display = state.currentUser.avatarUrl ? '' : 'none';
   showSettingsSection(tabValueFromUrl(['profile', 'appearance', 'personalisation', 'dashboard', 'sidebar', 'notifications', 'tutorials'], 'profile'));
 }
