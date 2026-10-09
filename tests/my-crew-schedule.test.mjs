@@ -8,6 +8,8 @@ const source = existsSync(path) ? readFileSync(path, 'utf8') : '';
 const sac = readFileSync(new URL('../scripts/sac-signups.js', import.meta.url), 'utf8');
 const equipment = readFileSync(new URL('../scripts/equipment.js', import.meta.url), 'utf8');
 const core = readFileSync(new URL('../scripts/core.js', import.meta.url), 'utf8');
+const meetings = readFileSync(new URL('../scripts/meetings.js', import.meta.url), 'utf8');
+const meetingCalendar = readFileSync(new URL('../scripts/meeting-calendar.js', import.meta.url), 'utf8');
 const accessStart = core.indexOf('function canAccessMyCrewSchedule(');
 const access = core.slice(accessStart, core.indexOf('\nfunction ', accessStart + 1));
 const now = Date.parse('2030-10-01T08:00:00Z');
@@ -29,16 +31,19 @@ function harness() {
     URL: class extends URL { static createObjectURL(blob) { downloads.push(blob); return 'blob:test'; } static revokeObjectURL() {} },
     setTimeout(callback, delay) { timers.push({ callback, delay }); return timers.length; }, clearTimeout() {}, window: { location: { origin: 'https://fismediaclub.org' }, CREW_CENTER_AUTH_USER: { id: 'account-a', email: 'me@example.test' } },
     document: { getElementById: node, querySelector: () => ({ id: 'page-my-crew-schedule' }), querySelectorAll: () => [], addEventListener() {}, createElement: () => ({ click() {}, remove() {} }), body: { append() {} } },
-    state: { events: [{ ...event, signups: [{ ...signup }] }], equipment: [{ id: 'camera', name: 'Camera kit', reservations: [{ ...reservation }] }], dataLoaded: { events: true, equipment: true }, dataErrors: {} },
+    state: { events: [{ ...event, signups: [{ ...signup }] }], meetings: [], equipment: [{ id: 'camera', name: 'Camera kit', reservations: [{ ...reservation }] }], dataLoaded: { events: true, equipment: true, meetings: true }, dataErrors: {} },
     currentMemberRecord: () => ({ id: 'me', email: 'me@example.test' }), isVisitorSession: () => false, canAccessMediaWorkspace: () => true,
-    currentCrewCenterWorkspace: () => 'media', pageUrl: (page, params = {}) => `/${page === 'signup' ? 'signups' : page}${params.event ? '?event=' + params.event : ''}`,
+    currentCrewCenterWorkspace: () => 'media', pageUrl: (page, params = {}) => `/${page === 'signup' ? 'signups' : page}${params.event ? '?event=' + params.event : params.meeting ? '?meeting=' + params.meeting : ''}`,
     escapeHtml: value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'),
     formatBerlinDateTime: value => String(value), berlinDateKey: value => String(value).slice(0, 10),
     showToast() {}, loadCrewCenterData: async () => {},
+    canManageCrewOperations: () => false, canAccessAdminPanel: () => false,
   });
   vm.runInContext(sac, context);
+  vm.runInContext(meetingCalendar, context);
   vm.runInContext(equipment.slice(0, equipment.indexOf('function activeEquipmentReservation')), context);
   vm.runInContext(access, context);
+  vm.runInContext(meetings.slice(meetings.indexOf('function ownMeetingResponse('), meetings.indexOf('function canRsvpMeeting(')), context);
   vm.runInContext(core.slice(core.indexOf('const BERLIN_TIME_ZONE'), core.indexOf('function timeValue')), context);
   vm.runInContext(source, context);
   return { context, node, downloads, timers, setClock(value) { clock = value; } };
@@ -140,7 +145,7 @@ test('calendar export explains its selection and why an empty or unavailable dow
   assert.equal(h.node('my-crew-schedule-download').disabled, true);
   assert.match(h.node('my-crew-schedule-calendar-status').textContent, /No upcoming bookings in this view/);
   h.context.state.events = []; h.context.renderMyCrewSchedule();
-  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /Book a crew role or equipment first/);
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /Add a crew role, meeting RSVP, or equipment booking first/);
   h.context.state.dataErrors.events = 'fixture error'; h.context.renderMyCrewSchedule();
   assert.match(h.node('my-crew-schedule-calendar-status').textContent, /Refresh your schedule/);
   h.context.state.dataErrors = {}; h.context.state.dataLoaded.events = false; h.context.renderMyCrewSchedule();
@@ -229,4 +234,36 @@ test('day headings refresh at Berlin midnight without waiting for the next booki
   h.setClock(clock+10*60000+100); h.timers.at(-1).callback();
   assert.match(h.node('my-crew-schedule-list').innerHTML,/Today/);
   assert.doesNotMatch(h.node('my-crew-schedule-list').innerHTML,/Tomorrow/);
+});
+
+test('personal agenda includes only own Going or Maybe responses for permitted upcoming meetings', () => {
+  const h=harness();
+  const meeting={id:'m1',title:'Planning meeting',audience:'general',location:'Media room',startsAt:'2030-10-01T12:00:00Z',endsAt:'2030-10-01T13:00:00Z',attendees:[{memberId:'me',response:'attending'}]};
+  h.context.state.meetings=[meeting,
+    {...meeting,id:'maybe',attendees:[{memberId:'me',response:'maybe'}]},
+    {...meeting,id:'other',attendees:[{memberId:'other',response:'attending'}]},
+    {...meeting,id:'declined',attendees:[{memberId:'me',response:'declined'}]},
+    {...meeting,id:'restricted',audience:'leadership'},
+    {...meeting,id:'archived',archivedAt:'2030-10-01'},
+    {...meeting,id:'ended',endsAt:'2030-10-01T07:00:00Z'}];
+  const own=h.context.ownCrewScheduleItems(now).filter(item=>item.kind==='meeting');
+  assert.deepEqual(Array.from(own,item=>item.id),['meeting:m1','meeting:maybe']);
+  h.context.selectMyCrewScheduleFilter('meeting');
+  assert.match(h.node('my-crew-schedule-list').innerHTML,/Planning meeting/);
+  assert.doesNotMatch(h.node('my-crew-schedule-list').innerHTML,/Basketball|Camera kit/);
+  const calendar=h.context.buildCrewScheduleCalendar(own,'https://fismediaclub.org',now);
+  const direct=h.context.buildMeetingCalendar(own[0].meeting,'media','attending','https://fismediaclub.org/meetings?meeting=m1',now);
+  assert.equal(calendar.match(/UID:.*/)[0],direct.match(/UID:.*/)[0],'both exports should use the same meeting identity');
+  assert.match(calendar,/Club meeting/);assert.match(calendar,/STATUS:TENTATIVE/);assert.match(calendar,/STATUS:CONFIRMED/);
+  assert.match(h.context.crewScheduleDetail(own[1]),/RSVP: Maybe/);
+  assert.equal(h.context.crewScheduleAttention(own,now)[0].reason,'meeting_maybe');
+});
+
+test('clearing, declining, or losing audience access removes meetings from the agenda', () => {
+  const h=harness(); const meeting={id:'m1',title:'Planning meeting',audience:'general',startsAt:'2030-10-01T12:00:00Z',endsAt:'2030-10-01T13:00:00Z',attendees:[{memberId:'me',response:'attending'}]};
+  h.context.state.meetings=[meeting];
+  assert.equal(h.context.ownCrewScheduleItems(now).filter(item=>item.kind==='meeting').length,1);
+  for(const update of [()=>meeting.attendees=[],()=>meeting.attendees=[{memberId:'me',response:'declined'}],()=>{meeting.attendees=[{memberId:'me',response:'attending'}];meeting.audience='news_team';}]){
+    update();assert.equal(h.context.ownCrewScheduleItems(now).filter(item=>item.kind==='meeting').length,0);
+  }
 });

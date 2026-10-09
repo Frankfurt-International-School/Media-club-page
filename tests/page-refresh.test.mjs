@@ -71,3 +71,10 @@ test('a previous authentication session cannot apply an in-flight data refresh',
   assert.deepEqual(h.applied, []);
   assert.deepEqual(h.renders, []);
 });
+
+test('meeting responses refresh the personal agenda while preserving unrelated signup form controls',async()=>{
+  const agenda=harness('my-crew-schedule');await agenda.context.loadCrewCenterDatasetBatch(['meetings'],true);
+  assert.deepEqual(agenda.renders,['renderMyCrewSchedule']);
+  const signup=harness('signup');await signup.context.loadCrewCenterDatasetBatch(['meetings'],true);
+  assert.deepEqual(signup.renders,[]);
+});

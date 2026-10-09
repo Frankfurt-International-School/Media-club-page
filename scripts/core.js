@@ -1059,7 +1059,7 @@ async function loadCrewCenterInitialData() {
     events: ['events'],
     meetings: ['meetings'],
     signup: ['events', 'equipment'],
-    'my-crew-schedule': ['events', 'equipment'],
+    'my-crew-schedule': ['events', 'equipment', 'meetings'],
     members: [],
     gallery: ['gallery'],
     equipment: ['equipment'],
@@ -1177,7 +1177,7 @@ function renderCurrentPage(refreshedDatasets = null) {
   // Keep booking controls steady when only unrelated background data was refreshed.
   if (Array.isArray(refreshedDatasets)
     && ['signup', 'my-crew-schedule'].includes(activePage)
-    && !refreshedDatasets.some(dataset => ['members', 'events', 'equipment'].includes(dataset))) return;
+    && !refreshedDatasets.some(dataset => ['members', 'events', 'equipment', ...(activePage === 'my-crew-schedule' ? ['meetings'] : [])].includes(dataset))) return;
   if (activePage === 'about') renderAboutRecentProjects();
   if (activePage === 'home') renderDashboard();
   if (activePage === 'sac-home') { renderSacDashboard(); renderSacApplications(); }

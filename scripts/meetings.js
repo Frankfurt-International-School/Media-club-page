@@ -157,6 +157,7 @@ function renderMeetingCard(meeting) {
       <div class="meeting-link-row">
         ${relatedEvent ? `<a class="meeting-context-link" href="${escapeHtml(pageUrl('events'))}"><span>Linked production</span>${escapeHtml(relatedEvent.title)}</a>` : '<span class="meeting-context-empty">Independent meeting</span>'}
         ${link ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">Open meeting link</a>` : ''}
+        ${!past && ownMeetingResponse(meeting) !== 'declined' ? `<button class="btn btn-ghost btn-sm" type="button" data-meeting-calendar-id="${escapeHtml(meeting.id)}" data-meeting-calendar-workspace="media">Add to calendar</button>` : ''}
       </div>
       ${renderMeetingRoster(meeting)}
       ${renderMeetingRsvp(meeting)}

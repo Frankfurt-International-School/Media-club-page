@@ -36,7 +36,7 @@ function paintSacMeetings() {
       <div><div class="page-kicker">${escapeHtml(formatBerlinCalendarDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</div><h2>${escapeHtml(meeting.title)}</h2>
         <div class="sac-event-meta"><span>${escapeHtml(berlinTimeLabel(meeting.starts_at))}–${escapeHtml(end)} Berlin time</span>${meeting.location ? `<span>${escapeHtml(meeting.location)}</span>` : ''}</div>
         ${meeting.description ? `<p class="sac-event-description">${escapeHtml(meeting.description)}</p>` : ''}
-        ${manager ? `<div class="sac-event-actions"><button class="btn btn-ghost btn-sm" type="button" data-sac-meeting-edit="${escapeHtml(meeting.id)}">Edit meeting</button><a class="btn btn-accent btn-sm" href="${escapeHtml(pageUrl('sac-attendance', { kind: 'meeting', item: meeting.id }))}">Attendance</a></div>` : ''}
+        <div class="sac-event-actions">${Date.parse(meeting.ends_at) > Date.now() ? `<button class="btn btn-ghost btn-sm" type="button" data-meeting-calendar-id="${escapeHtml(meeting.id)}" data-meeting-calendar-workspace="sac">Add to calendar</button>` : ''}${manager ? `<button class="btn btn-ghost btn-sm" type="button" data-sac-meeting-edit="${escapeHtml(meeting.id)}">Edit meeting</button><a class="btn btn-accent btn-sm" href="${escapeHtml(pageUrl('sac-attendance', { kind: 'meeting', item: meeting.id }))}">Attendance</a>` : ''}</div>
       </div>
     </article>`;
   }).join('');
