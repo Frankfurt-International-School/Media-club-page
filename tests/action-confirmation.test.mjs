@@ -9,11 +9,18 @@ function harness() {
   const elements = new Map();
   const element = id => {
     if (!elements.has(id)) elements.set(id, { textContent: '', value: '', checked: false, dataset: {},
-      classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, replaceChildren() {}, appendChild() {}, querySelector() { return null; } });
-    return elements.get(id);
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return true; } }, setAttribute() {}, replaceChildren() {}, appendChild() {}, querySelector() { return null; } });
+    const result = elements.get(id);
+    result.style ||= {};
+    result.querySelectorAll ||= () => [];
+    result.hasAttribute ||= () => false;
+    result.removeAttribute ||= () => {};
+    result.focus ||= () => {};
+    return result;
   };
   const context = vm.createContext({
-    document: { getElementById: element, querySelectorAll: () => [], addEventListener() {}, createElement: () => ({}), activeElement: null },
+    window: {},
+    document: { body: { children: [], classList: { toggle() {} } }, getElementById: element, querySelectorAll: () => [], addEventListener() {}, createElement: () => ({}), activeElement: null },
     requestAnimationFrame: callback => callback(), HTMLElement: class {}, showToast() {},
   });
   vm.runInContext(source.slice(0, source.indexOf('// TOAST')), context);

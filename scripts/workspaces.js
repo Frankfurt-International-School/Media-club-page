@@ -235,6 +235,7 @@ function syncCrewCenterWorkspaceFromLocation() {
 }
 
 function resetCrewCenterWorkspace() {
+  window.closeCrewCenterModals?.();
   window.resetCrewQuickSearch?.();
   window.resetSacDashboardState?.();
   window.resetSacEventsState?.();

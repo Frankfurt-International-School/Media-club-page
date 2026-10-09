@@ -482,7 +482,7 @@ test('News Team meeting invitations are generated only for current team membersh
   assert.match(membershipNotificationSync, /tg_op = 'UPDATE'[\s\S]*?old\.member_id <> new\.member_id/);
   assert.match(schemaSql, /create trigger news_team_memberships_sync_notifications[\s\S]*?after insert or update or delete on public\.member_team_memberships/);
   assert.match(schemaSql, /insert into public\.notifications[\s\S]*?join public\.member_team_memberships membership on membership\.team_key = 'news_team'[\s\S]*?meeting\.ends_at > now\(\)/);
-  assert.match(uiSource, /state\.notifications\.filter\(item => \['meeting_invite', 'application_approved'\]\.includes\(item\.notification_type\) \|\| preferences\.event_created\)/);
+  assert.match(uiSource, /state\.notifications\.filter\(item => item\.member_id === memberId\s*&& \(\['meeting_invite', 'application_approved'\]\.includes\(item\.notification_type\) \|\| preferences\.event_created\)\)/);
   assert.match(policiesSql, /create policy "Members can read own notifications"[\s\S]*?notifications\.member_id = public\.current_member_id\(\)/);
   assert.doesNotMatch(policiesSql, /create policy "Members can read own notifications"[\s\S]{0,240}?member\.email/);
 });

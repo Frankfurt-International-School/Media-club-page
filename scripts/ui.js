@@ -1,7 +1,45 @@
 // ══════════════════════════════
 // MODAL
 // ══════════════════════════════
-let modalReturnFocus = null;
+const modalStack = [];
+const modalBackgroundInert = new Map();
+
+function topModal() {
+  return modalStack.at(-1)?.backdrop || null;
+}
+
+function modalFocusableElements(modal) {
+  return [...modal.querySelectorAll('a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]')]
+    .filter(element => !element.disabled && element.getAttribute('tabindex') !== '-1'
+      && element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden'
+      && !element.closest('[inert]'));
+}
+
+function syncModalLayers() {
+  const top = topModal();
+  if (top) {
+    for (const element of document.body.children) {
+      if (['SCRIPT', 'STYLE', 'LINK'].includes(element.tagName) || element.classList.contains('toast-container')) continue;
+      if (!modalBackgroundInert.has(element)) modalBackgroundInert.set(element, element.inert);
+      element.inert = element !== top;
+    }
+  } else {
+    modalBackgroundInert.forEach((wasInert, element) => { element.inert = wasInert; });
+    modalBackgroundInert.clear();
+  }
+  document.body.classList.toggle('modal-open', Boolean(top));
+  modalStack.forEach(({ backdrop }, index) => {
+    backdrop.style.zIndex = String(200 + index);
+    if (backdrop === top) backdrop.setAttribute('aria-modal', 'true');
+    else backdrop.removeAttribute('aria-modal');
+  });
+}
+
+function focusModal(modal) {
+  const focusable = modalFocusableElements(modal);
+  (focusable.find(element => element.hasAttribute('autofocus')) || focusable[0] || modal).focus();
+}
+
 function openModal(id) {
   if (id === 'gallery-modal') {
     renderGalleryAuthorField();
@@ -11,28 +49,51 @@ function openModal(id) {
   }
   const backdrop = document.getElementById(id);
   if (!backdrop) return;
-  modalReturnFocus = document.activeElement;
+  if (!modalStack.some(entry => entry.backdrop === backdrop)) {
+    modalStack.push({ backdrop, returnFocus: document.activeElement });
+  }
   backdrop.setAttribute('role', 'dialog');
-  backdrop.setAttribute('aria-modal', 'true');
+  backdrop.setAttribute('tabindex', '-1');
+  const title = backdrop.querySelector('.modal-title');
+  if (title && !backdrop.hasAttribute('aria-labelledby') && !backdrop.hasAttribute('aria-label')) {
+    if (!title.id) title.id = `${id}-title`;
+    backdrop.setAttribute('aria-labelledby', title.id);
+  }
   backdrop.classList.add('open');
+  syncModalLayers();
   requestAnimationFrame(() => {
-    const focusTarget = backdrop.querySelector('[autofocus], input:not([type="hidden"]), textarea, select, button');
-    focusTarget?.focus();
+    if (topModal() === backdrop && backdrop.classList.contains('open')) focusModal(backdrop);
   });
 }
 function closeModal(id) {
   const backdrop = document.getElementById(id);
   if (!backdrop) return;
+  const index = modalStack.findIndex(entry => entry.backdrop === backdrop);
+  const wasTop = backdrop === topModal();
+  const entry = index >= 0 ? modalStack.splice(index, 1)[0] : null;
+  if (id === 'action-confirmation-modal') actionConfirmation = null;
   backdrop.classList.remove('open');
-  if (modalReturnFocus instanceof HTMLElement) modalReturnFocus.focus();
-  modalReturnFocus = null;
+  backdrop.removeAttribute('aria-modal');
+  backdrop.style.zIndex = '';
+  syncModalLayers();
+  if (!wasTop) return;
+  const target = entry?.returnFocus;
+  const top = topModal();
+  if (target instanceof HTMLElement && target.isConnected && target.getClientRects().length
+    && !target.closest('[inert]') && (!top || top.contains(target))) target.focus();
+  else if (top) focusModal(top);
 }
+
+window.closeCrewCenterModals = function() {
+  while (topModal()) closeModal(topModal().id);
+};
+
 document.querySelectorAll('.modal-backdrop').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+  m.addEventListener('click', e => { if (e.target === m && topModal() === m) closeModal(m.id); });
 });
 
 document.addEventListener('keydown', event => {
-  const modal = document.querySelector('.modal-backdrop.open');
+  const modal = topModal();
   if (!modal) return;
   if (event.key === 'Escape') {
     event.preventDefault();
@@ -41,13 +102,12 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (event.key !== 'Tab') return;
-  const focusable = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
-    .filter(element => element.offsetParent !== null);
-  if (!focusable.length) return;
+  const focusable = modalFocusableElements(modal);
+  if (!focusable.length) { event.preventDefault(); modal.focus(); return; }
   const first = focusable[0];
   const last = focusable.at(-1);
-  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  if (event.shiftKey && (document.activeElement === first || !focusable.includes(document.activeElement))) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && (document.activeElement === last || !focusable.includes(document.activeElement))) { event.preventDefault(); first.focus(); }
 });
 
 let actionConfirmation = null;
@@ -91,7 +151,7 @@ function syncActionConfirmationButton() {
   if (!actionConfirmation) return;
   const acknowledged = !actionConfirmation.requiresAcknowledgement || document.getElementById('action-confirmation-ack').checked;
   const nameMatches = !actionConfirmation.expectedName || document.getElementById('action-confirmation-name').value === actionConfirmation.expectedName;
-  document.getElementById('action-confirmation-submit').disabled = !(acknowledged && nameMatches);
+  document.getElementById('action-confirmation-submit').disabled = Boolean(actionConfirmation.busy) || !(acknowledged && nameMatches);
 }
 
 function closeActionConfirmation() {
@@ -103,6 +163,8 @@ async function submitActionConfirmation() {
   if (!actionConfirmation) return;
   const confirmation = actionConfirmation;
   const submit = document.getElementById('action-confirmation-submit');
+  syncActionConfirmationButton();
+  if (submit.disabled) return;
   if (actionConfirmation.multipleWarnings && actionConfirmation.stage === 1) {
     actionConfirmation.stage = 2;
     document.getElementById('action-confirmation-title').textContent = 'Final permanent-deletion warning';
@@ -112,6 +174,7 @@ async function submitActionConfirmation() {
     submit.focus();
     return;
   }
+  confirmation.busy = true;
   submit.disabled = true;
   const previousLabel = submit.textContent;
   submit.textContent = actionConfirmation.busyLabel || 'Working...';
@@ -122,6 +185,7 @@ async function submitActionConfirmation() {
     showToast(error?.message || "Couldn't complete the action.", 'error', 7000);
   } finally {
     if (actionConfirmation === confirmation) {
+      confirmation.busy = false;
       submit.disabled = false;
       submit.textContent = previousLabel;
       syncActionConfirmationButton();
@@ -535,26 +599,45 @@ function currentGeneratedNotificationItems(now = Date.now()) {
   };
 }
 
+let notificationReadRequest = null;
+
+function notificationReadActor() {
+  const user = window.CREW_CENTER_AUTH_USER;
+  const member = currentMemberRecord();
+  if (isVisitorSession() || !user?.id || !user.email || !member?.id
+    || String(member.email || '').toLowerCase() !== user.email.toLowerCase()) return '';
+  return `${user.id}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}:${member.id}`;
+}
+
 function renderNotificationCenter() {
   const list = document.getElementById('notification-list');
   const badge = document.getElementById('notification-count');
   if (!list || !badge) return;
-  if (isVisitorSession() || !currentMemberRecord()) {
-    list.innerHTML = '<div class="empty-state" style="padding:24px 12px;"><p>Member notifications are unavailable in visitor mode.</p></div>';
+  const actor = notificationReadActor();
+  const markReadButton = document.getElementById('notification-mark-read');
+  const pending = Boolean(actor && notificationReadRequest?.actor === actor);
+  if (markReadButton) {
+    markReadButton.textContent = pending ? 'Marking…' : 'Mark read';
+    markReadButton.setAttribute('aria-busy', String(pending));
+  }
+  if (!actor) {
+    list.innerHTML = '<div class="empty-state" style="padding:24px 12px;"><p>Sign in with a linked member account to view notifications.</p></div>';
     badge.classList.remove('visible');
+    if (markReadButton) markReadButton.disabled = true;
     return;
   }
   const preferences = currentNotificationPreferences();
   const { maybeItems, upcomingItems } = currentGeneratedNotificationItems();
   const readReminderKeys = notificationReminderReadKeys();
-  const storedItems = state.notifications.filter(item => ['meeting_invite', 'application_approved'].includes(item.notification_type) || preferences.event_created);
+  const memberId = currentMemberRecord().id;
+  const storedItems = state.notifications.filter(item => item.member_id === memberId
+    && (['meeting_invite', 'application_approved'].includes(item.notification_type) || preferences.event_created));
   const unread = storedItems.filter(item => !item.read_at).length
     + maybeItems.filter(item => !readReminderKeys.has(item.readKey)).length
     + upcomingItems.filter(item => !readReminderKeys.has(item.readKey)).length;
   badge.textContent = unread > 99 ? '99+' : unread;
   badge.classList.toggle('visible', unread > 0);
-  const markReadButton = document.getElementById('notification-mark-read');
-  if (markReadButton) markReadButton.disabled = unread === 0;
+  if (markReadButton) markReadButton.disabled = pending || unread === 0;
   const actionHtml = maybeItems.map(({ event, signup, readKey }) => `<div class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
   const upcomingHtml = upcomingItems.map(({ event, readKey }) => `<a class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}" href="${escapeHtml(pageUrl('signup', { event: event.id }))}"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(eventScheduleTimeLabel(event))}.</div><div class="notification-item-meta">Upcoming event</div></a>`).join('');
   const storedHtml = storedItems.map(item => {
@@ -582,22 +665,33 @@ function closeNotificationPanel() {
 }
 
 async function markNotificationsRead() {
-  const markReadButton = document.getElementById('notification-mark-read');
-  if (markReadButton) { markReadButton.disabled = true; markReadButton.textContent = 'Marking…'; }
+  const actor = notificationReadActor();
+  if (!actor || notificationReadRequest?.actor === actor) return;
+  const request = { actor };
+  notificationReadRequest = request;
   const { maybeItems, upcomingItems } = currentGeneratedNotificationItems();
-  markNotificationRemindersRead([...maybeItems, ...upcomingItems].map(item => item.readKey));
-  const hasUnreadStoredItems = state.notifications.some(item => !item.read_at);
-  const { error } = hasUnreadStoredItems ? await supabaseClient.rpc('mark_own_notifications_read') : { error: null };
-  if (markReadButton) markReadButton.textContent = 'Mark read';
-  if (error) {
-    if (markReadButton) markReadButton.disabled = false;
-    renderNotificationCenter();
-    showToast("Couldn't mark all notifications as read.", 'error');
-    return;
-  }
-  state.notifications.forEach(item => { item.read_at = item.read_at || new Date().toISOString(); });
+  const memberId = currentMemberRecord().id;
+  const unreadIds = new Set(state.notifications.filter(item => item.member_id === memberId && !item.read_at).map(item => item.id));
   renderNotificationCenter();
-  showToast('Notifications marked as read.');
+  try {
+    if (unreadIds.size) {
+      if (!supabaseClient) throw new Error('Notifications are unavailable.');
+      const { error } = await withCrewCenterDataTimeout(supabaseClient.rpc('mark_own_notifications_read'), 'notifications');
+      if (error) throw error;
+    }
+    if (notificationReadActor() !== actor) return;
+    markNotificationRemindersRead([...maybeItems, ...upcomingItems].map(item => item.readKey));
+    const readAt = new Date().toISOString();
+    state.notifications.forEach(item => {
+      if (unreadIds.has(item.id)) item.read_at = item.read_at || readAt;
+    });
+    showToast('Notifications marked as read.');
+  } catch (_error) {
+    if (notificationReadActor() === actor) showToast("Couldn't mark notifications as read. Check your connection and try again.", 'error');
+  } finally {
+    if (notificationReadRequest === request) notificationReadRequest = null;
+    renderNotificationCenter();
+  }
 }
 
 function setCrewCenterTheme(theme) {

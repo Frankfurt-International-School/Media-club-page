@@ -551,6 +551,7 @@
   .notification-panel { display: none; position: fixed; top: calc(var(--topbar) + 10px); right: 18px; z-index: 190; width: min(390px, calc(100vw - 24px)); max-height: min(650px, calc(100vh - var(--topbar) - 24px)); overflow: auto; padding: 14px; border: 1px solid var(--border2); border-radius: 16px; background: var(--bg2); box-shadow: 0 22px 60px rgba(20,20,24,.22); }
   .notification-panel.open { display: block; animation: slideUp .16s ease; }
   .notification-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .notification-panel-head .btn { flex-shrink: 0; min-height: 36px; white-space: nowrap; }
   .notification-list { display: grid; gap: 8px; }
   .notification-item { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
   .notification-item:hover { border-color: rgba(164,1,52,.2); }
@@ -1986,6 +1987,7 @@
   .admin-row:hover { border-color: var(--border2); }
 
   /* ── MODAL ── */
+  body.modal-open { overflow: hidden; }
   .modal-backdrop {
     position: fixed;
     inset: 0;
