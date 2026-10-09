@@ -227,7 +227,7 @@ async function renderSacSignups(preserveContent = false) {
       return true;
     }
     const { data: signups, error: signupError } = await supabaseClient.from('sac_slot_signups')
-      .select('id,member_id,member_name_snapshot,slot_start,slot_end,spot_number')
+      .select('id,event_id,member_id,member_name_snapshot,slot_start,slot_end,spot_number')
       .eq('event_id', selected.id).is('cancelled_at', null).order('slot_start', { ascending: true });
     if (request !== sacSignupsState.request) return;
     if (signupError) throw signupError;
@@ -403,25 +403,79 @@ async function claimSacSignupSlot(slotStart, button) {
   }
 }
 
-async function cancelSacSignupSlot(signupId, button) {
-  if (!canClaimSacSlot() || sacSignupsState.mutationInFlight) return;
+function sacCancellableBooking(signupId) {
+  if (currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace() || !canClaimSacSlot()
+    || !window.CREW_CENTER_AUTH_USER?.id || !supabaseClient) return null;
+  const collections = document.querySelector('.page.active')?.id === 'page-sac-my-shifts'
+    ? [sacSignupsState.myShifts, sacSignupsState.signups] : [sacSignupsState.signups, sacSignupsState.myShifts];
+  const booking = collections.flat().find(item => item.id === signupId);
+  return booking && !booking.cancelled_at && (canAddMembers() || booking.member_id === currentMemberRecord()?.id)
+    ? booking : null;
+}
+
+function cancelSacSignupSlot(signupId, button) {
+  const booking = sacCancellableBooking(signupId);
+  if (!booking || sacSignupsState.mutationInFlight) return;
+  const snapshot = { ...booking };
+  const actorId = window.CREW_CENTER_AUTH_USER.id;
+  const authEpoch = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
+  const event = [...sacSignupsState.events, ...sacSignupsState.myShiftEvents].find(item => item.id === booking.event_id);
+  const ownBooking = booking.member_id === currentMemberRecord()?.id;
+  const memberName = booking.member_name_snapshot || state.members.find(item => item.id === booking.member_id)?.name || 'this member';
+  openActionConfirmation({
+    kind: 'cancel-sac-shift',
+    title: ownBooking ? 'Cancel your Scoreboard shift?' : `Cancel the Scoreboard shift for ${memberName}?`,
+    copy: `${ownBooking ? 'Your' : 'Their'} spot will become available for another SAC member. If this shift was added to a calendar, remove that calendar entry too.`,
+    impact: [event?.title || 'SAC event',
+      formatBerlinDateTime(booking.slot_start, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      `${sacSignupTimeRange({ start: booking.slot_start, end: booking.slot_end })} Berlin time · Scoreboard spot ${booking.spot_number}`],
+    danger: true, cancelLabel: 'Keep shift', confirmLabel: 'Cancel shift', busyLabel: 'Cancelling…',
+    execute: () => performSacSignupCancellation(snapshot, button, actorId, authEpoch),
+  });
+}
+
+async function performSacSignupCancellation(snapshot, button, actorId, authEpoch) {
+  const sameAccount = () => window.CREW_CENTER_AUTH_USER?.id === actorId
+    && Number(window.CREW_CENTER_AUTH_EPOCH || 0) === authEpoch;
+  const booking = sacCancellableBooking(snapshot.id);
+  if (!sameAccount() || !booking || booking.member_id !== snapshot.member_id || booking.event_id !== snapshot.event_id
+    || booking.spot_number !== snapshot.spot_number || !sacBookingMatchesSlot(booking, { start: snapshot.slot_start, end: snapshot.slot_end })) {
+    showToast('This booking or your access has changed. Close this dialog and refresh before trying again.', 'error', 7000);
+    return false;
+  }
+  if (sacSignupsState.mutationInFlight) return false;
   sacSignupsState.mutationInFlight = true;
   const originalLabel = button.textContent;
   button.disabled = true;
   button.textContent = 'Cancelling…';
+  let cancelled = false;
   try {
-    const { error } = await supabaseClient.rpc('cancel_sac_scoreboard_slot', { p_signup_id: signupId });
+    const { data, error } = await supabaseClient.rpc('cancel_sac_scoreboard_slot', { p_signup_id: snapshot.id });
     if (error) throw error;
+    if (typeof data !== 'boolean') throw new Error('Could not confirm the cancellation. Refresh before trying again.');
+    cancelled = true;
+    if (!sameAccount()) return true;
+    // Prevent a second cancellation from stale content if the refresh fails.
+    [...sacSignupsState.signups, ...sacSignupsState.myShifts].filter(item => item.id === snapshot.id)
+      .forEach(item => { item.cancelled_at = new Date().toISOString(); });
     const refreshed = document.querySelector('.page.active')?.id === 'page-sac-my-shifts'
       ? await renderSacMyShifts() : await renderSacSignups(true);
-    if (refreshed) showToast('Scoreboard spot cancelled.');
+    if (!sameAccount()) return true;
+    if (refreshed) showToast(data ? 'Scoreboard spot cancelled.' : 'This Scoreboard spot was already cancelled.');
     else showToast('Spot cancelled, but this page could not refresh. Reload to confirm.', 'error', 7000);
+    return true;
   } catch (error) {
-    button.disabled = false;
-    button.textContent = originalLabel;
-    showToast(error?.message || 'Could not cancel this spot.', 'error', 7000);
+    if (sameAccount()) {
+      showToast(cancelled ? 'Spot cancelled, but this page could not refresh. Reload to confirm.'
+        : error?.message || 'Could not cancel this spot.', 'error', 7000);
+    }
+    return cancelled;
   } finally {
-    sacSignupsState.mutationInFlight = false;
+    if (sameAccount()) {
+      sacSignupsState.mutationInFlight = false;
+      button.disabled = cancelled;
+      button.textContent = cancelled ? 'Cancelled' : originalLabel;
+    }
   }
 }
 

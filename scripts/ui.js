@@ -77,6 +77,7 @@ function openActionConfirmation(config) {
   nameWrap.hidden = !config.expectedName;
   document.getElementById('action-confirmation-name-help').textContent = config.expectedName ? `Type “${config.expectedName}” exactly.` : '';
   document.getElementById('action-confirmation-final-warning').hidden = true;
+  document.getElementById('action-confirmation-dismiss').textContent = config.cancelLabel || 'Cancel';
   const submit = document.getElementById('action-confirmation-submit');
   submit.textContent = config.multipleWarnings ? 'Continue to final warning' : config.confirmLabel || 'Confirm';
   submit.className = `btn ${config.danger ? 'btn-danger' : 'btn-accent'}`;
@@ -100,6 +101,7 @@ function closeActionConfirmation() {
 
 async function submitActionConfirmation() {
   if (!actionConfirmation) return;
+  const confirmation = actionConfirmation;
   const submit = document.getElementById('action-confirmation-submit');
   if (actionConfirmation.multipleWarnings && actionConfirmation.stage === 1) {
     actionConfirmation.stage = 2;
@@ -114,12 +116,12 @@ async function submitActionConfirmation() {
   const previousLabel = submit.textContent;
   submit.textContent = actionConfirmation.busyLabel || 'Working...';
   try {
-    const completed = await actionConfirmation.execute();
-    if (completed !== false) closeActionConfirmation();
+    const completed = await confirmation.execute();
+    if (completed !== false && actionConfirmation === confirmation) closeActionConfirmation();
   } catch (error) {
     showToast(error?.message || "Couldn't complete the action.", 'error', 7000);
   } finally {
-    if (actionConfirmation) {
+    if (actionConfirmation === confirmation) {
       submit.disabled = false;
       submit.textContent = previousLabel;
       syncActionConfirmationButton();
