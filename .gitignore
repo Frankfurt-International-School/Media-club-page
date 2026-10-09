@@ -1,2 +1,4 @@
 dist/
 dist-info/
+node_modules/
+supabase/.temp/
