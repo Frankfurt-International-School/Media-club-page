@@ -996,7 +996,7 @@ async function loadCrewCenterDatasetBatch(datasets, silent) {
   } else if (pageFromPath() === 'crew-deployment') {
     navigate(canAccessCrewSchedule() ? 'crew-deployment' : 'home', navItemForPage(canAccessCrewSchedule() ? 'crew-deployment' : 'home'), { skipUrl: canAccessCrewSchedule(), preserveFocus: true });
   }
-  renderCurrentPage();
+  renderCurrentPage(datasets);
   renderDatasetErrors();
   scheduleEventVisibilityRefresh();
   window.updateCrewCenterEventsBadge?.();
@@ -1161,8 +1161,12 @@ function stopCrewCenterLiveUpdates() {
 
 window.stopCrewCenterLiveUpdates = stopCrewCenterLiveUpdates;
 
-function renderCurrentPage() {
+function renderCurrentPage(refreshedDatasets = null) {
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
+  // Keep booking controls steady when only unrelated background data was refreshed.
+  if (Array.isArray(refreshedDatasets)
+    && ['signup', 'my-crew-schedule'].includes(activePage)
+    && !refreshedDatasets.some(dataset => ['members', 'events', 'equipment'].includes(dataset))) return;
   if (activePage === 'about') renderAboutRecentProjects();
   if (activePage === 'home') renderDashboard();
   if (activePage === 'sac-home') { renderSacDashboard(); renderSacApplications(); }
