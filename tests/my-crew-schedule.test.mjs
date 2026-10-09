@@ -39,6 +39,7 @@ function harness() {
   vm.runInContext(sac, context);
   vm.runInContext(equipment.slice(0, equipment.indexOf('function activeEquipmentReservation')), context);
   vm.runInContext(access, context);
+  vm.runInContext(core.slice(core.indexOf('const BERLIN_TIME_ZONE'), core.indexOf('function timeValue')), context);
   vm.runInContext(source, context);
   return { context, node, downloads, timers, setClock(value) { clock = value; } };
 }
@@ -169,4 +170,63 @@ test('an open schedule refreshes at personal booking and confirmation boundaries
   assert.doesNotMatch(h.node('my-crew-schedule-list').innerHTML, /Confirm on sheet/);
   h.setClock(Date.parse(signup.attendanceEnd) + 100); h.timers.at(-1).callback();
   assert.doesNotMatch(h.node('my-crew-schedule-list').innerHTML, /Basketball/);
+});
+
+test('the agenda updates at an assignment start rather than waiting for its end', () => {
+  const h = harness();
+  Object.assign(h.context.state.events[0].signups[0], { attendanceStart: new Date(now + 60000).toISOString(), confirmationStatus: 'confirmed' });
+  h.context.renderMyCrewSchedule();
+  assert.equal(h.timers.at(-1).delay, 60100);
+  h.setClock(now + 60100); h.timers.at(-1).callback();
+  assert.match(h.node('my-crew-schedule-overview').innerHTML, /On now/);
+});
+
+test('agenda days follow Berlin midnight and Tomorrow across the daylight saving transition', () => {
+  const h = harness(); const clock = Date.parse('2030-03-30T22:30:00Z');
+  const items = ['2030-03-30T22:45:00Z','2030-03-30T23:30:00Z','2030-03-31T22:30:00Z']
+    .map((start,index) => ({id:String(index),start:Date.parse(start),end:Date.parse(start)+1800000,kind:'assignment'}));
+  const groups = h.context.crewScheduleAgendaGroups(items, clock);
+  assert.deepEqual(Array.from(groups, group => group.key), ['2030-03-30','2030-03-31','2030-04-01']);
+  assert.equal(groups[0].label,'Today'); assert.equal(groups[1].label,'Tomorrow');
+  const ongoing = { ...items[0], start: clock - 86400000, end: clock + 60000 };
+  assert.equal(h.context.crewScheduleAgendaGroups([ongoing],clock)[0].key,'2030-03-30');
+});
+
+test('attention separates confirmations, missed deadlines and return reminders without extending equipment bookings', () => {
+  const h = harness(); const items = h.context.ownCrewScheduleItems(now);
+  const assignment = items.find(item => item.kind==='assignment');
+  const loan = items.find(item => item.kind==='equipment');
+  const missed = { ...assignment, id:'missed', signup:{...assignment.signup,confirmationDeadline:new Date(now-60000).toISOString()} };
+  const due = { ...loan, id:'due', start:now-3600000,end:now-60000 };
+  const attention = h.context.crewScheduleAttention([assignment,loan,missed,due],now);
+  assert.deepEqual(Array.from(attention, item => item.reason), ['return_due','review','confirm','return_today']);
+  h.context.state.equipment[0].reservations[0].endsAt = new Date(now-16*60000).toISOString();
+  assert.equal(h.context.ownCrewScheduleItems(now).filter(item=>item.kind==='equipment').length,0);
+});
+
+test('agenda overview follows the active filter and clears personal content when access or data fails', () => {
+  const h = harness(); h.context.renderMyCrewSchedule();
+  assert.match(h.node('my-crew-schedule-list').innerHTML,/crew-agenda-day/);
+  assert.match(h.node('my-crew-schedule-overview').innerHTML,/Needs attention/);
+  h.context.selectMyCrewScheduleFilter('equipment');
+  assert.match(h.node('my-crew-schedule-overview').innerHTML,/Camera kit/);
+  assert.doesNotMatch(h.node('my-crew-schedule-overview').innerHTML,/Basketball/);
+  h.context.selectMyCrewScheduleFilter('assignment');
+  assert.doesNotMatch(h.node('my-crew-schedule-overview').innerHTML,/Camera kit/);
+  h.context.state.dataErrors.events='local failure'; h.context.renderMyCrewSchedule();
+  assert.equal(h.node('my-crew-schedule-overview').innerHTML,'');
+  h.context.state.dataErrors={}; h.context.window.CREW_CENTER_AUTH_USER=null; h.context.renderMyCrewSchedule();
+  assert.equal(h.node('my-crew-schedule-overview').innerHTML,'');
+});
+
+test('day headings refresh at Berlin midnight without waiting for the next booking', () => {
+  const h = harness(); const clock = Date.parse('2030-03-30T22:50:00Z'); h.setClock(clock);
+  h.context.state.equipment = [];
+  Object.assign(h.context.state.events[0].signups[0], { attendanceStart:'2030-03-31T10:00:00Z', attendanceEnd:'2030-03-31T11:00:00Z',confirmationStatus:'confirmed' });
+  h.context.renderMyCrewSchedule();
+  assert.match(h.node('my-crew-schedule-list').innerHTML,/Tomorrow/);
+  assert.equal(h.timers.at(-1).delay, 10*60000+100);
+  h.setClock(clock+10*60000+100); h.timers.at(-1).callback();
+  assert.match(h.node('my-crew-schedule-list').innerHTML,/Today/);
+  assert.doesNotMatch(h.node('my-crew-schedule-list').innerHTML,/Tomorrow/);
 });

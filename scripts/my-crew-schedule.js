@@ -43,6 +43,69 @@ function crewScheduleDetail(item) {
   return details.join(' · ');
 }
 
+function crewScheduleAttention(items, now = Date.now()) {
+  return items.flatMap(item => {
+    let reason; let deadline;
+    if (item.kind === 'assignment' && item.signup.confirmationStatus === 'maybe') {
+      reason = crewScheduleNeedsConfirmation(item, now) ? 'confirm' : 'review';
+      deadline = Date.parse(item.signup.confirmationDeadline);
+    } else if (item.kind === 'equipment' && (item.end <= now || berlinDateKey(item.end) === berlinDateKey(now))) {
+      reason = item.end <= now ? 'return_due' : 'return_today'; deadline = item.end;
+    }
+    return reason ? [{ ...item, reason, deadline }] : [];
+  }).sort((a, b) => ({ return_due: 0, review: 1, confirm: 2, return_today: 3 }[a.reason]
+    - { return_due: 0, review: 1, confirm: 2, return_today: 3 }[b.reason]) || a.deadline - b.deadline || a.id.localeCompare(b.id));
+}
+
+function crewScheduleTomorrowKey(now) {
+  const tomorrow = new Date(`${berlinDateKey(now)}T12:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  return tomorrow.toISOString().slice(0, 10);
+}
+
+function crewScheduleAgendaGroups(items, now = Date.now()) {
+  const today = berlinDateKey(now);
+  const tomorrowKey = crewScheduleTomorrowKey(now);
+  const groups = new Map();
+  items.forEach(item => {
+    const key = item.end <= now ? 'earlier' : berlinDateKey(item.start <= now ? now : item.start);
+    if (!groups.has(key)) groups.set(key, { key, items: [],
+      label: key === 'earlier' ? 'Earlier equipment bookings' : key === today ? 'Today' : key === tomorrowKey ? 'Tomorrow'
+        : formatBerlinDateTime(`${key}T12:00:00Z`, { weekday: 'long' }),
+      date: key === 'earlier' ? 'Check the saved return time on each booking.'
+        : formatBerlinDateTime(`${key}T12:00:00Z`, { day: 'numeric', month: 'long', year: 'numeric' }) });
+    groups.get(key).items.push(item);
+  });
+  return [...groups.values()].sort((a, b) => a.key === b.key ? 0 : a.key === 'earlier' ? -1 : b.key === 'earlier' ? 1 : a.key.localeCompare(b.key));
+}
+
+function renderCrewScheduleOverview(items, now) {
+  if (!items.length) return '';
+  const next = items.find(item => crewScheduleCalendarEligible(item, now));
+  const attention = crewScheduleAttention(items, now);
+  const nextLabel = next && next.start <= now ? next.kind === 'assignment' ? 'On now' : 'Current booking' : 'Up next';
+  const nextCard = next ? `<span class="page-kicker">${nextLabel}</span><h2>${escapeHtml(next.title)}</h2><p>${escapeHtml(formatBerlinDateTime(next.start, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} · Berlin time</p><p>${escapeHtml(next.location)}</p>${next.kind === 'assignment' && next.signup.confirmationStatus === 'maybe' ? '<p class="crew-agenda-tentative">Tentative — confirm this booking on its sheet.</p>' : ''}<a class="btn btn-accent btn-sm" href="${escapeHtml(next.url)}">Open next booking →</a>`
+    : '<span class="page-kicker">Up next</span><h2>No upcoming booking in this view</h2><p>Review any outstanding items alongside, or choose a new crew role or equipment booking.</p>';
+  const actions = attention.map(item => {
+    const label = { return_due: 'Return due', return_today: 'Return today', review: 'Confirmation deadline passed', confirm: 'Confirm your place' }[item.reason];
+    const action = item.kind === 'equipment' ? 'Open equipment' : item.reason === 'review' ? 'Review sheet' : 'Confirm this booking';
+    const detail = item.reason === 'review' ? 'Check current availability on the sheet.'
+      : `${item.kind === 'equipment' ? 'Return by' : 'Confirm by'} ${formatBerlinDateTime(item.deadline, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} Berlin time.`;
+    return `<li class="crew-agenda-attention-item"><div><span>${label}</span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(detail)}</p></div><a href="${escapeHtml(item.url)}">${action} →</a></li>`;
+  }).join('');
+  return `<section class="crew-agenda-next" aria-label="Next booking">${nextCard}</section><section class="crew-agenda-attention" aria-label="Booking reminders"><div class="crew-agenda-attention-head"><h2>Needs attention</h2><span class="badge badge-${attention.length ? 'amber' : 'green'}">${attention.length}</span></div>${attention.length ? `<p class="crew-agenda-hint">For the bookings in this view.</p><ul>${actions}</ul>` : '<div class="crew-agenda-clear"><strong>You’re up to date</strong><p>No confirmations or equipment returns need attention in this view.</p></div>'}</section>`;
+}
+
+function crewScheduleCard(item, now) {
+  const needsConfirmation = crewScheduleNeedsConfirmation(item, now);
+  const maybe = item.kind === 'assignment' && item.signup.confirmationStatus === 'maybe';
+  const returnDue = item.kind === 'equipment' && item.end <= now;
+  const status = maybe ? needsConfirmation ? 'Needs confirmation' : 'Deadline passed'
+    : item.kind === 'assignment' ? item.start <= now ? 'On now' : 'Confirmed'
+      : returnDue ? 'Return due' : reservationLifecycleStatus(item.reservation, now) === 'checked_out' ? 'Checked out' : 'Reserved';
+  return `<article class="crew-personal-card${maybe || returnDue ? ' needs-confirmation' : ''}"><div class="crew-personal-card-head"><span class="page-kicker">${item.kind === 'assignment' ? 'Crew assignment' : 'Equipment loan'}</span><span class="badge badge-${maybe || returnDue ? 'amber' : item.kind === 'assignment' ? 'green' : 'blue'}">${status}</span></div><h3>${escapeHtml(item.title)}</h3><p class="crew-personal-time">${escapeHtml(formatBerlinDateTime(item.start, { weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} – ${escapeHtml(formatBerlinDateTime(item.end, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} · Berlin time</p><p>${escapeHtml(item.location)}</p><p class="crew-personal-detail">${escapeHtml(crewScheduleDetail(item))}</p><div class="crew-personal-actions"><a class="btn ${needsConfirmation ? 'btn-accent' : 'btn-ghost'} btn-sm" href="${escapeHtml(item.url)}">${needsConfirmation ? 'Confirm on sheet' : item.kind === 'assignment' ? 'View sheet' : 'View equipment'}</a>${crewScheduleCalendarEligible(item, now) ? `<button class="btn btn-ghost btn-sm" type="button" data-crew-calendar-id="${escapeHtml(item.id)}">Add to calendar</button>` : ''}</div></article>`;
+}
+
 function buildCrewScheduleCalendar(items, origin, now = Date.now()) {
   if (!Number.isFinite(now)) return '';
   const entries = items.filter(item => crewScheduleCalendarEligible(item, now));
@@ -104,6 +167,8 @@ function renderMyCrewSchedule() {
   const stats = document.getElementById('my-crew-schedule-stats');
   const download = document.getElementById('my-crew-schedule-download');
   const calendarStatus = document.getElementById('my-crew-schedule-calendar-status');
+  const overview = document.getElementById('my-crew-schedule-overview');
+  if (overview) { overview.innerHTML = ''; overview.hidden = true; }
   stats.innerHTML = ''; download.disabled = true;
   calendarStatus.textContent = 'Loading your bookings…';
   if (currentCrewCenterWorkspace() !== 'media' || !canAccessMyCrewSchedule()) {
@@ -122,9 +187,10 @@ function renderMyCrewSchedule() {
   }
   const now = Date.now();
   const items = ownCrewScheduleItems(now);
-  const nextChange = items.flatMap(item => item.kind === 'equipment'
+  const nextChange = [...items.flatMap(item => item.kind === 'equipment'
     ? [item.start, item.end, item.end + 15 * 60 * 1000]
-    : [item.end, item.signup.confirmationStatus === 'maybe' ? Date.parse(item.signup.confirmationDeadline) : NaN])
+    : [item.start, item.end, item.signup.confirmationStatus === 'maybe' ? Date.parse(item.signup.confirmationDeadline) : NaN]),
+    ...(items.length ? [berlinTimestamp(crewScheduleTomorrowKey(now), '00:00')] : [])]
     .filter(timestamp => Number.isFinite(timestamp) && timestamp > now).sort((a, b) => a - b)[0];
   if (nextChange) myCrewScheduleRefreshTimer = setTimeout(() => {
     if (document.querySelector('.page.active')?.id === 'page-my-crew-schedule') renderMyCrewSchedule();
@@ -136,18 +202,14 @@ function renderMyCrewSchedule() {
     .map(([count, label]) => `<div class="crew-personal-stat"><strong>${count}</strong><span>${label}</span></div>`).join('');
   document.querySelectorAll('[data-crew-schedule-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.crewScheduleFilter === myCrewScheduleFilter)));
   const visible = items.filter(item => myCrewScheduleFilter === 'all' || item.kind === myCrewScheduleFilter);
+  if (overview) { overview.innerHTML = renderCrewScheduleOverview(visible, now); overview.hidden = !visible.length; }
   const calendarItems = visible.filter(item => crewScheduleCalendarEligible(item, now));
   download.disabled = !calendarItems.length;
   calendarStatus.textContent = calendarItems.length
     ? `${calendarItems.length} ${calendarItems.length === 1 ? 'booking' : 'bookings'} in this view · .ics file`
     : items.length ? 'No upcoming bookings in this view to export.' : 'Book a crew role or equipment first.';
-  list.innerHTML = visible.length ? visible.map(item => {
-    const needsConfirmation = crewScheduleNeedsConfirmation(item, now);
-    const maybe = item.kind === 'assignment' && item.signup.confirmationStatus === 'maybe';
-    const status = maybe ? needsConfirmation ? 'Needs confirmation' : 'Deadline passed' : item.kind === 'assignment' ? 'Confirmed'
-      : item.end <= now ? 'Return due' : reservationLifecycleStatus(item.reservation, now) === 'checked_out' ? 'Checked out' : 'Reserved';
-    return `<article class="crew-personal-card${maybe ? ' needs-confirmation' : ''}"><div class="crew-personal-card-head"><span class="page-kicker">${item.kind === 'assignment' ? 'Crew assignment' : 'Equipment loan'}</span><span class="badge badge-${maybe ? 'amber' : item.kind === 'assignment' ? 'green' : 'blue'}">${status}</span></div><h2>${escapeHtml(item.title)}</h2><p class="crew-personal-time">${escapeHtml(formatBerlinDateTime(item.start, { weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} – ${escapeHtml(formatBerlinDateTime(item.end, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} · Berlin time</p><p>${escapeHtml(item.location)}</p><p class="crew-personal-detail">${escapeHtml(crewScheduleDetail(item))}</p><div class="crew-personal-actions"><a class="btn ${needsConfirmation ? 'btn-accent' : 'btn-ghost'} btn-sm" href="${escapeHtml(item.url)}">${needsConfirmation ? 'Confirm on sheet' : item.kind === 'assignment' ? 'View sheet' : 'View equipment'}</a>${crewScheduleCalendarEligible(item, now) ? `<button class="btn btn-ghost btn-sm" type="button" data-crew-calendar-id="${escapeHtml(item.id)}">Add to calendar</button>` : ''}</div></article>`;
-  }).join('') : `<div class="crew-personal-empty" role="status"><strong>No upcoming ${myCrewScheduleFilter === 'all' ? 'assignments or equipment loans' : myCrewScheduleFilter === 'assignment' ? 'crew assignments' : 'equipment loans'}.</strong><p>Choose a production role or reserve equipment when you are ready.</p><a class="btn btn-accent" href="${escapeHtml(pageUrl(myCrewScheduleFilter === 'equipment' ? 'equipment' : 'signup'))}">${myCrewScheduleFilter === 'equipment' ? 'Find equipment' : 'Find a crew role'}</a></div>`;
+  list.innerHTML = visible.length ? crewScheduleAgendaGroups(visible, now).map(group => `<section class="crew-agenda-day" aria-label="${escapeHtml(`${group.label} · ${group.date}`)}"><header class="crew-agenda-day-head"><div><h2>${escapeHtml(group.label)}</h2><p>${escapeHtml(group.date)}</p></div><span>${group.items.length} ${group.items.length === 1 ? 'booking' : 'bookings'}</span></header><div class="crew-agenda-cards">${group.items.map(item => crewScheduleCard(item, now)).join('')}</div></section>`).join('')
+    : `<div class="crew-personal-empty" role="status"><strong>No upcoming ${myCrewScheduleFilter === 'all' ? 'assignments or equipment loans' : myCrewScheduleFilter === 'assignment' ? 'crew assignments' : 'equipment loans'}.</strong><p>Choose a production role or reserve equipment when you are ready.</p><a class="btn btn-accent" href="${escapeHtml(pageUrl(myCrewScheduleFilter === 'equipment' ? 'equipment' : 'signup'))}">${myCrewScheduleFilter === 'equipment' ? 'Find equipment' : 'Find a crew role'}</a></div>`;
 }
 
 document.getElementById('page-my-crew-schedule')?.addEventListener('click', event => {
