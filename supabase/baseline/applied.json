@@ -1,0 +1,40 @@
+{
+  "format": 1,
+  "projectRef": "prswuqzzgordywowbwtc",
+  "appliedVia": "Supabase plugin",
+  "verifiedAt": "2026-10-09T10:05:27Z",
+  "baselineFingerprint": "d24a58a233d5baf643a31eb642e21494",
+  "postMigrationFingerprint": "6b8990d06343f005dcf562b7d7809494",
+  "migrations": [
+    {
+      "version": "20261009100219",
+      "name": "existing_database_baseline",
+      "file": "20261009100219_existing_database_baseline.sql",
+      "sqlSha256": "a6bc8a7a86a6ec435626b45a53c2aa02f31e0958258c5dabbdea80bbb2a1f4ae"
+    },
+    {
+      "version": "20261009100224",
+      "name": "allow_my_crew_schedule_preferences",
+      "file": "20261009100224_allow_my_crew_schedule_preferences.sql",
+      "sqlSha256": "1fc138e33726d250852aeff8799e64b01029927c1f89ea228fe78f38e0af74c8"
+    },
+    {
+      "version": "20261009100231",
+      "name": "remove_legacy_public_policies",
+      "file": "20261009100231_remove_legacy_public_policies.sql",
+      "sqlSha256": "ee69823f88b66c1c653aa46595c358236920b004548dc8761b2e9863639e7f14"
+    }
+  ],
+  "verification": {
+    "storedSQLMatchesLocal": true,
+    "onlyIntendedFunctionsAndPoliciesChanged": true,
+    "allPublicTablesRLSEnabled": true,
+    "anonymousPrivateReadsDenied": true,
+    "unlinkedPrivateReadsDenied": true,
+    "visitorPrivateReadsDenied": true,
+    "visitorSidebarWriteDenied": true,
+    "serverPublicRPCsCallable": true,
+    "authenticatedBrowserVerified": false,
+    "productionSignupWritesTested": false
+  }
+}

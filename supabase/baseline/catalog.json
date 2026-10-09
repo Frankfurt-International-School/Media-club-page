@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "baselineMigration": "20261009092003_existing_database_baseline.sql",
-  "initialIncrementalMigration": "20261009092004_allow_my_crew_schedule_preferences.sql",
+  "baselineMigration": "20261009100219_existing_database_baseline.sql",
+  "initialIncrementalMigration": "20261009100224_allow_my_crew_schedule_preferences.sql",
   "catalogSearchPath": "public, extensions",
   "projectRef": "prswuqzzgordywowbwtc",
   "observedOn": "2026-10-09",
@@ -9,7 +9,8 @@
   "databaseMigrationHistory": [],
   "fingerprint": "d24a58a233d5baf643a31eb642e21494",
   "scope": "Existing application schema, grants, RLS, triggers, Storage policies, bucket settings and public realtime membership. Not a fresh-database restore. Auth/provider settings, Edge Functions, cron jobs, Vault contents and user rows are excluded.",
-  "hostedBaselineRecorded": false,
+  "hostedBaselineRecorded": true,
+  "appliedReceipt": "applied.json",
   "snapshot": {
     "tables": [
       {
@@ -5512,5 +5513,5 @@
     ]
   },
   "snapshotSha256": "0a83f8fcb7951f551adda46c7bb9f281a1ee89c32c7c2b5da1b281ae8d13c673",
-  "securityMigration": "20261009093517_remove_legacy_public_policies.sql"
+  "securityMigration": "20261009100231_remove_legacy_public_policies.sql"
 }

@@ -15,7 +15,7 @@ const eventId = '00000000-0000-0000-0000-000000000010';
 
 before(async () => {
   await db.exec(`create schema auth; create schema extensions;
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role service_role;
     create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)$$;
     create function auth.uid() returns uuid language sql stable as $$select (auth.jwt()->>'sub')::uuid$$;
     set check_function_bodies = false;`);
@@ -24,11 +24,15 @@ before(async () => {
     await db.exec(`create table public.${quote(table.name)} (${columns.join(',')}); alter table public.${quote(table.name)} enable row level security;`);
   }
   for (const fn of baseline.snapshot.functions) await db.exec(fn.definition + ';');
+  for (const name of ['get_public_events', 'get_public_gallery', 'get_public_equipment', 'get_public_announcements']) {
+    assert.equal(baseline.snapshot.functions.find(fn => fn.name === name).acl, '{postgres=X/postgres,service_role=X/postgres}');
+    await db.exec(`revoke all on function public.${name}() from public; grant execute on function public.${name}() to service_role;`);
+  }
   for (const policy of baseline.snapshot.policies.filter(item => item.schemaname === 'public')) {
     const roles = policy.roles.map(role => role === 'public' ? 'public' : quote(role)).join(',');
     await db.exec(`create policy ${quote(policy.policyname)} on public.${quote(policy.tablename)} as ${policy.permissive} for ${policy.cmd} to ${roles}${policy.qual ? ` using (${policy.qual})` : ''}${policy.with_check ? ` with check (${policy.with_check})` : ''};`);
   }
-  await db.exec(`grant usage on schema public,auth to anon,authenticated;
+  await db.exec(`grant usage on schema public,auth to anon,authenticated,service_role;
     grant select,insert on public.signups to anon,authenticated;
     grant select on public.events,public.equipment,public.gallery to anon,authenticated;
     insert into public.members(id,name,email,role) values
@@ -80,17 +84,22 @@ test('Faculty and Auth Admin retain other-member signup access', async () => {
   assert.equal((await insertSignup(memberB)).rows[0].member_id, memberB);
 });
 
-test('cleanup preserves approved reads and public portal RPC access without broad table reads', async () => {
+test('cleanup preserves approved reads and server-only curated RPCs without broad table reads', async () => {
   await db.exec('reset role');
   await db.query("update public.members set role='Member' where id=$1", [memberA]);
   await actor();
   assert.equal((await db.query('select id from public.events')).rows.length, 0);
   assert.equal((await db.query('select id from public.gallery')).rows.length, 0);
+  assert.equal((await db.query('select id from public.equipment')).rows.length, 0);
+  for (const name of ['get_public_events', 'get_public_gallery', 'get_public_equipment', 'get_public_announcements']) {
+    await assert.rejects(db.query(`select * from public.${name}()`), /permission denied/);
+  }
+  await actor('', { role: 'service_role' });
   assert.equal((await db.query('select * from public.get_public_events()')).rows.length, 1);
   assert.equal((await db.query('select * from public.get_public_gallery()')).rows.length, 1);
-  assert.equal((await db.query('select id from public.equipment')).rows.length, 0);
   assert.equal((await db.query('select * from public.get_public_equipment()')).rows.length, 1);
   await actor('a@example.test', { role: 'authenticated' });
+  await assert.rejects(db.query('select * from public.get_public_events()'), /permission denied/);
   assert.equal((await db.query('select id from public.events')).rows.length, 1);
   assert.equal((await db.query('select id from public.gallery')).rows.length, 1);
   await actor('faculty@example.test', { role: 'authenticated' });

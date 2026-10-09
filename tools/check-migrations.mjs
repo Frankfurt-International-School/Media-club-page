@@ -14,6 +14,20 @@ for (const file of files) {
   const sql = readFileSync(new URL(`supabase/migrations/${file}`, root), 'utf8');
   assert.ok(sql.replace(/--[^\n]*/g, '').trim(), `Empty migration: ${file}`);
 }
+if (baseline.hostedBaselineRecorded) {
+  const receipt = JSON.parse(readFileSync(new URL(`supabase/baseline/${baseline.appliedReceipt}`, root), 'utf8'));
+  assert.equal(receipt.format, 1);
+  assert.equal(receipt.projectRef, baseline.projectRef);
+  assert.equal(receipt.baselineFingerprint, baseline.fingerprint);
+  assert.ok(receipt.migrations.some(item => item.file === baseline.baselineMigration));
+  assert.equal(new Set(receipt.migrations.map(item => item.version)).size, receipt.migrations.length);
+  for (const item of receipt.migrations) {
+    assert.equal(item.file, `${item.version}_${item.name}.sql`, 'Hosted and local migration IDs differ.');
+    assert.ok(files.includes(item.file), `Applied migration is missing: ${item.file}`);
+    const sql = readFileSync(new URL(`supabase/migrations/${item.file}`, root));
+    assert.equal(createHash('sha256').update(sql).digest('hex'), item.sqlSha256, `Applied SQL changed: ${item.file}. Create a new migration instead.`);
+  }
+}
 const guard = readFileSync(new URL(`supabase/migrations/${baseline.baselineMigration}`, root), 'utf8');
 const query = readFileSync(new URL('tools/database-catalog.sql', root), 'utf8').replace(/^--[^\n]*\n/, '').trim();
 assert.ok(guard.includes(query.replace('select snapshot, md5(snapshot::text) as fingerprint from catalog;', 'select md5(snapshot::text) into current_fingerprint from catalog;')), 'Baseline guard and read-only catalog query differ.');
