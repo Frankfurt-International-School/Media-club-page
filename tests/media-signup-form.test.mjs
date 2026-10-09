@@ -71,6 +71,13 @@ test('changing a self-signup name or selected ID cannot assign another member', 
   assert.equal(h.writes[0].member_id, 'me');
 });
 
+test('an unselected production role cannot create a signup', async () => {
+  const h = harness(); h.element('signup-role').value = '';
+  await h.context.addSignupRow();
+  assert.equal(h.writes.length, 0);
+  assert.match(h.element('signup-role-error').textContent, /choose an available role/);
+});
+
 test('staff choose duplicate-name members by record ID and equipment follows that member', async () => {
   const h = harness({ staff: true });
   h.context.selectMediaSignupMember('other');

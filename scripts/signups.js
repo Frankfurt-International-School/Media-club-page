@@ -41,6 +41,8 @@ function renderSignupBookingSummary() {
   const attendance = event ? selectedAttendanceWindow(event) : null;
   const roleFree = event?.isFestival && ['setup', 'takedown'].includes(attendance?.type);
   const role = document.getElementById('signup-role')?.value || '';
+  const roleAvailabilityHelp = document.getElementById('signup-role-availability');
+  if (roleAvailabilityHelp && (role || roleFree)) { roleAvailabilityHelp.textContent = ''; roleAvailabilityHelp.hidden = true; }
   const maybe = document.getElementById('signup-confirmation')?.value === 'maybe';
   const deadline = event ? timeValue(event.date, event.setupStart || event.game1Start || event.time) - 2 * 60 * 60 * 1000 : null;
   const memberDetails = member && canSignupForOtherMembers() ? [member.gradeLevel, member.email].filter(Boolean).join(' · ') : '';

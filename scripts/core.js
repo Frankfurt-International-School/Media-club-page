@@ -334,6 +334,8 @@ function signupOverlaps(signup, window) {
 function renderSignupRoleOptions(ev) {
   const select = document.getElementById('signup-role');
   if (!select) return;
+  const availabilityHelp = document.getElementById('signup-role-availability');
+  if (availabilityHelp) { availabilityHelp.textContent = ''; availabilityHelp.hidden = true; }
   const attendanceType = document.getElementById('signup-attendance')?.value;
   const roleFreeAttendance = ev?.isFestival && ['setup', 'takedown'].includes(attendanceType);
   document.getElementById('signup-role-group')?.style.setProperty('display', roleFreeAttendance ? 'none' : '');
@@ -347,7 +349,7 @@ function renderSignupRoleOptions(ev) {
   const attendance = selectedAttendanceWindow(ev);
   const openRoles = eventOpenRoleLabels(ev);
   const availableRoleKeys = currentUserSignupRoleKeys().filter(key => openRoles.includes(signupRoleLabels[key]));
-  select.innerHTML = availableRoleKeys.map(key => {
+  select.innerHTML = '<option value="" disabled selected>Choose a production role</option>' + availableRoleKeys.map(key => {
     const label = signupRoleLabels[key];
     const sameRole = (ev?.signups || []).filter(signup => signup.role === label);
     const overlapping = sameRole.filter(signup => signupOverlaps(signup, attendance));
@@ -370,8 +372,17 @@ function renderSignupRoleOptions(ev) {
   if (!availableRoleKeys.length) {
     select.innerHTML = '<option value="" disabled selected>No roles are open to this account</option>';
   }
-  if ([...select.options].some(option => option.value === selected && !option.disabled)) {
+  const selectedAvailable = [...select.options].some(option => option.value === selected && !option.disabled);
+  if (selectedAvailable) {
     select.value = selected;
+  }
+  if (availabilityHelp) {
+    availabilityHelp.textContent = selected && !selectedAvailable
+      ? `${selected} is no longer available for this time. Choose another role or adjust your time.`
+      : availableRoleKeys.length && ![...select.options].some(option => !option.disabled)
+        ? 'All production roles are occupied for this time. Choose a different period or adjust your time.'
+        : '';
+    availabilityHelp.hidden = !availabilityHelp.textContent;
   }
   updateReserveRoleFields();
 }

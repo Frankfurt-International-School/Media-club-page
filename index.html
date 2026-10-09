@@ -585,7 +585,8 @@
         </div>
         <div class="form-group signup-field" id="signup-role-group">
           <label class="form-label" for="signup-role">Production role</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-role" aria-describedby="signup-role-error" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
+          <div class="signup-select-shell"><select class="form-select" id="signup-role" aria-describedby="signup-role-availability signup-role-error" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
+          <div class="signup-name-help" id="signup-role-availability" role="status" hidden></div>
           <div class="signup-field-error" id="signup-role-error"></div>
         </div>
       </div>
