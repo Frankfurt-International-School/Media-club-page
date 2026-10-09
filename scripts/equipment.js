@@ -116,6 +116,7 @@ function renderArchivedEquipment() {
 }
 
 function renderEquipment() {
+  if (typeof applyCrewQuickSearchDestination === 'function') applyCrewQuickSearchDestination('equipment');
   scheduleEquipmentStatusRefresh();
   renderArchivedEquipment();
   const ownReservationsPanel = document.getElementById('my-equipment-reservations');
@@ -165,7 +166,7 @@ function renderEquipment() {
       .filter(reservation => reservationLifecycleStatus(reservation) === 'scheduled')
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     return `
-      <div class="equipment-card equipment-catalog-card${device ? ' has-device-visual' : ''}${device?.kind === 'lens' ? ' is-lens' : ''}">
+      <div class="equipment-card equipment-catalog-card${device ? ' has-device-visual' : ''}${device?.kind === 'lens' ? ' is-lens' : ''}" id="media-equipment-${escapeHtml(e.id)}" tabindex="-1">
         ${device ? `<button type="button" class="equipment-device-visual brand-${device.brandKey}${device.kind === 'lens' ? ' is-lens' : ''}" onclick="openEquipmentDeviceView('${e.id}')" aria-label="Open the ${escapeHtml(e.name)} device view">
           <span class="equipment-device-scanline" aria-hidden="true"></span>
           <span class="equipment-device-visual-label"><span class="equipment-device-signal-dot"></span>${device.kind === 'lens' ? 'Optics profile' : 'Inventory visual'}</span>
@@ -208,6 +209,7 @@ function renderEquipment() {
       <div class="catalog-equipment-grid">${items.map(equipmentCard).join('')}</div>
     </section>`;
   }).join('');
+  if (typeof focusCrewQuickSearchDestination === 'function') focusCrewQuickSearchDestination('equipment');
 }
 
 let equipmentDeviceViewId = null;

@@ -138,7 +138,7 @@ function renderMeetingCard(meeting) {
   const link = safeExternalUrl(meeting.meetingLink);
   const month = formatBerlinDateTime(meeting.startsAt, { month: 'short' }).toUpperCase();
   const day = formatBerlinDateTime(meeting.startsAt, { day: '2-digit' });
-  return `<article class="meeting-card ${past ? 'past' : ''}">
+  return `<article class="meeting-card ${past ? 'past' : ''}" id="media-meeting-${escapeHtml(meeting.id)}" tabindex="-1">
     <div class="meeting-card-signal" aria-hidden="true"><span></span><span></span><span></span></div>
     <div class="meeting-date-node"><span>${escapeHtml(month)}</span><strong>${escapeHtml(day)}</strong></div>
     <div class="meeting-card-body">
@@ -180,7 +180,8 @@ function renderArchivedMeetings() {
 
 function renderMeetings() {
   if (isVisitorSession()) return;
-  const tab = tabValueFromUrl(['upcoming', 'past'], 'upcoming');
+  const requested = typeof applyCrewQuickSearchDestination === 'function' ? applyCrewQuickSearchDestination('meeting') : null;
+  const tab = requested ? meetingIsPast(requested) ? 'past' : 'upcoming' : tabValueFromUrl(['upcoming', 'past'], 'upcoming');
   document.querySelectorAll('[data-meeting-tab]').forEach(link => {
     const active = link.dataset.meetingTab === tab;
     link.classList.toggle('active', active);
@@ -199,6 +200,7 @@ function renderMeetings() {
     return;
   }
   target.innerHTML = meetings.map(renderMeetingCard).join('');
+  if (typeof focusCrewQuickSearchDestination === 'function') focusCrewQuickSearchDestination('meeting');
 }
 
 function renderMeetingEventOptions(selected = '') {

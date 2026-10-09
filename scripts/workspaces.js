@@ -178,6 +178,7 @@ function applyWorkspacePresentation({ animate = false } = {}) {
 }
 
 function setCrewCenterWorkspace(workspace, options = {}) {
+  window.resetCrewQuickSearch?.();
   const sacAccess = canAccessSacWorkspace();
   const requestedSac = workspace === 'sac';
   const previousWorkspace = activeCrewCenterWorkspace;
@@ -234,6 +235,7 @@ function syncCrewCenterWorkspaceFromLocation() {
 }
 
 function resetCrewCenterWorkspace() {
+  window.resetCrewQuickSearch?.();
   window.resetSacDashboardState?.();
   window.resetSacEventsState?.();
   window.resetSacMeetingsState?.();

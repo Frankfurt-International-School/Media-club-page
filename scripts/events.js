@@ -24,6 +24,7 @@ function eventScheduleTimeline(event) {
 
 function renderEvents(filter) {
   if (filter !== undefined) state.eventFilter = filter;
+  if (typeof applyCrewQuickSearchDestination === 'function') applyCrewQuickSearchDestination('event');
   renderArchivedEvents();
   const f = state.eventFilter;
   const visibleByDate = state.showPastEvents ? state.events : state.events.filter(event => !isPastEvent(event));
@@ -39,7 +40,7 @@ function renderEvents(filter) {
   const eventCard = ev => {
     const past = isPastEvent(ev);
     return `
-      <div class="event-card">
+      <div class="event-card" id="media-event-${escapeHtml(ev.id)}" tabindex="-1">
         <div class="event-date-box">
           <div class="event-month">${fmtMonth(ev.date)}</div>
           <div class="event-day">${fmtDay(ev.date)}</div>
@@ -72,6 +73,7 @@ function renderEvents(filter) {
   };
   if (f !== 'all') {
     el.innerHTML = list.map(eventCard).join('');
+    if (typeof focusCrewQuickSearchDestination === 'function') focusCrewQuickSearchDestination('event');
     return;
   }
   const eventCategoryOrder = ['Livestream', 'Recording (live cut)', 'Event', 'Other'];
@@ -87,6 +89,7 @@ function renderEvents(filter) {
       <div class="catalog-event-list">${events.map(eventCard).join('')}</div>
     </section>`;
   }).join('');
+  if (typeof focusCrewQuickSearchDestination === 'function') focusCrewQuickSearchDestination('event');
 }
 
 function filterEvents(f, el) {

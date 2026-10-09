@@ -136,6 +136,9 @@ async function renderSacEvents() {
   if (requestedEvent && Date.parse(requestedEvent.ends_at) < Date.now()) sacEventsState.showPast = true;
   paintSacEvents();
   if (requestedEvent) requestAnimationFrame(() => {
+    if (request !== sacEventsState.request || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()
+      || !document.getElementById('page-sac-events')?.classList.contains('active')
+      || new URLSearchParams(window.location.search).get('event') !== requestedEventId) return;
     const card = document.getElementById(`sac-event-${requestedEvent.id}`);
     card?.focus({ preventScroll: true });
     card?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });

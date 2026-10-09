@@ -155,10 +155,14 @@
     </a>
   </div>
 </aside>
-<div class="all-pages-popover" id="all-pages-popover" role="dialog" aria-label="All pages">
-  <div class="all-pages-head"><div><div class="all-pages-title">All pages</div><div class="text-muted">Open any page available to you.</div></div><button class="modal-close" onclick="closeAllPages()" aria-label="Close all pages menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-  <input class="form-input all-pages-search" id="all-pages-search" type="search" placeholder="Search pages…" oninput="renderAllPagesMenu(this.value)">
+<button class="quick-search-scrim" id="quick-search-scrim" type="button" aria-label="Close search"></button>
+<div class="all-pages-popover quick-search-dialog" id="all-pages-popover" role="dialog" aria-modal="true" aria-labelledby="quick-search-title">
+  <div class="all-pages-head"><div><div class="all-pages-title" id="quick-search-title">Find it faster</div><div class="text-muted">Pages and upcoming records in this workspace.</div></div><button class="modal-close" onclick="closeAllPages()" aria-label="Close all pages menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <label class="visually-hidden" for="all-pages-search">Search this workspace</label>
+  <input class="form-input all-pages-search" id="all-pages-search" type="search" placeholder="Search a page, event, meeting, or equipment…" autocomplete="off" aria-controls="all-pages-list" oninput="renderAllPagesMenu(this.value)">
+  <div class="quick-search-status-row"><p id="quick-search-status" role="status"></p><button class="btn btn-ghost btn-sm" id="quick-search-retry" type="button" hidden>Retry</button></div>
   <div id="all-pages-list"></div>
+  <div class="quick-search-help"><span>↑ ↓ to move · Enter to open · Esc to close</span><kbd>⌘ / Ctrl K</kbd></div>
 </div>
 <button type="button" class="sidebar-scrim" id="sidebar-scrim" onclick="closeMobileSidebar()" aria-label="Close navigation"></button>
 
@@ -173,6 +177,7 @@
     </button>
     <div class="topbar-title" id="topbar-title">Dashboard</div>
     <div class="topbar-motto">Vox Populi, Vox Media</div>
+    <button class="quick-search-button" id="quick-search-button" type="button" aria-label="Search this workspace" aria-expanded="false" aria-controls="all-pages-popover" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span>Search</span><kbd>⌘ K</kbd></button>
     <button class="notification-button" id="notification-button" onclick="toggleNotificationPanel(event)" aria-label="Open notifications" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 00-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><span class="notification-count" id="notification-count">0</span></button>
     <div class="berlin-clock" aria-live="polite">
       <div class="clock-dot"></div>
@@ -1534,6 +1539,7 @@
 <script src="scripts/my-crew-schedule.js"></script>
 <script src="scripts/cas-attendance.js"></script>
 <script src="scripts/admin.js"></script>
+<script src="scripts/quick-search.js"></script>
 <script src="scripts/init.js"></script>
 <script src="tutorial.js"></script>
 </body>

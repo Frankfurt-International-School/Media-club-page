@@ -98,6 +98,7 @@ function navigate(id, el, options = {}) {
   if (page === 'crew-deployment' && !canAccessCrewSchedule()) {
     page = 'home';
   }
+  window.prepareCrewQuickSearchDestination?.();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-page]').forEach(n => {
     n.classList.remove('active');

@@ -126,6 +126,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/my-crew-schedule.js',
     'scripts/cas-attendance.js',
     'scripts/admin.js',
+    'scripts/quick-search.js',
     'scripts/init.js',
   ]);
   assert.match(indexHtml, /<script src="supabase-config\.js"><\/script>\s*<script src="scripts\/core\.js"><\/script>\s*<script src="scripts\/workspaces\.js"><\/script>/);
