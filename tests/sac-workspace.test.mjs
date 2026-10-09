@@ -188,6 +188,7 @@ test('choosing an SAC assignee updates slot actions without rebuilding the sheet
     paintSacSignupSheet: () => { sheetPaints += 1; },
     paintSacSignupMemberMatches: () => {},
     paintSacSignupActions: () => { actionPaints += 1; },
+    loadSacSignupAvailability: () => { actionPaints += 1; },
   };
   vm.runInNewContext(`${functionSource(signups, 'sacSignupMembers')}\n${functionSource(signups, 'setSacSignupAssignee')}\nsetSacSignupAssignee('sac-1')`, context);
   assert.equal(context.sacSignupsState.assignedMemberId, 'sac-1');
@@ -231,7 +232,10 @@ test('claim confirmation waits until the saved booking is visible on the sheet',
   const messages = [];
   const context = {
     canClaimSacSlot: () => true,
-    sacSignupsState: { selectedEventId: 'event' },
+    sacSignupsState: { selectedEventId: 'event', events: [{id: 'event', scoreboard_spots: 2}], signups: [], memberBookings: [], bookingsReady: true, bookingsMemberId: 'me' },
+    generateSacSlots: () => [{start: '2026-10-01T10:00:00Z', end: '2026-10-01T10:30:00Z'}],
+    sacBookingMatchesSlot: () => false,
+    sacSlotAvailability: () => ({bookable:true}),
     selectedSacSignupMemberId: () => 'me',
     canAddMembers: () => false,
     supabaseClient: { rpc: async () => ({ data: 'booking-id', error: null }) },

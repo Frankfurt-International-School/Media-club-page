@@ -1,5 +1,6 @@
 // SAC sign-ups are time-first. Database RPCs own eligibility, capacity, and overlap checks.
-const sacSignupsState = { events: [], signups: [], myShifts: [], myShiftEvents: [], selectedEventId: null, assignedMemberId: null, memberQuery: '', request: 0, myShiftsRequest: 0, mutationInFlight: false };
+const sacSignupsState = { events: [], signups: [], myShifts: [], myShiftEvents: [], selectedEventId: null, assignedMemberId: null, memberQuery: '', request: 0, myShiftsRequest: 0, mutationInFlight: false,
+  slotFilter: 'all', memberBookings: [], bookingsMemberId: null, bookingsReady: false, bookingError: false, bookingRequest: 0 };
 
 function resetSacSignupsState() {
   sacSignupsState.request += 1;
@@ -12,6 +13,12 @@ function resetSacSignupsState() {
   sacSignupsState.assignedMemberId = null;
   sacSignupsState.memberQuery = '';
   sacSignupsState.mutationInFlight = false;
+  sacSignupsState.bookingRequest += 1;
+  sacSignupsState.memberBookings = [];
+  sacSignupsState.bookingsMemberId = null;
+  sacSignupsState.bookingsReady = false;
+  sacSignupsState.bookingError = false;
+  sacSignupsState.slotFilter = 'all';
   const select = document.getElementById('sac-signup-event-select');
   const content = document.getElementById('sac-signups-content');
   if (select) select.textContent = '';
@@ -85,7 +92,7 @@ function setSacSignupAssignee(memberId) {
   const input = document.getElementById('sac-signup-assign-member');
   if (input) { input.value = member.name; input.focus(); }
   paintSacSignupMemberMatches();
-  paintSacSignupActions();
+  loadSacSignupAvailability();
 }
 
 function paintSacSignupMemberMatches() {
@@ -109,20 +116,99 @@ function paintSacSignupMemberMatches() {
   results.innerHTML = matches.slice(0, 6).map(member => `<button class="sac-signup-member-match" type="button" data-sac-member-id="${escapeHtml(member.id)}"><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml([member.gradeLevel, member.email].filter(Boolean).join(' · '))}</small></button>`).join('');
 }
 
+function sacSlotAvailability(slot, occupants, memberBookings, memberId, spotCount, now = Date.now()) {
+  const booked = Boolean(memberId && occupants.some(item => item.member_id === memberId && !item.cancelled_at));
+  const conflict = memberId && memberBookings.find(item => item.member_id === memberId && !item.cancelled_at
+    && Date.parse(item.slot_start) < Date.parse(slot.end) && Date.parse(item.slot_end) > Date.parse(slot.start));
+  const ended = Date.parse(slot.end) <= now;
+  const openSpots = Math.max(0, spotCount - occupants.length);
+  return { booked, conflict, ended, openSpots, bookable: Boolean(memberId && !booked && !conflict && !ended && openSpots) };
+}
+
 function sacSignupAction(slot, occupants, selectedMemberId, spotCount, isAdmin) {
-  const ownBooking = occupants.some(booking => booking.member_id === selectedMemberId && selectedMemberId);
-  const full = occupants.length >= spotCount;
-  const ended = Date.parse(slot.end) <= Date.now();
-  if (ownBooking) return '<span class="sac-signup-status">Booked</span>';
-  if (full) return '<span class="sac-signup-status">Full</span>';
-  if (ended) return '<span class="sac-signup-status">Ended</span>';
-  return selectedMemberId
-    ? `<button class="btn btn-accent btn-sm" type="button" data-sac-claim-start="${escapeHtml(slot.start)}">${isAdmin ? 'Assign spot' : 'Claim spot'}</button>`
-    : '';
+  const availability = sacSlotAvailability(slot, occupants, sacSignupsState.memberBookings, selectedMemberId, spotCount);
+  if (availability.booked) return '<span class="sac-signup-status">Booked</span>';
+  if (availability.ended) return '<span class="sac-signup-status">Ended</span>';
+  if (!selectedMemberId) return '<span class="sac-signup-status">Choose a member</span>';
+  if (!sacSignupsState.bookingsReady || sacSignupsState.bookingsMemberId !== selectedMemberId) {
+    return `<span class="sac-signup-status">${sacSignupsState.bookingError ? 'Availability unavailable' : 'Checking availability…'}</span>`;
+  }
+  if (availability.conflict) return `<span class="sac-signup-conflict">Overlaps another booking</span><a class="sac-signup-conflict-link" href="${escapeHtml(sacSignupUrl(availability.conflict.event_id))}">View that sheet →</a>`;
+  if (!availability.openSpots) return '<span class="sac-signup-status">Full</span>';
+  return `<button class="btn btn-accent btn-sm" type="button" data-sac-claim-start="${escapeHtml(slot.start)}">${isAdmin ? 'Assign spot' : 'Claim spot'}</button>`;
+}
+
+async function loadSacSignupAvailability() {
+  const request = ++sacSignupsState.bookingRequest;
+  sacSignupsState.memberBookings = [];
+  sacSignupsState.bookingsReady = false;
+  sacSignupsState.bookingError = false;
+  const memberId = selectedSacSignupMemberId();
+  sacSignupsState.bookingsMemberId = memberId;
+  const event = sacSignupsState.events.find(item => item.id === sacSignupsState.selectedEventId);
+  const actorId = window.CREW_CENTER_AUTH_USER?.id;
+  const authEpoch = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
+  paintSacSignupActions();
+  if (!memberId || !event || !actorId || !supabaseClient || currentCrewCenterWorkspace() !== 'sac'
+    || !canAccessSacWorkspace() || !canClaimSacSlot()) return;
+  const current = () => request === sacSignupsState.bookingRequest && actorId === window.CREW_CENTER_AUTH_USER?.id
+    && authEpoch === Number(window.CREW_CENTER_AUTH_EPOCH || 0) && event.id === sacSignupsState.selectedEventId
+    && memberId === selectedSacSignupMemberId() && currentCrewCenterWorkspace() === 'sac' && canAccessSacWorkspace() && canClaimSacSlot();
+  try {
+    const { data, error } = await supabaseClient.from('sac_slot_signups')
+      .select('id,event_id,member_id,slot_start,slot_end,cancelled_at')
+      .eq('member_id', memberId).is('cancelled_at', null)
+      .lt('slot_start', event.ends_at).gt('slot_end', event.starts_at).order('slot_start');
+    if (!current()) return;
+    if (error) throw error;
+    sacSignupsState.memberBookings = (data || []).filter(item => item.member_id === memberId && !item.cancelled_at);
+    sacSignupsState.bookingsReady = true;
+  } catch (_error) {
+    if (!current()) return;
+    sacSignupsState.bookingError = true;
+  }
+  if (current()) paintSacSignupActions();
+}
+
+function paintSacPlannerControls(slots, availability) {
+  const content = document.getElementById('sac-signups-content');
+  const summary = document.getElementById('sac-planner-summary');
+  const status = document.getElementById('sac-planner-status');
+  if (!content || !summary || !status) return;
+  const selected = selectedSacSignupMemberId();
+  const ready = sacSignupsState.bookingsReady && sacSignupsState.bookingsMemberId === selected;
+  const booked = availability.filter(item => item.booked).length;
+  const minutes = slots.reduce((sum, slot, index) => sum + (availability[index].booked ? (Date.parse(slot.end) - Date.parse(slot.start)) / 60000 : 0), 0);
+  summary.innerHTML = [[ready ? availability.filter(item => item.bookable).length : '—', canAddMembers() ? 'Times member can book' : 'Times you can book'],
+    [selected ? booked : '—', 'Booked here'], [selected ? minutes : '—', 'Minutes booked']]
+    .map(([value, label]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('');
+  const visible = availability.map(item => sacSignupsState.slotFilter === 'all'
+    || sacSignupsState.slotFilter === 'booked' && item.booked || sacSignupsState.slotFilter === 'available' && ready && item.bookable);
+  content.querySelectorAll('[data-sac-slot-index]').forEach(row => {
+    const index = Number(row.dataset.sacSlotIndex);
+    row.hidden = !visible[index];
+    row.classList.toggle('is-booked', availability[index].booked);
+    row.classList.toggle('is-conflicting', ready && Boolean(availability[index].conflict) && !availability[index].booked);
+  });
+  content.querySelectorAll('[data-sac-day]').forEach(heading => {
+    heading.hidden = !slots.some((slot, index) => berlinDateKey(slot.start) === heading.dataset.sacDay && visible[index]);
+  });
+  content.querySelectorAll('[data-sac-slot-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.sacSlotFilter === sacSignupsState.slotFilter)));
+  status.textContent = !selected ? 'Choose a matched SAC member to check their availability.'
+    : sacSignupsState.bookingError ? 'Availability could not be checked. Retry before booking.'
+    : !ready ? 'Checking other SAC bookings for overlaps…'
+    : `${visible.filter(Boolean).length} of ${slots.length} times shown. Adjacent shifts are allowed; overlapping shifts are not.`;
+  const empty = document.getElementById('sac-planner-empty');
+  if (empty) { empty.hidden = visible.some(Boolean); empty.textContent = sacSignupsState.slotFilter === 'booked'
+    ? 'No bookings in this event for the selected member.' : ready ? 'No bookable times in this event. Try another event or show all times.' : 'Bookable times will appear once availability is checked.'; }
+  const retry = document.getElementById('sac-planner-retry');
+  if (retry) retry.hidden = !sacSignupsState.bookingError;
 }
 
 function paintSacSignupActions() {
   const content = document.getElementById('sac-signups-content');
+  if (currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return;
+  if (!canClaimSacSlot()) { paintSacSignupSheet(); return; }
   const event = sacSignupsState.events.find(item => item.id === sacSignupsState.selectedEventId);
   if (!content || !event) return;
   const slots = generateSacSlots(event);
@@ -130,11 +216,13 @@ function paintSacSignupActions() {
   if (rows.length !== slots.length) return;
   const selectedMemberId = selectedSacSignupMemberId();
   const spotCount = Number(event.scoreboard_spots || 2);
+  const availability = slots.map(slot => sacSlotAvailability(slot, sacSignupsState.signups.filter(booking => sacBookingMatchesSlot(booking, slot)), sacSignupsState.memberBookings, selectedMemberId, spotCount));
   rows.forEach((row, index) => {
     const occupants = sacSignupsState.signups.filter(booking => sacBookingMatchesSlot(booking, slots[index]));
     row.innerHTML = sacSignupAction(slots[index], occupants, selectedMemberId, spotCount, canAddMembers());
     if (content.getAttribute('aria-busy') === 'true') row.querySelector('button')?.setAttribute('disabled', '');
   });
+  paintSacPlannerControls(slots, availability);
 }
 
 function paintSacSignupSheet() {
@@ -166,9 +254,9 @@ function paintSacSignupSheet() {
     ? `<div class="sac-signup-access">${isAdmin ? 'Type a current SAC member’s name and choose their match before assigning a slot.' : 'Claiming a spot books it immediately. Your name appears on the sheet and in <a href="/sac/my-shifts">My shifts</a>; there is no pending approval. You may claim non-overlapping shifts and cancel your own bookings.'}</div>${memberSelect}`
     : `<div class="sac-signup-locked"><strong>Preview only — SAC membership required</strong><p>Only current SAC-tagged members can claim Scoreboard shifts. If you already belong to SAC, apply using your FIS email and request the SAC option so an Auth Admin can verify your membership.</p><a class="btn btn-accent btn-sm" href="https://info.fismediaclub.org/#join">Request SAC access</a></div>`;
   let lastDay = '';
-  const rows = slots.map(slot => {
+  const rows = slots.map((slot, index) => {
     const day = berlinDateKey(slot.start);
-    const heading = day !== lastDay ? `<h3 class="sac-signup-day">${escapeHtml(formatBerlinDateTime(slot.start, { weekday: 'long', day: 'numeric', month: 'long' }))}</h3>` : '';
+    const heading = day !== lastDay ? `<h3 class="sac-signup-day" data-sac-day="${escapeHtml(day)}">${escapeHtml(formatBerlinDateTime(slot.start, { weekday: 'long', day: 'numeric', month: 'long' }))}</h3>` : '';
     lastDay = day;
     const occupants = canClaim ? bookings.filter(booking => sacBookingMatchesSlot(booking, slot)) : [];
     const places = canClaim
@@ -180,13 +268,15 @@ function paintSacSignupSheet() {
         }).join('')
       : '<span class="sac-signup-place preview">Member details hidden</span>';
     const action = canClaim ? sacSignupAction(slot, occupants, selectedMemberId, Number(event.scoreboard_spots || 2), isAdmin) : '';
-    return `${heading}<article class="sac-signup-slot"><div class="sac-signup-time"><strong>${escapeHtml(sacSignupTimeRange(slot))}</strong><span>${canClaim ? `${occupants.length}/${escapeHtml(String(event.scoreboard_spots || 2))} filled` : 'Preview'}</span></div><div class="sac-signup-places">${places}</div><div class="sac-signup-action">${action}</div></article>`;
+    return `${heading}<article class="sac-signup-slot" data-sac-slot-index="${index}"><div class="sac-signup-time"><strong>${escapeHtml(sacSignupTimeRange(slot))}</strong><span>${canClaim ? `${occupants.length}/${escapeHtml(String(event.scoreboard_spots || 2))} filled` : 'Preview'}</span></div><div class="sac-signup-places">${places}</div><div class="sac-signup-action">${action}</div></article>`;
   }).join('');
   const changedSchedule = orphaned.length
     ? `<section class="sac-signup-warning" role="alert"><strong>Event schedule changed — ${orphaned.length} booking${orphaned.length === 1 ? '' : 's'} need review</strong><p>These existing bookings no longer match the current event window. They were kept so members can see and cancel them; choose a new shift after cancelling.</p>${orphaned.map(booking => `<div>${escapeHtml(booking.member_name_snapshot)} · ${escapeHtml(formatBerlinDateTime(booking.slot_start, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} <button class="sac-signup-cancel" type="button" data-sac-cancel-id="${escapeHtml(booking.id)}" ${isAdmin || booking.member_id === ownId ? '' : 'hidden'}>Cancel booking</button></div>`).join('')}</section>`
     : '';
-  content.innerHTML = `${intro}${access}${changedSchedule}<div class="sac-signup-grid">${rows}</div>`;
+  const planner = canClaim ? `<section class="sac-planner" aria-label="Shift planner"><div class="sac-planner-summary" id="sac-planner-summary"></div><div class="sac-planner-controls"><div class="sac-planner-filters" role="group" aria-label="Filter shift times">${[['all','All times'],['available','Bookable'],['booked',isAdmin ? 'Member bookings' : 'My bookings']].map(([value,label]) => `<button class="btn btn-ghost btn-sm" type="button" data-sac-slot-filter="${value}" aria-pressed="${sacSignupsState.slotFilter === value}">${label}</button>`).join('')}</div><button class="btn btn-ghost btn-sm" id="sac-planner-retry" type="button" data-sac-availability-retry hidden>Retry availability</button></div><p id="sac-planner-status" role="status"></p></section>` : '';
+  content.innerHTML = `${intro}${access}${changedSchedule}${planner}<div class="sac-signup-grid">${rows}</div>${canClaim ? '<div class="empty-state" id="sac-planner-empty" role="status" hidden></div>' : ''}`;
   if (isAdmin) paintSacSignupMemberMatches();
+  if (canClaim) paintSacSignupActions();
 }
 
 async function renderSacSignups(preserveContent = false) {
@@ -232,7 +322,9 @@ async function renderSacSignups(preserveContent = false) {
     if (request !== sacSignupsState.request) return;
     if (signupError) throw signupError;
     sacSignupsState.signups = signups || [];
+    sacSignupsState.bookingsReady = false;
     paintSacSignupSheet();
+    await loadSacSignupAvailability();
     return true;
   } catch (error) {
     if (request !== sacSignupsState.request) return;
@@ -378,6 +470,13 @@ async function claimSacSignupSlot(slotStart, button) {
   if (!canClaimSacSlot() || !sacSignupsState.selectedEventId || sacSignupsState.mutationInFlight) return;
   const memberId = selectedSacSignupMemberId();
   if (!memberId) { showToast('Choose a current SAC member first.', 'error'); return; }
+  const event = sacSignupsState.events.find(item => item.id === sacSignupsState.selectedEventId);
+  const slot = generateSacSlots(event).find(item => Date.parse(item.start) === Date.parse(slotStart));
+  const occupants = slot ? sacSignupsState.signups.filter(item => sacBookingMatchesSlot(item, slot)) : [];
+  if (!slot || !sacSignupsState.bookingsReady || sacSignupsState.bookingsMemberId !== memberId
+    || !sacSlotAvailability(slot, occupants, sacSignupsState.memberBookings, memberId, Number(event.scoreboard_spots || 2)).bookable) {
+    showToast('This time is not bookable. Check the planner or retry availability.', 'error'); return;
+  }
   sacSignupsState.mutationInFlight = true;
   const originalLabel = button.textContent;
   button.disabled = true;
@@ -480,6 +579,11 @@ async function performSacSignupCancellation(snapshot, button, actorId, authEpoch
 }
 
 document.getElementById('sac-signups-content')?.addEventListener('click', event => {
+  const filter = event.target.closest('[data-sac-slot-filter]');
+  if (filter && ['all', 'available', 'booked'].includes(filter.dataset.sacSlotFilter)) {
+    sacSignupsState.slotFilter = filter.dataset.sacSlotFilter; paintSacSignupActions(); return;
+  }
+  if (event.target.closest('[data-sac-availability-retry]')) { loadSacSignupAvailability(); return; }
   const member = event.target.closest('[data-sac-member-id]');
   if (member) { setSacSignupAssignee(member.dataset.sacMemberId); return; }
   const claim = event.target.closest('[data-sac-claim-start]');
@@ -493,7 +597,7 @@ document.getElementById('sac-signups-content')?.addEventListener('input', event 
   sacSignupsState.memberQuery = event.target.value;
   sacSignupsState.assignedMemberId = null;
   paintSacSignupMemberMatches();
-  paintSacSignupActions();
+  loadSacSignupAvailability();
 });
 
 document.getElementById('sac-my-shifts-content')?.addEventListener('click', event => {
