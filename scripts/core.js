@@ -176,6 +176,14 @@ function canSignupForOtherMembers() {
   return canAccessAdminPanel();
 }
 
+function canAccessMyCrewSchedule() {
+  const user = window.CREW_CENTER_AUTH_USER;
+  const member = currentMemberRecord();
+  const ownsRecord = user?.id && member?.id && (!user.email || String(member.email || '').toLowerCase() === user.email.toLowerCase());
+  const mediaAccess = typeof canAccessMediaWorkspace === 'function' && canAccessMediaWorkspace();
+  return !isVisitorSession() && mediaAccess && Boolean(ownsRecord);
+}
+
 function canAccessEquipmentStatus() {
   return canAddMembers();
 }
@@ -292,6 +300,7 @@ function scheduleEventVisibilityRefresh() {
     if (activePage === 'events') renderEvents();
     if (activePage === 'meetings') renderMeetings();
     if (activePage === 'signup') initSignupSheet();
+    if (activePage === 'my-crew-schedule') renderMyCrewSchedule();
     scheduleEventVisibilityRefresh();
   }, Math.min(nextEnd - now + 250, 2147483647));
 }
@@ -1039,6 +1048,7 @@ async function loadCrewCenterInitialData() {
     events: ['events'],
     meetings: ['meetings'],
     signup: ['events', 'equipment'],
+    'my-crew-schedule': ['events', 'equipment'],
     members: [],
     gallery: ['gallery'],
     equipment: ['equipment'],
@@ -1165,6 +1175,7 @@ function renderCurrentPage() {
   if (activePage === 'events') renderEvents();
   if (activePage === 'meetings') renderMeetings();
   if (activePage === 'signup') initSignupSheet();
+  if (activePage === 'my-crew-schedule') renderMyCrewSchedule();
   if (activePage === 'members') renderMembers();
   if (activePage === 'gallery') renderGallery();
   if (activePage === 'equipment') renderEquipment();
@@ -1173,12 +1184,13 @@ function renderCurrentPage() {
 }
 
 const sidebarCategories = {
-  main: { label: 'Main', pages: ['home', 'events', 'meetings', 'signup', 'members'] },
+  main: { label: 'Main', pages: ['home', 'events', 'meetings', 'signup', 'my-crew-schedule', 'members'] },
   content: { label: 'Content', pages: ['gallery', 'equipment', 'role-guide'] },
   club: { label: 'Club', pages: ['crew-deployment', 'equipment-status', 'join', 'about', 'admin'] },
 };
 
 function sidebarPageAvailable(page) {
+  if (page === 'my-crew-schedule') return canAccessMyCrewSchedule();
   if (page === 'meetings') return !isVisitorSession();
   if (page === 'admin') return canAccessAdminPanel();
   if (page === 'crew-deployment') return canAccessCrewSchedule();

@@ -19,7 +19,7 @@ test('tutorial module is self-hosted and launches from Settings', () => {
 
 test('tutorial covers every routable member page and filters restricted guides', () => {
   for (const page of [
-    'home', 'events', 'meetings', 'signup', 'members', 'gallery', 'equipment', 'role-guide',
+    'home', 'events', 'meetings', 'signup', 'my-crew-schedule', 'members', 'gallery', 'equipment', 'role-guide',
     'crew-deployment', 'equipment-status', 'about', 'join', 'profile', 'admin',
   ]) {
     assert.match(tutorialSource, new RegExp(`['"]${page.replace('-', '\\-')}['"]`), `Expected a ${page} tutorial`);

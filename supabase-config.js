@@ -852,6 +852,7 @@ function applyAdminControls() {
   const visitorHiddenSelectors = [
     '.nav-item[data-page="meetings"]',
     '.nav-item[data-page="signup"]',
+    '.nav-item[data-page="my-crew-schedule"]',
     '.nav-item[data-page="members"]',
     '.sidebar-footer',
   ];

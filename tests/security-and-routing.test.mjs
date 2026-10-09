@@ -123,6 +123,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/members.js',
     'scripts/gallery.js',
     'scripts/equipment.js',
+    'scripts/my-crew-schedule.js',
     'scripts/cas-attendance.js',
     'scripts/admin.js',
     'scripts/init.js',
@@ -780,7 +781,7 @@ test('navigation tabs use native deep links and restore state from the URL', () 
   assert.doesNotMatch(indexHtml, /<button\b[^>]*role="tab"/);
 
   const sidebarLinks = [...indexHtml.matchAll(/<a\b[^>]*class="nav-item[^>]*data-page="[^"]+"[^>]*>/g)].map(match => match[0]);
-  assert.equal(sidebarLinks.length, 20);
+  assert.equal(sidebarLinks.length, 21);
   sidebarLinks.forEach(link => {
     assert.match(link, /href="\/[^"]+"/);
     assert.doesNotMatch(link, /onclick=/);

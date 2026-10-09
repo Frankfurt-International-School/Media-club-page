@@ -3,12 +3,12 @@
 
   const TUTORIAL_VERSION = 1;
   const TUTORIAL_IDS = [
-    'full', 'home', 'events', 'meetings', 'signup', 'members', 'gallery', 'equipment',
+    'full', 'home', 'events', 'meetings', 'signup', 'my-crew-schedule', 'members', 'gallery', 'equipment',
     'role-guide', 'crew-deployment', 'equipment-status', 'about', 'join',
     'profile', 'admin',
   ];
   const FULL_TOUR_ORDER = [
-    'home', 'events', 'meetings', 'signup', 'members', 'gallery', 'equipment', 'role-guide',
+    'home', 'events', 'meetings', 'signup', 'my-crew-schedule', 'members', 'gallery', 'equipment', 'role-guide',
     'crew-deployment', 'equipment-status', 'about', 'join', 'profile', 'admin',
   ];
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -48,6 +48,15 @@
         { target: '#sheet-event-select', title: 'Choose an event', body: 'Start by selecting the event you want to work on. Ended or archived events are kept out of active signup sheets.' },
         { target: '.signup-sheet-card', title: 'Check the current crew', body: 'The sheet shows filled roles, attendance windows, active Student Supervisor assignments, and remaining capacity.' },
         { target: '#signup-entry-card', title: 'Claim your role', body: 'Choose an available production role, how long you will attend, and whether your attendance is confirmed or still Maybe.' },
+      ],
+    },
+    'my-crew-schedule': {
+      title: 'My Crew Schedule',
+      summary: 'Your active production assignments and equipment loans.',
+      steps: [
+        { target: '#my-crew-schedule-stats', title: 'Your commitments', body: 'See all your active assignments, equipment loans, and signups that still need confirmation.' },
+        { target: '.crew-personal-toolbar', title: 'Choose a view', body: 'Filter assignments or equipment and refresh to check the latest bookings.' },
+        { target: '#my-crew-schedule-list', title: 'Take the next step', body: 'Open the correct sheet to confirm a Maybe signup, or download calendar files. Update your calendar yourself if a booking changes.' },
       ],
     },
     members: {

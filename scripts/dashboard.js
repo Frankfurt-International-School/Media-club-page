@@ -98,7 +98,7 @@ function renderMyCommitmentsModule(commitments, reservations) {
     ...reservations.map(({ item, reservation }) => ({ type: 'reservation', timestamp: reservation.startsAt, date: berlinDateKey(reservation.startsAt), title: item.name, sub: `${reservationLifecycleStatus(reservation) === 'checked_out' ? 'Checked out' : 'Reserved'} · ${formatBerlinDateTime(reservation.startsAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`, page: 'equipment' })),
   ].sort((a, b) => a.timestamp.localeCompare(b.timestamp)).slice(0, 5);
   const body = items.length ? items.map(item => `<a class="dashboard-list-row" href="${escapeHtml(pageUrl(item.page, item.eventId ? { event: item.eventId } : {}))}"><span class="dashboard-list-date"><strong>${fmtDay(item.date)}</strong><span>${fmtMonth(item.date)}</span></span><span><span class="dashboard-list-title">${escapeHtml(item.title)}</span><span class="dashboard-list-sub">${escapeHtml(item.sub)}</span></span><span class="badge ${item.type === 'signup' ? 'badge-green' : 'badge-blue'}">${item.type === 'signup' ? 'Role' : 'Gear'}</span></a>`).join('') : '<div class="dashboard-empty">You have no upcoming assignments or reservations.</div>';
-  return dashboardModuleShell('My commitments', 'Sign-ups', 'signup', body);
+  return dashboardModuleShell('My commitments', 'View all', 'my-crew-schedule', body);
 }
 
 function renderEquipmentSnapshotModule() {

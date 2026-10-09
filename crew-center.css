@@ -1197,6 +1197,30 @@
   }
   .signup-entry-actions { display: flex; justify-content: flex-end; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--border); }
   .signup-entry-actions .btn { min-width: 120px; justify-content: center; }
+  .crew-personal-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+  .crew-personal-stat { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg2); }
+  .crew-personal-stat strong { display: block; font-size: 32px; line-height: 1.15; }
+  .crew-personal-stat span { display: block; margin-top: 8px; color: var(--text3); font-size: 12px; }
+  .crew-personal-toolbar, .crew-personal-filters, .crew-personal-card-head, .crew-personal-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .crew-personal-toolbar, .crew-personal-card-head { justify-content: space-between; }
+  .crew-personal-filters { padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); gap: 4px; }
+  .crew-personal-filters button { min-height: 40px; border: 0; border-radius: 9px; padding: 10px 14px; background: transparent; color: var(--text2); font: inherit; font-size: 12px; cursor: pointer; }
+  .crew-personal-filters button[aria-pressed="true"] { background: var(--accent); color: white; }
+  .crew-personal-calendar-note { margin: 16px 0 24px; color: var(--text3); font-size: 12px; line-height: 1.6; }
+  .crew-personal-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .crew-personal-card { min-width: 0; padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg2); overflow-wrap: anywhere; }
+  .crew-personal-card.needs-confirmation { border-color: var(--amber); }
+  .crew-personal-card .page-kicker { margin: 0; font-size: 10px; }
+  .crew-personal-card h2 { margin: 18px 0 12px; font-size: 27px; line-height: 1.25; letter-spacing: .025em; }
+  .crew-personal-card p { color: var(--text3); font-size: 12px; line-height: 1.65; }
+  .crew-personal-card .crew-personal-time { color: var(--text); font-weight: 600; }
+  .crew-personal-detail { margin-top: 12px; }
+  .crew-personal-actions { margin-top: 20px; }
+  .crew-personal-actions .btn, .crew-personal-toolbar > .btn { min-height: 40px; padding: 10px 14px; font-size: 14px; letter-spacing: .04em; }
+  @media (max-width: 640px) { .crew-personal-actions .btn, .crew-personal-toolbar > .btn, .crew-personal-filters button { min-height: 44px; } }
+  .crew-personal-empty { grid-column: 1 / -1; padding: 40px 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg2); text-align: center; }
+  .crew-personal-empty p { margin: 12px 0 20px; color: var(--text3); line-height: 1.6; }
+  @media (max-width: 640px) { .crew-personal-stats { gap: 8px; } .crew-personal-stat { padding: 14px 10px; } .crew-personal-stat strong { font-size: 26px; } .crew-personal-stat span { font-size: 11px; line-height: 1.5; } .crew-personal-list { grid-template-columns: 1fr; } .crew-personal-card { padding: 20px; } .crew-personal-filters button { padding: 10px; } }
   .signup-name-help { margin-top: 6px; color: var(--text3); font-size: 11px; line-height: 1.4; }
   .signup-name-help.error { color: var(--coral); }
   .signup-name-help.valid { color: #20a77a; }

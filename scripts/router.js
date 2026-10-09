@@ -1,10 +1,11 @@
 // ══════════════════════════════
 // NAVIGATION
 // ══════════════════════════════
-const pageTitles = { about: "About Media Club", home: "Dashboard", "sac-home": "SAC Dashboard", "sac-events": "SAC Events", "sac-signups": "SAC Sign-up Sheets", "sac-my-shifts": "My SAC Shifts", "sac-members": "SAC Members", "sac-meetings": "SAC Meetings", "sac-attendance": "SAC Attendance", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
+const pageTitles = { about: "About Media Club", home: "Dashboard", "my-crew-schedule": "My Crew Schedule", "sac-home": "SAC Dashboard", "sac-events": "SAC Events", "sac-signups": "SAC Sign-up Sheets", "sac-my-shifts": "My SAC Shifts", "sac-members": "SAC Members", "sac-meetings": "SAC Meetings", "sac-attendance": "SAC Attendance", events: "Events", meetings: "Meetings", signup: "Sign-up Sheets", members: "Members", gallery: "Project Gallery", equipment: "Equipment", "equipment-status": "Equipment Status", "crew-deployment": "Crew Schedule", "role-guide": "Media Role Guide", profile: "Settings", join: "Join the Club", admin: "Admin Panel" };
 const pageRoutes = {
   about: '/about',
   home: '/dashboard',
+  'my-crew-schedule': '/my-crew-schedule',
   'sac-events': '/sac/events',
   'sac-signups': '/sac/signups',
   'sac-my-shifts': '/sac/my-shifts',
@@ -28,6 +29,7 @@ const routePages = {
   '/': 'home',
   '/about': 'about',
   '/dashboard': 'home',
+  '/my-crew-schedule': 'my-crew-schedule',
   '/sac/events': 'sac-events',
   '/sac/signups': 'sac-signups',
   '/sac/my-shifts': 'sac-my-shifts',
@@ -83,6 +85,7 @@ function navigate(id, el, options = {}) {
   if (page === 'admin' && !canAccessAdminPanel()) {
     page = 'home';
   }
+  if (page === 'my-crew-schedule' && !canAccessMyCrewSchedule()) page = 'home';
   if (page === 'meetings' && isVisitorSession()) {
     page = 'home';
   }
@@ -134,6 +137,7 @@ function navigate(id, el, options = {}) {
   if (page === 'events') renderEvents();
   if (page === 'meetings') renderMeetings();
   if (page === 'signup') initSignupSheet();
+  if (page === 'my-crew-schedule') renderMyCrewSchedule();
   if (page === 'members') renderMembers();
   if (page === 'gallery') renderGallery();
   if (page === 'equipment') renderEquipment();
