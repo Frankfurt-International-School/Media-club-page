@@ -525,11 +525,11 @@
   <div id="page-my-crew-schedule" class="page">
     <header class="page-header page-hero">
       <div class="page-hero-copy"><div class="page-kicker">Media Club / your commitments</div><h1 class="page-title">My crew schedule</h1><p class="page-sub">Your production roles and equipment loans, together in one place.</p></div>
-      <div class="page-hero-actions"><button class="btn btn-accent" type="button" id="my-crew-schedule-download" onclick="downloadCrewScheduleCalendar()" disabled>Download calendar</button></div>
+      <div class="page-hero-actions crew-personal-calendar-action"><button class="btn btn-accent" type="button" id="my-crew-schedule-download" aria-describedby="my-crew-schedule-calendar-status" onclick="downloadCrewScheduleCalendar()" disabled>Download calendar</button><p class="crew-personal-calendar-status" id="my-crew-schedule-calendar-status" role="status">Loading your bookings…</p></div>
     </header>
     <div class="crew-personal-stats" id="my-crew-schedule-stats"></div>
     <div class="crew-personal-toolbar"><div class="crew-personal-filters" role="group" aria-label="Show commitments"><button type="button" data-crew-schedule-filter="all" aria-pressed="true">All</button><button type="button" data-crew-schedule-filter="assignment" aria-pressed="false">Assignments</button><button type="button" data-crew-schedule-filter="equipment" aria-pressed="false">Equipment</button></div><button class="btn btn-ghost btn-sm" type="button" id="my-crew-schedule-refresh" onclick="refreshMyCrewSchedule()">Refresh</button></div>
-    <p class="crew-personal-calendar-note">Calendar files are a snapshot. If a booking changes or is cancelled, update or remove it in your calendar too. All times below use Berlin time.</p>
+    <div class="crew-personal-calendar-note"><details class="crew-personal-calendar-help"><summary>How to use Download calendar</summary><ol><li>Choose All, Assignments or Equipment to select the bookings to export.</li><li>Download calendar saves those bookings as a calendar file (.ics). Add to calendar on a card saves just that booking.</li><li>Open the file in your calendar app. For a web calendar, use its import option and select the downloaded file.</li></ol></details><p>Calendar files are a snapshot, with no automatic sync. If a booking changes or is cancelled, update or remove it in your calendar too. All times below use Berlin time.</p></div>
     <div class="crew-personal-list" id="my-crew-schedule-list"></div>
   </div>
 

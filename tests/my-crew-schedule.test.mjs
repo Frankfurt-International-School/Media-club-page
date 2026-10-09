@@ -129,6 +129,38 @@ test('rendering distinguishes unloaded and failed data from an empty schedule an
   assert.match(h.node('my-crew-schedule-list').innerHTML, /member account/);
 });
 
+test('calendar export explains its selection and why an empty or unavailable download is disabled', () => {
+  const h = harness(); h.context.renderMyCrewSchedule();
+  assert.equal(h.node('my-crew-schedule-download').disabled, false);
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /2 bookings.*\.ics/);
+  h.context.selectMyCrewScheduleFilter('equipment');
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /1 booking.*\.ics/);
+  h.context.state.equipment = []; h.context.renderMyCrewSchedule();
+  assert.equal(h.node('my-crew-schedule-download').disabled, true);
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /No upcoming bookings in this view/);
+  h.context.state.events = []; h.context.renderMyCrewSchedule();
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /Book a crew role or equipment first/);
+  h.context.state.dataErrors.events = 'fixture error'; h.context.renderMyCrewSchedule();
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /Refresh your schedule/);
+  h.context.state.dataErrors = {}; h.context.state.dataLoaded.events = false; h.context.renderMyCrewSchedule();
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /Loading your bookings/);
+  h.context.isVisitorSession = () => true; h.context.renderMyCrewSchedule();
+  assert.match(h.node('my-crew-schedule-calendar-status').textContent, /member account/);
+});
+
+test('downloads produce calendar files for the current filter and individual own bookings', async () => {
+  const h = harness();
+  h.context.selectMyCrewScheduleFilter('equipment'); h.context.downloadCrewScheduleCalendar();
+  assert.equal(h.downloads[0].type, 'text/calendar;charset=utf-8');
+  const loan = await h.downloads[0].text();
+  assert.match(loan, /Equipment loan/); assert.doesNotMatch(loan, /Media crew/);
+  h.context.selectMyCrewScheduleFilter('assignment'); h.context.downloadCrewScheduleCalendar();
+  const assignment = await h.downloads[1].text();
+  assert.match(assignment, /Media crew/); assert.doesNotMatch(assignment, /Equipment loan/);
+  h.context.downloadCrewScheduleCalendar('equipment:r1');
+  assert.match(await h.downloads[2].text(), /Equipment loan/);
+});
+
 test('an open schedule refreshes at personal booking and confirmation boundaries', () => {
   const h = harness(); h.context.renderMyCrewSchedule();
   assert.equal(h.timers.at(-1).delay, 30 * 60 * 1000 + 100);

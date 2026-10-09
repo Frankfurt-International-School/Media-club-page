@@ -103,12 +103,16 @@ function renderMyCrewSchedule() {
   if (!list) return;
   const stats = document.getElementById('my-crew-schedule-stats');
   const download = document.getElementById('my-crew-schedule-download');
+  const calendarStatus = document.getElementById('my-crew-schedule-calendar-status');
   stats.innerHTML = ''; download.disabled = true;
+  calendarStatus.textContent = 'Loading your bookings…';
   if (currentCrewCenterWorkspace() !== 'media' || !canAccessMyCrewSchedule()) {
+    calendarStatus.textContent = 'A Media Club member account is required.';
     list.innerHTML = '<div class="crew-personal-empty" role="status">A Media Club member account is required to see a personal schedule.</div>';
     return;
   }
   if (state.dataErrors.events || state.dataErrors.equipment) {
+    calendarStatus.textContent = 'Refresh your schedule before downloading.';
     list.innerHTML = '<div class="crew-personal-empty" role="status"><strong>Your schedule could not be refreshed.</strong><p>Retry to load your current assignments and equipment bookings.</p><button class="btn btn-ghost" type="button" onclick="refreshMyCrewSchedule()">Retry</button></div>';
     return;
   }
@@ -132,7 +136,11 @@ function renderMyCrewSchedule() {
     .map(([count, label]) => `<div class="crew-personal-stat"><strong>${count}</strong><span>${label}</span></div>`).join('');
   document.querySelectorAll('[data-crew-schedule-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.crewScheduleFilter === myCrewScheduleFilter)));
   const visible = items.filter(item => myCrewScheduleFilter === 'all' || item.kind === myCrewScheduleFilter);
-  download.disabled = !visible.some(item => crewScheduleCalendarEligible(item, now));
+  const calendarItems = visible.filter(item => crewScheduleCalendarEligible(item, now));
+  download.disabled = !calendarItems.length;
+  calendarStatus.textContent = calendarItems.length
+    ? `${calendarItems.length} ${calendarItems.length === 1 ? 'booking' : 'bookings'} in this view · .ics file`
+    : items.length ? 'No upcoming bookings in this view to export.' : 'Book a crew role or equipment first.';
   list.innerHTML = visible.length ? visible.map(item => {
     const needsConfirmation = crewScheduleNeedsConfirmation(item, now);
     const maybe = item.kind === 'assignment' && item.signup.confirmationStatus === 'maybe';
