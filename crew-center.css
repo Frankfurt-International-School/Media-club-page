@@ -372,7 +372,9 @@
   .quick-search-result strong, .quick-search-result small { display: block; overflow-wrap: anywhere; }
   .quick-search-result strong { color: var(--text); font-size: 13px; }
   .quick-search-result small { margin-top: 4px; color: var(--text3); font-size: 11px; line-height: 1.5; }
-  .quick-search-result-kind { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: var(--accent-dim2); color: var(--text); font-size: 20px; }
+  .quick-search-result-kind { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: var(--accent-dim2); color: var(--accent); }
+  .quick-search-result-kind svg { width: 20px; height: 20px; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  :root[data-theme="dark"] .quick-search-result-kind { color: #f6a4bd; }
   .quick-search-result-arrow { margin-left: auto; }
   .quick-search-more { margin: 8px 12px; color: var(--text3); font-size: 11px; }
   .quick-search-help { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--border); color: var(--text3); font-size: 11px; }
@@ -1260,9 +1262,14 @@
   .crew-personal-stat span { display: block; margin-top: 8px; color: var(--text3); font-size: 12px; }
   .crew-personal-toolbar, .crew-personal-filters, .crew-personal-card-head, .crew-personal-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
   .crew-personal-toolbar, .crew-personal-card-head { justify-content: space-between; }
-  .crew-personal-filters { padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); gap: 4px; }
+  .crew-personal-filters.tab-row { flex-wrap: nowrap; margin-bottom: 0; padding: 5px; border: 1px solid rgba(164,1,52,.14); border-radius: 14px; background: linear-gradient(135deg, rgba(255,255,255,.72), rgba(164,1,52,.045)); box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 5px 18px rgba(164,1,52,.045); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); isolation: isolate; gap: 4px; }
   .crew-personal-filters button { min-height: 40px; border: 0; border-radius: 9px; padding: 10px 14px; background: transparent; color: var(--text2); font-family: var(--font-head); font-size: 14px; font-weight: 400; letter-spacing: .04em; cursor: pointer; }
-  .crew-personal-filters button[aria-pressed="true"] { background: var(--accent); color: white; }
+  .crew-personal-filters button[aria-pressed="true"] { background: transparent; color: var(--accent); }
+  .crew-personal-filters .tab-indicator { border-color: rgba(164,1,52,.2); background: linear-gradient(145deg, rgba(255,255,255,.7), rgba(164,1,52,.13)); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 1px rgba(164,1,52,.05), 0 3px 10px rgba(164,1,52,.1); backdrop-filter: blur(12px) saturate(1.3); -webkit-backdrop-filter: blur(12px) saturate(1.3); }
+  :root[data-theme="dark"] .crew-personal-filters.tab-row { border-color: rgba(164,1,52,.28); background: linear-gradient(135deg, rgba(32,33,42,.78), rgba(164,1,52,.07)); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 5px 18px rgba(0,0,0,.12); }
+  :root[data-theme="dark"] .crew-personal-filters .tab-indicator { border-color: rgba(246,164,189,.28); background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(164,1,52,.22)); box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 3px 10px rgba(0,0,0,.16); }
+  :root[data-theme="dark"] .crew-personal-filters button[aria-pressed="true"], :root[data-theme="dark"] .crew-personal-filters button:hover { color: #f6a4bd; }
+  @media (prefers-reduced-motion: reduce) { .crew-personal-filters .tab-indicator, .crew-personal-filters button { transition: none; } }
   .crew-personal-calendar-note { margin: 16px 0 24px; color: var(--text3); font-size: 12px; line-height: 1.6; }
   .crew-personal-calendar-action { display: grid; justify-items: end; gap: 8px; max-width: 240px; }
   .crew-personal-calendar-status { color: var(--text2); font-size: 11px; line-height: 1.5; text-align: right; }

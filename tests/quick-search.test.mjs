@@ -81,3 +81,25 @@ test('a stale linked member cannot expose the previous account records during si
   assert.equal(h.context.crewQuickSearchEntries('basketball').length,0);
   assert.equal(h.context.crewQuickSearchEntries('canon').length,0);
 });
+
+test('search page results carry their destination and use the matching sidebar or settings icon',()=>{
+  const h=harness(); const home=h.context.crewQuickSearchEntries('').find(item=>item.title==='Dashboard');
+  assert.equal(home.page,'home');
+  const icons=new Map([['.sidebar-nav [data-page="home"] svg','<svg data-icon="dashboard"></svg>'],['#sidebar-settings-button svg','<svg data-icon="settings"></svg>']]);
+  h.context.document.querySelector=selector=>icons.has(selector)?{outerHTML:icons.get(selector)}:null;
+  assert.equal(h.context.crewQuickSearchIcon(home),icons.get('.sidebar-nav [data-page="home"] svg'));
+  assert.equal(h.context.crewQuickSearchIcon({kind:'page',page:'profile'}),icons.get('#sidebar-settings-button svg'));
+  assert.equal(h.reads.length,0);
+});
+
+test('record icons follow the workspace and remain useful when a sidebar icon is unavailable',()=>{
+  const h=harness();const selectors=[];
+  h.context.document.querySelector=selector=>{selectors.push(selector);return {outerHTML:'<svg data-icon="existing"></svg>'};};
+  h.context.crewQuickSearchIcon({kind:'event'});h.context.crewQuickSearchIcon({kind:'meeting'});h.context.crewQuickSearchIcon({kind:'equipment'});
+  assert.deepEqual(selectors,['.sidebar-nav [data-page="events"] svg','.sidebar-nav [data-page="meetings"] svg','.sidebar-nav [data-page="equipment"] svg']);
+  h.setWorkspace('sac');h.context.crewQuickSearchIcon({kind:'event'});h.context.crewQuickSearchIcon({kind:'meeting'});
+  assert.deepEqual(selectors.slice(-2),['.sidebar-nav [data-page="sac-events"] svg','.sidebar-nav [data-page="sac-meetings"] svg']);
+  h.context.document.querySelector=()=>null;
+  assert.match(h.context.crewQuickSearchIcon({kind:'event'}),/<svg[^>]+viewBox="0 0 24 24"/);
+  assert.notEqual(h.context.crewQuickSearchIcon({kind:'event'}),h.context.crewQuickSearchIcon({kind:'equipment'}));
+});

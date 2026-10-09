@@ -174,6 +174,12 @@ function renderMyCrewSchedule() {
   myCrewScheduleRefreshTimer = null;
   const list = document.getElementById('my-crew-schedule-list');
   if (!list) return;
+  document.querySelectorAll('[data-crew-schedule-filter]').forEach(button => {
+    const selected = button.dataset.crewScheduleFilter === myCrewScheduleFilter;
+    button.setAttribute('aria-pressed', String(selected));
+    button.classList.toggle('active', selected);
+  });
+  if (typeof updateSlidingTab === 'function') updateSlidingTab(document.querySelector('#page-my-crew-schedule .crew-personal-filters'));
   const stats = document.getElementById('my-crew-schedule-stats');
   const download = document.getElementById('my-crew-schedule-download');
   const calendarStatus = document.getElementById('my-crew-schedule-calendar-status');
@@ -210,7 +216,6 @@ function renderMyCrewSchedule() {
   const pending = assignments.filter(item => crewScheduleNeedsConfirmation(item, now));
   stats.innerHTML = [[assignments.length, 'Crew assignments'], [loans.length, 'Equipment loans'], [items.filter(item => item.kind === 'meeting').length, 'Club meetings'], [pending.length, 'To confirm']]
     .map(([count, label]) => `<div class="crew-personal-stat"><strong>${count}</strong><span>${label}</span></div>`).join('');
-  document.querySelectorAll('[data-crew-schedule-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.crewScheduleFilter === myCrewScheduleFilter)));
   const visible = items.filter(item => myCrewScheduleFilter === 'all' || item.kind === myCrewScheduleFilter);
   if (overview) { overview.innerHTML = renderCrewScheduleOverview(visible, now); overview.hidden = !visible.length; }
   const calendarItems = visible.filter(item => crewScheduleCalendarEligible(item, now));

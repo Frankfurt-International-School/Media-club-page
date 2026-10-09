@@ -49,6 +49,21 @@ function harness() {
   return { context, node, downloads, timers, setClock(value) { clock = value; } };
 }
 
+test('schedule filter selection updates the sliding control even when schedule data cannot load',()=>{
+  const h=harness();const row={id:'filters'};const updates=[];
+  const buttons=['all','assignment','equipment','meeting'].map(filter=>({dataset:{crewScheduleFilter:filter},pressed:null,active:false,
+    setAttribute(name,value){if(name==='aria-pressed')this.pressed=value;},classList:{toggle(name,value){buttons.find(button=>button.dataset.crewScheduleFilter===filter).active=value;}}}));
+  h.context.document.querySelectorAll=()=>buttons;
+  h.context.document.querySelector=selector=>selector.includes('.crew-personal-filters')?row:{id:'page-my-crew-schedule'};
+  h.context.updateSlidingTab=target=>updates.push(target);
+  h.context.selectMyCrewScheduleFilter('equipment');
+  assert.deepEqual(buttons.map(button=>button.pressed),['false','false','true','false']);
+  assert.equal(buttons[2].active,true);assert.equal(updates.at(-1),row);
+  h.context.state.dataErrors.events='fixture failure';h.context.selectMyCrewScheduleFilter('meeting');
+  assert.deepEqual(buttons.map(button=>button.pressed),['false','false','false','true']);
+  assert.equal(buttons[2].active,false);assert.equal(buttons[3].active,true);assert.equal(updates.length,2);
+});
+
 test('personal schedule combines every own active assignment and loan in instant order', () => {
   const h = harness();
   for (let i = 2; i <= 7; i++) h.context.state.events.push({ ...event, id: 'e' + i, signups: [{ ...signup, id: 's' + i }] });

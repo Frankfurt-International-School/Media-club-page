@@ -24,7 +24,7 @@ function crewQuickSearchEntries(query = '') {
   const visitorPages = ['home', 'about', 'events', 'gallery', 'equipment', 'role-guide', 'join'];
   const pages = sac ? ['sac-home', 'sac-events', 'sac-signups', 'sac-my-shifts', 'sac-members', 'sac-meetings', ...(canCreateSacEvents() ? ['sac-attendance'] : []), 'profile']
     : [...Object.values(sidebarCategories).flatMap(group => group.pages).filter(page => sidebarPageAvailable(page) && (!isVisitorSession() || visitorPages.includes(page))), ...(!isVisitorSession() ? ['profile'] : [])];
-  const entries = [...new Set(pages)].map(page => ({ kind: 'page', title: pageTitles[page] || page, detail: 'Open page', url: pageUrl(page) }));
+  const entries = [...new Set(pages)].map(page => ({ kind: 'page', page, title: pageTitles[page] || page, detail: 'Open page', url: pageUrl(page) }));
   if (sac && crewQuickSearchState.actor === crewQuickSearchActor()) {
     crewQuickSearchState.sacEvents.filter(item => Date.parse(item.ends_at) > Date.now()).forEach(item => entries.push({ kind: 'event', title: item.title, detail: `${formatBerlinDateTime(item.starts_at, { day: 'numeric', month: 'short' })} · ${item.location || 'SAC event'}`, url: sacEventUrl(item.id) }));
     crewQuickSearchState.sacMeetings.filter(item => Date.parse(item.ends_at) > Date.now()).forEach(item => entries.push({ kind: 'meeting', title: item.title, detail: `${formatBerlinDateTime(item.starts_at, { day: 'numeric', month: 'short' })} · ${item.location || 'Council meeting'}`, url: pageUrl('sac-meetings', { meeting: item.id }) }));
@@ -40,6 +40,20 @@ function crewQuickSearchEntries(query = '') {
     .sort((a, b) => Number(normalizeCrewQuickSearch(b.title).startsWith(search)) - Number(normalizeCrewQuickSearch(a.title).startsWith(search)) || a.title.localeCompare(b.title));
 }
 
+function crewQuickSearchIcon(item) {
+  const page = item.kind === 'page' ? item.page
+    : `${currentCrewCenterWorkspace() === 'sac' && item.kind !== 'equipment' ? 'sac-' : ''}${{ event: 'events', meeting: 'meetings', equipment: 'equipment' }[item.kind] || ''}`;
+  const icon = document.querySelector(page === 'profile' ? '#sidebar-settings-button svg' : `.sidebar-nav [data-page="${page}"] svg`);
+  if (icon) return icon.outerHTML;
+  const paths = {
+    page: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    event: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',
+    meeting: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 10h10M7 14h7"/>',
+    equipment: '<rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3v10l-6-3"/>',
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${paths[item.kind] || paths.page}</svg>`;
+}
+
 function renderCrewQuickSearch(query = '') {
   const list = document.getElementById('all-pages-list');
   if (!list) return;
@@ -47,7 +61,7 @@ function renderCrewQuickSearch(query = '') {
   const matches = crewQuickSearchEntries(query);
   list.innerHTML = Object.entries({ page: 'Pages', event: 'Upcoming events', meeting: 'Upcoming meetings', equipment: 'Equipment' }).map(([kind, label]) => {
     const group = matches.filter(item => item.kind === kind);
-    return group.length ? `<section class="all-pages-group"><h2 class="all-pages-group-title">${label} · ${group.length}</h2>${group.slice(0, 8).map(item => `<a class="all-pages-link quick-search-result" href="${escapeHtml(item.url)}"><span class="quick-search-result-kind" aria-hidden="true">${{ page: '↗', event: '◷', meeting: '≡', equipment: '◇' }[kind]}</span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></span><span class="quick-search-result-arrow" aria-hidden="true">→</span></a>`).join('')}${group.length > 8 ? '<p class="quick-search-more">Showing eight matches. Type more to narrow the results.</p>' : ''}</section>` : '';
+    return group.length ? `<section class="all-pages-group"><h2 class="all-pages-group-title">${label} · ${group.length}</h2>${group.slice(0, 8).map(item => `<a class="all-pages-link quick-search-result" href="${escapeHtml(item.url)}"><span class="quick-search-result-kind" aria-hidden="true">${crewQuickSearchIcon(item)}</span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></span><span class="quick-search-result-arrow" aria-hidden="true">→</span></a>`).join('')}${group.length > 8 ? '<p class="quick-search-more">Showing eight matches. Type more to narrow the results.</p>' : ''}</section>` : '';
   }).join('') || `<div class="empty-state" role="status"><p>${crewQuickSearchState.loading ? 'Searching this workspace…' : 'No matching pages or records. Try a title, location, or equipment name.'}</p></div>`;
   if (focusedUrl) {
     const match = [...list.querySelectorAll('a[href]')].find(link => link.getAttribute('href') === focusedUrl);
