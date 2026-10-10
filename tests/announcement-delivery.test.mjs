@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const baseline = JSON.parse(read('supabase/baseline/catalog.json'));
-const migration = read('supabase/migrations/20261010224233_announcement_delivery.sql');
+const migration = read('supabase/migrations/20261010225929_announcement_delivery.sql');
 const db = new PGlite();
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 const ids = Object.fromEntries(['media','sac','dual','preview','faculty'].map((key, index) => [key, `00000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`]));

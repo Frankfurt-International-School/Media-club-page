@@ -2,9 +2,9 @@
   "format": 1,
   "projectRef": "prswuqzzgordywowbwtc",
   "appliedVia": "Supabase plugin",
-  "verifiedAt": "2026-10-09T10:05:27Z",
+  "verifiedAt": "2026-10-10T23:03:45Z",
   "baselineFingerprint": "d24a58a233d5baf643a31eb642e21494",
-  "postMigrationFingerprint": "6b8990d06343f005dcf562b7d7809494",
+  "postMigrationFingerprint": "22689f053493338dd465509583a0298f",
   "migrations": [
     {
       "version": "20261009100219",
@@ -23,6 +23,12 @@
       "name": "remove_legacy_public_policies",
       "file": "20261009100231_remove_legacy_public_policies.sql",
       "sqlSha256": "ee69823f88b66c1c653aa46595c358236920b004548dc8761b2e9863639e7f14"
+    },
+    {
+      "version": "20261010225929",
+      "name": "announcement_delivery",
+      "file": "20261010225929_announcement_delivery.sql",
+      "sqlSha256": "15bd5c770507b7fe177da09d26687ad878984a12cefdce14c69d77af88e1d440"
     }
   ],
   "verification": {
@@ -35,6 +41,29 @@
     "visitorSidebarWriteDenied": true,
     "serverPublicRPCsCallable": true,
     "authenticatedBrowserVerified": false,
-    "productionSignupWritesTested": false
+    "productionSignupWritesTested": false,
+    "verifiedAt": "2026-10-09T10:05:27Z"
+  },
+  "announcementVerification": {
+    "verifiedAt": "2026-10-10T23:03:45Z",
+    "preMigrationFingerprint": "6b8990d06343f005dcf562b7d7809494",
+    "postMigrationFingerprint": "22689f053493338dd465509583a0298f",
+    "storedSQLMatchesLocal": true,
+    "announcementsAndNotificationsRLSEnabled": true,
+    "triggerFunctionsPrivate": true,
+    "readRPCAuthorizedForAuthenticatedOnly": true,
+    "allAudiencesDeliveredOnce": true,
+    "editsPreservedReadStatus": true,
+    "archiveRemovedNotices": true,
+    "deleteCascadeVerified": true,
+    "anonymousReadsDenied": true,
+    "unlinkedReadsDenied": true,
+    "visitorReadsAndWritesDenied": true,
+    "existingAnnouncementsPreserved": true,
+    "existingNotificationCountPreserved": true,
+    "noHistoricalNoticesSent": true,
+    "testTransactionRolledBack": true,
+    "noTestAnnouncementsRemain": true,
+    "frontendDeployed": false
   }
 }
