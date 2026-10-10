@@ -72,12 +72,16 @@ function closeModal(id) {
   const wasTop = backdrop === topModal();
   const entry = index >= 0 ? modalStack.splice(index, 1)[0] : null;
   if (id === 'action-confirmation-modal') actionConfirmation = null;
+  if (id === 'announcement-reader-modal') window.announcementReaderClosed?.();
   backdrop.classList.remove('open');
   backdrop.removeAttribute('aria-modal');
   backdrop.style.zIndex = '';
   syncModalLayers();
   if (!wasTop) return;
-  const target = entry?.returnFocus;
+  let target = entry?.returnFocus;
+  if (id === 'announcement-reader-modal' && (!target?.isConnected || !target.getClientRects().length || target.closest('[inert]'))) {
+    target = window.announcementReaderReturnFocus?.(target) || target;
+  }
   const top = topModal();
   if (target instanceof HTMLElement && target.isConnected && target.getClientRects().length
     && !target.closest('[inert]') && (!top || top.contains(target))) target.focus();
@@ -631,7 +635,8 @@ function renderNotificationCenter() {
   const readReminderKeys = notificationReminderReadKeys();
   const memberId = currentMemberRecord().id;
   const storedItems = state.notifications.filter(item => item.member_id === memberId
-    && (['meeting_invite', 'application_approved'].includes(item.notification_type) || preferences.event_created));
+    && (['meeting_invite', 'application_approved', 'announcement'].includes(item.notification_type) || preferences.event_created)
+    && window.announcementNotificationVisible?.(item) !== false);
   const unread = storedItems.filter(item => !item.read_at).length
     + maybeItems.filter(item => !readReminderKeys.has(item.readKey)).length
     + upcomingItems.filter(item => !readReminderKeys.has(item.readKey)).length;
@@ -641,6 +646,9 @@ function renderNotificationCenter() {
   const actionHtml = maybeItems.map(({ event, signup, readKey }) => `<div class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
   const upcomingHtml = upcomingItems.map(({ event, readKey }) => `<a class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}" href="${escapeHtml(pageUrl('signup', { event: event.id }))}"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(eventScheduleTimeLabel(event))}.</div><div class="notification-item-meta">Upcoming event</div></a>`).join('');
   const storedHtml = storedItems.map(item => {
+    if (item.notification_type === 'announcement' && item.related_announcement_id) {
+      return `<button type="button" class="notification-item announcement-notification${item.read_at ? '' : ' unread'}" data-announcement-open="${escapeHtml(item.related_announcement_id)}"><span class="notification-item-title">${escapeHtml(item.title)}</span><span class="notification-item-copy">${escapeHtml(item.message)}</span><span class="notification-item-meta">Announcement · ${escapeHtml(formatBerlinDateTime(item.created_at, { dateStyle: 'medium', timeStyle: 'short' }))}</span></button>`;
+    }
     const page = Object.values(sidebarCategories).some(category => category.pages.includes(item.page)) ? item.page : 'events';
     const relatedEventId = state.events.some(event => event.id === item.related_event_id) ? item.related_event_id : '';
     const href = pageUrl(page, page === 'signup' && relatedEventId ? { event: relatedEventId } : {});

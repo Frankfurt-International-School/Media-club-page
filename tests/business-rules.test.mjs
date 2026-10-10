@@ -482,7 +482,7 @@ test('News Team meeting invitations are generated only for current team membersh
   assert.match(membershipNotificationSync, /tg_op = 'UPDATE'[\s\S]*?old\.member_id <> new\.member_id/);
   assert.match(schemaSql, /create trigger news_team_memberships_sync_notifications[\s\S]*?after insert or update or delete on public\.member_team_memberships/);
   assert.match(schemaSql, /insert into public\.notifications[\s\S]*?join public\.member_team_memberships membership on membership\.team_key = 'news_team'[\s\S]*?meeting\.ends_at > now\(\)/);
-  assert.match(uiSource, /state\.notifications\.filter\(item => item\.member_id === memberId\s*&& \(\['meeting_invite', 'application_approved'\]\.includes\(item\.notification_type\) \|\| preferences\.event_created\)\)/);
+  assert.match(uiSource, /state\.notifications\.filter\(item => item\.member_id === memberId\s*&& \(\['meeting_invite', 'application_approved', 'announcement'\]\.includes\(item\.notification_type\) \|\| preferences\.event_created\)/);
   assert.match(policiesSql, /create policy "Members can read own notifications"[\s\S]*?notifications\.member_id = public\.current_member_id\(\)/);
   assert.doesNotMatch(policiesSql, /create policy "Members can read own notifications"[\s\S]{0,240}?member\.email/);
 });
@@ -1699,7 +1699,8 @@ test('retired visitor RPCs remain narrow but are no longer executable by browser
   assert.match(policiesSql, /drop function if exists public\.get_public_member_directory\(\)/);
   assert.doesNotMatch(appSource, /get_public_member_directory/);
   for (const rpc of ['get_public_events', 'get_public_gallery', 'get_public_equipment', 'get_public_announcements']) {
-    assert.match(appSource, new RegExp(`['"]${rpc}['"]`));
+    if (rpc === 'get_public_announcements') assert.doesNotMatch(appSource, /['"]get_public_announcements['"]/);
+    else assert.match(appSource, new RegExp(`['"]${rpc}['"]`));
     assert.doesNotMatch(policiesSql, new RegExp(`grant execute on function public\\.${rpc}\\(\\) to authenticated`));
   }
   assert.match(policiesSql, /create policy "Signed-in users can read events"[\s\S]*?public\.can_access_media_club\(\)/);
@@ -1716,7 +1717,7 @@ test('realtime changes refresh only affected datasets and coalesce bursts', () =
   assert.match(queue, /setTimeout\([\s\S]*?250\)/);
   assert.match(queue, /loadCrewCenterData\(\{ datasets: pending, silent: true \}\)/);
   assert.doesNotMatch(subscribe, /\n\s*members:\s*\[/);
-  assert.match(subscribe, /member_team_memberships: \['members', 'meetings', 'gallery'\]/);
+  assert.match(subscribe, /member_team_memberships: \['members', 'meetings', 'gallery', 'announcements', 'notifications'\]/);
   assert.match(subscribe, /signups: \['events'\]/);
   assert.match(subscribe, /equipment_reservations: \['equipment'\]/);
   assert.match(subscribe, /if \(mode === 'visitor'\) return/);

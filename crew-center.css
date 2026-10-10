@@ -3297,7 +3297,7 @@
 
   /* SAC has its own typography and optional presentation, independent of color theme. */
   html[data-workspace="sac"] body { letter-spacing: .012em; line-height: 1.7; }
-  html[data-workspace="sac"] :is(h1, h2, h3, h4, h5, h6, .page-title, .topbar-title, .all-pages-title, .section-head, .modal-title) { letter-spacing: .065em; line-height: 1.3; font-weight: 400; }
+  html[data-workspace="sac"] :is(h1, h2, h3, h4, h5, h6, .page-title, .topbar-title, .all-pages-title, .section-head, .modal-title) { line-height: 1.3; font-weight: 400; }
   html[data-workspace="sac"] .btn { min-height: 40px; padding: 10px 18px; font-size: 14px; font-weight: 400; line-height: 1.5; letter-spacing: .07em; white-space: normal; }
   html[data-workspace="sac"] .btn-sm { min-height: 36px; padding: 8px 14px; font-size: 13px; }
   html[data-workspace="sac"] .empty-state .btn { margin-top: 14px; }
@@ -3349,3 +3349,43 @@
   .sac-interface-preview.classic .sac-interface-preview-event { padding: 8px; border-radius: 7px; }
   @media (max-width: 480px) { .sac-interface-options { grid-template-columns: 1fr; } }
   @media (prefers-reduced-motion: reduce) { .sac-interface-choice { transition: none; } }
+
+  /* Announcement messages stay readable; pinned notices sit outside custom widgets. */
+  .announcement-pinned { margin: 20px 0; padding: 14px 18px; border: 1px solid var(--border2); border-left: 3px solid var(--accent); border-radius: 16px; background: linear-gradient(125deg, var(--accent-dim2), var(--bg2)); }
+  .announcement-pinned[hidden], #announcement-reader-action[hidden], #ann-edit-cancel[hidden] { display: none; }
+  .announcement-pin-label { color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: .04em; margin-bottom: 6px; }
+  .announcement-row { display: flex; align-items: center; gap: 16px; width: 100%; padding: 15px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font-family: var(--font-body); text-align: left; cursor: pointer; }
+  .announcement-row:last-child { border-bottom: 0; }
+  .announcement-row-copy { flex: 1; min-width: 0; }
+  .announcement-row-copy > strong { display: block; margin: 6px 0; font-size: 14px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+  .announcement-row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--text3); font-size: 10px; line-height: 1.6; }
+  .announcement-new { padding: 1px 7px; border-radius: 20px; background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+  .announcement-excerpt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text2); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+  .announcement-row-arrow { color: var(--accent); transition: transform .2s; }
+  .announcement-row:hover .announcement-row-arrow { transform: translateX(3px); }
+  .announcement-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+  .announcement-older { margin-top: 12px; }
+  .announcement-older summary { width: fit-content; padding: 9px 0; color: var(--accent); font-size: 12px; font-weight: 500; cursor: pointer; }
+  .announcement-reader { position: relative; width: min(620px, 100%); }
+  .announcement-reader .modal-title { padding-right: 35px; overflow-wrap: anywhere; letter-spacing: .025em; line-height: 1.3; }
+  .announcement-reader-meta { margin-bottom: 12px; padding-right: 35px; color: var(--accent); font-size: 11px; font-weight: 600; }
+  .announcement-reader-message { margin: 20px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.8; color: var(--text2); }
+  .announcement-notification { display: block; width: 100%; border: 0; color: var(--text); font-family: var(--font-body); text-align: left; cursor: pointer; }
+  .announcement-notification > span { display: block; }
+  .announcement-editor h3 { margin-bottom: 18px; font-family: var(--font-body); font-size: 16px; font-weight: 600; letter-spacing: 0; }
+  .announcement-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+  .announcement-pin-choice { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; cursor: pointer; }
+  .announcement-pin-choice input { margin-top: 3px; accent-color: var(--accent); }
+  .announcement-pin-choice small { display: block; margin-top: 4px; color: var(--text3); font-size: 11px; line-height: 1.6; }
+  .announcement-editor-help { margin: 14px 0; color: var(--text3); font-size: 12px; line-height: 1.7; }
+  .announcement-editor-actions, .announcement-admin-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .announcement-admin-row { gap: 18px; }
+  .announcement-admin-row > div:first-child { flex: 1; min-width: 0; }
+  .announcement-admin-row strong { display: block; margin: 5px 0; font-size: 14px; overflow-wrap: anywhere; }
+  .announcement-admin-row small { display: block; margin-top: 8px; color: var(--text3); font-size: 10px; }
+  @media (max-width: 600px) {
+    .announcement-form-grid { grid-template-columns: 1fr; }
+    .announcement-admin-row { align-items: flex-start; flex-direction: column; }
+    .announcement-reader { padding: 24px 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .announcement-row-arrow { transition: none; } }

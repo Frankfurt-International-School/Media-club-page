@@ -56,6 +56,7 @@ test('SAC dashboard count follows approved SAC tags rather than grade eligibilit
   assert.ok(html.includes('id="sac-home-member-count"'));
   const count = { textContent: '' };
   const context = {
+    window: {},
     state: { dataLoaded: { members: true }, members: [
       { teamKeys: ['sac'] }, { teamKeys: ['media_club', 'sac'] }, { teamKeys: ['media_club'], gradeLevel: 'Grade 11' },
     ] },

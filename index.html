@@ -348,6 +348,7 @@
         </div>
         <div class="sac-home-mark" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></div>
       </section>
+      <aside class="announcement-pinned" id="sac-pinned-announcement" aria-label="Pinned SAC announcement" hidden></aside>
       <section class="sac-home-metrics" aria-label="SAC at a glance">
         <a class="sac-home-metric" href="/sac/my-shifts"><span class="page-kicker">Your schedule</span><strong id="sac-home-shift-count" aria-live="polite">—</strong><span>Upcoming Scoreboard shifts</span><small>View my shifts →</small></a>
         <a class="sac-home-metric" href="/sac/members"><span class="page-kicker">Current council</span><strong id="sac-home-member-count" aria-live="polite">—</strong><span>SAC members</span><small>View member directory →</small></a>
@@ -360,6 +361,7 @@
         <div class="sac-dashboard-section-head"><h2 id="sac-home-upcoming-title">Up next at SAC</h2></div>
         <div id="sac-home-upcoming" class="sac-dashboard-upcoming" aria-live="polite"></div>
       </section>
+      <section class="sac-dashboard-panel" aria-labelledby="sac-announcements-title"><div class="sac-dashboard-section-head"><h2 id="sac-announcements-title">Council announcements</h2></div><div id="sac-announcement-feed"></div></section>
       <section class="sac-home-grid" aria-label="SAC workspace areas">
         <a class="sac-home-card" href="/sac/events"><div class="sac-home-card-number">01</div><h2>Athletic events</h2><p>See upcoming SAC service events, including events linked to Media Club livestreams.</p><span>Open SAC Events →</span></a>
         <a class="sac-home-card" href="/sac/signups"><div class="sac-home-card-number">02</div><h2>Time-slot sign-ups</h2><p>Choose a Scoreboard shift from clear 30-minute intervals, with two spots in each.</p><span>Open sign-up sheets →</span></a>
@@ -467,6 +469,7 @@
       <div class="dashboard-header-actions"><a class="btn btn-ghost" id="dashboard-customize-button" href="/profile?tab=dashboard" hidden>Customize dashboard</a></div>
     </div>
     <section class="dashboard-hero" id="dashboard-focus"></section>
+    <aside class="announcement-pinned" id="media-pinned-announcement" aria-label="Pinned Media Club announcement" hidden></aside>
     <div class="dashboard-stat-grid" id="dashboard-stats"></div>
     <div class="dashboard-module-grid" id="dashboard-modules"></div>
   </div>
@@ -1012,7 +1015,7 @@
         <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-11">11 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Refined SAC spacing while keeping Bebas Neue as the default, with an optional Barlow Condensed interface.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <ul class="crew-update-list"><li>Restored SAC title spacing and added club announcements with notifications, action buttons, pinning, and expiry.</li><li>Fixed minor issues and improved user experience.</li></ul>
         <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">2 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-10">10 October 2026</time></header><ul class="crew-update-list"><li>Refreshed themes and Settings, with smoother update history and typed introductions on the public site.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
@@ -1099,14 +1102,20 @@
       </details>
     </div>
     <div class="tab-content" id="admin-tab-announcements" role="tabpanel" aria-labelledby="admin-tab-button-announcements" hidden>
-      <div class="card mb16">
-        <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:14px;">Post new announcement</div>
-        <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="ann-title" placeholder="Important update..." /></div>
-        <div class="form-group"><label class="form-label">Message</label><textarea class="form-textarea" id="ann-body" placeholder="What do members need to know?"></textarea></div>
-        <button class="btn btn-accent" onclick="postAnnouncement()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>
-          Publish
-        </button>
+      <div class="card mb16 announcement-editor">
+        <h3 id="ann-editor-title">Post new announcement</h3>
+        <div class="form-group"><label class="form-label" for="ann-title">Title</label><input class="form-input" id="ann-title" maxlength="120" placeholder="Important update..." /></div>
+        <div class="form-group"><label class="form-label" for="ann-body">Message</label><textarea class="form-textarea" id="ann-body" maxlength="5000" rows="5" placeholder="What do members need to know?"></textarea></div>
+        <div class="announcement-form-grid">
+          <div class="form-group"><label class="form-label" for="ann-audience">Audience</label><select class="form-select" id="ann-audience"><option value="media_club">Media Club</option><option value="sac">SAC</option><option value="both">Media Club &amp; SAC</option></select></div>
+          <div class="form-group"><label class="form-label" for="ann-expires">Expiry · Berlin time (optional)</label><input class="form-input" type="datetime-local" id="ann-expires" /></div>
+          <div class="form-group"><label class="form-label" for="ann-action-url">Action destination</label><select class="form-select" id="ann-action-url"></select></div>
+          <div class="form-group"><label class="form-label" for="ann-action-label">Button label</label><input class="form-input" id="ann-action-label" maxlength="48" placeholder="Choose a shift" disabled /></div>
+        </div>
+        <label class="announcement-pin-choice"><input type="checkbox" id="ann-pinned" /><span><strong>Pin on the dashboard</strong><small>Replaces the current pinned notice for the selected clubs.</small></span></label>
+        <p class="announcement-editor-help">Publishing sends one in-app notification to members of the selected clubs.</p>
+        <div class="announcement-editor-actions"><button type="button" class="btn btn-accent" id="ann-submit" onclick="postAnnouncement()">Publish</button><button type="button" class="btn btn-ghost" data-announcement-preview>Preview</button><button type="button" class="btn btn-ghost" id="ann-edit-cancel" data-announcement-edit-cancel hidden>Cancel edit</button></div>
+        <p id="ann-save-status" class="announcement-editor-help" role="status" aria-live="polite"></p>
       </div>
       <h3 class="section-head">All announcements</h3>
       <div id="admin-ann-list"></div>
@@ -1116,6 +1125,15 @@
 </main>
 
 <!-- ── MODALS ── -->
+<div class="modal-backdrop" id="announcement-reader-modal" role="dialog" aria-labelledby="announcement-reader-title">
+  <div class="modal announcement-reader">
+    <button type="button" class="modal-close" onclick="closeModal('announcement-reader-modal')" aria-label="Close announcement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    <p class="announcement-reader-meta" id="announcement-reader-meta"></p><h2 class="modal-title" id="announcement-reader-title">Announcement</h2>
+    <div class="announcement-reader-message" id="announcement-reader-message"></div>
+    <a class="btn btn-accent" id="announcement-reader-action" data-announcement-action hidden></a>
+    <p class="announcement-editor-help" id="announcement-reader-status" role="status" aria-live="polite"></p>
+  </div>
+</div>
 
 <!-- Event Editor Modal -->
 <div class="modal-backdrop" id="event-modal">
@@ -1565,6 +1583,7 @@
 <script src="scripts/workspaces.js"></script>
 <script src="scripts/router.js"></script>
 <script src="scripts/ui.js"></script>
+<script src="scripts/announcements.js"></script>
 <script src="scripts/dashboard.js"></script>
 <script src="scripts/events.js"></script>
 <script src="scripts/sac-events.js"></script>

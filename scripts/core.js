@@ -871,6 +871,13 @@ function normalizeAnnouncement(item) {
     id: item.id,
     title: item.title,
     body: item.body,
+    audience: item.audience || 'media_club',
+    action_label: item.action_label || '',
+    action_url: item.action_url || '',
+    pinned: item.pinned === true,
+    expires_at: item.expires_at || null,
+    archived_at: item.archived_at || null,
+    updated_at: item.updated_at || item.created_at,
     date: formatBerlinDateTime(createdAt, { day: 'numeric', month: 'short' }),
     created_at: item.created_at,
   };
@@ -897,7 +904,7 @@ function normalizeApplication(item) {
 }
 
 const crewCenterDatasets = ['members', 'events', 'meetings', 'gallery', 'equipment', 'announcements', 'applications', 'notifications'];
-const crewCenterPublicDatasets = ['events', 'gallery', 'equipment', 'announcements'];
+const crewCenterPublicDatasets = ['events', 'gallery', 'equipment'];
 const crewCenterDataTimeoutMs = 10000;
 const queuedDatasets = new Set();
 let dataLoadPromise = null;
@@ -922,7 +929,6 @@ function crewCenterDatasetRequest(dataset, visitor) {
       events: 'get_public_events',
       gallery: 'get_public_gallery',
       equipment: 'get_public_equipment',
-      announcements: 'get_public_announcements',
     }[dataset];
     if (publicRpc) return supabaseClient.rpc(publicRpc);
     return Promise.resolve({ data: [], error: null });
@@ -933,7 +939,7 @@ function crewCenterDatasetRequest(dataset, visitor) {
     meetings: () => supabaseClient.from('meetings').select('*, meeting_attendees(id, member_id, response, responded_at, members(name, role, avatar_url))').order('starts_at', { ascending: true }),
     gallery: () => supabaseClient.from('gallery').select('*, members(name), events(id, title, date, archived_at)').order('created_at', { ascending: false }),
     equipment: () => supabaseClient.from('equipment').select('*, members(name), equipment_reservations(id, reservation_group_id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, created_at, members(name), events(title))').order('name'),
-    announcements: () => supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }).limit(30),
+    announcements: () => supabaseClient.from('announcements').select('*').order('created_at', { ascending: false }),
     applications: () => supabaseClient.from('join_applications').select('*').order('created_at', { ascending: false }),
     notifications: () => supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }).limit(50),
   };
@@ -1051,7 +1057,7 @@ async function loadCrewCenterInitialData() {
   const pageDatasets = {
     about: ['gallery'],
     home: ['events', 'gallery', 'equipment', 'announcements'],
-    'sac-home': canReviewSacApplications() ? ['applications'] : [],
+    'sac-home': canReviewSacApplications() ? ['announcements', 'applications'] : ['announcements'],
     'sac-members': [],
     'sac-my-shifts': [],
     'sac-meetings': [],
@@ -1123,7 +1129,7 @@ function subscribeToCrewCenterChanges() {
   window.CREW_CENTER_REALTIME_READY = mode;
   if (mode === 'visitor') return;
   const tableDatasets = {
-    member_team_memberships: ['members', 'meetings', 'gallery'],
+    member_team_memberships: ['members', 'meetings', 'gallery', 'announcements', 'notifications'],
     events: ['events', 'equipment'],
     meetings: ['meetings'],
     meeting_attendees: ['meetings'],
@@ -1173,6 +1179,7 @@ function stopCrewCenterLiveUpdates() {
 window.stopCrewCenterLiveUpdates = stopCrewCenterLiveUpdates;
 
 function renderCurrentPage(refreshedDatasets = null) {
+  window.renderAnnouncementSurfaces?.();
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
   // Keep booking controls steady when only unrelated background data was refreshed.
   if (Array.isArray(refreshedDatasets)

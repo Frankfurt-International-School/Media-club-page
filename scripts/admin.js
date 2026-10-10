@@ -174,60 +174,6 @@ function renderManageEvents() {
   document.getElementById('manage-events-list').innerHTML = `${activeRows || '<div class="empty-state"><p>No active events.</p></div>'}${archivedRows}`;
 }
 
-function renderAdminAnn() {
-  document.getElementById('admin-ann-list').innerHTML = state.announcements.map(a => `
-    <div class="admin-row">
-      <div>
-        <div style="font-size:14px;font-weight:500;color:var(--text);">${escapeHtml(a.title)}</div>
-        <div style="font-size:12px;color:var(--text2);">${escapeHtml(a.body)}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px;">${escapeHtml(a.date)}</div>
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="requestDeleteAnnouncement('${a.id}')">Delete</button>
-    </div>`).join('');
-}
-
-async function postAnnouncement() {
-  const title = document.getElementById('ann-title').value.trim();
-  const body = document.getElementById('ann-body').value.trim();
-  if (!title || !body) { showToast('Please fill in both fields.', 'error'); return; }
-  const { data, error } = await supabaseClient
-    .from('announcements')
-    .insert({ title, body })
-    .select('*')
-    .single();
-  if (error) { showToast("Couldn't publish announcement. Run the announcements SQL first.", 'error'); return; }
-  state.announcements.unshift(normalizeAnnouncement(data));
-  document.getElementById('ann-title').value = '';
-  document.getElementById('ann-body').value = '';
-  showToast('Announcement published!');
-  renderAdminAnn();
-  renderDashboard();
-}
-
-function requestDeleteAnnouncement(id) {
-  const announcement = state.announcements.find(item => item.id === id);
-  if (!announcement || !canAccessAdminPanel()) return;
-  openActionConfirmation({
-    kind: 'delete-announcement',
-    title: `Delete “${announcement.title}”?`,
-    copy: 'The announcement will be removed from the dashboard for everyone. This cannot be undone.',
-    danger: true,
-    confirmLabel: 'Delete announcement',
-    busyLabel: 'Deleting...',
-    execute: () => deleteAnn(id),
-  });
-}
-
-async function deleteAnn(id) {
-  const { error } = await supabaseClient.from('announcements').delete().eq('id', id);
-  if (error) { showToast("Couldn't delete announcement.", 'error'); return false; }
-  state.announcements = state.announcements.filter(a => a.id !== id);
-  renderAdminAnn();
-  renderDashboard();
-  showToast('Announcement deleted.', 'error');
-  return true;
-}
-
 function showAdminTab(name) {
   const el = document.querySelector(`#page-admin [data-admin-tab="${name}"]`)
     || document.querySelector('#page-admin [data-admin-tab="pending"]');

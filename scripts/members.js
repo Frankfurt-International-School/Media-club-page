@@ -75,6 +75,7 @@ function renderSacDashboard() {
     ? String(state.members.filter(member => member.teamKeys?.includes('sac')).length)
     : '—';
   updateDashboardGreeting();
+  window.renderAnnouncementSurfaces?.();
   renderSacPersonalDashboard();
 }
 

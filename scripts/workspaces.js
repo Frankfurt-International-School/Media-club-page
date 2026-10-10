@@ -239,6 +239,7 @@ function resetCrewCenterWorkspace() {
   window.closeCrewCenterModals?.();
   window.resetCrewQuickSearch?.();
   window.resetSacDashboardState?.();
+  window.resetAnnouncementState?.();
   window.resetSacEventsState?.();
   window.resetSacMeetingsState?.();
   window.resetSacSignupsState?.();

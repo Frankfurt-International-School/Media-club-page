@@ -70,7 +70,7 @@ test('review access is scoped to Media Club, SAC, or combined applications', () 
   assert.match(admin, /Permanently delete[\s\S]*This cannot be undone, and no decision email will be sent/);
   assert.match(admin, /decision: 'delete', confirmDelete: true/);
   assert.match(appHtml, /id="sac-review-panel"/);
-  assert.match(core, /'sac-home': canReviewSacApplications\(\) \? \['applications'\]/);
+  assert.match(core, /'sac-home': canReviewSacApplications\(\) \? \['announcements', 'applications'\]/);
 });
 
 test('approval adds only selected team tags and distinguishes new from existing accounts', () => {
@@ -81,7 +81,7 @@ test('approval adds only selected team tags and distinguishes new from existing 
   assert.match(reviewFunction, /notification_type: "application_approved"/);
   assert.match(reviewFunction, /if \(existingAuthAccount\) \{[\s\S]*application-approval-\$\{applicationId\}/);
   assert.match(schema, /notification_type in \('event_created', 'meeting_invite', 'application_approved'\)/);
-  assert.match(read('scripts/ui.js'), /\['meeting_invite', 'application_approved'\]/);
+  assert.match(read('scripts/ui.js'), /\['meeting_invite', 'application_approved', 'announcement'\]/);
 });
 
 test('SAC-only accounts remain in the directory but cannot use Media Club operations', () => {

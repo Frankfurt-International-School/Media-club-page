@@ -88,7 +88,7 @@ function renderUpcomingEventsModule(upcomingEvents) {
 }
 
 function renderAnnouncementsModule() {
-  const body = state.announcements.length ? state.announcements.slice(0, 4).map(announcement => `<div class="dashboard-list-row" style="cursor:default;"><span class="dashboard-list-date"><strong>•</strong><span>${escapeHtml(announcement.date || 'NEW')}</span></span><span><span class="dashboard-list-title">${escapeHtml(announcement.title)}</span><span class="dashboard-list-sub">${escapeHtml(announcement.body)}</span></span><span></span></div>`).join('') : '<div class="dashboard-empty">No announcements yet.</div>';
+  const body = announcementFeedHtml('media');
   return dashboardModuleShell('Announcements', '', '', body);
 }
 
@@ -140,4 +140,5 @@ function renderDashboard() {
   };
   document.getElementById('dashboard-modules').innerHTML = preferences.sections.map(key => modules[key]()).join('');
   updateDashboardGreeting();
+  renderAnnouncementSurfaces();
 }
