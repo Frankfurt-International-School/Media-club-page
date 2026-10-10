@@ -137,6 +137,7 @@ function applyWorkspacePresentation({ animate = false } = {}) {
   const mediaAccess = canAccessMediaWorkspace();
   const isSac = activeCrewCenterWorkspace === 'sac';
   document.documentElement.dataset.workspace = activeCrewCenterWorkspace;
+  window.applySacInterfacePreference?.();
   document.title = isSac ? 'FIS Student Athletic Council' : 'FIS Media Club';
   updateWorkspaceFavicon(activeCrewCenterWorkspace);
 

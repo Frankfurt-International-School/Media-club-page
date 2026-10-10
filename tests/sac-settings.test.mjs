@@ -12,12 +12,17 @@ const profileSource = ui.slice(ui.indexOf('function renderProfile('), ui.indexOf
 function harness() {
   const stored = new Map(); const elements = new Map();
   const element = id => {
-    if (!elements.has(id)) elements.set(id, { textContent: '', hidden: false, style: {}, classList: { contains: () => false }, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; } });
+    if (!elements.has(id)) {
+      const classes = new Set();
+      elements.set(id, { textContent: '', hidden: false, style: {}, classList: { contains: key => classes.has(key), toggle: (key, on) => on ? classes.add(key) : classes.delete(key) }, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; } });
+    }
     return elements.get(id);
   };
   let workspace = 'sac'; let member = { id: 'member-a', name: 'Jane Example', teamKeys: ['sac'], gradeLevel: 'Grade 11', sacTitle: 'vice_president' };
-  const context = vm.createContext({ window: { CREW_CENTER_AUTH_USER: { id: 'account-a' } },
-    document: { getElementById: element, addEventListener() {} }, localStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) },
+  const listeners = {};
+  const root = { dataset: {} };
+  const context = vm.createContext({ window: { CREW_CENTER_AUTH_USER: { id: 'account-a' }, addEventListener(name, callback) { listeners[name] = callback; } },
+    document: { documentElement: root, getElementById: element, addEventListener() {} }, localStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) },
     state: { dataLoaded: { members: true }, currentUser: { name: 'Jane Example', avatarUrl: '', isAdmin: false } },
     currentCrewCenterWorkspace: () => workspace, canAccessSacWorkspace: () => true, isVisitorSession: () => false,
     currentMemberRecord: () => member, sacTitleLabel: () => 'SAC Vice President',
@@ -26,7 +31,7 @@ function harness() {
     tabValueFromUrl: () => 'profile', showSettingsSection() {},
   });
   vm.runInContext(settings, context);
-  return { context, stored, element, workspace(value) { workspace = value; }, member(value) { member = value; } };
+  return { context, stored, element, root, listeners, workspace(value) { workspace = value; }, member(value) { member = value; } };
 }
 
 test('SAC settings keep account controls and hide Media-only settings without changing Media Club tabs', () => {
@@ -71,4 +76,39 @@ test('blocked browser storage reports an error instead of claiming preferences w
   h.context.saveSacDashboardPreferences();
   assert.match(h.element('sac-settings-save-status').textContent, /could not save/i);
   assert.equal(h.stored.size, 0);
+});
+
+test('SAC interface defaults to Athletics, validates saved data, and clears its styling in Media Club', () => {
+  const h=harness();h.context.applySacInterfacePreference();
+  assert.equal(h.root.dataset.sacInterface,'athletics');assert.equal(h.element('sac-interface-athletics').attrs['aria-pressed'],'true');
+  assert.equal(h.stored.size,0);
+  h.stored.set(h.context.sacInterfacePreferenceKey(),'invalid');h.context.applySacInterfacePreference();
+  assert.equal(h.root.dataset.sacInterface,'athletics');
+  h.context.setSacInterface('classic');assert.equal(h.root.dataset.sacInterface,'classic');
+  assert.equal(h.stored.get(h.context.sacInterfacePreferenceKey()),'classic');
+  h.workspace('media');h.context.applySacInterfacePreference();
+  assert.equal(h.root.dataset.sacInterface,undefined);assert.equal(h.element('sac-interface-settings').hidden,true);
+  h.workspace('sac');h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'classic');
+});
+
+test('interface selection is account-scoped and blocked writes retain a session choice with an honest status', () => {
+  const h=harness();h.context.setSacInterface('classic');
+  h.context.window.CREW_CENTER_AUTH_USER.id='account-b';h.context.applySacInterfacePreference();
+  assert.equal(h.root.dataset.sacInterface,'athletics');
+  h.context.window.CREW_CENTER_AUTH_USER.id='account-a';h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'classic');
+  h.context.localStorage.setItem=()=>{throw new Error('Blocked');};h.context.setSacInterface('athletics');
+  assert.equal(h.root.dataset.sacInterface,'athletics');assert.equal(h.stored.get(h.context.sacInterfacePreferenceKey()),'classic');
+  assert.match(h.element('sac-interface-status').textContent,/session.*storage is unavailable/);
+  h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'athletics');
+});
+
+test('interface changes sync across tabs without accepting another account or workspace choice', () => {
+  const h=harness();h.context.setSacInterface('classic');const key=h.context.sacInterfacePreferenceKey();
+  h.stored.set(key,'athletics');h.listeners.storage({key:'unrelated'});assert.equal(h.root.dataset.sacInterface,'classic');
+  h.listeners.storage({key});assert.equal(h.root.dataset.sacInterface,'athletics');
+  h.context.setSacInterface('classic');h.stored.clear();h.listeners.storage({key:null});assert.equal(h.root.dataset.sacInterface,'athletics');
+  h.context.setSacInterface('invalid');assert.equal(h.stored.size,0);
+  h.workspace('media');h.context.setSacInterface('classic');assert.equal(h.stored.size,0);
+  h.workspace('sac');h.context.isVisitorSession=()=>true;h.context.setSacInterface('classic');assert.equal(h.stored.size,0);
+  h.context.isVisitorSession=()=>false;h.context.canAccessSacWorkspace=()=>false;h.context.setSacInterface('classic');assert.equal(h.stored.size,0);
 });

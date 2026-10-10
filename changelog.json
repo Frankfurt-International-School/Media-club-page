@@ -2,6 +2,10 @@
   "since": "2026-10-09",
   "entries": [
     {
+      "date": "2026-10-11",
+      "summary": "Gave SAC clearer typography and a choice of Athletics or Classic interfaces in Appearance settings."
+    },
+    {
       "date": "2026-10-10",
       "summary": "Refreshed themes and Settings, with smoother update history and typed introductions on the public site."
     },

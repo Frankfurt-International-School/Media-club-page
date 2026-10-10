@@ -923,7 +923,22 @@
             <span class="theme-choice-heading"><strong>Dark</strong><span class="theme-choice-check" aria-hidden="true">✓</span></span><span class="theme-choice-description">Deep navy and softly raised surfaces.</span>
           </button>
           <button type="button" class="theme-choice system" id="theme-system" aria-pressed="false" onclick="setCrewCenterTheme('system')"><span class="theme-system-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><span><span class="theme-choice-heading"><strong>Use device theme</strong></span><span class="theme-choice-description">Switch automatically with your device’s light or dark setting.</span></span><span class="theme-choice-check" aria-hidden="true">✓</span></button>
-        </div><p class="theme-choice-status" id="theme-choice-status" role="status" aria-live="polite"></p></div>
+        </div><p class="theme-choice-status" id="theme-choice-status" role="status" aria-live="polite"></p>
+          <div class="sac-interface-settings" id="sac-interface-settings" hidden>
+            <div class="sac-interface-heading"><h4 id="sac-interface-title">SAC interface</h4><p>Choose your SAC style. Each works with light, dark, or device theme.</p></div>
+            <div class="sac-interface-options" role="group" aria-labelledby="sac-interface-title">
+              <button type="button" class="sac-interface-choice" id="sac-interface-athletics" aria-pressed="false" data-sac-interface-choice="athletics">
+                <span class="sac-interface-preview athletics" aria-hidden="true"><span class="sac-interface-preview-kicker">SAC / Events</span><strong>Athletic events</strong><span class="sac-interface-preview-event"><span>12<br>OCT</span><span>School athletics<br><small>Scoreboard shifts →</small></span></span></span>
+                <span class="sac-interface-choice-heading"><strong>Athletics</strong><span class="sac-interface-check" aria-hidden="true">✓</span></span><span class="sac-interface-recommended">Recommended</span><span class="sac-interface-description">Wider headings, roomier controls, and focused event cards.</span>
+              </button>
+              <button type="button" class="sac-interface-choice" id="sac-interface-classic" aria-pressed="false" data-sac-interface-choice="classic">
+                <span class="sac-interface-preview classic" aria-hidden="true"><span class="sac-interface-preview-kicker">SAC / Events</span><strong>Athletic events</strong><span class="sac-interface-preview-event"><span>12<br>OCT</span><span>School athletics<br><small>Scoreboard shifts →</small></span></span></span>
+                <span class="sac-interface-choice-heading"><strong>Classic</strong><span class="sac-interface-check" aria-hidden="true">✓</span></span><span class="sac-interface-description">Condensed headings, with more space between letters and lines.</span>
+              </button>
+            </div>
+            <p class="theme-choice-status" id="sac-interface-status" role="status" aria-live="polite"></p>
+          </div>
+        </div>
       </section>
       <section class="profile-panel" id="settings-panel-personalisation" data-settings-section="personalisation" role="tabpanel" aria-labelledby="settings-tab-personalisation" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Personalisation</h3><p>Save the personal kit you bring to productions. Your Photographer signups can use it automatically.</p></div>
@@ -994,12 +1009,13 @@
         <img src="assets/media-club-logo.png" width="128" height="128" alt="" class="crew-updates-mark">
         <span class="page-kicker">Media Club</span><h2 id="crew-updates-title">Crew Center</h2>
         <p class="crew-updates-tagline"><span class="visually-hidden">A little clearer. A little smoother.</span><span id="crew-updates-type" aria-hidden="true" data-type-text="A little clearer. A little smoother.">A little clearer. A little smoother.</span></p>
-        <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-10">10 October 2026</time>
+        <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-11">11 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Refreshed themes and Settings, with smoother update history and typed introductions on the public site.</li><li>Fixed minor issues and improved user experience.</li></ul>
-        <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">1 earlier update</span></summary>
+        <ul class="crew-update-list"><li>Gave SAC clearer typography and a choice of Athletics or Classic interfaces in Appearance settings.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">2 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
+            <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-10">10 October 2026</time></header><ul class="crew-update-list"><li>Refreshed themes and Settings, with smoother update history and typed introductions on the public site.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-09">9 October 2026</time></header><ul class="crew-update-list"><li>Brought commitments into a daily agenda and made search and schedule filters easier to use.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
           </div></div>
         </details>

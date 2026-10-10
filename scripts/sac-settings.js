@@ -1,4 +1,61 @@
 // SAC display choices are per account on this browser; membership remains server-managed.
+const sacInterfaceModes = ['athletics', 'classic'];
+const sacInterfaceSessionChoices = new Map();
+
+function sacInterfacePreferenceKey() {
+  const accountId = window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id;
+  return accountId ? `crew-center-sac-interface:${accountId}` : null;
+}
+
+function sacInterfacePreference() {
+  const key = sacInterfacePreferenceKey();
+  if (!key) return { mode: 'athletics', persisted: false };
+  if (sacInterfaceSessionChoices.has(key)) return sacInterfaceSessionChoices.get(key);
+  try {
+    const saved = localStorage.getItem(key);
+    return { mode: sacInterfaceModes.includes(saved) ? saved : 'athletics', persisted: true };
+  } catch (_error) { return { mode: 'athletics', persisted: false }; }
+}
+
+function applySacInterfacePreference() {
+  const isSac = currentCrewCenterWorkspace() === 'sac' && canAccessSacWorkspace();
+  const group = document.getElementById('sac-interface-settings');
+  if (group) group.hidden = !isSac;
+  if (!isSac) {
+    delete document.documentElement.dataset.sacInterface;
+    return;
+  }
+  const preference = sacInterfacePreference();
+  document.documentElement.dataset.sacInterface = preference.mode;
+  sacInterfaceModes.forEach(mode => {
+    const button = document.getElementById(`sac-interface-${mode}`);
+    button?.classList.toggle('active', preference.mode === mode);
+    button?.setAttribute('aria-pressed', String(preference.mode === mode));
+  });
+  const status = document.getElementById('sac-interface-status');
+  const label = preference.mode === 'athletics' ? 'Athletics' : 'Classic';
+  if (status) status.textContent = `${label} interface selected. ${preference.persisted ? 'Remembered for your account on this browser.' : 'Applied for this session; browser storage is unavailable.'}`;
+}
+window.applySacInterfacePreference = applySacInterfacePreference;
+
+function setSacInterface(mode) {
+  if (!sacInterfaceModes.includes(mode) || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace() || isVisitorSession()) return;
+  const key = sacInterfacePreferenceKey();
+  if (!key) return;
+  let persisted = true;
+  try { localStorage.setItem(key, mode); } catch (_error) { persisted = false; }
+  sacInterfaceSessionChoices.set(key, { mode, persisted });
+  applySacInterfacePreference();
+}
+
+window.addEventListener('storage', event => {
+  const key = sacInterfacePreferenceKey();
+  if (event.key !== null && event.key !== key) return;
+  if (event.key === null) sacInterfaceSessionChoices.clear();
+  else sacInterfaceSessionChoices.delete(key);
+  applySacInterfacePreference();
+});
+
 function sacDashboardPreferenceKey() {
   const accountId = window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id;
   return accountId ? `crew-center-sac-dashboard:${accountId}` : null;
@@ -18,6 +75,7 @@ function sacDashboardPreferences() {
 
 function renderProfileWorkspace() {
   const isSac = currentCrewCenterWorkspace() === 'sac' && canAccessSacWorkspace();
+  applySacInterfacePreference();
   const title = document.getElementById('profile-title');
   const subtitle = document.getElementById('profile-subtitle');
   if (title) title.textContent = isSac ? 'SAC settings' : 'Settings';
@@ -81,6 +139,8 @@ function saveSacDashboardPreferences() {
 }
 
 document.addEventListener('click', event => {
+  const interfaceChoice = event.target.closest?.('[data-sac-interface-choice]');
+  if (interfaceChoice) setSacInterface(interfaceChoice.dataset.sacInterfaceChoice);
   const toggle = event.target.closest?.('[data-sac-preference-toggle]');
   if (toggle && currentCrewCenterWorkspace() === 'sac' && canAccessSacWorkspace() && currentMemberRecord()?.id && !isVisitorSession()) {
     toggle.setAttribute('aria-checked', String(toggle.getAttribute('aria-checked') !== 'true'));
