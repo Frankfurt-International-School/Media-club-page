@@ -7,6 +7,7 @@ const sourceFiles = [
   'tutorial.js',
   'info/config.js',
   'info/info.js',
+  'info/typing.js',
   ...readdirSync('scripts').filter(file => file.endsWith('.js')).map(file => join('scripts', file)),
   ...readdirSync('tools').filter(file => file.endsWith('.mjs')).map(file => join('tools', file)),
 ];

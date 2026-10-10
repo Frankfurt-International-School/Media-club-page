@@ -57,6 +57,10 @@ button, input, select, textarea { font: inherit; }
 h1, h2, h3, p { margin-top: 0; }
 h1, h2, h3 { font-family: var(--head); font-weight: 400; letter-spacing: .02em; }
 h1 { max-width: 770px; margin-bottom: 20px; font-size: clamp(64px, 9vw, 118px); line-height: .86; }
+.typed-heading { position: relative; }
+.typed-heading[data-type-state] > .typed-heading-source { opacity: 0; }
+.typed-heading-visual { position: absolute; inset: 0; pointer-events: none; }
+.typed-heading[data-type-state="typing"] > .typed-heading-visual::after { content: ''; display: inline-block; width: 2px; height: .8em; margin-left: 3px; background: currentColor; vertical-align: -.02em; }
 .hero-copy { max-width: 640px; margin-bottom: 28px; color: rgba(255,255,255,.83); font-size: clamp(16px, 2vw, 19px); line-height: 1.6; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .hero-caption { position: absolute; right: 24px; bottom: 18px; z-index: 3; margin: 0; padding: 7px 10px; border-radius: 7px; background: rgba(10,11,15,.5); color: rgba(255,255,255,.66); font-size: 9px; backdrop-filter: blur(10px); }
