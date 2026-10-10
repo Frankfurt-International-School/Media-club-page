@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="tutorial.css">
 <title>FIS Media Club</title>
-<script>document.documentElement.dataset.theme = localStorage.getItem('crew-center-theme') || 'light';</script>
+<script src="scripts/theme.js"></script>
 <link rel="stylesheet" href="crew-center.css">
 </head>
 <body>
@@ -912,11 +912,18 @@
         </div>
       </section>
       <section class="profile-panel" id="settings-panel-appearance" data-settings-section="appearance" role="tabpanel" aria-labelledby="settings-tab-appearance" tabindex="0" hidden>
-        <div class="profile-panel-head"><h3>Appearance</h3><p>Your theme is remembered on this browser.</p></div>
+        <div class="profile-panel-head"><h3>Make it feel like your workspace</h3><p>Choose a theme to apply it instantly, or let Crew Center follow your device.</p></div>
         <div class="profile-panel-body"><div class="theme-options">
-          <button class="theme-choice" id="theme-light" onclick="setCrewCenterTheme('light')"><span class="theme-swatch light"><span></span><span></span></span><strong>Light</strong></button>
-          <button class="theme-choice" id="theme-dark" onclick="setCrewCenterTheme('dark')"><span class="theme-swatch dark"><span></span><span></span></span><strong>Dark</strong></button>
-        </div></div>
+          <button type="button" class="theme-choice" id="theme-light" aria-pressed="false" onclick="setCrewCenterTheme('light')">
+            <span class="theme-preview light" aria-hidden="true"><span class="theme-preview-rail"><i></i><i></i><i></i></span><span class="theme-preview-main"><span class="theme-preview-topline"></span><span class="theme-preview-banner"></span><span class="theme-preview-cards"><i></i><i></i></span></span></span>
+            <span class="theme-choice-heading"><strong>Light</strong><span class="theme-choice-check" aria-hidden="true">✓</span></span><span class="theme-choice-description">Soft ivory and rose-tinted glass.</span>
+          </button>
+          <button type="button" class="theme-choice" id="theme-dark" aria-pressed="false" onclick="setCrewCenterTheme('dark')">
+            <span class="theme-preview dark" aria-hidden="true"><span class="theme-preview-rail"><i></i><i></i><i></i></span><span class="theme-preview-main"><span class="theme-preview-topline"></span><span class="theme-preview-banner"></span><span class="theme-preview-cards"><i></i><i></i></span></span></span>
+            <span class="theme-choice-heading"><strong>Dark</strong><span class="theme-choice-check" aria-hidden="true">✓</span></span><span class="theme-choice-description">Deep navy and softly raised surfaces.</span>
+          </button>
+          <button type="button" class="theme-choice system" id="theme-system" aria-pressed="false" onclick="setCrewCenterTheme('system')"><span class="theme-system-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><span><span class="theme-choice-heading"><strong>Use device theme</strong></span><span class="theme-choice-description">Switch automatically with your device’s light or dark setting.</span></span><span class="theme-choice-check" aria-hidden="true">✓</span></button>
+        </div><p class="theme-choice-status" id="theme-choice-status" role="status" aria-live="polite"></p></div>
       </section>
       <section class="profile-panel" id="settings-panel-personalisation" data-settings-section="personalisation" role="tabpanel" aria-labelledby="settings-tab-personalisation" tabindex="0" hidden>
         <div class="profile-panel-head"><h3>Personalisation</h3><p>Save the personal kit you bring to productions. Your Photographer signups can use it automatically.</p></div>
@@ -980,6 +987,23 @@
       </section>
       </div>
     </div>
+    <section class="crew-updates" aria-labelledby="crew-updates-title">
+      <div class="crew-updates-hero" id="crew-updates-hero">
+        <img src="assets/media-club-logo.png" width="128" height="128" alt="" class="crew-updates-mark">
+        <span class="page-kicker">Media Club · Student Athletic Council</span><h2 id="crew-updates-title">Crew Center</h2>
+        <p class="crew-updates-tagline"><span class="visually-hidden">A little clearer. A little smoother.</span><span id="crew-updates-type" aria-hidden="true" data-type-text="A little clearer. A little smoother.">A little clearer. A little smoother.</span></p>
+        <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-10">10 October 2026</time>
+      </div>
+      <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
+        <ul class="crew-update-list"><li>Light and dark themes now have subtle tinted surfaces and clearer contrast.</li><li>Richer theme previews apply instantly, with a new option to follow your device.</li><li>Find the latest improvements here, with an expandable history below.</li></ul>
+        <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">2 earlier updates</span></summary>
+          <div class="crew-update-timeline">
+            <article><header><span class="crew-update-tag">Navigation &amp; interaction</span><time datetime="2026-10-09">9 October 2026</time></header><h4>A smoother way to find your next task</h4><ul class="crew-update-list"><li>Search and All pages use matching destination icons and stay within the screen on desktop and phone.</li><li>Schedule filters have a sliding glass highlight and a soft red tint.</li><li>Notification read actions recover after connection problems, and dialogs keep keyboard focus in the right place.</li></ul></article>
+            <article><header><span class="crew-update-tag">Planning &amp; bookings</span><time datetime="2026-10-09">9 October 2026</time></header><h4>Your commitments, together</h4><ul class="crew-update-list"><li>The personal agenda groups your crew assignments, equipment loans, and Going or Maybe meeting responses by day.</li><li>Media Club and SAC meetings can be downloaded as calendar files. These are snapshots, and do not record attendance.</li><li>The SAC shift planner shows availability and checks overlapping bookings. Cancelling a shift includes a review step.</li></ul></article>
+          </div>
+        </details>
+      </div>
+    </section>
     <div class="settings-legal-footer">
       <div>
         <strong>Privacy &amp; legal</strong>
@@ -1541,6 +1565,7 @@
 <script src="scripts/admin.js"></script>
 <script src="scripts/quick-search.js"></script>
 <script src="scripts/meeting-calendar.js"></script>
+<script src="scripts/updates.js"></script>
 <script src="scripts/init.js"></script>
 <script src="tutorial.js"></script>
 </body>

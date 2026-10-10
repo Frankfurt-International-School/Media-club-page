@@ -25,7 +25,7 @@ function harness() {
     sidebarCategories: { club: { pages: ['events'] } }, pageUrl: () => '/events', escapeHtml: value => String(value || ''), formatBerlinDateTime: () => 'Today',
     showToast: (...args) => notices.push(args),
   });
-  vm.runInContext(source.slice(source.indexOf('function ownUpcomingSignups'), source.indexOf('function setCrewCenterTheme')), context);
+  vm.runInContext(source.slice(source.indexOf('function ownUpcomingSignups'), source.indexOf('const PROFILE_MAX_FILE_SIZE')), context);
   context.currentGeneratedNotificationItems = () => ({ maybeItems: [], upcomingItems: [{ readKey: 'reminder-a', event: { id: 'event-a', title: 'Upcoming' } }] });
   context.fmtDate = () => 'Today'; context.eventScheduleTimeLabel = () => '12:00';
   return { context, element, saved, notices, calls, response: value => { response = value; }, member: value => { member = value; } };

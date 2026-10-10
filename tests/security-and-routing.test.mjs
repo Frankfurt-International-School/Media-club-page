@@ -91,7 +91,8 @@ test('Cloudflare headers enforce transport, framing, capability, and MIME protec
 test('every inline script block is hash-pinned by CSP', () => {
   const csp = globalHeaders().get('Content-Security-Policy');
   const bodies = inlineScriptBodies();
-  assert.equal(bodies.length, 1);
+  assert.equal(bodies.length, 0, 'startup uses the same-origin theme module instead of inline script');
+  assert.match(indexHtml, /<script src="scripts\/theme\.js"><\/script>[\s\S]*?<link rel="stylesheet" href="crew-center\.css">/);
   for (const body of bodies) {
     const hash = `sha256-${createHash('sha256').update(body).digest('base64')}`;
     assert.ok(csp.includes(`'${hash}'`), `Missing CSP hash ${hash}`);
@@ -105,6 +106,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
   assert.match(indexHtml, /<link rel="stylesheet" href="crew-center\.css">/);
   assert.doesNotMatch(indexHtml, /<style>/);
   assert.deepEqual(crewCenterScriptPaths, [
+    'scripts/theme.js',
     'scripts/core.js',
     'scripts/workspaces.js',
     'scripts/router.js',
@@ -128,6 +130,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/admin.js',
     'scripts/quick-search.js',
     'scripts/meeting-calendar.js',
+    'scripts/updates.js',
     'scripts/init.js',
   ]);
   assert.match(indexHtml, /<script src="supabase-config\.js"><\/script>\s*<script src="scripts\/core\.js"><\/script>\s*<script src="scripts\/workspaces\.js"><\/script>/);

@@ -694,19 +694,6 @@ async function markNotificationsRead() {
   }
 }
 
-function setCrewCenterTheme(theme) {
-  const nextTheme = theme === 'dark' ? 'dark' : 'light';
-  document.documentElement.dataset.theme = nextTheme;
-  localStorage.setItem('crew-center-theme', nextTheme);
-  updateThemeChoices();
-}
-
-function updateThemeChoices() {
-  const theme = document.documentElement.dataset.theme || 'light';
-  document.getElementById('theme-light')?.classList.toggle('active', theme === 'light');
-  document.getElementById('theme-dark')?.classList.toggle('active', theme === 'dark');
-}
-
 const PROFILE_MAX_FILE_SIZE = 15 * 1024 * 1024;
 const PROFILE_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const profileCrop = { image: null, url: '', zoom: 1, x: 0, y: 0, dragging: false, lastX: 0, lastY: 0 };
