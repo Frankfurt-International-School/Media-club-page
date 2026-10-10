@@ -78,37 +78,42 @@ test('blocked browser storage reports an error instead of claiming preferences w
   assert.equal(h.stored.size, 0);
 });
 
-test('SAC interface defaults to Athletics, validates saved data, and clears its styling in Media Club', () => {
+test('SAC keeps its original Classic font by default and requires an explicit Sport choice', () => {
   const h=harness();h.context.applySacInterfacePreference();
-  assert.equal(h.root.dataset.sacInterface,'athletics');assert.equal(h.element('sac-interface-athletics').attrs['aria-pressed'],'true');
+  assert.equal(h.root.dataset.sacInterface,'classic');assert.equal(h.element('sac-interface-classic').attrs['aria-pressed'],'true');
   assert.equal(h.stored.size,0);
-  h.stored.set(h.context.sacInterfacePreferenceKey(),'invalid');h.context.applySacInterfacePreference();
-  assert.equal(h.root.dataset.sacInterface,'athletics');
-  h.context.setSacInterface('classic');assert.equal(h.root.dataset.sacInterface,'classic');
-  assert.equal(h.stored.get(h.context.sacInterfacePreferenceKey()),'classic');
+  for (const saved of ['athletics', 'invalid']) {
+    h.stored.set(h.context.sacInterfacePreferenceKey(),saved);h.context.applySacInterfacePreference();
+    assert.equal(h.root.dataset.sacInterface,'classic');
+  }
+  h.context.localStorage.getItem=()=>{throw new Error('Blocked');};h.context.applySacInterfacePreference();
+  assert.equal(h.root.dataset.sacInterface,'classic');
+  h.context.localStorage.getItem=key=>h.stored.get(key)||null;
+  h.context.setSacInterface('sport');assert.equal(h.root.dataset.sacInterface,'sport');
+  assert.equal(h.stored.get(h.context.sacInterfacePreferenceKey()),'sport');
   h.workspace('media');h.context.applySacInterfacePreference();
   assert.equal(h.root.dataset.sacInterface,undefined);assert.equal(h.element('sac-interface-settings').hidden,true);
-  h.workspace('sac');h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'classic');
+  h.workspace('sac');h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'sport');
 });
 
 test('interface selection is account-scoped and blocked writes retain a session choice with an honest status', () => {
-  const h=harness();h.context.setSacInterface('classic');
+  const h=harness();h.context.setSacInterface('sport');
   h.context.window.CREW_CENTER_AUTH_USER.id='account-b';h.context.applySacInterfacePreference();
-  assert.equal(h.root.dataset.sacInterface,'athletics');
-  h.context.window.CREW_CENTER_AUTH_USER.id='account-a';h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'classic');
-  h.context.localStorage.setItem=()=>{throw new Error('Blocked');};h.context.setSacInterface('athletics');
-  assert.equal(h.root.dataset.sacInterface,'athletics');assert.equal(h.stored.get(h.context.sacInterfacePreferenceKey()),'classic');
+  assert.equal(h.root.dataset.sacInterface,'classic');
+  h.context.window.CREW_CENTER_AUTH_USER.id='account-a';h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'sport');
+  h.context.localStorage.setItem=()=>{throw new Error('Blocked');};h.context.setSacInterface('classic');
+  assert.equal(h.root.dataset.sacInterface,'classic');assert.equal(h.stored.get(h.context.sacInterfacePreferenceKey()),'sport');
   assert.match(h.element('sac-interface-status').textContent,/session.*storage is unavailable/);
-  h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'athletics');
+  h.context.applySacInterfacePreference();assert.equal(h.root.dataset.sacInterface,'classic');
 });
 
 test('interface changes sync across tabs without accepting another account or workspace choice', () => {
-  const h=harness();h.context.setSacInterface('classic');const key=h.context.sacInterfacePreferenceKey();
-  h.stored.set(key,'athletics');h.listeners.storage({key:'unrelated'});assert.equal(h.root.dataset.sacInterface,'classic');
-  h.listeners.storage({key});assert.equal(h.root.dataset.sacInterface,'athletics');
-  h.context.setSacInterface('classic');h.stored.clear();h.listeners.storage({key:null});assert.equal(h.root.dataset.sacInterface,'athletics');
-  h.context.setSacInterface('invalid');assert.equal(h.stored.size,0);
-  h.workspace('media');h.context.setSacInterface('classic');assert.equal(h.stored.size,0);
-  h.workspace('sac');h.context.isVisitorSession=()=>true;h.context.setSacInterface('classic');assert.equal(h.stored.size,0);
-  h.context.isVisitorSession=()=>false;h.context.canAccessSacWorkspace=()=>false;h.context.setSacInterface('classic');assert.equal(h.stored.size,0);
+  const h=harness();h.context.setSacInterface('sport');const key=h.context.sacInterfacePreferenceKey();
+  h.stored.set(key,'classic');h.listeners.storage({key:'unrelated'});assert.equal(h.root.dataset.sacInterface,'sport');
+  h.listeners.storage({key});assert.equal(h.root.dataset.sacInterface,'classic');
+  h.context.setSacInterface('sport');h.stored.clear();h.listeners.storage({key:null});assert.equal(h.root.dataset.sacInterface,'classic');
+  for (const mode of ['invalid', 'athletics']) { h.context.setSacInterface(mode);assert.equal(h.stored.size,0); }
+  h.workspace('media');h.context.setSacInterface('sport');assert.equal(h.stored.size,0);
+  h.workspace('sac');h.context.isVisitorSession=()=>true;h.context.setSacInterface('sport');assert.equal(h.stored.size,0);
+  h.context.isVisitorSession=()=>false;h.context.canAccessSacWorkspace=()=>false;h.context.setSacInterface('sport');assert.equal(h.stored.size,0);
 });

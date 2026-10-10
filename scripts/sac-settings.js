@@ -1,5 +1,5 @@
 // SAC display choices are per account on this browser; membership remains server-managed.
-const sacInterfaceModes = ['athletics', 'classic'];
+const sacInterfaceModes = ['classic', 'sport'];
 const sacInterfaceSessionChoices = new Map();
 
 function sacInterfacePreferenceKey() {
@@ -9,12 +9,13 @@ function sacInterfacePreferenceKey() {
 
 function sacInterfacePreference() {
   const key = sacInterfacePreferenceKey();
-  if (!key) return { mode: 'athletics', persisted: false };
+  if (!key) return { mode: 'classic', persisted: false };
   if (sacInterfaceSessionChoices.has(key)) return sacInterfaceSessionChoices.get(key);
   try {
     const saved = localStorage.getItem(key);
-    return { mode: sacInterfaceModes.includes(saved) ? saved : 'athletics', persisted: true };
-  } catch (_error) { return { mode: 'athletics', persisted: false }; }
+    // Retire the old Athletics/Space Grotesk choice; the original face remains the default.
+    return { mode: sacInterfaceModes.includes(saved) ? saved : 'classic', persisted: true };
+  } catch (_error) { return { mode: 'classic', persisted: false }; }
 }
 
 function applySacInterfacePreference() {
@@ -33,7 +34,7 @@ function applySacInterfacePreference() {
     button?.setAttribute('aria-pressed', String(preference.mode === mode));
   });
   const status = document.getElementById('sac-interface-status');
-  const label = preference.mode === 'athletics' ? 'Athletics' : 'Classic';
+  const label = preference.mode === 'sport' ? 'Sport · Barlow Condensed' : 'Classic · Bebas Neue';
   if (status) status.textContent = `${label} interface selected. ${preference.persisted ? 'Remembered for your account on this browser.' : 'Applied for this session; browser storage is unavailable.'}`;
 }
 window.applySacInterfacePreference = applySacInterfacePreference;

@@ -3,7 +3,7 @@
   "entries": [
     {
       "date": "2026-10-11",
-      "summary": "Gave SAC clearer typography and a choice of Athletics or Classic interfaces in Appearance settings."
+      "summary": "Refined SAC spacing while keeping Bebas Neue as the default, with an optional Barlow Condensed interface."
     },
     {
       "date": "2026-10-10",

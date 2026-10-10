@@ -3308,21 +3308,21 @@
   html[data-workspace="sac"] .sac-home-card h2 { margin-bottom: 3px; }
   html[data-workspace="sac"] :is(.sac-home-metric strong, .sac-planner-summary strong) { font-weight: 400; line-height: 1.25; letter-spacing: .045em; }
 
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) { --font-head: var(--font-body); }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) :is(h1, h2, h3, h4, h5, h6, .page-title, .topbar-title, .all-pages-title, .section-head, .modal-title) { font-weight: 600; letter-spacing: .012em; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) :is(.sac-home-metric strong, .sac-planner-summary strong) { font-weight: 600; letter-spacing: .015em; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .topbar-title { font-size: 14px; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .sac-page-hero .page-title { font-size: clamp(27px, 3vw, 34px); }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .sac-home-copy .page-title { font-size: clamp(30px, 3.8vw, 44px); }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .btn { font-size: 13px; font-weight: 600; letter-spacing: .025em; border-radius: 11px; min-height: 44px; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .btn-sm { min-height: 40px; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .clock-time { font-size: 14px; font-weight: 600; letter-spacing: .015em; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .sac-page-hero { border-color: var(--border2); border-left: 4px solid var(--accent); background: radial-gradient(ellipse at 90% 10%, var(--accent-dim2), transparent 65%), var(--bg2); box-shadow: 0 10px 28px rgba(33,37,41,.035); }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) :is(.sac-event-card, .sac-dashboard-panel, .sac-home-card) { border-radius: 20px; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) :is(#sac-events-list, #sac-meetings-list, .sac-dashboard-upcoming) { gap: 16px; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .sac-event-date { gap: 3px; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .sac-event-date strong { font-size: 28px; font-weight: 600; }
-  html[data-workspace="sac"]:not([data-sac-interface="classic"]) .sac-event-date span { font-size: 11px; font-weight: 600; }
+  html[data-workspace="sac"][data-sac-interface="sport"] { --font-head: 'Barlow Condensed', sans-serif; }
+  html[data-workspace="sac"][data-sac-interface="sport"] :is(h1, h2, h3, h4, h5, h6, .page-title, .topbar-title, .all-pages-title, .section-head, .modal-title) { font-weight: 600; letter-spacing: .012em; }
+  html[data-workspace="sac"][data-sac-interface="sport"] :is(.sac-home-metric strong, .sac-planner-summary strong) { font-weight: 600; letter-spacing: .015em; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .topbar-title { font-size: 14px; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .sac-page-hero .page-title { font-size: clamp(27px, 3vw, 34px); }
+  html[data-workspace="sac"][data-sac-interface="sport"] .sac-home-copy .page-title { font-size: clamp(30px, 3.8vw, 44px); }
+  html[data-workspace="sac"][data-sac-interface="sport"] .btn { font-size: 13px; font-weight: 600; letter-spacing: .025em; border-radius: 11px; min-height: 44px; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .btn-sm { min-height: 40px; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .clock-time { font-size: 14px; font-weight: 600; letter-spacing: .015em; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .sac-page-hero { border-color: var(--border2); border-left: 4px solid var(--accent); background: radial-gradient(ellipse at 90% 10%, var(--accent-dim2), transparent 65%), var(--bg2); box-shadow: 0 10px 28px rgba(33,37,41,.035); }
+  html[data-workspace="sac"][data-sac-interface="sport"] :is(.sac-event-card, .sac-dashboard-panel, .sac-home-card) { border-radius: 20px; }
+  html[data-workspace="sac"][data-sac-interface="sport"] :is(#sac-events-list, #sac-meetings-list, .sac-dashboard-upcoming) { gap: 16px; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .sac-event-date { gap: 3px; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .sac-event-date strong { font-size: 28px; font-weight: 600; }
+  html[data-workspace="sac"][data-sac-interface="sport"] .sac-event-date span { font-size: 11px; font-weight: 600; }
 
   .sac-interface-settings { margin-top: 26px; padding-top: 24px; border-top: 1px solid var(--border); }
   .sac-interface-settings[hidden] { display: none; }
@@ -3341,7 +3341,7 @@
   .sac-interface-description { margin-top: 6px; font-size: 12px; line-height: 1.7; color: var(--text3); }
   .sac-interface-preview { display: grid; align-content: start; gap: 9px; width: 100%; min-height: 156px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg3); }
   .sac-interface-preview-kicker { font-size: 8px; letter-spacing: .09em; color: var(--accent); }
-  .sac-interface-preview > strong { font-family: var(--font-body); font-size: 17px; font-weight: 600; line-height: 1.35; }
+  .sac-interface-preview > strong { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 600; line-height: 1.35; }
   .sac-interface-preview-event { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); font-size: 9px; line-height: 1.65; }
   .sac-interface-preview-event > span:first-child { color: var(--accent); font-size: 10px; font-weight: 600; text-align: center; }
   .sac-interface-preview-event small { color: var(--text3); font-size: 8px; }

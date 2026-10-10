@@ -184,13 +184,15 @@ test('fonts are self-hosted with licenses and no Google Fonts runtime requests',
     'bebas-neue-latin-ext.woff2',
     'space-grotesk-latin.woff2',
     'space-grotesk-latin-ext.woff2',
+    'barlow-condensed-600-latin.woff2',
+    'barlow-condensed-600-latin-ext.woff2',
   ]) {
     const bytes = readFileSync(new URL(`../assets/fonts/${file}`, import.meta.url));
     assert.equal(bytes.subarray(0, 4).toString('ascii'), 'wOF2', `${file} must be a valid WOFF2 file`);
     assert.ok(fontsCss.includes(`./${file}`), `${file} must be referenced by fonts.css`);
   }
 
-  for (const license of ['BEBAS-NEUE-OFL.txt', 'SPACE-GROTESK-OFL.txt']) {
+  for (const license of ['BEBAS-NEUE-OFL.txt', 'SPACE-GROTESK-OFL.txt', 'BARLOW-CONDENSED-OFL.txt']) {
     assert.match(readFileSync(new URL(`../assets/fonts/${license}`, import.meta.url), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
   }
 });
