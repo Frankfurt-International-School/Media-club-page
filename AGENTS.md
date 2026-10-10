@@ -30,3 +30,10 @@
 - Validate affected responsive UI in a rendered browser when presentation or interaction changes.
 - Make concise, descriptive local commits after verified changes. Do not push, deploy, send production email, or apply live SQL unless the user explicitly asks.
 - Clearly distinguish local code, committed code, pushed code, and live deployed state in the final response.
+
+## Daily Settings changelog
+
+- Keep the changelog in the existing Settings section. `changelog.json` is the source; do not edit the generated `CREW CHANGELOG` block in `index.html` directly.
+- Use one entry per Europe/Berlin workday, newest first, starting with coverage on 2026-10-09. Skip days without commits. Each entry contains one concise summary of the biggest user-facing improvement (at most 180 characters); the renderer adds the second bullet, “Fixed minor issues and improved user experience.” Do not list every commit or imply that local work has been deployed.
+- Before the first commit of a new day, run `npm run changelog:check`. Review the Git subjects and relevant diffs for any missing completed workdays, especially yesterday, and add their summaries. The check uses committed workdays, so quiet days need no entry and a gap of several days still catches older omissions. Keep the coverage start date unchanged.
+- During today's work, add or refine today's single entry when there is an improvement to report; consolidate later changes into that same summary. Run `npm run changelog:sync` after editing the data, then `npm run changelog:check` before every commit. The current day may remain unfinished; completed days must be covered. CI repeats this check with full Git history.

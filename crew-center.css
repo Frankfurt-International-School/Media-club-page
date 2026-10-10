@@ -2305,7 +2305,7 @@
   .settings-nav a.active { color: var(--accent); background: var(--accent-dim); font-weight: 600; }
   .settings-content .profile-panel { display: none; }
   .settings-content .profile-panel.active { display: block; }
-  .settings-legal-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; max-width: 980px; margin-top: 18px; padding: 15px 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--bg2); color: var(--text3); font-size: 10px; line-height: 1.5; }
+  .settings-legal-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; width: 100%; min-width: 0; margin-top: 18px; padding: 15px 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--bg2); color: var(--text3); font-size: 10px; line-height: 1.5; }
   .settings-legal-footer > div { display: grid; gap: 2px; }
   .settings-legal-footer strong { color: var(--text2); font-size: 11px; }
   .settings-legal-footer a { color: var(--accent); font-weight: 600; text-underline-offset: 2px; }
@@ -2396,8 +2396,9 @@
   .crew-update-history > summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 24px 0 0; color: var(--accent); font-size: 12px; cursor: pointer; list-style: none; }
   .crew-update-history > summary::-webkit-details-marker { display: none; }
   .crew-update-history > summary::after { content: '+'; position: absolute; right: 0; font-size: 20px; }
-  .crew-update-history[open] > summary::after { content: '−'; }
+  .crew-update-history[open]:not([data-expanded="false"]) > summary::after { content: '−'; }
   .crew-update-history-hint { color: var(--text3); font-size: 11px; }
+  .crew-update-history-content { display: flow-root; overflow: hidden; }
   .crew-update-timeline { display: grid; gap: 16px; margin-top: 22px; }
   .crew-update-timeline article { padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg3); }
   .crew-update-timeline header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 10px; color: var(--text3); font-size: 10px; }

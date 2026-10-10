@@ -7,6 +7,8 @@
     "typecheck": "node tools/check-javascript.mjs",
     "build": "node tools/build-static.mjs",
     "build:info": "node tools/build-info.mjs",
+    "changelog:sync": "node tools/check-changelog.mjs --write",
+    "changelog:check": "node tools/check-changelog.mjs",
     "db:check": "node tools/check-migrations.mjs"
   },
   "engines": {
