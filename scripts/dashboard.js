@@ -83,7 +83,7 @@ function dashboardModuleShell(title, actionLabel, actionPage, body) {
 }
 
 function renderUpcomingEventsModule(upcomingEvents) {
-  const body = upcomingEvents.length ? upcomingEvents.slice(0, 4).map(event => `<a class="dashboard-list-row" href="${pageUrl('events')}"><span class="dashboard-list-date"><strong>${fmtDay(event.date)}</strong><span>${fmtMonth(event.date)}</span></span><span><span class="dashboard-list-title">${escapeHtml(event.title)}</span><span class="dashboard-list-sub">${escapeHtml(eventScheduleTimeLabel(event))} · ${escapeHtml(event.loc || 'TBC')}</span></span><span class="badge badge-${catColor(event.cat)}">${escapeHtml(event.cat)}</span></a>`).join('') : '<div class="dashboard-empty">No upcoming events.</div>';
+  const body = upcomingEvents.length ? upcomingEvents.slice(0, 4).map(event => `<a class="dashboard-list-row" href="${escapeHtml(typeof crewEventOpportunity === 'function' && !isVisitorSession() ? crewEventOpportunity(event).href : pageUrl('events', { event: event.id }))}"><span class="dashboard-list-date"><strong>${fmtDay(event.date)}</strong><span>${fmtMonth(event.date)}</span></span><span><span class="dashboard-list-title">${escapeHtml(event.title)}</span><span class="dashboard-list-sub">${escapeHtml(eventScheduleTimeLabel(event))} · ${escapeHtml(event.loc || 'TBC')}</span>${typeof crewEventOpportunity === 'function' ? `<span class="dashboard-crew-hint">${escapeHtml(crewEventOpportunity(event).label)}</span>` : ''}</span><span class="badge badge-${catColor(event.cat)}">${escapeHtml(event.cat)}</span></a>`).join('') : '<div class="dashboard-empty">No upcoming events.</div>';
   return dashboardModuleShell('Upcoming events', 'View all', 'events', body);
 }
 

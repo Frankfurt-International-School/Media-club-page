@@ -7,9 +7,9 @@ function eventRoleSetupCaption(event) {
   if (roles.length === 1) return `${roles[0]} · ${eventRoleCapacity(event, roles[0])} concurrent ${eventRoleCapacity(event, roles[0]) === 1 ? 'slot' : 'slots'}`;
   if (roles.includes(signupRoleLabels.photographer)) {
     const photographerSlots = eventRoleCapacity(event, signupRoleLabels.photographer);
-    return `${roles.length} open crew roles · ${photographerSlots} photography ${photographerSlots === 1 ? 'slot' : 'slots'}`;
+    return `${roles.length} crew roles offered · ${photographerSlots} photography ${photographerSlots === 1 ? 'slot' : 'slots'}`;
   }
-  return `${roles.length} open crew roles`;
+  return `${roles.length} crew roles offered`;
 }
 
 function eventScheduleTimeline(event) {
@@ -58,7 +58,7 @@ function renderEvents(filter) {
           ${ev.desc ? `<div class="event-description">${escapeHtml(ev.desc)}</div>` : ''}
           ${livestreamSetupCaption(ev) ? `<div class="event-setup-note">${escapeHtml(livestreamSetupCaption(ev))}</div>` : ''}
           ${eventRoleSetupCaption(ev) ? `<div class="event-open-role-caption"><span></span>${escapeHtml(eventRoleSetupCaption(ev))}</div>` : ''}
-          <div class="event-signup-count">${ev.signups.length} ${ev.signups.length === 1 ? 'crew signup' : 'crew signups'}</div>
+          ${!past && typeof crewEventOpportunityHtml === 'function' ? crewEventOpportunityHtml(ev) : `<div class="event-signup-count">${ev.signups.length} crew signups</div>`}
           <div class="event-card-actions">
             ${past
               ? '<span class="text-muted">This event has ended.</span>'

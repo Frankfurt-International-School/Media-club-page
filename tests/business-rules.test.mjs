@@ -1320,7 +1320,7 @@ test('reservation policies require approved ownership and keep camera-lens kits 
   assert.match(policiesSql, /revoke delete on table public\.equipment_reservations from anon, authenticated/);
   assert.doesNotMatch(policiesSql, /create policy "Users can cancel equipment reservations"/);
   assert.match(appSource, /supabaseClient\.rpc\('create_camera_kit_reservation'/);
-  assert.match(appSource, /if \(type === 'event'\)[\s\S]*?activePhotographerSignup\(event, member\.id\)/);
+  assert.match(appSource, /if \(type === 'event'\)[\s\S]*?activePhotographerSignup\(event, member\.id, Date\.now\(\), \{ start, end \}\)/);
   assert.match(appSource, /Reserve only inside your Photographer signup time for the selected event\./);
   assert.match(policiesSql, /revoke all on function public\.create_camera_kit_reservation\([^)]+\) from public, anon/);
   assert.match(appSource, /supabaseClient\.rpc\('cancel_equipment_reservation_group'/);

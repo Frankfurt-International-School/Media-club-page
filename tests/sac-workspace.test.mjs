@@ -232,6 +232,9 @@ test('claim confirmation waits until the saved booking is visible on the sheet',
   let finishRefresh;
   const messages = [];
   const context = {
+    window: { CREW_CENTER_AUTH_USER: { id: 'account' } },
+    document: { getElementById: () => null, querySelector: () => null },
+    currentCrewCenterWorkspace: () => 'sac', sacSignupTimeRange: () => '12:00–12:30',
     canClaimSacSlot: () => true,
     sacSignupsState: { selectedEventId: 'event', events: [{id: 'event', scoreboard_spots: 2}], signups: [], memberBookings: [], bookingsReady: true, bookingsMemberId: 'me' },
     generateSacSlots: () => [{start: '2026-10-01T10:00:00Z', end: '2026-10-01T10:30:00Z'}],

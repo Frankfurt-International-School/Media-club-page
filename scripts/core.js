@@ -351,7 +351,8 @@ function renderSignupRoleOptions(ev) {
   const availableRoleKeys = currentUserSignupRoleKeys().filter(key => openRoles.includes(signupRoleLabels[key]));
   select.innerHTML = '<option value="" disabled selected>Choose a production role</option>' + availableRoleKeys.map(key => {
     const label = signupRoleLabels[key];
-    const sameRole = (ev?.signups || []).filter(signup => signup.role === label);
+    const signups = typeof activeCrewSignups === 'function' ? activeCrewSignups(ev) : ev?.signups || [];
+    const sameRole = signups.filter(signup => signup.role === label);
     const overlapping = sameRole.filter(signup => signupOverlaps(signup, attendance));
     const capacity = eventRoleCapacity(ev, label);
     const occupied = overlapping.length >= capacity;
@@ -1153,12 +1154,16 @@ function subscribeToCrewCenterChanges() {
     if (sacSignupsState.mutationInFlight) return;
     const page = document.querySelector('.page.active')?.id;
     if (page === 'page-sac-home') renderSacDashboard();
+    if (page === 'page-sac-events') renderSacEvents();
     if (page === 'page-sac-signups') renderSacSignups(true);
     if (page === 'page-sac-my-shifts') renderSacMyShifts();
   });
   ['sac_events', 'sac_meetings'].forEach(table => {
     channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-      if (currentCrewCenterWorkspace() === 'sac' && document.querySelector('.page.active')?.id === 'page-sac-home') renderSacDashboard();
+      if (currentCrewCenterWorkspace() !== 'sac') return;
+      const page = document.querySelector('.page.active')?.id;
+      if (page === 'page-sac-home') renderSacDashboard();
+      if (table === 'sac_events' && page === 'page-sac-events') renderSacEvents();
     });
   });
   window.CREW_CENTER_REALTIME_CHANNEL = channel.subscribe();

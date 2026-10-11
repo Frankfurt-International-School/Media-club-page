@@ -275,7 +275,7 @@ function paintSacSignupSheet() {
     ? `<section class="sac-signup-warning" role="alert"><strong>Event schedule changed — ${orphaned.length} booking${orphaned.length === 1 ? '' : 's'} need review</strong><p>These existing bookings no longer match the current event window. They were kept so members can see and cancel them; choose a new shift after cancelling.</p>${orphaned.map(booking => `<div>${escapeHtml(booking.member_name_snapshot)} · ${escapeHtml(formatBerlinDateTime(booking.slot_start, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))} <button class="sac-signup-cancel" type="button" data-sac-cancel-id="${escapeHtml(booking.id)}" ${isAdmin || booking.member_id === ownId ? '' : 'hidden'}>Cancel booking</button></div>`).join('')}</section>`
     : '';
   const planner = canClaim ? `<section class="sac-planner" aria-label="Shift planner"><div class="sac-planner-summary" id="sac-planner-summary"></div><div class="sac-planner-controls"><div class="sac-planner-filters" role="group" aria-label="Filter shift times">${[['all','All times'],['available','Bookable'],['booked',isAdmin ? 'Member bookings' : 'My bookings']].map(([value,label]) => `<button class="btn btn-ghost btn-sm" type="button" data-sac-slot-filter="${value}" aria-pressed="${sacSignupsState.slotFilter === value}">${label}</button>`).join('')}</div><button class="btn btn-ghost btn-sm" id="sac-planner-retry" type="button" data-sac-availability-retry hidden>Retry availability</button></div><p id="sac-planner-status" role="status"></p></section>` : '';
-  content.innerHTML = `${intro}${access}${changedSchedule}${planner}<div class="sac-signup-grid">${rows}</div>${canClaim ? '<div class="empty-state" id="sac-planner-empty" role="status" hidden></div>' : ''}`;
+  content.innerHTML = `${intro}${access}${changedSchedule}<div class="sac-booking-feedback" id="sac-booking-feedback" role="status" aria-live="polite"></div>${planner}<div class="sac-signup-grid">${rows}</div>${canClaim ? '<div class="empty-state" id="sac-planner-empty" role="status" hidden></div>' : ''}`;
   if (isAdmin) paintSacSignupMemberMatches();
   if (canClaim) paintSacSignupActions();
 }
@@ -481,25 +481,45 @@ async function claimSacSignupSlot(slotStart, button) {
     showToast('This time is not bookable. Check the planner or retry availability.', 'error'); return;
   }
   sacSignupsState.mutationInFlight = true;
+  const actor = window.CREW_CENTER_AUTH_USER?.id;
+  const eventId = sacSignupsState.selectedEventId;
+  const restoreFocus = document.activeElement === button;
+  const feedback = message => {
+    const node = document.getElementById('sac-booking-feedback');
+    if (node) node.textContent = message;
+  };
   const originalLabel = button.textContent;
   button.disabled = true;
   button.textContent = 'Saving…';
+  document.getElementById('sac-booking-feedback')?.setAttribute('role', 'status');
+  feedback(`Saving ${sacSignupTimeRange(slot)}…`);
   try {
     const { error } = await supabaseClient.rpc('claim_sac_scoreboard_slot', {
       p_event_id: sacSignupsState.selectedEventId,
       p_slot_start: slotStart,
       p_member_id: canAddMembers() ? memberId : null,
     });
+    if (actor !== window.CREW_CENTER_AUTH_USER?.id || currentCrewCenterWorkspace() !== 'sac' || sacSignupsState.selectedEventId !== eventId) return;
     if (error) throw error;
-    if (await renderSacSignups(true)) {
+    const refreshed = await renderSacSignups(true);
+    if (actor !== window.CREW_CENTER_AUTH_USER?.id || currentCrewCenterWorkspace() !== 'sac' || sacSignupsState.selectedEventId !== eventId) return;
+    if (refreshed) {
       const member = canAddMembers() ? sacSignupMembers().find(item => item.id === memberId) : null;
       showToast(member ? `Booked for ${member.name} — they are on the sheet.` : 'Booked — your name is on the sheet.');
+      feedback(`${sacSignupTimeRange(slot)} booked${member ? ` for ${member.name}` : ''}. Find this booking in My shifts or cancel it on the sheet.`);
+      const savedSlot = document.querySelector(`[data-sac-slot-index="${generateSacSlots(event).findIndex(item => item.start === slot.start)}"]`);
+      savedSlot?.classList.add('booking-saved');
+      if (restoreFocus && savedSlot) { savedSlot.setAttribute('tabindex', '-1'); savedSlot.focus({ preventScroll: true }); }
     }
     else showToast('Spot saved, but the sheet could not refresh. Reload to confirm.', 'error', 7000);
   } catch (error) {
+    if (actor !== window.CREW_CENTER_AUTH_USER?.id || currentCrewCenterWorkspace() !== 'sac' || sacSignupsState.selectedEventId !== eventId) return;
     button.disabled = false;
     button.textContent = originalLabel;
     showToast(error?.message || 'Could not claim this spot.', 'error', 7000);
+    const status = document.getElementById('sac-booking-feedback');
+    status?.setAttribute('role', 'alert');
+    feedback('Could not confirm this booking. Check availability and retry; if your connection dropped, check My shifts first.');
   } finally {
     sacSignupsState.mutationInFlight = false;
   }

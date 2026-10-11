@@ -20,7 +20,10 @@ function showSignupFormError(message, fieldIds = []) {
     const error = document.getElementById(`${id}-error`);
     if (error) error.textContent = message;
   });
-  const first = document.getElementById(fieldIds[0]);
+  const first = fieldIds[0] === 'signup-attendance'
+    ? document.querySelector('[data-signup-window][aria-pressed="true"]') || document.getElementById('signup-attendance')
+    : document.getElementById(fieldIds[0]);
+  if (fieldIds[0] === 'signup-attendance') first?.setAttribute('aria-invalid', 'true');
   first?.focus({ preventScroll: true });
   first?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
@@ -28,6 +31,10 @@ function showSignupFormError(message, fieldIds = []) {
 function setMediaSignupBusy(pending) {
   const button = document.getElementById('signup-submit');
   if (button) button.disabled = pending;
+  const eventSelect = document.getElementById('sheet-event-select');
+  if (eventSelect) eventSelect.disabled = pending;
+  const fields = document.getElementById('signup-fields');
+  if (fields) fields.disabled = pending;
   document.getElementById('signup-entry-card')?.setAttribute('aria-busy', String(pending));
   const label = document.getElementById('signup-submit-label');
   if (label) label.textContent = pending ? 'Saving…' : document.getElementById('signup-confirmation')?.value === 'maybe' ? 'Save Maybe signup' : 'Confirm signup';
@@ -80,6 +87,76 @@ function initSignupSheet() {
   const preferredEventId = requestedEventId || previousEventId;
   if (upcomingEvents.some(event => event.id === preferredEventId)) sel.value = preferredEventId;
   renderSignupSheet();
+  applySignupIntent();
+}
+
+let appliedSignupIntent = '';
+function applySignupIntent() {
+  const params = new URLSearchParams(window.location.search);
+  const event = state.events.find(item => item.id === params.get('event'));
+  const key = `${window.CREW_CENTER_AUTH_USER?.id || ''}:${window.CREW_CENTER_AUTH_EPOCH || 0}|${params.get('event')}|${params.get('attendance')}|${params.get('role')}`;
+  if (!event || key === appliedSignupIntent) return;
+  appliedSignupIntent = key;
+  const attendance = document.getElementById('signup-attendance');
+  const choice = [...attendance.options].find(option => option.value === params.get('attendance') && !option.disabled);
+  if (choice) { attendance.value = choice.value; updateSignupAttendanceFields(); }
+  else if (params.get('attendance')) {
+    const help = document.getElementById('signup-attendance-guidance');
+    if (help) help.textContent = 'The requested period is no longer available. Choose another time.';
+  }
+  const role = document.getElementById('signup-role');
+  const roleChoice = [...role.options].find(option => option.value === params.get('role') && !option.disabled);
+  if (roleChoice) { role.value = roleChoice.value; updateReserveRoleFields(); }
+  else if (params.get('role')) {
+    role.value = '';
+    updateReserveRoleFields();
+    const help = document.getElementById('signup-role-availability');
+    if (help) { help.textContent = 'That opening has changed. Choose an available role for your time.'; help.hidden = false; }
+  }
+  renderSignupBookingSummary();
+}
+
+function activeCrewSignups(event, now = Date.now()) {
+  return (event?.signups || []).filter(signup => signup.confirmationStatus !== 'expired'
+    && !(signup.confirmationStatus === 'maybe' && signup.confirmationDeadline && Date.parse(signup.confirmationDeadline) <= now));
+}
+
+// Booking capacity uses overlapping holds; coverage measures every part of a period.
+// A partial signup must never make an entire period look confirmed.
+function crewRoleCoverage(event, role, window, now = Date.now()) {
+  const capacity = eventRoleCapacity(event, role);
+  const signups = activeCrewSignups(event, now).filter(signup => signup.role === role && signupOverlaps(signup, window));
+  const points = [...new Set([window.start, window.end, ...signups.flatMap(signup => [Date.parse(signup.attendanceStart), Date.parse(signup.attendanceEnd)])
+    .filter(point => Number.isFinite(point) && point > window.start && point < window.end)])].sort((a, b) => a - b);
+  let confirmed = capacity;
+  for (let index = 0; index < points.length - 1; index++) {
+    const segment = { start: points[index], end: points[index + 1] };
+    confirmed = Math.min(confirmed, signups.filter(signup => signup.confirmationStatus !== 'maybe' && signupOverlaps(signup, segment)).length);
+  }
+  return { role, capacity, confirmed, open: Math.max(0, capacity - signups.length), pending: signups.filter(signup => signup.confirmationStatus === 'maybe').length };
+}
+
+function crewEventOpportunity(event, now = Date.now()) {
+  const choices = signupAttendanceChoices(event).filter(choice => !choice.custom && !choice.roleFree
+    && (event.isFestival ? choice.type.startsWith('shift_') : event.isSports || event.isIsst ? choice.type.startsWith('game_') : choice.type === 'whole'));
+  const roles = eventOpenRoleLabels(event);
+  const allowed = new Set(currentUserSignupRoleKeys().map(key => signupRoleLabels[key]));
+  const periods = choices.map(choice => ({ ...choice, window: signupChoiceWindow(event, choice) })).filter(choice => choice.window?.end > now);
+  const coverage = periods.flatMap(period => roles.map(role => ({ ...crewRoleCoverage(event, role, period.window, now), period })));
+  const opening = coverage.find(item => item.open > 0 && allowed.has(item.role));
+  const pending = activeCrewSignups(event, now).filter(signup => signup.confirmationStatus === 'maybe').length;
+  const confirmed = activeCrewSignups(event, now).length - pending;
+  if (opening) return { ...opening, pending, confirmed, label: `${opening.open} ${opening.role} ${opening.open === 1 ? 'place' : 'places'} open`, href: pageUrl('signup', { event: event.id, attendance: opening.period.type, role: opening.role }) };
+  const partial = coverage.some(item => item.confirmed < item.capacity);
+  return { pending, confirmed, label: pending ? `${pending} Maybe ${pending === 1 ? 'signup' : 'signups'} to confirm` : coverage.some(item => item.open > 0) ? 'More crew places available' : partial ? 'Partial period coverage' : coverage.length ? 'All crew places confirmed' : '', href: pageUrl('signup', { event: event.id }) };
+}
+
+function crewEventOpportunityHtml(event) {
+  const opportunity = crewEventOpportunity(event);
+  if (!opportunity.label) return '';
+  const period = opportunity.period;
+  const content = `<strong>${escapeHtml(opportunity.label)}</strong>${period ? `<span>${escapeHtml(period.label.replace(/ \(.+\)$/, ''))} · ${escapeHtml(period.startTime)}–${escapeHtml(period.endTime)}</span>` : ''}<small>${opportunity.confirmed} confirmed${opportunity.pending ? ` · ${opportunity.pending} Maybe` : ''}</small>`;
+  return isVisitorSession() ? `<div class="crew-opportunity">${content}</div>` : `<a class="crew-opportunity" href="${escapeHtml(opportunity.href)}">${content}<span class="crew-opportunity-arrow" aria-hidden="true">→</span></a>`;
 }
 
 function signupAttendanceChoices(ev) {
@@ -133,7 +210,8 @@ function signupRoleAvailability(ev, attendance) {
     .filter(role => openRoles.includes(role))
     .map(role => {
       const capacity = eventRoleCapacity(ev, role);
-      const occupied = (ev.signups || []).filter(signup => signup.role === role && signupOverlaps(signup, attendance)).length;
+      const signups = typeof activeCrewSignups === 'function' ? activeCrewSignups(ev) : ev.signups || [];
+      const occupied = signups.filter(signup => signup.role === role && signupOverlaps(signup, attendance)).length;
       return { role, capacity, occupied, open: Math.max(0, capacity - occupied) };
     });
 }
@@ -218,7 +296,7 @@ function renderSignupSheetPeriodPicker(ev, periods, selectedPeriod) {
         const staffing = period.roleFree
           ? 'No role required'
           : status.totalSlots
-            ? status.openSlots === 0 ? 'Fully staffed' : `${status.openSlots} open`
+            ? status.openSlots === 0 ? 'All places held' : `${status.openSlots} open`
             : 'Crew view';
         return `<button type="button" class="signup-sheet-period-button${active ? ' active' : ''}" id="sheet-period-tab-${period.type}" aria-pressed="${active}" aria-controls="sheet-table" onclick="selectSignupSheetPeriod('${period.type}')"><strong>${escapeHtml(period.label.replace(/ \(.+\)$/, ''))}</strong><span>${escapeHtml(period.startTime)}–${escapeHtml(period.endTime)}</span><small>${status.signups.length} crew · ${staffing}</small></button>`;
       }).join('')}
@@ -230,26 +308,31 @@ function renderSignupWindowAvailability(ev) {
   const container = document.getElementById('signup-window-picker');
   if (!container) return;
   const selected = document.getElementById('signup-attendance')?.value || '';
-  const choices = signupAttendanceAvailability(ev).filter(choice => !choice.custom);
-  if (choices.length <= 1) {
+  const focusedWindow = document.activeElement?.dataset?.signupWindow;
+  const choices = signupAttendanceAvailability(ev);
+  if (!ev) {
     container.innerHTML = '';
     return;
   }
   container.innerHTML = `
-    <div class="signup-window-picker-head"><strong>Choose a period</strong><span>Full periods stay visible so you can move to the next opening.</span></div>
-    <div class="signup-window-options">${choices.map(choice => `
-      <button type="button" class="signup-window-option${choice.type === selected ? ' active' : ''}${choice.isFull ? ' full' : ''}" onclick="selectSignupAttendanceWindow('${choice.type}')" ${choice.isFull ? 'disabled' : ''} aria-pressed="${choice.type === selected}">
+    <div class="signup-window-picker-head"><strong>1 · Choose your time</strong><span>Berlin time · select one option</span></div>
+    <div class="signup-window-options" role="group" aria-label="Attendance period" aria-describedby="signup-attendance-guidance signup-attendance-error">${choices.map(choice => `
+      <button type="button" class="signup-window-option${choice.type === selected ? ' active' : ''}${choice.isFull ? ' full' : ''}" data-signup-window="${choice.type}" onclick="selectSignupAttendanceWindow('${choice.type}')" ${choice.isFull ? 'disabled' : ''} aria-pressed="${choice.type === selected}">
         <strong>${escapeHtml(choice.label.replace(/ \(.+\)$/, ''))}</strong>
-        <span>${escapeHtml(choice.startTime)}–${escapeHtml(choice.endTime)}</span>
-        <small>${choice.roleFree ? 'No role required' : choice.isFull ? 'Fully staffed' : `${choice.openSlots} role ${choice.openSlots === 1 ? 'place' : 'places'} open`}</small>
+        <span>${choice.custom ? 'Set your times' : `${escapeHtml(choice.startTime)}–${escapeHtml(choice.endTime)}`}</span>
+        <small>${choice.custom ? 'Choose a shorter window' : choice.roleFree ? 'No role required' : choice.isFull ? 'All places held' : `${choice.openSlots} role ${choice.openSlots === 1 ? 'place' : 'places'} open`}</small>
       </button>`).join('')}</div>`;
+  if (focusedWindow) (container.querySelector(`[data-signup-window="${focusedWindow}"]:not(:disabled)`) || container.querySelector('[aria-pressed="true"]:not(:disabled)') || container.querySelector('button:not(:disabled)'))?.focus({ preventScroll: true });
 }
 
 function selectSignupAttendanceWindow(type) {
   const select = document.getElementById('signup-attendance');
   if (!select || ![...select.options].some(option => option.value === type && !option.disabled)) return;
   select.value = type;
+  clearSignupFormErrors();
   updateSignupAttendanceFields();
+  document.querySelector(`[data-signup-window="${type}"]`)?.focus({ preventScroll: true });
+  renderSignupBookingSummary();
 }
 
 function renderSignupAttendanceOptions(ev) {
@@ -463,7 +546,7 @@ function renderSignupSheet() {
   const pct = capacity.totalSlots ? Math.round((capacity.totalSlots - capacity.openSlots) / capacity.totalSlots * 100) : 0;
   document.getElementById('sheet-progress').style.width = `${pct}%`;
   document.getElementById('sheet-cap-badge').innerHTML = capacity.totalSlots && capacity.openSlots === 0
-    ? `<span class="badge badge-coral">${escapeHtml(selectedPeriod?.label || 'Event')} staffed</span>`
+    ? `<span class="badge badge-coral">No open places</span>`
     : capacity.totalSlots
       ? `<span class="badge badge-green">${capacity.openSlots} ${capacity.openSlots === 1 ? 'role place' : 'role places'} open</span>`
       : '';
@@ -600,7 +683,8 @@ async function addSignupRow() {
     showSignupFormError('Maybe signups close two hours before the event starts. Please confirm now or leave the role open.', ['signup-confirmation']);
     return;
   }
-  const overlappingRoleSignups = ev.signups.filter(signup => signup.role === role && signupOverlaps(signup, attendance));
+  const relevantSignups = typeof activeCrewSignups === 'function' ? activeCrewSignups(ev) : ev.signups;
+  const overlappingRoleSignups = relevantSignups.filter(signup => signup.role === role && signupOverlaps(signup, attendance));
   const roleCapacity = eventRoleCapacity(ev, role);
   if (!roleFreeAttendance && overlappingRoleSignups.length >= roleCapacity) {
     showSignupFormError(`${roleCapacity > 1 ? 'All slots are' : 'Slot is'} occupied for ${role} during that time.`, ['signup-role']);
@@ -624,6 +708,7 @@ async function addSignupRow() {
     }
   }
   const actorId = window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id;
+  const restoreFocus = document.activeElement === document.getElementById('signup-submit');
   mediaSignupSaveInFlight = true;
   setMediaSignupBusy(true);
   try {
@@ -686,7 +771,11 @@ async function addSignupRow() {
     showToast(confirmationStatus === 'maybe' ? `${member.name} is tentatively signed up. Confirm before the deadline.` : `${member.name} signed up for ${ev.title}!`);
     renderSignupSheet();
     const status = document.getElementById('signup-submit-status');
-    if (status) status.textContent = `${confirmationStatus === 'maybe' ? 'Tentative signup saved' : 'Confirmed signup saved'} for ${ev.title}. Your booking is now on the sheet.`;
+    if (status) {
+      status.textContent = `${confirmationStatus === 'maybe' ? 'Tentative signup saved' : 'Confirmed signup saved'} for ${ev.title}. Your booking is now on the crew sheet.`;
+      status.insertAdjacentHTML?.('beforeend', ` <a href="${escapeHtml(pageUrl('my-crew-schedule'))}">View my schedule →</a>${role === signupRoleLabels.photographer && equipmentSource === 'club' ? ` <a href="${escapeHtml(pageUrl('equipment', { event: ev.id, start: attendance.startTime, end: attendance.endTime }))}">Reserve a camera kit →</a>` : ''}`);
+      if (restoreFocus) { status.setAttribute('tabindex', '-1'); status.focus({ preventScroll: true }); }
+    }
   } catch (_error) {
     if ((window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id) === actorId) showSignupFormError("Couldn't save signup. Check your connection and try again; your choices have been kept.");
   } finally {

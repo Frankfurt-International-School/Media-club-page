@@ -547,34 +547,20 @@
       <div class="page-hero-copy">
         <div class="page-kicker">Crew assignments</div>
         <div class="page-title">Sign-up Sheets</div>
-        <div class="page-sub">Google Sheets–style event sign-ups. Select an event and claim your slot.</div>
+        <div class="page-sub">Choose your time and role, then confirm. Your booking appears on the crew sheet below.</div>
       </div>
     </section>
     <div class="form-group" style="max-width:360px;">
-      <label class="form-label">Select event</label>
+      <label class="form-label" for="sheet-event-select">Select event</label>
       <select class="form-select" id="sheet-event-select" onchange="renderSignupSheet()"></select>
     </div>
     <div class="sac-linked-callout" id="sheet-sac-linked" hidden aria-live="polite"></div>
-    <div class="card mb16 signup-sheet-card">
-      <div class="flex-between mb12 signup-sheet-summary">
-        <div>
-          <div style="font-size:14px;font-weight:500;color:var(--text)" id="sheet-event-title">—</div>
-          <div class="text-muted" id="sheet-event-time">—</div>
-          <div class="text-muted" id="sheet-event-cap">— slots</div>
-        </div>
-        <div id="sheet-cap-badge"></div>
-      </div>
-      <div class="progress-bar mb12"><div class="progress-fill" id="sheet-progress" style="width:0%"></div></div>
-      <div class="signup-sheet-period-picker" id="signup-sheet-period-picker" aria-live="polite"></div>
-      <table class="sheet-table responsive-sheet-table" id="sheet-table"></table>
-    </div>
-    <div class="card signup-entry-card" id="signup-entry-card">
+    <div class="card mb16 signup-entry-card" id="signup-entry-card">
       <div class="signup-entry-head">
         <div class="signup-entry-title">Join this event</div>
         <div class="signup-entry-sub" id="signup-entry-subtitle">Choose your time and role, review the details below, then confirm your signup.</div>
       </div>
-      <div class="signup-window-picker" id="signup-window-picker" aria-live="polite"></div>
-      <div class="signup-entry-grid" id="signup-entry-grid">
+      <fieldset class="signup-fields" id="signup-fields"><legend class="visually-hidden">Your signup choices</legend>
         <div class="form-group signup-field" id="signup-member-field">
           <label class="form-label" for="signup-name">Member</label>
           <input class="form-input" id="signup-name" autocomplete="off" placeholder="Type a member name or FIS email" aria-controls="signup-member-matches" aria-describedby="signup-name-help signup-name-error" oninput="clearSignupNameValidation()" />
@@ -582,9 +568,10 @@
           <div class="signup-name-help" id="signup-name-help">Type a name or FIS email, then choose the correct member.</div>
           <div class="signup-field-error" id="signup-name-error"></div>
         </div>
+      <div class="signup-entry-grid" id="signup-entry-grid">
         <div class="form-group signup-field attendance-choice" id="signup-attendance-choice">
-          <label class="form-label" for="signup-attendance">Staying for</label>
-          <div class="signup-select-shell"><select class="form-select" id="signup-attendance" aria-describedby="signup-attendance-guidance signup-attendance-error" onchange="updateSignupAttendanceFields()"></select></div>
+          <div class="signup-window-picker" id="signup-window-picker"></div><label class="visually-hidden" for="signup-attendance">Selected period</label>
+          <div class="signup-select-shell signup-native-time"><select class="form-select" id="signup-attendance" tabindex="-1" aria-describedby="signup-attendance-guidance signup-attendance-error" onchange="updateSignupAttendanceFields()"></select></div>
           <div class="signup-name-help" id="signup-attendance-guidance"></div>
           <div class="signup-field-error" id="signup-attendance-error"></div>
           <div class="form-row2 signup-custom-inline" id="signup-custom-time-fields" style="display:none;">
@@ -593,7 +580,7 @@
           </div>
         </div>
         <div class="form-group signup-field" id="signup-role-group">
-          <label class="form-label" for="signup-role">Production role</label>
+          <label class="form-label signup-step-title" for="signup-role">2 · Choose your role</label>
           <div class="signup-select-shell"><select class="form-select" id="signup-role" aria-describedby="signup-role-availability signup-role-error" onchange="updateReserveRoleFields();validateSignupNameInput(false)"></select></div>
           <div class="signup-name-help" id="signup-role-availability" role="status" hidden></div>
           <div class="signup-field-error" id="signup-role-error"></div>
@@ -626,11 +613,26 @@
           <span><strong>Cover MIXING and OBS if needed</strong><small>If OBS is still unclaimed 10 minutes before this Lower or Upper Field game, you will cover both MIXING and OBS for your attendance window. A direct OBS signup always takes precedence.</small></span>
         </label>
       </div>
-      <section class="signup-booking-summary" aria-labelledby="signup-booking-title"><div class="signup-booking-head"><h3 id="signup-booking-title">Review your signup</h3><span>Preview · not saved yet</span></div><dl class="signup-booking-details" id="signup-booking-details"></dl><div id="signup-personal-conflict" aria-live="polite"></div></section>
+      </fieldset>
+      <section class="signup-booking-summary" aria-labelledby="signup-booking-title"><div class="signup-booking-head"><h3 id="signup-booking-title">3 · Review & confirm</h3><span>Preview · not saved yet</span></div><dl class="signup-booking-details" id="signup-booking-details"></dl><div id="signup-personal-conflict" aria-live="polite"></div></section>
       <div class="signup-entry-actions"><div id="signup-submit-status" role="status" aria-live="polite"></div><button class="btn btn-accent" type="button" id="signup-submit" onclick="addSignupRow()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span id="signup-submit-label">Confirm signup</span>
         </button></div>
+    </div>
+    <div class="card signup-sheet-card">
+      <div class="signup-entry-head"><h2 class="signup-entry-title">Crew sheet</h2><p class="signup-entry-sub">See who is covering each period. Maybe holds still need confirmation.</p></div>
+      <div class="flex-between mb12 signup-sheet-summary">
+        <div>
+          <div style="font-size:14px;font-weight:500;color:var(--text)" id="sheet-event-title">—</div>
+          <div class="text-muted" id="sheet-event-time">—</div>
+          <div class="text-muted" id="sheet-event-cap">— slots</div>
+        </div>
+        <div id="sheet-cap-badge"></div>
+      </div>
+      <div class="progress-bar mb12"><div class="progress-fill" id="sheet-progress" style="width:0%"></div></div>
+      <div class="signup-sheet-period-picker" id="signup-sheet-period-picker" aria-live="polite"></div>
+      <table class="sheet-table responsive-sheet-table" id="sheet-table"></table>
     </div>
   </div>
 
@@ -711,13 +713,22 @@
           Add equipment
         </button></div>
     </section>
+    <section class="equipment-context-bar" aria-label="Check equipment availability">
+      <div class="equipment-context-choice"><label class="form-label" for="equipment-context">Check for</label><select class="form-select" id="equipment-context" onchange="changeEquipmentBrowseContext()"><option value="now">Availability now</option><option value="custom">Choose a date &amp; time</option></select></div>
+      <div class="equipment-context-times" id="equipment-context-times" hidden>
+        <div id="equipment-context-date-group"><label class="form-label" for="equipment-context-date">Date</label><input class="form-input" type="date" id="equipment-context-date" onchange="renderEquipment()"></div>
+        <div><label class="form-label" for="equipment-context-start">From</label><input class="form-input" type="time" id="equipment-context-start" onchange="renderEquipment()"></div>
+        <div><label class="form-label" for="equipment-context-end">Until</label><input class="form-input" type="time" id="equipment-context-end" onchange="renderEquipment()"></div>
+      </div>
+      <p class="equipment-context-hint" id="equipment-context-hint" role="status"></p>
+    </section>
     <div class="filter-row" id="equipment-filters">
       <input class="form-input" id="equipment-search" style="max-width:260px;" placeholder="Search equipment" oninput="renderEquipment()" />
       <select class="form-select" id="equipment-category-filter" style="max-width:220px;" onchange="renderEquipment()">
         <option value="all">All categories</option><option>Recording Cameras</option><option>Camera</option><option>Lens</option><option>Tripod</option><option>Microphone</option><option>Accessories</option><option>Other</option>
       </select>
       <select class="form-select" id="equipment-status-filter" style="max-width:190px;" onchange="renderEquipment()">
-        <option value="all">All statuses</option><option value="available">Available</option><option value="checked_out">Checked out</option><option value="unavailable">Unavailable</option>
+        <option value="all">All statuses</option><option value="available">Available for selected time</option><option value="reserved">Reserved for selected time</option><option value="checked_out">Checked out now</option><option value="unavailable">Unavailable</option>
       </select>
     </div>
     <div class="my-equipment-reservations" id="my-equipment-reservations" style="display:none;"></div>
@@ -1015,7 +1026,7 @@
         <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-11">11 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Restored SAC title spacing and added actionable club announcements, a clearer notification inbox, and a shared weekly schedule.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <ul class="crew-update-list"><li>Improved announcements and the inbox, added My week and crew-opening hints, and made equipment reservations and signup clearer.</li><li>Fixed minor issues and improved user experience.</li></ul>
         <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">2 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-10">10 October 2026</time></header><ul class="crew-update-list"><li>Refreshed themes and Settings, with smoother update history and typed introductions on the public site.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
@@ -1503,24 +1514,28 @@
 </div>
 
 <!-- Reserve Equipment Modal -->
-<div class="modal-backdrop" id="equip-reserve-modal">
+<div class="modal-backdrop" id="equip-reserve-modal" aria-labelledby="reserve-equipment-title">
   <div class="modal equipment-reservation-modal" style="position:relative;">
-    <button class="modal-close" onclick="closeModal('equip-reserve-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    <div class="modal-title">Reserve equipment</div>
+    <button type="button" aria-label="Close reservation" class="modal-close" onclick="closeModal('equip-reserve-modal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="modal-title" id="reserve-equipment-title">Reserve equipment</div>
     <div class="modal-sub" id="reserve-equipment-name">Choose when you need this item.</div>
-    <div class="form-group"><label class="form-label">Use</label><select class="form-select" id="reserve-type" onchange="updateReservationFields()"><option value="event">During an event</option><option value="non_event">Not during an event</option></select></div>
-    <div class="form-group" id="reserve-event-group"><label class="form-label">Event</label><select class="form-select" id="reserve-event" onchange="prefillEventReservationTimes()"></select><div class="reservation-photographer-match" id="reserve-photographer-match" hidden></div></div>
-    <div class="form-group" id="reserve-date-group" style="display:none;"><label class="form-label">Date</label><input class="form-input" id="reserve-date" type="date" onchange="renderReservationLensOptions()" /></div>
-    <div class="form-group" id="reserve-purpose-group" style="display:none;"><label class="form-label">Purpose *</label><textarea class="form-textarea" id="reserve-purpose" placeholder="Explain what the equipment will be used for"></textarea></div>
+    <fieldset class="reservation-fields" id="equipment-reservation-fields"><legend class="visually-hidden">Reservation details</legend>
+    <div class="form-group"><label class="form-label" for="reserve-type">Use</label><select class="form-select" id="reserve-type" onchange="updateReservationFields()"><option value="event">During an event</option><option value="non_event">Not during an event</option></select></div>
+    <div class="form-group" id="reserve-event-group"><label class="form-label" for="reserve-event">Event</label><select class="form-select" id="reserve-event" onchange="prefillEventReservationTimes()"></select><div class="reservation-photographer-match" id="reserve-photographer-match" hidden></div></div>
+    <div class="form-group" id="reserve-date-group" style="display:none;"><label class="form-label" for="reserve-date">Date</label><input class="form-input" id="reserve-date" type="date" onchange="renderReservationLensOptions()" /></div>
+    <div class="form-group" id="reserve-purpose-group" style="display:none;"><label class="form-label" for="reserve-purpose">Purpose *</label><textarea class="form-textarea" id="reserve-purpose" placeholder="Explain what the equipment will be used for"></textarea></div>
+    <div class="form-row2">
+      <div class="form-group"><label class="form-label" for="reserve-start">Start time</label><input class="form-input" id="reserve-start" type="time" onchange="renderReservationLensOptions()" /></div>
+      <div class="form-group"><label class="form-label" for="reserve-end">End time</label><input class="form-input" id="reserve-end" type="time" onchange="renderReservationLensOptions()" /></div>
+    </div>
     <section class="reservation-lens-system" id="reserve-lens-system" hidden>
       <div class="reservation-lens-heading"><div><span class="reservation-lens-signal"></span><strong>Compatible lens required</strong></div><span id="reserve-lens-compatibility">CAMERA LINK</span></div>
       <p id="reserve-lens-help">Select one available lens matched to this camera body.</p>
       <div class="reservation-lens-grid" id="reserve-lens-grid"></div>
     </section>
-    <div class="form-row2">
-      <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="reserve-start" type="time" onchange="renderReservationLensOptions()" /></div>
-      <div class="form-group"><label class="form-label">End time</label><input class="form-input" id="reserve-end" type="time" onchange="renderReservationLensOptions()" /></div>
-    </div>
+    </fieldset>
+    <div class="reservation-review" id="reserve-equipment-review" role="status"></div>
+    <p class="reservation-feedback" id="reserve-equipment-status" role="status" aria-live="polite"></p>
     <button class="btn btn-accent" id="reserve-equipment-submit" style="width:100%;" onclick="reserveEquipment()">Reserve</button>
   </div>
 </div>

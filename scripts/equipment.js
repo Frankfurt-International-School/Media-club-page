@@ -1,6 +1,101 @@
 // ══════════════════════════════
 // EQUIPMENT
 // ══════════════════════════════
+let equipmentBrowseActor = '';
+let equipmentBrowseIntent = '';
+let equipmentReservationInFlight = false;
+
+function equipmentBookingActor() {
+  return `${window.CREW_CENTER_AUTH_USER?.id || ''}:${currentMemberRecord()?.id || ''}:${window.CREW_CENTER_AUTH_EPOCH || 0}`;
+}
+
+function syncEquipmentBrowseContext() {
+  const select = document.getElementById('equipment-context');
+  if (!select) return;
+  const actor = equipmentBookingActor();
+  const previous = actor === equipmentBrowseActor ? select.value : 'now';
+  if (actor !== equipmentBrowseActor) equipmentBrowseIntent = '';
+  equipmentBrowseActor = actor;
+  const events = state.events.filter(event => !isPastEvent(event));
+  select.innerHTML = '<option value="now">Availability now</option><option value="custom">Choose a date & time</option>'
+    + events.map(event => `<option value="${escapeHtml(event.id)}">${escapeHtml(event.title)} · ${escapeHtml(fmtDate(event.date))}</option>`).join('');
+  select.value = [...select.options].some(option => option.value === previous) ? previous : 'now';
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('event');
+  const intent = `${requested}|${params.get('start')}|${params.get('end')}`;
+  if (requested && equipmentBrowseIntent !== intent && events.some(event => event.id === requested)) {
+    equipmentBrowseIntent = intent;
+    select.value = requested;
+    prefillEquipmentBrowseWindow();
+    if (/^\d{2}:\d{2}$/.test(params.get('start') || '') && /^\d{2}:\d{2}$/.test(params.get('end') || '')) {
+      document.getElementById('equipment-context-start').value = params.get('start');
+      document.getElementById('equipment-context-end').value = params.get('end');
+    }
+  }
+  document.getElementById('equipment-context-times').hidden = select.value === 'now';
+  document.getElementById('equipment-context-date-group').hidden = select.value !== 'custom';
+}
+
+function prefillEquipmentBrowseWindow() {
+  const event = state.events.find(item => item.id === document.getElementById('equipment-context')?.value);
+  const signup = event && activePhotographerSignup(event, currentMemberRecord()?.id);
+  document.getElementById('equipment-context-date').value = event?.date || berlinDateKey(new Date());
+  document.getElementById('equipment-context-start').value = signup ? localTimeFromIso(signup.attendanceStart) : event?.game1Start || event?.time || '';
+  document.getElementById('equipment-context-end').value = signup ? localTimeFromIso(signup.attendanceEnd) : event?.game4End || event?.game3End || event?.game2End || event?.game1End || event?.endTime || localTimeFromIso(event?.endsAt) || '';
+}
+
+function changeEquipmentBrowseContext() {
+  prefillEquipmentBrowseWindow();
+  renderEquipment();
+}
+
+function equipmentBrowseWindow() {
+  const selection = document.getElementById('equipment-context')?.value || 'now';
+  if (selection === 'now') return null;
+  const event = state.events.find(item => item.id === selection);
+  const date = event?.date || document.getElementById('equipment-context-date')?.value;
+  const startTime = document.getElementById('equipment-context-start')?.value;
+  const endTime = document.getElementById('equipment-context-end')?.value;
+  const start = date && startTime ? timeValue(date, startTime) : NaN;
+  const end = date && endTime ? timeValue(date, endTime) : NaN;
+  return { event, date, startTime, endTime, start, end, valid: Number.isFinite(start) && Number.isFinite(end) && end > start };
+}
+
+function equipmentWindowAvailability(item, window) {
+  const liveStatus = equipmentDisplayStatus(item);
+  // Match the database's unconditional reservation overlap constraint, including history.
+  const conflict = window?.valid && (item.reservations || []).some(reservation => reservationOverlaps(window.start, window.end, reservation.startsAt, reservation.endsAt));
+  const available = liveStatus === 'available' && !conflict && (!window || window.valid);
+  return { available, status: conflict ? 'reserved' : liveStatus, label: window && !window.valid ? 'Choose valid times' : conflict ? 'Reserved for this time' : liveStatus === 'available' && window ? 'Available for this time' : equipmentStatusLabel(liveStatus) };
+}
+
+function equipmentWindowEligibility(item, window, member = currentMemberRecord()) {
+  if (isVisitorSession() || !member) return { allowed: false, message: 'Member sign-in required' };
+  if (!isCameraEquipment(item)) return { allowed: true, message: '' };
+  if (window?.event && !canAccessAdminPanel()) {
+    const signup = activePhotographerSignup(window.event, member.id);
+    if (!signup) return { allowed: false, message: 'Photographer signup needed', href: pageUrl('signup', { event: window.event.id, role: signupRoleLabels.photographer }) };
+    if (window.valid && !activePhotographerSignup(window.event, member.id, Date.now(), window)) return { allowed: false, message: 'Use your Photographer time: choose a window inside one of your saved signups' };
+  } else if (window && !window.event) {
+    if (!canReserveOutsideEvent(item, member)) return { allowed: false, message: 'Outside events: Grade 11 or 12 only' };
+    const event = !canAccessAdminPanel() && window.valid && state.events.find(candidate => (candidate.isFestival || ['Livestream', 'Event'].includes(candidate.cat))
+      && reservationOverlaps(window.start, window.end, timeValue(candidate.date, candidate.game1Start || candidate.time), candidate.endsAt || timeValue(candidate.date, '23:59')));
+    if (event) return { allowed: false, message: 'Choose the overlapping event and Photographer signup', href: pageUrl('signup', { event: event.id, role: signupRoleLabels.photographer }) };
+  } else if (!window && !canReserveOutsideEvent(item, member) && !cameraReservationEvents(item, member).length) {
+    return { allowed: false, message: 'Photographer signup needed', href: pageUrl('signup') };
+  }
+  return { allowed: true, message: '' };
+}
+
+function equipmentWindowCardHtml(item, window) {
+  const eligibility = equipmentWindowEligibility(item, window);
+  const available = equipmentWindowAvailability(item, window);
+  const lenses = isCameraEquipment(item) ? state.equipment.filter(lens => lens.category === 'Lens' && lens.compatibilityGroup && lens.compatibilityGroup === item.compatibilityGroup
+    && equipmentWindowAvailability(lens, window).available) : [];
+  const lensHint = isCameraEquipment(item) ? `<span>${lenses.length} compatible ${lenses.length === 1 ? 'lens' : 'lenses'} available${!window ? ' now' : ''}</span>` : '';
+  return `<div class="equipment-window-hint"><strong>${escapeHtml(available.label)}</strong>${lensHint}${eligibility.message ? eligibility.href ? `<a href="${escapeHtml(eligibility.href)}">${escapeHtml(eligibility.message)} →</a>` : `<span>${escapeHtml(eligibility.message)}</span>` : ''}</div>`;
+}
+
 function reservationLifecycleStatus(reservation, now = Date.now()) {
   if (reservation.returnedAt || reservation.status === 'returned') return 'returned';
   if (reservation.autoReleasedAt || reservation.status === 'auto_released' || now >= new Date(reservation.endsAt).getTime() + 15 * 60 * 1000) return 'auto_released';
@@ -118,6 +213,10 @@ function renderArchivedEquipment() {
 function renderEquipment() {
   if (typeof applyCrewQuickSearchDestination === 'function') applyCrewQuickSearchDestination('equipment');
   scheduleEquipmentStatusRefresh();
+  syncEquipmentBrowseContext();
+  const window = equipmentBrowseWindow();
+  const hint = document.getElementById('equipment-context-hint');
+  if (hint) hint.textContent = window ? window.valid ? `Checking ${fmtDate(window.date)} · ${window.startTime}–${window.endTime} Berlin time. Items on loan become bookable after their return.` : 'Choose a date and an end time after the start time to check availability.' : 'Choose an event or time to check reservations and compatible lenses.';
   renderArchivedEquipment();
   const ownReservationsPanel = document.getElementById('my-equipment-reservations');
   const currentMemberId = currentMemberRecord()?.id;
@@ -146,7 +245,7 @@ function renderEquipment() {
   const equip = state.equipment.filter(item =>
     (!search || `${item.name} ${item.category} ${item.detail}`.toLowerCase().includes(search))
     && (category === 'all' || item.category === category)
-    && (status === 'all' || equipmentDisplayStatus(item) === status)
+    && (status === 'all' || (status === 'available' ? equipmentWindowAvailability(item, window).available : equipmentWindowAvailability(item, window).status === status))
   );
   const grid = document.getElementById('equipment-grid');
   if (!equip.length) {
@@ -162,6 +261,9 @@ function renderEquipment() {
     const liveStatus = equipmentDisplayStatus(e);
     const device = equipmentDeviceVisual(e);
     const activeReservation = activeEquipmentReservation(e);
+    const availability = equipmentWindowAvailability(e, window);
+    const eligibility = equipmentWindowEligibility(e, window);
+    const hasLens = !isCameraEquipment(e) || canReserveCameraWithoutLens() || state.equipment.some(lens => lens.category === 'Lens' && lens.compatibilityGroup && lens.compatibilityGroup === e.compatibilityGroup && equipmentWindowAvailability(lens, window).available);
     const reservations = e.reservations
       .filter(reservation => reservationLifecycleStatus(reservation) === 'scheduled')
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -187,9 +289,10 @@ function renderEquipment() {
           <span class="text-muted">${reservations.length} upcoming</span>
         </div>
         ${activeReservation ? `<div class="text-muted" style="margin-top:6px;"><strong>With ${escapeHtml(activeReservation.memberName)}</strong> · until ${escapeHtml(berlinTimeLabel(activeReservation.endsAt))}${activeReservation.eventTitle ? ` · ${escapeHtml(activeReservation.eventTitle)}` : activeReservation.purpose ? ` · ${escapeHtml(activeReservation.purpose)}` : ''}</div>` : ''}
+        ${equipmentWindowCardHtml(e, window)}
         ${reservations.slice(0, 2).map(reservation => `<div class="text-muted" style="margin-top:6px;">${escapeHtml(reservation.memberName)} · ${escapeHtml(formatBerlinDateTime(reservation.startsAt, { dateStyle: 'medium', timeStyle: 'short' }))}–${escapeHtml(berlinTimeLabel(reservation.endsAt))}${reservation.eventTitle ? ` · ${escapeHtml(reservation.eventTitle)}` : ''}</div>`).join('')}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
-          ${e.category === 'Lens' ? '<span class="equipment-lens-lock">Paired with camera reservations</span>' : `<button class="btn btn-accent btn-sm" ${liveStatus !== 'available' ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve</button>`}
+          ${e.category === 'Lens' ? '<span class="equipment-lens-lock">Paired with camera reservations</span>' : `<button class="btn btn-accent btn-sm" ${!availability.available || !eligibility.allowed || !hasLens ? 'disabled' : ''} onclick="openEquipmentReservation('${e.id}')">Reserve${window?.valid ? ' for this time' : ''}</button>`}
           ${canManageCrewOperations() ? `${liveStatus === 'checked_out' && canAccessEquipmentStatus() ? '<span class="text-muted">Manage return through Equipment Status</span>' : ''}<button class="btn btn-ghost btn-sm" onclick="requestArchiveEquipment('${e.id}')">Archive</button>` : ''}
           ${canAddMembers() ? `<button class="btn btn-danger btn-sm" onclick="requestPermanentDeleteEquipment('${e.id}')">Delete everything</button>` : ''}
         </div>
@@ -502,7 +605,7 @@ async function requestPermanentDeleteEquipment(id) {
 
 let reservingEquipmentId = null;
 
-function activePhotographerSignup(event, memberId, now = Date.now()) {
+function activePhotographerSignup(event, memberId, now = Date.now(), coverageWindow = null) {
   if (!event || !memberId) return null;
   return event.signups.find(signup => {
     if (signup.memberId !== memberId || signup.role !== 'Photographer') return false;
@@ -513,7 +616,8 @@ function activePhotographerSignup(event, memberId, now = Date.now()) {
     }
     const start = new Date(signup.attendanceStart).getTime();
     const end = new Date(signup.attendanceEnd).getTime();
-    return Number.isFinite(start) && Number.isFinite(end) && end > start;
+    return Number.isFinite(start) && Number.isFinite(end) && end > start
+      && (!coverageWindow || start <= coverageWindow.start && end >= coverageWindow.end);
   }) || null;
 }
 
@@ -543,12 +647,14 @@ function renderReservationLensOptions() {
   if (!isCameraEquipment(camera)) {
     panel.hidden = true;
     grid.innerHTML = '';
+    renderEquipmentReservationReview();
     return;
   }
   panel.hidden = false;
   document.getElementById('reserve-lens-compatibility').textContent = equipmentCompatibilityLabel(camera.compatibilityGroup).toUpperCase();
   const selectedInput = document.querySelector('input[name="reserve-lens"]:checked');
   const previous = selectedInput ? selectedInput.value : null;
+  const focusedLens = document.activeElement?.name === 'reserve-lens' ? document.activeElement.value : null;
   const lenses = state.equipment
     .filter(item => item.category === 'Lens' && item.compatibilityGroup === camera.compatibilityGroup)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -569,7 +675,7 @@ function renderReservationLensOptions() {
     <input type="radio" name="reserve-lens" value="" ${preferred === '' ? 'checked' : ''} onchange="renderReservationLensOptions()">
     <span class="reservation-lens-faculty">FACULTY EXCEPTION</span><strong>No lens</strong><small>Reserve the camera body only</small>
   </label>` : '';
-  grid.innerHTML = options.length || facultyNoLens ? `${options.map(({ lens, device, available, status }) => `<label class="reservation-lens-choice${lens.id === preferred ? ' selected' : ''}${available ? '' : ' unavailable'}">
+  grid.innerHTML = options.length || facultyNoLens ? `${options.map(({ lens, device, available, status }) => `<label class="reservation-lens-choice${device ? ' has-thumbnail' : ''}${lens.id === preferred ? ' selected' : ''}${available ? '' : ' unavailable'}">
     <input type="radio" name="reserve-lens" value="${lens.id}" ${lens.id === preferred ? 'checked' : ''} ${available ? '' : 'disabled'} onchange="renderReservationLensOptions()">
     ${device ? `<span class="reservation-lens-thumb brand-${device.brandKey}"><img src="${device.src}" width="${device.width}" height="${device.height}" alt="" loading="lazy" decoding="async"></span>` : ''}
     <span class="reservation-lens-copy"><strong>${escapeHtml(lens.name)}</strong><small>${escapeHtml(lens.detail)}</small><span class="${available ? 'available' : ''}">${escapeHtml(status)}</span></span>
@@ -578,9 +684,31 @@ function renderReservationLensOptions() {
   document.getElementById('reserve-lens-help').textContent = availableCount
     ? `Select one of ${availableCount} compatible ${availableCount === 1 ? 'lens' : 'lenses'} available for this time.`
     : facultyCanSkipLens ? 'No compatible lens is available for this time. Faculty may use the body-only exception.' : 'No compatible lens is available for this time.';
+  if (focusedLens !== null) [...grid.querySelectorAll('input')].find(input => input.value === focusedLens && !input.disabled)?.focus({ preventScroll: true });
+  renderEquipmentReservationReview();
+}
+
+function equipmentReservationFeedback(message, error = false) {
+  const status = document.getElementById('reserve-equipment-status');
+  if (status) { status.textContent = message; status.setAttribute('role', error ? 'alert' : 'status'); }
+  else showToast(message, error ? 'error' : undefined);
+}
+
+function renderEquipmentReservationReview() {
+  const review = document.getElementById('reserve-equipment-review');
+  if (!review) return;
+  const { item, start, end } = currentEquipmentReservationWindow();
+  const event = document.getElementById('reserve-type')?.value === 'event' ? state.events.find(event => event.id === document.getElementById('reserve-event')?.value) : null;
+  const window = { event, start, end, valid: start !== null && end !== null };
+  const lens = state.equipment.find(item => item.id === document.querySelector('input[name="reserve-lens"]:checked')?.value);
+  const availability = item && equipmentWindowAvailability(item, window);
+  const eligibility = item && equipmentWindowEligibility(item, window);
+  const label = !window.valid ? 'Choose valid times to check your reservation' : !availability.available ? availability.label : !eligibility.allowed ? eligibility.message : isCameraEquipment(item) && !lens && !canReserveCameraWithoutLens() ? 'Choose an available compatible lens' : 'Ready to reserve';
+  review.innerHTML = `<strong>${escapeHtml(label)}</strong>${window.valid ? `<span>${escapeHtml(item.name)}${lens ? ` + ${escapeHtml(lens.name)}` : ''} · ${escapeHtml(formatBerlinDateTime(start, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}–${escapeHtml(berlinTimeLabel(end))} Berlin time</span>` : ''}`;
 }
 
 function openEquipmentReservation(id) {
+  if (equipmentReservationInFlight) return;
   if (isVisitorSession()) { showToast('Visitors cannot reserve equipment.', 'error'); return; }
   const item = state.equipment.find(equipment => equipment.id === id);
   if (!item || equipmentDisplayStatus(item) !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
@@ -595,6 +723,7 @@ function openEquipmentReservation(id) {
     return;
   }
   reservingEquipmentId = id;
+  equipmentReservationFeedback('');
   document.getElementById('reserve-equipment-name').textContent = `${item.name} · ${item.category}`;
   document.getElementById('reserve-event').innerHTML = reservableEvents.map(event => `<option value="${event.id}">${escapeHtml(event.title)} — ${escapeHtml(fmtDate(event.date))}</option>`).join('');
   const reservationType = document.getElementById('reserve-type');
@@ -604,6 +733,20 @@ function openEquipmentReservation(id) {
   document.getElementById('reserve-date').value = '';
   document.getElementById('reserve-lens-grid').innerHTML = '';
   updateReservationFields();
+  const window = equipmentBrowseWindow();
+  if (window?.valid) {
+    if (window.event && reservableEvents.some(event => event.id === window.event.id)) {
+      reservationType.value = 'event';
+      document.getElementById('reserve-event').value = window.event.id;
+    } else if (!window.event && outsideEventAllowed) {
+      reservationType.value = 'non_event';
+      document.getElementById('reserve-date').value = window.date;
+    }
+    updateReservationFields();
+    document.getElementById('reserve-start').value = window.startTime;
+    document.getElementById('reserve-end').value = window.endTime;
+    renderReservationLensOptions();
+  }
   openModal('equip-reserve-modal');
 }
 
@@ -677,56 +820,57 @@ function addEquipmentReservationToState(data, fallbackMember, fallbackEvent) {
 }
 
 async function reserveEquipment() {
+  if (equipmentReservationInFlight) return;
   const item = state.equipment.find(equipment => equipment.id === reservingEquipmentId);
   const member = currentMemberRecord();
-  if (!item || !member) { showToast("Couldn't match your account to an equipment or member record.", 'error'); return; }
-  if (equipmentDisplayStatus(item) !== 'available') { showToast('This equipment is unavailable.', 'error'); return; }
+  if (!item || !member) { equipmentReservationFeedback("Couldn't match your account to an equipment or member record.", true); return; }
+  if (equipmentDisplayStatus(item) !== 'available') { equipmentReservationFeedback('This equipment is unavailable.', true); return; }
   const type = document.getElementById('reserve-type').value;
   if (type === 'non_event' && !canReserveOutsideEvent(item, member)) {
-    showToast('Only Grade 11 and Grade 12 members can borrow cameras outside an event.', 'error', 6000);
+    equipmentReservationFeedback('Only Grade 11 and Grade 12 members can borrow cameras outside an event.', true);
     return;
   }
   const purpose = type === 'non_event' ? document.getElementById('reserve-purpose').value.trim() : '';
-  if (type === 'non_event' && !purpose) { showToast('Please explain the purpose of this non-event reservation.', 'error'); return; }
+  if (type === 'non_event' && !purpose) { equipmentReservationFeedback('Please explain the purpose of this non-event reservation.', true); return; }
   const event = type === 'event' ? state.events.find(item => item.id === document.getElementById('reserve-event').value) : null;
   const date = event?.date || document.getElementById('reserve-date').value;
   const startTime = document.getElementById('reserve-start').value;
   const endTime = document.getElementById('reserve-end').value;
-  if (!date || !startTime || !endTime) { showToast('Please choose a date, start time, and end time.', 'error'); return; }
+  if (!date || !startTime || !endTime) { equipmentReservationFeedback('Please choose a date, start time, and end time.', true); return; }
   const start = timeValue(date, startTime);
   const end = timeValue(date, endTime);
-  if (start === null || end === null) { showToast('This Berlin date/time is invalid.', 'error'); return; }
-  if (end <= start) { showToast('The reservation end time must be after its start time.', 'error'); return; }
+  if (start === null || end === null) { equipmentReservationFeedback('This Berlin date/time is invalid.', true); return; }
+  if (end <= start) { equipmentReservationFeedback('The reservation end time must be after its start time.', true); return; }
   if (item.reservations.some(reservation => reservationOverlaps(start, end, reservation.startsAt, reservation.endsAt))) {
-    showToast('This equipment is already reserved during that time.', 'error');
+    equipmentReservationFeedback('This equipment is already reserved during that time.', true);
     return;
   }
   const camera = isCameraEquipment(item);
   const selectedLensId = camera ? document.querySelector('input[name="reserve-lens"]:checked')?.value || '' : '';
   const lens = selectedLensId ? state.equipment.find(candidate => candidate.id === selectedLensId) : null;
   if (camera && !lens && !canReserveCameraWithoutLens()) {
-    showToast('Select an available compatible lens for this camera reservation.', 'error', 6000);
+    equipmentReservationFeedback('Select an available compatible lens for this camera reservation.', true);
     renderReservationLensOptions();
     return;
   }
   if (lens && (lens.category !== 'Lens' || lens.compatibilityGroup !== item.compatibilityGroup)) {
-    showToast('That lens is not compatible with the selected camera.', 'error');
+    equipmentReservationFeedback('That lens is not compatible with the selected camera.', true);
     renderReservationLensOptions();
     return;
   }
   if (lens && (equipmentDisplayStatus(lens) !== 'available' || lens.reservations.some(reservation => reservationOverlaps(start, end, reservation.startsAt, reservation.endsAt)))) {
-    showToast('That lens is unavailable during the selected time. Choose another lens.', 'error', 6000);
+    equipmentReservationFeedback('That lens is unavailable during the selected time. Choose another lens.', true);
     renderReservationLensOptions();
     return;
   }
   if (camera && !canAccessAdminPanel()) {
     if (type === 'event') {
-      const photographerSignup = activePhotographerSignup(event, member.id);
+      const photographerSignup = activePhotographerSignup(event, member.id, Date.now(), { start, end });
       const covered = photographerSignup
         && new Date(photographerSignup.attendanceStart).getTime() <= start
         && new Date(photographerSignup.attendanceEnd).getTime() >= end;
       if (!covered) {
-        showToast('Reserve only inside your Photographer signup time for the selected event.', 'error', 6000);
+        equipmentReservationFeedback('Reserve only inside your Photographer signup time for the selected event.', true);
         return;
       }
     } else {
@@ -737,7 +881,7 @@ async function reserveEquipment() {
         return start < eventEnd && end > eventStart;
       });
       if (overlappingRestrictedEvent) {
-        showToast('This time overlaps an event. Choose that event and use your Photographer signup instead.', 'error', 6000);
+        equipmentReservationFeedback('This time overlaps an event. Choose that event and use your Photographer signup instead.', true);
         return;
       }
     }
@@ -745,41 +889,58 @@ async function reserveEquipment() {
   const startsAt = new Date(start).toISOString();
   const endsAt = new Date(end).toISOString();
   const submitButton = document.getElementById('reserve-equipment-submit');
+  const fields = document.getElementById('equipment-reservation-fields');
+  const actorId = equipmentBookingActor();
+  const restoreFocus = document.activeElement === submitButton;
+  equipmentReservationInFlight = true;
   submitButton.disabled = true;
-  submitButton.textContent = camera ? 'Linking camera kit...' : 'Reserving...';
-  const mutation = camera
-    ? supabaseClient.rpc('create_camera_kit_reservation', {
-        p_camera_id: item.id,
-        p_lens_id: lens?.id || null,
-        p_event_id: event?.id || null,
-        p_reservation_type: type,
-        p_purpose: purpose || null,
-        p_starts_at: startsAt,
-        p_ends_at: endsAt,
-      })
-    : supabaseClient.from('equipment_reservations').insert({
-        equipment_id: item.id,
-        member_id: member.id,
-        event_id: event?.id || null,
-        reservation_type: type,
-        purpose: purpose || null,
-        starts_at: startsAt,
-        ends_at: endsAt,
-      }).select('id, reservation_group_id, equipment_id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, members(name), events(title)').single();
-  const { data, error } = await mutation;
-  submitButton.disabled = false;
-  submitButton.textContent = 'Reserve';
-  if (error) {
-    const safeMessage = /compatible lens|required with every camera|currently unavailable|already reserved|Photographer|Grade 11|Grade 12|valid event|non-event purpose|lens compatibility/i.test(error.message || '')
-      ? error.message
-      : "Couldn't reserve equipment. Check your event signup and requested time.";
-    showToast(error.code === '23P01' ? 'This equipment is already reserved during that time.' : safeMessage, 'error', 7000);
-    renderReservationLensOptions();
-    return;
+  if (fields) fields.disabled = true;
+  document.getElementById('equip-reserve-modal')?.setAttribute('aria-busy', 'true');
+  submitButton.textContent = camera ? 'Linking camera kit…' : 'Reserving…';
+  equipmentReservationFeedback('Saving your reservation…');
+  try {
+    const mutation = camera
+      ? supabaseClient.rpc('create_camera_kit_reservation', {
+          p_camera_id: item.id,
+          p_lens_id: lens?.id || null,
+          p_event_id: event?.id || null,
+          p_reservation_type: type,
+          p_purpose: purpose || null,
+          p_starts_at: startsAt,
+          p_ends_at: endsAt,
+        })
+      : supabaseClient.from('equipment_reservations').insert({
+          equipment_id: item.id,
+          member_id: member.id,
+          event_id: event?.id || null,
+          reservation_type: type,
+          purpose: purpose || null,
+          starts_at: startsAt,
+          ends_at: endsAt,
+        }).select('id, reservation_group_id, equipment_id, member_id, event_id, reservation_type, purpose, starts_at, ends_at, reservation_status, checked_out_at, returned_at, returned_by, returned_by_name, auto_released_at, members(name), events(title)').single();
+    const { data, error } = await mutation;
+    if (equipmentBookingActor() !== actorId || !canAccessMediaWorkspace()) return;
+    if (error) {
+      const safeMessage = /compatible lens|required with every camera|currently unavailable|already reserved|Photographer|Grade 11|Grade 12|valid event|non-event purpose|lens compatibility/i.test(error.message || '')
+        ? error.message
+        : "Couldn't reserve equipment. Check your event signup and requested time.";
+      equipmentReservationFeedback(error.code === '23P01' ? 'This equipment is already reserved during that time.' : safeMessage, true);
+      renderReservationLensOptions();
+      return;
+    }
+    const reservations = camera ? data?.reservations || [] : [data];
+    reservations.forEach(reservation => addEquipmentReservationToState(reservation, member, event));
+    closeModal('equip-reserve-modal');
+    renderEquipment();
+    if (restoreFocus) document.getElementById(`media-equipment-${item.id}`)?.focus?.({ preventScroll: true });
+    showToast(camera && lens ? `${item.name} + ${lens.name} reserved as one kit.` : `${item.name} reserved.`);
+  } catch (_error) {
+    if (equipmentBookingActor() === actorId) equipmentReservationFeedback("Couldn’t confirm the reservation. Your choices are kept. Check your reservations before retrying if the connection dropped.", true);
+  } finally {
+    equipmentReservationInFlight = false;
+    submitButton.disabled = false;
+    submitButton.textContent = 'Reserve';
+    if (fields) fields.disabled = false;
+    document.getElementById('equip-reserve-modal')?.setAttribute('aria-busy', 'false');
   }
-  const reservations = camera ? data?.reservations || [] : [data];
-  reservations.forEach(reservation => addEquipmentReservationToState(reservation, member, event));
-  closeModal('equip-reserve-modal');
-  renderEquipment();
-  showToast(camera && lens ? `${item.name} + ${lens.name} reserved as one kit.` : `${item.name} reserved.`);
 }

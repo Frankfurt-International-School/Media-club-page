@@ -1,9 +1,10 @@
 // SAC events are independent of Media Club production events. The server owns
 // permissions and exposes only limited livestream details for linking.
-const sacEventsState = { events: [], livestreams: [], showPast: false, editingId: null, loaded: false, request: 0 };
+const sacEventsState = { events: [], livestreams: [], coverage: null, showPast: false, editingId: null, loaded: false, request: 0 };
 let mediaSacLinkRequest = 0;
 
 function resetSacEventsState() {
+  sacEventsState.coverage = null;
   sacEventsState.request += 1;
   mediaSacLinkRequest += 1;
   sacEventsState.events = [];
@@ -15,6 +16,28 @@ function resetSacEventsState() {
   if (list) list.textContent = '';
   const mediaCallout = document.getElementById('sheet-sac-linked');
   if (mediaCallout) { mediaCallout.hidden = true; mediaCallout.textContent = ''; }
+}
+
+function sacEventOpening(event, bookings, now = Date.now()) {
+  if (!Array.isArray(bookings)) return null;
+  const slots = generateSacSlots(event).filter(slot => Date.parse(slot.end) > now);
+  const spots = Number(event.scoreboard_spots || 2);
+  const openings = slots.map(slot => ({ slot, open: Math.max(0, spots - new Set(bookings.filter(booking => booking.event_id === event.id && !booking.cancelled_at && sacBookingMatchesSlot(booking, slot)).map(booking => Number(booking.spot_number))).size) }));
+  return { first: openings.find(item => item.open > 0), open: openings.reduce((sum, item) => sum + item.open, 0), slots: slots.length };
+}
+
+function sacEventOpeningHtml(event) {
+  if (!canClaimSacSlot()) return '';
+  const opening = sacEventOpening(event, sacEventsState.coverage);
+  if (!opening?.slots) return '';
+  return `<a class="crew-opportunity" href="${escapeHtml(sacSignupUrl(event.id))}"><strong>${opening.open ? `${opening.open} Scoreboard ${opening.open === 1 ? 'place' : 'places'} open` : 'All upcoming shifts booked'}</strong>${opening.first ? `<span>Next opening · ${escapeHtml(formatBerlinDateTime(opening.first.slot.start, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}–${escapeHtml(berlinTimeLabel(opening.first.slot.end))}</span>` : ''}<span class="crew-opportunity-arrow" aria-hidden="true">→</span></a>`;
+}
+
+function paintSacEventOpenings() {
+  sacEventsState.events.forEach(event => {
+    const hint = document.getElementById(`sac-event-opening-${event.id}`);
+    if (hint) hint.innerHTML = sacEventOpeningHtml(event);
+  });
 }
 
 window.resetSacEventsState = resetSacEventsState;
@@ -96,6 +119,7 @@ function paintSacEvents() {
       <div><div class="page-kicker">${escapeHtml(formatBerlinCalendarDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</div><h2>${escapeHtml(event.title)}</h2>
         <div class="sac-event-meta"><span>${escapeHtml(sacEventTimeLabel(event))} Berlin time</span>${event.location ? `<span>${escapeHtml(event.location)}</span>` : ''}</div>
         ${event.description ? `<p class="sac-event-description">${escapeHtml(event.description)}</p>` : ''}
+        <div id="sac-event-opening-${escapeHtml(event.id)}">${sacEventOpeningHtml(event)}</div>
         <div class="sac-event-actions"><span class="sac-event-link-label">${escapeHtml(linkLabel)}</span><a class="btn btn-accent btn-sm" href="${escapeHtml(sacSignupUrl(event.id))}">Scoreboard shifts</a>${mediaUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(mediaUrl)}">Media Club sign-up sheet</a>` : ''}${canCreateSacEvents() ? `<button class="btn btn-ghost btn-sm" type="button" data-sac-edit-id="${escapeHtml(event.id)}">Edit event</button><a class="btn btn-ghost btn-sm" href="${escapeHtml(pageUrl('sac-attendance', { kind: 'event', item: event.id }))}">Attendance</a>` : ''}</div>
       </div>
     </article>`;
@@ -131,10 +155,20 @@ async function renderSacEvents() {
   sacEventsState.events = eventResult.data || [];
   sacEventsState.livestreams = linkResult.error ? [] : linkResult.data || [];
   sacEventsState.loaded = true;
+  sacEventsState.coverage = null;
   const requestedEventId = new URLSearchParams(window.location.search).get('event');
   const requestedEvent = sacEventsState.events.find(event => event.id === requestedEventId);
   if (requestedEvent && Date.parse(requestedEvent.ends_at) < Date.now()) sacEventsState.showPast = true;
   paintSacEvents();
+  const coverageActor = window.CREW_CENTER_AUTH_USER?.id;
+  const eventIds = sacEventsState.events.filter(event => Date.parse(event.ends_at) > Date.now()).map(event => event.id);
+  if (canClaimSacSlot() && eventIds.length) {
+    try {
+      const result = await supabaseClient.from('sac_slot_signups').select('event_id,slot_start,slot_end,spot_number,cancelled_at').in('event_id', eventIds).is('cancelled_at', null).gt('slot_end', new Date().toISOString());
+      if (request !== sacEventsState.request || coverageActor !== window.CREW_CENTER_AUTH_USER?.id || currentCrewCenterWorkspace() !== 'sac' || !canClaimSacSlot()) return;
+      if (!result.error && Array.isArray(result.data)) { sacEventsState.coverage = result.data; paintSacEventOpenings(); }
+    } catch (_error) { /* Availability hints are optional; the booking sheet remains authoritative. */ }
+  }
   if (requestedEvent) requestAnimationFrame(() => {
     if (request !== sacEventsState.request || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()
       || !document.getElementById('page-sac-events')?.classList.contains('active')
