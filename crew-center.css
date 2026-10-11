@@ -3389,3 +3389,46 @@
     .announcement-reader { padding: 24px 20px; }
   }
   @media (prefers-reduced-motion: reduce) { .announcement-row-arrow { transition: none; } }
+
+/* Small inbox controls and an optional personal week. */
+.notification-inbox-filters { display:flex; gap:4px; padding:4px; width:max-content; max-width:100%; border:1px solid var(--border); border-radius:11px; background:var(--accent-dim2); margin-bottom:14px; }
+.notification-inbox-filters button { border:0; border-radius:7px; padding:8px 16px; min-height:36px; background:transparent; color:var(--text2); font:inherit; font-size:12px; cursor:pointer; }
+.notification-inbox-filters button[aria-pressed="true"] { background:var(--bg2); color:var(--accent); box-shadow:0 1px 5px rgba(0,0,0,.08); }
+.notification-group { display:grid; gap:8px; min-width:0; }
+.notification-group h3 { font-family:var(--font-body); font-size:11px; font-weight:600; color:var(--text3); margin:8px 3px 1px; letter-spacing:0; }
+.notification-item { display:flex; align-items:flex-start; gap:10px; }
+.notification-item-icon { display:grid; place-items:center; flex:0 0 30px; height:30px; color:var(--accent); background:var(--accent-dim2); border-radius:9px; }
+.notification-item-icon svg { width:18px; height:18px; stroke-width:1.6; }
+.notification-item-content { display:block; min-width:0; overflow-wrap:anywhere; }
+.notification-item-content > span { display:block; }
+.personal-week-shortcuts, .personal-week-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.personal-week-toolbar { justify-content:space-between; margin:20px 0 12px; }
+.personal-week-modal { position:relative; max-width:1120px; width:calc(100vw - 40px); }
+.personal-week-modal .modal-title { padding-right:32px; font-size:26px; font-weight:400; }
+[data-personal-week-open][hidden], #personal-week-retry[hidden] { display:none !important; }
+.personal-week-status { color:var(--text3); font-size:12px; line-height:1.5; margin-bottom:16px; }
+.personal-week-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; }
+.personal-week-day { min-width:0; padding:10px 7px; border:1px solid var(--border); border-radius:12px; background:var(--bg); }
+.personal-week-day.today { border-color:var(--accent); }
+.personal-week-day h3 { font-family:var(--font-body); font-size:12px; font-weight:600; color:var(--text2); margin:0 2px 12px; letter-spacing:0; }
+.personal-week-day > div { display:grid; gap:8px; }
+.personal-week-item { display:grid; gap:5px; padding:10px; border:1px solid var(--border); border-radius:9px; color:var(--text2); background:var(--bg2); text-decoration:none; font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
+.personal-week-item:hover { border-color:var(--accent); }
+.personal-week-item strong { color:var(--text); font-size:12px; }
+.personal-week-club { color:var(--accent); font-size:10px; font-weight:600; }
+.personal-week-item small { font-size:10px; }
+.personal-week-item.overlapping { border-color:var(--amber); }
+.personal-week-overlap { color:var(--amber); }
+.personal-week-free { color:var(--text3); font-size:11px; margin:0 2px; }
+.personal-conflict-hint { font-size:11px; color:var(--text3); line-height:1.5; margin:8px 0 0; max-width:320px; }
+.personal-conflict-hint.warning { color:var(--text2); padding-left:8px; border-left:2px solid var(--amber); }
+.personal-conflict-hint button { border:0; background:transparent; padding:0; color:var(--accent); font:inherit; text-decoration:underline; cursor:pointer; }
+@media (max-width:900px) { .personal-week-days { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:600px) {
+  .personal-week-modal { width:calc(100vw - 24px); padding:22px 16px; }
+  .personal-week-days { grid-template-columns:1fr; }
+  .personal-week-day { display:grid; grid-template-columns:76px minmax(0,1fr); gap:8px; padding:12px 8px; }
+  .personal-week-day h3 { margin:2px 0; font-size:11px; }
+  .notification-panel-head { flex-wrap:wrap; }
+  .sac-dashboard-section-head:has([data-personal-week-open]) { flex-wrap:wrap; gap:8px; }
+}

@@ -170,6 +170,7 @@ async function refreshMyCrewSchedule() {
 }
 
 function renderMyCrewSchedule() {
+  window.syncPersonalWeekButtons?.();
   if (myCrewScheduleRefreshTimer) clearTimeout(myCrewScheduleRefreshTimer);
   myCrewScheduleRefreshTimer = null;
   const list = document.getElementById('my-crew-schedule-list');

@@ -33,8 +33,45 @@ before(async () => {
   }
   await db.query('insert into announcements(id,title,body) values ($1,$2,$3)', [legacyId,'Earlier post','Existing Media Club post']);
   await db.exec(migration);
+  await db.exec(read('supabase/migrations/20261011170224_notification_inbox_reads.sql'));
 });
 after(async () => { await db.close(); });
+
+test('single notification acknowledgement is owner-only, idempotent, and leaves other updates unread', async () => {
+  await db.exec('reset role');
+  const own = randomUUID(); const another = randomUUID(); const foreign = randomUUID();
+  for (const [id, member] of [[own,ids.media],[another,ids.media],[foreign,ids.sac]]) {
+    await db.query("insert into public.notifications(id,member_id,title,message,notification_type,page) values ($1,$2,'Event update','Details','event_created','events')", [id,member]);
+  }
+  await actor('media');
+  assert.equal((await db.query('select public.mark_own_notification_read($1) as ok', [foreign])).rows[0].ok, false);
+  assert.equal((await db.query('select public.mark_own_notification_read($1) as ok', [own])).rows[0].ok, true);
+  const before = (await db.query('select read_at from notifications where id=$1', [own])).rows[0].read_at;
+  assert.equal((await db.query('select public.mark_own_notification_read($1) as ok', [own])).rows[0].ok, true);
+  assert.deepEqual((await db.query('select read_at from notifications where id=$1', [own])).rows[0].read_at, before);
+  await db.exec('reset role');
+  assert.equal((await db.query('select count(*)::integer as n from notifications where id=any($1::uuid[]) and read_at is null', [[another,foreign]])).rows[0].n, 2);
+  for (const [name, anonymous] of [['media',true], ['unlinked',false]]) {
+    await actor(name, { anonymous });
+    assert.equal((await db.query('select public.mark_own_notification_read($1) as ok', [another])).rows[0].ok, false);
+  }
+  await actor('media', { role:'anon' });
+  await assert.rejects(db.query('select public.mark_own_notification_read($1)', [another]), /permission denied/);
+});
+
+test('single acknowledgement delegates announcement access checks and exposes only an invoker wrapper', async () => {
+  const post = await publish('media_club');
+  await db.exec('reset role');
+  const notice = (await db.query('select id from notifications where related_announcement_id=$1 and member_id=$2', [post,ids.media])).rows[0].id;
+  await actor('media');
+  assert.equal((await db.query('select public.mark_own_notification_read($1) as ok', [notice])).rows[0].ok, true);
+  await db.exec('reset role');
+  const fn = (await db.query("select prosecdef from pg_proc where oid='public.mark_own_notification_read(uuid)'::regprocedure")).rows[0];
+  assert.equal(fn.prosecdef, false);
+  await db.query('update announcements set archived_at=now() where id=$1', [post]);
+  await actor('media');
+  assert.equal((await db.query('select public.mark_own_notification_read($1) as ok', [notice])).rows[0].ok, false);
+});
 
 async function actor(name = 'admin', { anonymous = false, role = 'authenticated' } = {}) {
   await db.exec('reset role');

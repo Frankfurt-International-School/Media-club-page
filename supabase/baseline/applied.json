@@ -2,9 +2,9 @@
   "format": 1,
   "projectRef": "prswuqzzgordywowbwtc",
   "appliedVia": "Supabase plugin",
-  "verifiedAt": "2026-10-10T23:03:45Z",
+  "verifiedAt": "2026-10-11T17:05:04Z",
   "baselineFingerprint": "d24a58a233d5baf643a31eb642e21494",
-  "postMigrationFingerprint": "22689f053493338dd465509583a0298f",
+  "postMigrationFingerprint": "36697389570e57a4d8239fd48651353a",
   "migrations": [
     {
       "version": "20261009100219",
@@ -29,6 +29,12 @@
       "name": "announcement_delivery",
       "file": "20261010225929_announcement_delivery.sql",
       "sqlSha256": "15bd5c770507b7fe177da09d26687ad878984a12cefdce14c69d77af88e1d440"
+    },
+    {
+      "version": "20261011170224",
+      "name": "notification_inbox_reads",
+      "file": "20261011170224_notification_inbox_reads.sql",
+      "sqlSha256": "c8aa6ff5baef339a88dd3a5e91947b5bf783b05d1fcf380b8f117d3bc084eb31"
     }
   ],
   "verification": {
@@ -64,6 +70,25 @@
     "noHistoricalNoticesSent": true,
     "testTransactionRolledBack": true,
     "noTestAnnouncementsRemain": true,
+    "frontendDeployed": false
+  },
+  "notificationInboxVerification": {
+    "verifiedAt": "2026-10-11T17:05:04Z",
+    "preMigrationFingerprint": "22689f053493338dd465509583a0298f",
+    "postMigrationFingerprint": "36697389570e57a4d8239fd48651353a",
+    "storedSQLMatchesLocal": true,
+    "publicWrapperIsInvoker": true,
+    "authenticatedCanCall": true,
+    "anonymousCannotCall": true,
+    "emptySearchPaths": true,
+    "ownerAcknowledgementVerified": true,
+    "foreignOwnerDenied": true,
+    "visitorDenied": true,
+    "unlinkedDenied": true,
+    "repeatedAcknowledgementIdempotent": true,
+    "unrelatedNoticesPreserved": true,
+    "testTransactionRolledBack": true,
+    "noTestNoticesRemain": true,
     "frontendDeployed": false
   }
 }

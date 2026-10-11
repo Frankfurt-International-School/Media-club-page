@@ -60,6 +60,8 @@ function renderSignupBookingSummary() {
     ? member?.personalEquipmentPreferences?.cameraName || 'Add a personal camera in Settings'
     : 'Club equipment · reserve or collect a camera separately']);
   details.innerHTML = rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
+  const conflict = document.getElementById('signup-personal-conflict');
+  if (conflict) conflict.innerHTML = attendance ? window.personalConflictHtml?.(attendance.start, attendance.end, member?.id) || '' : '';
   if (!mediaSignupSaveInFlight) setMediaSignupBusy(false);
 }
 
@@ -69,6 +71,7 @@ function renderSignupBookingSummary() {
 }));
 
 function initSignupSheet() {
+  window.refreshPersonalConflictHints?.();
   const sel = document.getElementById('sheet-event-select');
   const previousEventId = sel.value;
   const requestedEventId = new URLSearchParams(window.location.search).get('event') || '';

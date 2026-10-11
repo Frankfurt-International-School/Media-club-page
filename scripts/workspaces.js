@@ -169,6 +169,7 @@ function applyWorkspacePresentation({ animate = false } = {}) {
   document.querySelector('.nav-item[data-page="sac-attendance"]')?.toggleAttribute('hidden', !attendanceManager);
   document.getElementById('sac-home-attendance-card')?.toggleAttribute('hidden', !attendanceManager);
   closeWorkspaceMenu();
+  window.syncPersonalWeekButtons?.();
   window.applySidebarPreferences?.();
   if (animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.documentElement.classList.remove('workspace-changing');
@@ -239,6 +240,7 @@ function resetCrewCenterWorkspace() {
   window.closeCrewCenterModals?.();
   window.resetCrewQuickSearch?.();
   window.resetSacDashboardState?.();
+  window.resetPersonalWeek?.();
   window.resetAnnouncementState?.();
   window.resetSacEventsState?.();
   window.resetSacMeetingsState?.();

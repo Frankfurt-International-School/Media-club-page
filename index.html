@@ -187,7 +187,7 @@
       </div>
     </div>
   </div>
-  <div class="notification-panel" id="notification-panel" role="dialog" aria-label="Notifications"><div class="notification-panel-head"><div><div class="all-pages-title">Notifications</div><div class="text-muted">Updates and actions that need your attention.</div></div><button class="btn btn-ghost btn-sm" id="notification-mark-read" onclick="markNotificationsRead()">Mark read</button></div><div class="notification-list" id="notification-list"></div></div>
+  <div class="notification-panel" id="notification-panel" role="dialog" aria-label="Notifications"><div class="notification-panel-head"><div><div class="all-pages-title">Notifications</div><div class="text-muted">Updates and actions that need your attention.</div></div><button class="btn btn-ghost btn-sm" id="notification-mark-read" onclick="markNotificationsRead()">Mark all read</button></div><div class="notification-inbox-filters" role="group" aria-label="Filter notifications"><button type="button" data-notification-filter="all" aria-pressed="true">All</button><button type="button" data-notification-filter="unread" aria-pressed="false">Unread</button></div><div class="notification-list" id="notification-list"></div></div>
   <div class="data-status-banner" id="data-status-banner" role="status" aria-live="polite" aria-atomic="true" hidden><span class="data-status-copy"><span class="data-status-dot" aria-hidden="true"></span><span id="data-status-message"></span></span><button type="button" class="btn btn-ghost btn-sm" onclick="retryFailedDatasets()">Retry</button></div>
   <div class="visually-hidden" id="route-announcer" aria-live="polite" aria-atomic="true"></div>
 
@@ -354,7 +354,7 @@
         <a class="sac-home-metric" href="/sac/members"><span class="page-kicker">Current council</span><strong id="sac-home-member-count" aria-live="polite">—</strong><span>SAC members</span><small>View member directory →</small></a>
       </section>
       <section class="sac-dashboard-panel" aria-labelledby="sac-home-next-title">
-        <div class="sac-dashboard-section-head"><h2 id="sac-home-next-title">Your next shift</h2><a href="/sac/my-shifts">All my shifts →</a></div>
+        <div class="sac-dashboard-section-head"><h2 id="sac-home-next-title">Your next shift</h2><div class="personal-week-shortcuts"><button class="btn btn-ghost btn-sm" type="button" data-personal-week-open hidden title="See your shifts and meetings together">My week</button><a href="/sac/my-shifts">All my shifts →</a></div></div>
         <div id="sac-home-next-shift" aria-live="polite"></div>
       </section>
       <section class="sac-dashboard-panel" id="sac-dashboard-upcoming-panel" aria-labelledby="sac-home-upcoming-title">
@@ -417,7 +417,7 @@
         <p class="page-sub">Your booked shifts appear here as soon as they are saved. No separate confirmation is needed.</p>
       </div>
       <div class="sac-page-hero-mark" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></div>
-      <div class="page-hero-actions"><a class="btn btn-accent" href="/sac/signups">Find a shift</a></div>
+      <div class="page-hero-actions"><button class="btn btn-ghost btn-sm" type="button" data-personal-week-open hidden title="See your shifts and meetings together">My week</button><a class="btn btn-accent" href="/sac/signups">Find a shift</a></div>
     </section>
     <div id="sac-my-shifts-content" aria-live="polite"></div>
   </div>
@@ -466,7 +466,7 @@
         <div class="page-title"><span id="dashboard-greeting">Good afternoon</span> <span class="wave-hand" id="wave-hand">👋</span></div>
         <div class="page-sub" id="dashboard-subtitle">Your personal Media Club operations overview.</div>
       </div>
-      <div class="dashboard-header-actions"><a class="btn btn-ghost" id="dashboard-customize-button" href="/profile?tab=dashboard" hidden>Customize dashboard</a></div>
+      <div class="dashboard-header-actions"><button class="btn btn-ghost btn-sm" type="button" data-personal-week-open hidden title="See your shifts and meetings together">My week</button><a class="btn btn-ghost" id="dashboard-customize-button" href="/profile?tab=dashboard" hidden>Customize dashboard</a></div>
     </div>
     <section class="dashboard-hero" id="dashboard-focus"></section>
     <aside class="announcement-pinned" id="media-pinned-announcement" aria-label="Pinned Media Club announcement" hidden></aside>
@@ -536,7 +536,7 @@
       <div class="page-hero-actions crew-personal-calendar-action"><button class="btn btn-accent" type="button" id="my-crew-schedule-download" aria-describedby="my-crew-schedule-calendar-status" onclick="downloadCrewScheduleCalendar()" disabled>Download calendar</button><p class="crew-personal-calendar-status" id="my-crew-schedule-calendar-status" role="status">Loading your bookings…</p></div>
     </header>
     <div class="crew-personal-stats" id="my-crew-schedule-stats"></div>
-    <div class="crew-personal-toolbar"><div class="crew-personal-filters tab-row" role="group" aria-label="Show commitments"><button class="tab active" type="button" data-crew-schedule-filter="all" aria-pressed="true">All</button><button class="tab" type="button" data-crew-schedule-filter="assignment" aria-pressed="false">Assignments</button><button class="tab" type="button" data-crew-schedule-filter="equipment" aria-pressed="false">Equipment</button><button class="tab" type="button" data-crew-schedule-filter="meeting" aria-pressed="false">Meetings</button></div><button class="btn btn-ghost btn-sm" type="button" id="my-crew-schedule-refresh" onclick="refreshMyCrewSchedule()">Refresh</button></div>
+    <div class="crew-personal-toolbar"><div class="crew-personal-filters tab-row" role="group" aria-label="Show commitments"><button class="tab active" type="button" data-crew-schedule-filter="all" aria-pressed="true">All</button><button class="tab" type="button" data-crew-schedule-filter="assignment" aria-pressed="false">Assignments</button><button class="tab" type="button" data-crew-schedule-filter="equipment" aria-pressed="false">Equipment</button><button class="tab" type="button" data-crew-schedule-filter="meeting" aria-pressed="false">Meetings</button></div><div class="personal-week-shortcuts"><button class="btn btn-ghost btn-sm" type="button" data-personal-week-open hidden title="See your shifts and meetings together">My week</button><button class="btn btn-ghost btn-sm" type="button" id="my-crew-schedule-refresh" onclick="refreshMyCrewSchedule()">Refresh</button></div></div>
     <div class="crew-agenda-overview" id="my-crew-schedule-overview" hidden></div>
     <div class="crew-personal-calendar-note"><details class="crew-personal-calendar-help"><summary>How to use Download calendar</summary><ol><li>Choose All, Assignments, Equipment or Meetings to select the entries to export.</li><li>Download calendar saves those entries as a calendar file (.ics). Add to calendar on a card saves just that entry.</li><li>Open the file in your calendar app. For a web calendar, use its import option and select the downloaded file.</li></ol></details><p>Calendar files are a snapshot, with no automatic sync. If details change, update or remove the entry in your calendar too. Meeting RSVPs stay separate from attendance. All times below use Berlin time.</p></div>
     <div class="crew-personal-list" id="my-crew-schedule-list"></div>
@@ -626,7 +626,7 @@
           <span><strong>Cover MIXING and OBS if needed</strong><small>If OBS is still unclaimed 10 minutes before this Lower or Upper Field game, you will cover both MIXING and OBS for your attendance window. A direct OBS signup always takes precedence.</small></span>
         </label>
       </div>
-      <section class="signup-booking-summary" aria-labelledby="signup-booking-title"><div class="signup-booking-head"><h3 id="signup-booking-title">Review your signup</h3><span>Preview · not saved yet</span></div><dl class="signup-booking-details" id="signup-booking-details"></dl></section>
+      <section class="signup-booking-summary" aria-labelledby="signup-booking-title"><div class="signup-booking-head"><h3 id="signup-booking-title">Review your signup</h3><span>Preview · not saved yet</span></div><dl class="signup-booking-details" id="signup-booking-details"></dl><div id="signup-personal-conflict" aria-live="polite"></div></section>
       <div class="signup-entry-actions"><div id="signup-submit-status" role="status" aria-live="polite"></div><button class="btn btn-accent" type="button" id="signup-submit" onclick="addSignupRow()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span id="signup-submit-label">Confirm signup</span>
@@ -1015,7 +1015,7 @@
         <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-11">11 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Restored SAC title spacing and added club announcements with notifications, action buttons, pinning, and expiry.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <ul class="crew-update-list"><li>Restored SAC title spacing and added actionable club announcements, a clearer notification inbox, and a shared weekly schedule.</li><li>Fixed minor issues and improved user experience.</li></ul>
         <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">2 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-10">10 October 2026</time></header><ul class="crew-update-list"><li>Refreshed themes and Settings, with smoother update history and typed introductions on the public site.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
@@ -1577,6 +1577,17 @@
 <!-- ── TOAST CONTAINER ── -->
 <div class="toast-container" id="toast-container"></div>
 
+<div class="modal-backdrop" id="personal-week-modal" role="dialog" aria-labelledby="personal-week-title">
+  <div class="modal personal-week-modal">
+    <button class="modal-close" type="button" onclick="closeModal('personal-week-modal')" aria-label="Close My week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    <h2 class="modal-title" id="personal-week-title">My week</h2>
+    <p class="text-muted">Upcoming club commitments, together. Open an item to see its details.</p>
+    <div class="personal-week-toolbar"><strong id="personal-week-range"></strong><div class="personal-week-shortcuts"><button class="btn btn-ghost btn-sm" type="button" id="personal-week-previous" data-personal-week-step="-7" aria-label="Previous week">←</button><button class="btn btn-ghost btn-sm" type="button" data-personal-week-step="today">This week</button><button class="btn btn-ghost btn-sm" type="button" data-personal-week-step="7" aria-label="Next week">→</button></div></div>
+    <p class="personal-week-status" id="personal-week-status" role="status"></p><button class="btn btn-ghost btn-sm" id="personal-week-retry" type="button" hidden>Retry</button>
+    <div class="personal-week-days" id="personal-week-days"></div>
+  </div>
+</div>
+
 <script src="assets/vendor/supabase-js-2.110.9.min.js"></script>
 <script src="supabase-config.js"></script>
 <script src="scripts/core.js"></script>
@@ -1599,6 +1610,7 @@
 <script src="scripts/gallery.js"></script>
 <script src="scripts/equipment.js"></script>
 <script src="scripts/my-crew-schedule.js"></script>
+<script src="scripts/personal-week.js"></script>
 <script src="scripts/cas-attendance.js"></script>
 <script src="scripts/admin.js"></script>
 <script src="scripts/quick-search.js"></script>

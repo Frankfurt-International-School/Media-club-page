@@ -135,7 +135,8 @@ function sacSignupAction(slot, occupants, selectedMemberId, spotCount, isAdmin) 
   }
   if (availability.conflict) return `<span class="sac-signup-conflict">Overlaps another booking</span><a class="sac-signup-conflict-link" href="${escapeHtml(sacSignupUrl(availability.conflict.event_id))}">View that sheet →</a>`;
   if (!availability.openSpots) return '<span class="sac-signup-status">Full</span>';
-  return `<button class="btn btn-accent btn-sm" type="button" data-sac-claim-start="${escapeHtml(slot.start)}">${isAdmin ? 'Assign spot' : 'Claim spot'}</button>`;
+  const hint = window.personalConflictHtml?.(Date.parse(slot.start), Date.parse(slot.end), selectedMemberId) || '';
+  return `<button class="btn btn-accent btn-sm" type="button" data-sac-claim-start="${escapeHtml(slot.start)}">${isAdmin ? 'Assign spot' : 'Claim spot'}</button>${hint}`;
 }
 
 async function loadSacSignupAvailability() {
@@ -325,6 +326,7 @@ async function renderSacSignups(preserveContent = false) {
     sacSignupsState.bookingsReady = false;
     paintSacSignupSheet();
     await loadSacSignupAvailability();
+    window.refreshPersonalConflictHints?.();
     return true;
   } catch (error) {
     if (request !== sacSignupsState.request) return;
@@ -406,6 +408,7 @@ function downloadSacShiftCalendar(signupId) {
 }
 
 async function renderSacMyShifts() {
+  window.syncPersonalWeekButtons?.();
   const content = document.getElementById('sac-my-shifts-content');
   if (!content || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return false;
   const request = ++sacSignupsState.myShiftsRequest;

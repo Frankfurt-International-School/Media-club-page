@@ -541,8 +541,8 @@ test('Mark read acknowledges generated signup reminders as well as stored notifi
   assert.equal(fallbackResult, true, 'generated reminders should stay read for the page session if localStorage is unavailable');
   assert.match(uiSource, /const \{ maybeItems, upcomingItems \} = currentGeneratedNotificationItems\(\)/);
   assert.match(uiSource, /markNotificationRemindersRead\(\[\.\.\.maybeItems, \.\.\.upcomingItems\]\.map\(item => item\.readKey\)\)/);
-  assert.match(uiSource, /maybeItems\.filter\(item => !readReminderKeys\.has\(item\.readKey\)\)\.length/);
-  assert.match(uiSource, /upcomingItems\.filter\(item => !readReminderKeys\.has\(item\.readKey\)\)\.length/);
+  assert.match(uiSource, /kind: 'maybe', read: readKeys.has\(item.readKey\)/);
+  assert.match(uiSource, /kind: 'upcoming', read: readKeys.has\(item.readKey\)/);
   assert.match(indexHtml, /id="notification-mark-read" onclick="markNotificationsRead\(\)"/);
 });
 

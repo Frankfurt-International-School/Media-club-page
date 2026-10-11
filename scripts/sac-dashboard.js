@@ -22,6 +22,7 @@ function sacDashboardNotice(message, failed = false) {
 }
 
 async function renderSacPersonalDashboard() {
+  window.syncPersonalWeekButtons?.();
   const next = document.getElementById('sac-home-next-shift');
   const upcoming = document.getElementById('sac-home-upcoming');
   const count = document.getElementById('sac-home-shift-count');

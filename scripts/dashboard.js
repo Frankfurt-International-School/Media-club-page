@@ -117,6 +117,7 @@ function renderEquipmentSnapshotModule() {
 }
 
 function renderDashboard() {
+  window.syncPersonalWeekButtons?.();
   const preferences = currentDashboardPreferences();
   const upcomingEvents = dashboardUpcomingEvents();
   const commitments = ownDashboardCommitments();

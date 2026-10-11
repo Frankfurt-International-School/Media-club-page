@@ -604,6 +604,9 @@ function currentGeneratedNotificationItems(now = Date.now()) {
 }
 
 let notificationReadRequest = null;
+let notificationInboxFilter = 'all';
+let notificationInboxActor = '';
+const notificationItemRequests = new Map();
 
 function notificationReadActor() {
   const user = window.CREW_CENTER_AUTH_USER;
@@ -613,15 +616,78 @@ function notificationReadActor() {
   return `${user.id}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}:${member.id}`;
 }
 
+function notificationInboxItems(now = Date.now()) {
+  const preferences = currentNotificationPreferences();
+  const { maybeItems, upcomingItems } = currentGeneratedNotificationItems(now);
+  const readKeys = notificationReminderReadKeys();
+  const memberId = currentMemberRecord()?.id;
+  const stored = state.notifications.filter(item => item.member_id === memberId
+    && (['meeting_invite', 'application_approved', 'announcement'].includes(item.notification_type) || preferences.event_created)
+    && window.announcementNotificationVisible?.(item) !== false)
+    .map(item => ({ kind: item.notification_type, stored: item, read: Boolean(item.read_at),
+      date: Number.isFinite(Date.parse(item.created_at)) ? Date.parse(item.created_at) : now }));
+  return [...maybeItems.map(item => ({ ...item, kind: 'maybe', read: readKeys.has(item.readKey), date: now })),
+    ...upcomingItems.map(item => ({ ...item, kind: 'upcoming', read: readKeys.has(item.readKey), date: now })), ...stored]
+    .sort((a, b) => b.date - a.date || Number(b.kind === 'maybe') - Number(a.kind === 'maybe'));
+}
+
+function notificationInboxGroups(items, now = Date.now()) {
+  const today = berlinDateKey(now);
+  const yesterday = new Date(`${today}T12:00:00Z`); yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const groups = new Map();
+  items.forEach(item => {
+    const day = berlinDateKey(item.date);
+    if (!groups.has(day)) groups.set(day, { day, label: day === today ? 'Today' : day === yesterday.toISOString().slice(0, 10)
+      ? 'Yesterday' : formatBerlinDateTime(item.date, { day: 'numeric', month: 'short', year: 'numeric' }), items: [] });
+    groups.get(day).items.push(item);
+  });
+  return [...groups.values()].sort((a, b) => b.day.localeCompare(a.day));
+}
+
+function notificationInboxIcon(kind) {
+  const path = kind === 'announcement' ? '<path d="m3 11 13-5v12L3 13zM7 14l2 6h3l-2-5M20 9v6"/>'
+    : kind === 'meeting_invite' ? '<circle cx="8" cy="8" r="3"/><path d="M2 21v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6M17 15a5 5 0 0 1 5 5"/>'
+    : kind === 'application_approved' ? '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'
+    : kind === 'maybe' ? '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+    : '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>';
+  return `<span class="notification-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${path}</svg></span>`;
+}
+
+function notificationInboxRow(item) {
+  const icon = notificationInboxIcon(item.kind);
+  const unread = item.read ? '' : ' unread';
+  if (item.kind === 'maybe') {
+    const { event, signup } = item;
+    return `<div class="notification-item action${unread}" data-notification-reminder="${escapeHtml(item.readKey)}">${icon}<div class="notification-item-content"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div></div>`;
+  }
+  if (item.kind === 'upcoming') {
+    const href = typeof personalDestinationUrl === 'function' ? personalDestinationUrl('signup', 'media', { event: item.event.id }) : pageUrl('signup', { event: item.event.id });
+    return `<a class="notification-item action${unread}" href="${escapeHtml(href)}" data-personal-destination="media" data-notification-reminder="${escapeHtml(item.readKey)}">${icon}<span class="notification-item-content"><span class="notification-item-title">${escapeHtml(item.event.title)} is coming up</span><span class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(item.event.date))} at ${escapeHtml(eventScheduleTimeLabel(item.event))}.</span><span class="notification-item-meta">Upcoming event</span></span></a>`;
+  }
+  const notice = item.stored;
+  const content = `${icon}<span class="notification-item-content"><span class="notification-item-title">${escapeHtml(notice.title)}</span><span class="notification-item-copy">${escapeHtml(notice.message)}</span><span class="notification-item-meta">${item.kind === 'announcement' ? 'Announcement · ' : item.kind === 'meeting_invite' ? 'Meeting · ' : ''}${escapeHtml(formatBerlinDateTime(item.date, { dateStyle: 'medium', timeStyle: 'short' }))}</span></span>`;
+  if (item.kind === 'announcement' && notice.related_announcement_id) return `<button type="button" class="notification-item announcement-notification${unread}" data-announcement-open="${escapeHtml(notice.related_announcement_id)}">${content}</button>`;
+  const page = Object.values(sidebarCategories).some(category => category.pages.includes(notice.page)) ? notice.page : 'events';
+  const params = {};
+  if (notice.related_event_id && state.events.some(event => event.id === notice.related_event_id)) params.event = notice.related_event_id;
+  if (notice.related_meeting_id && page === 'meetings') params.meeting = notice.related_meeting_id;
+  const workspace = item.kind === 'application_approved' && ['home', 'profile'].includes(page) && typeof currentCrewCenterWorkspace === 'function'
+    ? currentCrewCenterWorkspace() : page.startsWith('sac-') ? 'sac' : 'media';
+  const href = typeof personalDestinationUrl === 'function' ? personalDestinationUrl(page, workspace, params) : pageUrl(page, params);
+  return `<a class="notification-item${unread}" href="${escapeHtml(href)}" data-personal-destination="${workspace}" data-notification-id="${escapeHtml(notice.id)}">${content}</a>`;
+}
+
 function renderNotificationCenter() {
   const list = document.getElementById('notification-list');
   const badge = document.getElementById('notification-count');
   if (!list || !badge) return;
   const actor = notificationReadActor();
+  if (notificationInboxActor !== actor) { notificationInboxActor = actor; notificationInboxFilter = 'all'; }
+  document.querySelectorAll?.('[data-notification-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.notificationFilter === notificationInboxFilter)));
   const markReadButton = document.getElementById('notification-mark-read');
   const pending = Boolean(actor && notificationReadRequest?.actor === actor);
   if (markReadButton) {
-    markReadButton.textContent = pending ? 'Marking…' : 'Mark read';
+    markReadButton.textContent = pending ? 'Marking…' : 'Mark all read';
     markReadButton.setAttribute('aria-busy', String(pending));
   }
   if (!actor) {
@@ -630,32 +696,52 @@ function renderNotificationCenter() {
     if (markReadButton) markReadButton.disabled = true;
     return;
   }
-  const preferences = currentNotificationPreferences();
-  const { maybeItems, upcomingItems } = currentGeneratedNotificationItems();
-  const readReminderKeys = notificationReminderReadKeys();
-  const memberId = currentMemberRecord().id;
-  const storedItems = state.notifications.filter(item => item.member_id === memberId
-    && (['meeting_invite', 'application_approved', 'announcement'].includes(item.notification_type) || preferences.event_created)
-    && window.announcementNotificationVisible?.(item) !== false);
-  const unread = storedItems.filter(item => !item.read_at).length
-    + maybeItems.filter(item => !readReminderKeys.has(item.readKey)).length
-    + upcomingItems.filter(item => !readReminderKeys.has(item.readKey)).length;
+  const items = notificationInboxItems();
+  const unread = items.filter(item => !item.read).length;
   badge.textContent = unread > 99 ? '99+' : unread;
   badge.classList.toggle('visible', unread > 0);
   if (markReadButton) markReadButton.disabled = pending || unread === 0;
-  const actionHtml = maybeItems.map(({ event, signup, readKey }) => `<div class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}"><div class="notification-item-title">Confirm ${escapeHtml(event.title)}</div><div class="notification-item-copy">Your ${escapeHtml(signup.role || 'event')} signup is marked Maybe. Confirm within ${escapeHtml(confirmationCountdown(signup.confirmationDeadline))} or the position becomes vacant.</div><div class="notification-actions"><button class="btn btn-accent btn-sm" onclick="confirmMaybeSignup('${event.id}','${signup.id}')">Confirm attendance</button><button class="btn btn-danger btn-sm" onclick="requestRemoveSignup('${event.id}','${signup.id}')">Remove</button></div></div>`).join('');
-  const upcomingHtml = upcomingItems.map(({ event, readKey }) => `<a class="notification-item action${readReminderKeys.has(readKey) ? '' : ' unread'}" href="${escapeHtml(pageUrl('signup', { event: event.id }))}"><div class="notification-item-title">${escapeHtml(event.title)} is coming up</div><div class="notification-item-copy">You are confirmed for ${escapeHtml(fmtDate(event.date))} at ${escapeHtml(eventScheduleTimeLabel(event))}.</div><div class="notification-item-meta">Upcoming event</div></a>`).join('');
-  const storedHtml = storedItems.map(item => {
-    if (item.notification_type === 'announcement' && item.related_announcement_id) {
-      return `<button type="button" class="notification-item announcement-notification${item.read_at ? '' : ' unread'}" data-announcement-open="${escapeHtml(item.related_announcement_id)}"><span class="notification-item-title">${escapeHtml(item.title)}</span><span class="notification-item-copy">${escapeHtml(item.message)}</span><span class="notification-item-meta">Announcement · ${escapeHtml(formatBerlinDateTime(item.created_at, { dateStyle: 'medium', timeStyle: 'short' }))}</span></button>`;
-    }
-    const page = Object.values(sidebarCategories).some(category => category.pages.includes(item.page)) ? item.page : 'events';
-    const relatedEventId = state.events.some(event => event.id === item.related_event_id) ? item.related_event_id : '';
-    const href = pageUrl(page, page === 'signup' && relatedEventId ? { event: relatedEventId } : {});
-    return `<a class="notification-item${item.read_at ? '' : ' unread'}" href="${escapeHtml(href)}"><div class="notification-item-title">${escapeHtml(item.title)}</div><div class="notification-item-copy">${escapeHtml(item.message)}</div><div class="notification-item-meta">${escapeHtml(formatBerlinDateTime(item.created_at, { dateStyle: 'medium', timeStyle: 'short' }))}</div></a>`;
-  }).join('');
-  list.innerHTML = actionHtml + upcomingHtml + storedHtml || '<div class="empty-state" style="padding:28px 12px;"><p>You’re all caught up.</p></div>';
+  const visible = notificationInboxFilter === 'unread' ? items.filter(item => !item.read) : items;
+  list.innerHTML = notificationInboxGroups(visible).map(group => `<section class="notification-group"><h3>${escapeHtml(group.label)}</h3>${group.items.map(notificationInboxRow).join('')}</section>`).join('')
+    || `<div class="empty-state" style="padding:28px 12px;"><p>${notificationInboxFilter === 'unread' ? 'No unread notifications. You’re all caught up.' : 'You’re all caught up.'}</p></div>`;
 }
+
+async function markNotificationRead(id) {
+  const actor = notificationReadActor();
+  const item = state.notifications.find(notice => notice.id === id && notice.member_id === currentMemberRecord()?.id);
+  if (!actor || !item || item.read_at || !supabaseClient) return;
+  const key = `${actor}:${id}`;
+  if (notificationItemRequests.has(key)) return;
+  notificationItemRequests.set(key, true);
+  const request = (async () => {
+    try {
+      const { data, error } = await withCrewCenterDataTimeout(supabaseClient.rpc('mark_own_notification_read', { p_notification_id: id }), 'notifications');
+      if (error || data !== true) throw error || new Error('Notification could not be acknowledged.');
+      if (notificationReadActor() !== actor) return;
+      const current = state.notifications.find(notice => notice.id === id && notice.member_id === currentMemberRecord()?.id);
+      if (current) current.read_at = current.read_at || new Date().toISOString();
+    } catch (_error) {
+      if (notificationReadActor() === actor) showToast("Opened the update, but couldn't save its read status. Try again when connected.", 'error');
+    } finally {
+      notificationItemRequests.delete(key);
+      renderNotificationCenter();
+    }
+  })();
+  await request;
+}
+
+document.getElementById('notification-panel')?.addEventListener?.('click', event => {
+  const filter = event.target.closest?.('[data-notification-filter]');
+  if (filter) { notificationInboxFilter = filter.dataset.notificationFilter === 'unread' ? 'unread' : 'all'; renderNotificationCenter(); return; }
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const notice = event.target.closest?.('[data-notification-id]');
+  if (notice) markNotificationRead(notice.dataset.notificationId);
+  const reminder = event.target.closest?.('[data-notification-reminder]');
+  if (reminder && notificationReadActor()) {
+    markNotificationRemindersRead([reminder.dataset.notificationReminder]);
+    renderNotificationCenter();
+  }
+});
 
 function toggleNotificationPanel(event) {
   event?.stopPropagation();
