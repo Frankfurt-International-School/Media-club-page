@@ -41,6 +41,7 @@ function focusModal(modal) {
 }
 
 function openModal(id) {
+  window.closeCrewDatePicker?.({ immediate: true, returnFocus: false });
   if (id === 'gallery-modal') {
     renderGalleryAuthorField();
     const galleryScope = document.getElementById('gal-scope');
@@ -66,6 +67,7 @@ function openModal(id) {
   });
 }
 function closeModal(id) {
+  window.closeCrewDatePicker?.({ immediate: true, returnFocus: false });
   const backdrop = document.getElementById(id);
   if (!backdrop) return;
   const index = modalStack.findIndex(entry => entry.backdrop === backdrop);
@@ -89,6 +91,7 @@ function closeModal(id) {
 }
 
 window.closeCrewCenterModals = function() {
+  window.closeCrewDatePicker?.({ immediate: true, returnFocus: false });
   while (topModal()) closeModal(topModal().id);
 };
 
