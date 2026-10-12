@@ -222,8 +222,14 @@ function initializeCrewCenterWorkspace() {
   if (typeof pageFromPath !== 'function' || typeof navigate !== 'function') return workspace;
   const requestedPage = pageFromPath();
   const resolvedPage = workspacePageFor(requestedPage);
-  const resolvedUrl = workspaceUrlForPage(resolvedPage, workspace);
-  if (`${window.location.pathname}${window.location.search}` !== resolvedUrl) {
+  const destination = new URL(workspaceUrlForPage(resolvedPage, workspace), window.location.origin);
+  // Preserve tab and record details when membership permits the requested page.
+  if (resolvedPage === requestedPage) {
+    destination.search = workspaceSearchForSelection(workspace, window.location.hostname, window.location.search);
+    destination.hash = window.location.hash;
+  }
+  const resolvedUrl = `${destination.pathname}${destination.search}${destination.hash}`;
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== resolvedUrl) {
     history.replaceState({ page: resolvedPage, workspace }, '', resolvedUrl);
   }
   navigate(resolvedPage, navItemForPage(resolvedPage), { skipUrl: true, preserveFocus: true });
