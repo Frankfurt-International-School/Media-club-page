@@ -745,7 +745,7 @@ async function addSignupRow() {
     if (currentEvent && !currentEvent.signups.some(item => item.id === signup.id)) currentEvent.signups.push({
       id: signup.id,
       memberId: signup.member_id,
-      name: signup.members?.name || member.name,
+      name: snapshotDisplayName(signup.members?.name || member.name, member.id, signup.members?.role),
       role: signup.signup_role || '',
       roleSlot: Number(signup.role_slot) || 1,
       reserveRole1: signup.reserve_role_1 || '',
@@ -758,7 +758,7 @@ async function addSignupRow() {
       attendanceStatus: signup.attendance_status || 'not_taken',
       attendanceMarkedAt: signup.attendance_marked_at || '',
       attendanceMarkedBy: signup.attendance_marked_by || '',
-      attendanceMarkedByName: signup.attendance_marked_by_name || '',
+      attendanceMarkedByName: snapshotDisplayName(signup.attendance_marked_by_name),
       confirmationStatus: signup.confirmation_status || 'confirmed',
       confirmationDeadline: signup.confirmation_deadline || '',
       confirmedAt: signup.confirmed_at || '',

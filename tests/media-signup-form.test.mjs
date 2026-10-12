@@ -50,7 +50,7 @@ function harness({ staff = false, visitor = false, pending, error = null } = {})
       return { select: () => ({ single: () => pending || Promise.resolve({ error, data: { ...payload, id: 'saved', signed_up_at: '2030-10-01T10:00:00Z', members: { name: members.find(member => member.id === payload.member_id)?.name } } }) }) };
     } }) },
   });
-  const names = ['normalizedSignupName', 'matchingSignupMembers', 'selectedMediaSignupMember', 'validateSignupNameInput', 'signupMemberForEquipmentPreference', 'clearSignupNameValidation', 'selectMediaSignupMember'];
+  const names = ['studentDisplayName', 'personDisplayName', 'snapshotDisplayName', 'normalizedSignupName', 'matchingSignupMembers', 'selectedMediaSignupMember', 'validateSignupNameInput', 'signupMemberForEquipmentPreference', 'clearSignupNameValidation', 'selectMediaSignupMember'];
   const formNames = ['showSignupFormError', 'clearSignupFormErrors', 'setMediaSignupBusy', 'renderSignupBookingSummary', 'addSignupRow'];
   vm.runInContext(`let mediaSignupSaveInFlight = false;\n${names.map(name => extract(core, name)).join('\n')}\n${formNames.map(name => extract(signups, name)).join('\n')}`, context);
   element('sheet-event-select').value = 'game'; element('signup-name').value = 'Alex Example';

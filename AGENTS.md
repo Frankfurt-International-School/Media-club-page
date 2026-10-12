@@ -22,6 +22,7 @@
 - Keep permission enforcement in Supabase RLS/RPC/Storage policies as well as the frontend. Do not rely on hidden UI alone for authorization.
 - For changes spanning services, check every affected layer: frontend, schema, RLS, Storage, Cron, Edge Functions, email templates, CSP headers, and deployment configuration as applicable.
 - Treat student and member information as personal data. Use the minimum data needed and avoid exposing records during debugging or in screenshots and logs.
+- Store and display student names as first name plus last-name initial (for example `Alex P.`), including applications, Auth metadata, attendance, booking snapshots, exports and messages. Keep UUIDs as identity keys. Only a trusted `Faculty` member row permits a full staff name; admin privileges or self-declared metadata do not. Collect only a surname initial on public applications, and use shortened student names in free text and media captions. Preserve the server-side minimization triggers and test them when changing identity data flows.
 - Preserve the existing extensionless Cloudflare Pages routes. Do not add manual `200` rewrites from `/name` to `/name.html`; Cloudflare's clean-URL handling can turn those rules into redirect loops.
 
 ## Verification and delivery

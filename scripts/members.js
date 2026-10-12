@@ -173,6 +173,15 @@ function renderMembers() {
   document.getElementById('members-count').textContent = `Showing ${list.length} of ${state.members.length} members`;
 }
 
+function syncMemberNamePrivacy() {
+  const faculty = document.getElementById('mem-role').value === 'Faculty';
+  const input = document.getElementById('mem-lname');
+  document.getElementById('mem-lname-label').textContent = faculty ? 'Last name *' : 'Last initial *';
+  input.maxLength = faculty ? 60 : 1;
+  input.placeholder = faculty ? 'Krüger' : 'K';
+  if (!faculty) input.value = Array.from(input.value.trim())[0]?.toUpperCase() || '';
+}
+
 async function addMember() {
   if (!canAddMembers()) { showToast('Only an Auth Admin can add members.', 'error'); return; }
   const fname = document.getElementById('mem-fname').value.trim();
@@ -180,7 +189,8 @@ async function addMember() {
   const email = document.getElementById('mem-email').value.trim().toLowerCase();
   const role = document.getElementById('mem-role').value;
   const specialisation = document.getElementById('mem-spec').value || 'active';
-  if (!fname || !lname) { showToast('Please fill in first and last name.', 'error'); return; }
+  if (!fname || !lname) { showToast('Please fill in the first name and last initial (last name for Faculty).', 'error'); return; }
+  const name = personDisplayName(`${fname} ${lname}`, role);
   if (normalizeRoleName(role) === 'faculty' ? !window.isFisSchoolEmail(email) : !window.isFisAliasEmail(email)) {
     showToast(normalizeRoleName(role) === 'faculty' ? 'Faculty accounts must use an @fis.edu email address.' : window.FIS_ALIAS_EMAIL_MESSAGE, 'error', 7000);
     return;
@@ -188,7 +198,7 @@ async function addMember() {
   const { data, error } = await supabaseClient
     .from('members')
     .insert({
-      name: `${fname} ${lname}`,
+      name,
       email,
       grade_level: document.getElementById('mem-grade').value || null,
       role,
@@ -212,9 +222,9 @@ async function addMember() {
   document.getElementById('mem-grade').value = '';
   if (teamSyncError) {
     console.error("Couldn't add secondary team memberships.", teamSyncError);
-    showToast(`${fname} ${lname} was added, but team access was not fully synced. Run the latest Supabase SQL.`, 'error', 8000);
+    showToast(`${name} was added, but team access was not fully synced. Run the latest Supabase SQL.`, 'error', 8000);
   } else {
-    showToast(`${fname} ${lname} added!`);
+    showToast(`${name} added!`);
   }
   renderMembers();
   renderDashboard();
@@ -253,7 +263,7 @@ async function renderSacMembershipAudit(memberId) {
     return;
   }
   list.innerHTML = data?.length
-    ? data.map(entry => `<div class="sac-audit-row"><strong>${escapeHtml(sacAuditDescription(entry))}</strong><span>${escapeHtml(entry.changed_by_name)} · ${escapeHtml(new Date(entry.changed_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}</span></div>`).join('')
+    ? data.map(entry => `<div class="sac-audit-row"><strong>${escapeHtml(sacAuditDescription(entry))}</strong><span>${escapeHtml(snapshotDisplayName(entry.changed_by_name, entry.changed_by_member_id))} · ${escapeHtml(new Date(entry.changed_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}</span></div>`).join('')
     : '<div class="text-muted">No SAC membership changes recorded yet.</div>';
 }
 

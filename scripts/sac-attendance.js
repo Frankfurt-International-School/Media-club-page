@@ -54,7 +54,9 @@ async function loadSacAttendanceRoll() {
     });
     if (request !== sacAttendanceState.request) return;
     if (error) throw error;
-    sacAttendanceState.roll = data || [];
+    sacAttendanceState.roll = (data || []).map(person => ({ ...person,
+      member_name: snapshotDisplayName(person.member_name, person.member_id),
+    }));
     paintSacAttendanceRoll();
   } catch (_error) {
     if (request === sacAttendanceState.request) content.innerHTML = '<div class="empty-state" role="alert"><p>Attendance is unavailable. Check the database setup and your SAC role.</p></div>';

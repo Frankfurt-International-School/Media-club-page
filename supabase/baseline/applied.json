@@ -2,9 +2,9 @@
   "format": 1,
   "projectRef": "prswuqzzgordywowbwtc",
   "appliedVia": "Supabase plugin",
-  "verifiedAt": "2026-10-11T17:05:04Z",
+  "verifiedAt": "2026-10-12T16:51:36Z",
   "baselineFingerprint": "d24a58a233d5baf643a31eb642e21494",
-  "postMigrationFingerprint": "36697389570e57a4d8239fd48651353a",
+  "postMigrationFingerprint": "f671fc4434eec3fe0714c98f8809854b",
   "migrations": [
     {
       "version": "20261009100219",
@@ -35,6 +35,12 @@
       "name": "notification_inbox_reads",
       "file": "20261011170224_notification_inbox_reads.sql",
       "sqlSha256": "c8aa6ff5baef339a88dd3a5e91947b5bf783b05d1fcf380b8f117d3bc084eb31"
+    },
+    {
+      "version": "20261012164321",
+      "name": "minimize_student_names",
+      "file": "20261012164321_minimize_student_names.sql",
+      "sqlSha256": "927d0be7ba36f58718ee0b9cee5c00a540cd5386e072d4843665eae99540259d"
     }
   ],
   "verification": {
@@ -90,5 +96,53 @@
     "testTransactionRolledBack": true,
     "noTestNoticesRemain": true,
     "frontendDeployed": false
+  },
+  "studentPrivacyVerification": {
+    "verifiedAt": "2026-10-12T16:51:36Z",
+    "preMigrationFingerprint": "36697389570e57a4d8239fd48651353a",
+    "postMigrationFingerprint": "f671fc4434eec3fe0714c98f8809854b",
+    "storedSQLMatchesLocal": true,
+    "studentMemberCount": 68,
+    "applicationCount": 51,
+    "unsafeIdentityFields": 0,
+    "authMetadataMinimized": true,
+    "authIdentityMetadataMinimized": true,
+    "futureMemberAndAuthWritesVerified": true,
+    "existingBookingSnapshotGuardVerified": true,
+    "testTransactionsRolledBack": true,
+    "accountIdsEmailsRolesAndMembershipsPreserved": true,
+    "bookingsPreserved": true,
+    "facultyNamesPreserved": true,
+    "notificationCountPreserved": true,
+    "allPublicTablesRLSEnabled": true,
+    "existingPublicRPCsPoliciesAndGrantsUnchanged": true,
+    "newHelpersNotBrowserCallable": true,
+    "emptyPrivateFunctionSearchPaths": true,
+    "authTriggersEnabled": 2,
+    "validatedNameConstraints": 2,
+    "memberDirectoryMinimized": true,
+    "ordinaryDirectoryEmailsHidden": true,
+    "anonymousDirectoryDenied": true,
+    "visitorDirectoryDenied": true,
+    "unlinkedDirectoryDenied": true,
+    "noNewSecurityAdvisors": true,
+    "noProductionEmailSent": true,
+    "frontendDeployed": false,
+    "edgeFunctions": [
+      {
+        "name": "submit-application",
+        "version": 6,
+        "verifyJwt": false,
+        "storedSourceMatchesLocal": true,
+        "sourceSha256": "5631996bc9132a3203a70e2782508177107c17ad68121bccc0498ca92eaf589e"
+      },
+      {
+        "name": "review-application",
+        "version": 15,
+        "verifyJwt": true,
+        "storedSourceMatchesLocal": true,
+        "sourceSha256": "550256ec0f973360c24c92464dce5c3f9248603eb0a8f98c60be074e911b277a"
+      }
+    ]
   }
 }

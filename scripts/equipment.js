@@ -803,7 +803,7 @@ function addEquipmentReservationToState(data, fallbackMember, fallbackEvent) {
     id: data.id,
     groupId: data.reservation_group_id || '',
     memberId: data.member_id,
-    memberName: data.member_name || data.members?.name || fallbackMember?.name || 'Unknown member',
+    memberName: snapshotDisplayName(data.member_name || data.members?.name || fallbackMember?.name, data.member_id || fallbackMember?.id) || 'Unknown member',
     eventId: data.event_id,
     eventTitle: data.event_title || data.events?.title || fallbackEvent?.title || '',
     type: data.reservation_type,
@@ -814,7 +814,7 @@ function addEquipmentReservationToState(data, fallbackMember, fallbackEvent) {
     checkedOutAt: data.checked_out_at || '',
     returnedAt: data.returned_at || '',
     returnedBy: data.returned_by || '',
-    returnedByName: data.returned_by_name || '',
+    returnedByName: snapshotDisplayName(data.returned_by_name),
     autoReleasedAt: data.auto_released_at || '',
   });
 }

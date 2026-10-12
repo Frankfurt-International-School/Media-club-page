@@ -13,6 +13,13 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const isFisAliasEmail = (email: unknown) => /^[a-z]{2}\d{4,}@fis\.edu$/i.test(String(email || "").trim());
 const isFisSchoolEmail = (email: unknown) => /^[^\s@]+@fis\.edu$/i.test(String(email || "").trim());
 
+const studentDisplayName = (value: unknown) => {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] || "";
+  const initial = Array.from(Array.from(parts.at(-1)!)[0].toUpperCase())[0];
+  return `${parts[0]} ${initial}.`;
+};
+
 const escapeEmailHtml = (value: unknown) => String(value || "").replace(/[&<>'"]/g, character => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -176,6 +183,7 @@ Deno.serve(async request => {
     .is("reviewed_at", null)
     .maybeSingle();
   if (applicationError || !application) return json({ error: "This application is no longer pending." }, 409);
+  application.name = studentDisplayName(application.name);
   const target = String(application.application_target || "media_club");
   const includesSac = target === "sac" || target === "both";
   const includesMedia = target === "media_club" || target === "both";
@@ -227,7 +235,7 @@ Deno.serve(async request => {
     }
     const { data: existingMember, error: existingMemberError } = await adminClient
       .from("members")
-      .select("id, name")
+      .select("id, name, role")
       .ilike("email", normalizedEmail)
       .maybeSingle();
     if (existingMemberError) {
@@ -261,7 +269,7 @@ Deno.serve(async request => {
       const siteUrl = Deno.env.get("SITE_URL") || "https://fismediaclub.org";
       const { data: invite, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(normalizedEmail, {
         redirectTo: siteUrl,
-        data: { full_name: existingMember?.name || application.name, role: "Member" },
+        data: { full_name: existingMember?.role === "Faculty" ? existingMember.name : studentDisplayName(existingMember?.name || application.name), role: "Member" },
       });
       if (inviteError) {
         await releaseApplication();

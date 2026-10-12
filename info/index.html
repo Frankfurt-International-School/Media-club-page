@@ -179,8 +179,9 @@
           </div>
           <div class="form-row">
             <label>First name <span>*</span><input name="firstName" autocomplete="given-name" maxlength="60" required></label>
-            <label>Last name <span>*</span><input name="lastName" autocomplete="family-name" maxlength="60" required></label>
+            <label>Last initial <span>*</span><input name="lastName" autocomplete="off" maxlength="1" placeholder="K" aria-describedby="join-name-help" required></label>
           </div>
+          <p class="name-privacy-note" id="join-name-help">Use your first name and just the first letter of your surname. We store and display names like Max K.</p>
           <label>FIS email <span>*</span>
             <input id="join-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="XX12345@fis.edu" required>
             <small id="join-email-help">Students: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu.</small>
@@ -204,7 +205,7 @@
             </div>
           </fieldset>
           <label id="media-why-field">Why do you want to join? <span>*</span><textarea name="why" minlength="20" maxlength="1500" placeholder="What would you like to learn or contribute?" required></textarea><small>Adults: include your FIS department or school role.</small></label>
-          <p class="sensitive-info-note" id="media-sensitive-note">Do not include passwords, medical information, home addresses, private phone numbers or other sensitive information.</p>
+          <p class="sensitive-info-note" id="media-sensitive-note">Use first name + last initial if mentioning a student. Do not include passwords, medical information, home addresses, private phone numbers or other sensitive information.</p>
           <label id="media-work-field">Link to previous work <small>(optional)</small><input name="workLink" type="url" inputmode="url" placeholder="https://..."></label>
           <label class="honeypot" aria-hidden="true">Leave this field empty<input name="website" tabindex="-1" autocomplete="off"></label>
           <div id="turnstile-widget" class="turnstile-widget" aria-label="Human verification"></div>

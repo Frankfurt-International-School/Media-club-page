@@ -103,8 +103,9 @@ Deno.serve(async request => {
   // Quietly accept the honeypot so automated submissions do not learn how they were detected.
   if (text(input.website, 200)) return json({ ok: true }, 201, origin);
 
-  const firstName = text(input.firstName, 60);
-  const lastName = text(input.lastName, 60);
+  const firstName = text(input.firstName, 60).split(/\s+/)[0];
+  // Minimize before storage, even if a crafted/older client supplies a full surname.
+  const lastName = Array.from(Array.from(text(input.lastName, 60))[0]?.toUpperCase() || '')[0] || '';
   const email = text(input.email, 120).toLowerCase();
   const yearGroup = text(input.yearGroup, 20);
   const applicationTarget = text(input.applicationTarget || "media_club", 20);
@@ -144,7 +145,7 @@ Deno.serve(async request => {
   const adminClient = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
   const { error } = await adminClient.from("join_applications").insert({
-    name: `${firstName} ${lastName}`,
+    name: `${firstName} ${lastName}.`,
     email,
     year_group: yearGroup,
     application_target: applicationTarget,

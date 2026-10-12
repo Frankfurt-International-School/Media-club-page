@@ -114,7 +114,7 @@
     const applicationTarget = String(data.get('applicationTarget') || 'media_club');
     const payload = {
       firstName: String(data.get('firstName') || '').trim(),
-      lastName: String(data.get('lastName') || '').trim(),
+      lastName: Array.from(String(data.get('lastName') || '').trim())[0]?.toUpperCase() || '',
       email: String(data.get('email') || '').trim().toLowerCase(),
       yearGroup: String(data.get('yearGroup') || ''),
       applicationTarget,

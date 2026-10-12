@@ -289,7 +289,7 @@
           </div>
           <div class="about-platform-actions">
             <a class="btn about-btn-light" href="/dashboard">Explore the Crew Center</a>
-            <div class="about-platform-credit"><span aria-hidden="true">●</span> Made by Shenghan Lang</div>
+            <div class="about-platform-credit"><span aria-hidden="true">●</span> Made by Shenghan L.</div>
           </div>
         </div>
       </section>
@@ -1023,12 +1023,13 @@
         <img src="assets/media-club-logo.png" width="128" height="128" alt="" class="crew-updates-mark">
         <span class="page-kicker">Media Club</span><h2 id="crew-updates-title">Crew Center</h2>
         <p class="crew-updates-tagline"><span class="visually-hidden">A little clearer. A little smoother.</span><span id="crew-updates-type" aria-hidden="true" data-type-text="A little clearer. A little smoother.">A little clearer. A little smoother.</span></p>
-        <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-11">11 October 2026</time>
+        <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-12">12 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Improved announcements and the inbox, added My week and crew-opening hints, and made equipment reservations and signup clearer.</li><li>Fixed minor issues and improved user experience.</li></ul>
-        <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">2 earlier updates</span></summary>
+        <ul class="crew-update-list"><li>Shortened student names across club tools, applications and account labels, with database safeguards for privacy.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">3 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
+            <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-11">11 October 2026</time></header><ul class="crew-update-list"><li>Improved announcements and the inbox, added My week and crew-opening hints, and made equipment reservations and signup clearer.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-10">10 October 2026</time></header><ul class="crew-update-list"><li>Refreshed themes and Settings, with smoother update history and typed introductions on the public site.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-09">9 October 2026</time></header><ul class="crew-update-list"><li>Brought commitments into a daily agenda and made search and schedule filters easier to use.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
           </div></div>
@@ -1116,7 +1117,7 @@
       <div class="card mb16 announcement-editor">
         <h3 id="ann-editor-title">Post new announcement</h3>
         <div class="form-group"><label class="form-label" for="ann-title">Title</label><input class="form-input" id="ann-title" maxlength="120" placeholder="Important update..." /></div>
-        <div class="form-group"><label class="form-label" for="ann-body">Message</label><textarea class="form-textarea" id="ann-body" maxlength="5000" rows="5" placeholder="What do members need to know?"></textarea></div>
+        <div class="form-group"><label class="form-label" for="ann-body">Message</label><textarea class="form-textarea" id="ann-body" maxlength="5000" rows="5" aria-describedby="announcement-name-privacy" placeholder="What do members need to know?"></textarea><p class="text-muted" id="announcement-name-privacy">Mention students using first name + last initial.</p></div>
         <div class="announcement-form-grid">
           <div class="form-group"><label class="form-label" for="ann-audience">Audience</label><select class="form-select" id="ann-audience"><option value="media_club">Media Club</option><option value="sac">SAC</option><option value="both">Media Club &amp; SAC</option></select></div>
           <div class="form-group"><label class="form-label" for="ann-expires">Expiry · Berlin time (optional)</label><input class="form-input" type="datetime-local" id="ann-expires" /></div>
@@ -1262,7 +1263,7 @@
     </section>
     <section class="event-form-section">
       <div class="event-form-section-title"><span>4</span> Description</div>
-      <div class="form-group" style="margin-bottom:0;"><label class="form-label">Event notes</label><textarea class="form-textarea" id="ev-desc" placeholder="What will happen, where should the crew meet, and what should they bring?"></textarea></div>
+      <div class="form-group" style="margin-bottom:0;"><label class="form-label">Event notes</label><textarea class="form-textarea" id="ev-desc" aria-describedby="event-name-privacy" placeholder="What will happen, where should the crew meet, and what should they bring?"></textarea><p class="text-muted" id="event-name-privacy">Mention students using first name + last initial.</p></div>
     </section>
     <button class="btn btn-accent" id="event-save-button" style="width:100%;" onclick="addEvent()">Create event</button>
   </div>
@@ -1291,6 +1292,7 @@
     <div class="form-group"><label class="form-label" for="meeting-related-event">Related production <span class="text-muted">(optional)</span></label><select class="form-select" id="meeting-related-event"><option value="">No linked production</option></select></div>
     <div class="form-group"><label class="form-label" for="meeting-agenda">Agenda</label><textarea class="form-textarea" id="meeting-agenda" placeholder="Topics, preparation, and decisions needed…"></textarea></div>
     <div class="form-group" id="meeting-notes-group" hidden><label class="form-label" for="meeting-notes">Minutes and decisions</label><textarea class="form-textarea" id="meeting-notes" placeholder="Capture decisions, follow-ups, and important context…"></textarea></div>
+    <p class="text-muted">Use first name + last initial when mentioning students in agendas or minutes.</p>
     <div class="meeting-authorization-notice" id="meeting-faculty-authorization" hidden>
       <strong>Faculty authorization required</strong>
       <p>Leaders and Co-Leaders may schedule a meeting only after a Faculty member has explicitly authorized it. Your confirmation is recorded with the meeting.</p>
@@ -1307,9 +1309,10 @@
     <div class="modal-title">Add member</div>
     <div class="modal-sub">Manually add a new member to the directory.</div>
     <div class="form-row2">
-      <div class="form-group"><label class="form-label">First name *</label><input class="form-input" id="mem-fname" placeholder="Max" /></div>
-      <div class="form-group"><label class="form-label">Last name *</label><input class="form-input" id="mem-lname" placeholder="Krüger" /></div>
+      <div class="form-group"><label class="form-label" for="mem-fname">First name *</label><input class="form-input" id="mem-fname" maxlength="60" placeholder="Max" /></div>
+      <div class="form-group"><label class="form-label" id="mem-lname-label" for="mem-lname">Last initial *</label><input class="form-input" id="mem-lname" maxlength="1" placeholder="K" aria-describedby="member-name-privacy" /></div>
     </div>
+    <p class="text-muted" id="member-name-privacy">Student names are stored and shown as first name + last initial, for example Max K.</p>
     <div class="form-row2">
       <div class="form-group"><label class="form-label">Account email</label><input class="form-input" id="mem-email" type="email" inputmode="email" placeholder="XX12345@fis.edu" /><div class="text-muted" style="font-size:11px;margin-top:6px;">Students use their alias email. Faculty may use any @fis.edu address.</div></div>
       <div class="form-group"><label class="form-label">Grade level</label><select class="form-select" id="mem-grade"><option value="">Not applicable</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option></select></div>
@@ -1317,7 +1320,7 @@
     <div class="form-row2">
       <div class="form-group">
         <label class="form-label">Club role</label>
-        <select class="form-select" id="mem-role">
+        <select class="form-select" id="mem-role" onchange="syncMemberNamePrivacy()">
           <option>Member</option><option>Moderator</option><option>Co-Leader</option><option>Leader</option><option>Faculty</option>
         </select>
       </div>

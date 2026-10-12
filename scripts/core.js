@@ -657,18 +657,38 @@ function retryFailedDatasets() {
   if (datasets.length) loadCrewCenterData({ datasets });
 }
 
+// Older responses are minimized before entering UI state. Identity always uses UUIDs.
+function studentDisplayName(name = '') {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] || '';
+  const initial = Array.from(Array.from(parts.at(-1))[0].toUpperCase())[0];
+  return `${parts[0]} ${initial}.`;
+}
+
+function personDisplayName(name = '', role = '') {
+  return role === 'Faculty' ? String(name || '').trim() : studentDisplayName(name);
+}
+
+function snapshotDisplayName(name = '', memberId = '', role = '') {
+  const member = state.members.find(item => memberId ? item.id === memberId : item.role === 'Faculty' && item.name === name);
+  if (['System', 'Auth Admin', 'Club administrator', 'Removed member', 'Unknown member', 'Media Club', 'Media Club member', 'SAC member', 'Student Athletic Council'].includes(name)) return name;
+  if (String(name).includes('@')) return 'Club administrator';
+  return personDisplayName(name, member?.role || role);
+}
+
 function splitName(name = '') {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return { fname: parts[0] || '', lname: parts.slice(1).join(' ') || '' };
 }
 
 function normalizeMember(member, index = 0) {
-  const { fname, lname } = splitName(member.name);
+  const name = personDisplayName(member.name, member.role);
+  const { fname, lname } = splitName(name);
   return {
     id: member.id,
     fname,
     lname,
-    name: member.name,
+    name,
     email: member.email || '',
     isCurrentUser: Boolean(member.is_current_user),
     gradeLevel: member.grade_level || '',
@@ -707,7 +727,7 @@ function normalizeSignup(signup) {
   return {
     id: signup.id,
     memberId: signup.member_id,
-    name: signup.members?.name || 'Unknown member',
+    name: snapshotDisplayName(signup.members?.name, signup.member_id, signup.members?.role) || 'Unknown member',
     role: signup.signup_role || '',
     roleSlot: Number(signup.role_slot) || 1,
     reserveRole1: signup.reserve_role_1 || '',
@@ -720,7 +740,7 @@ function normalizeSignup(signup) {
     attendanceStatus: signup.attendance_status || 'not_taken',
     attendanceMarkedAt: signup.attendance_marked_at || '',
     attendanceMarkedBy: signup.attendance_marked_by || '',
-    attendanceMarkedByName: signup.attendance_marked_by_name || '',
+    attendanceMarkedByName: snapshotDisplayName(signup.attendance_marked_by_name),
     confirmationStatus: signup.confirmation_status || 'confirmed',
     confirmationDeadline: signup.confirmation_deadline || '',
     confirmedAt: signup.confirmed_at || '',
@@ -768,7 +788,7 @@ function normalizeEvent(event) {
     endTime: event.ends_at ? berlinTimeLabel(event.ends_at) : '',
     endsAt: event.ends_at || '',
     archivedAt: event.archived_at || '',
-    archivedByName: event.archived_by_name || '',
+    archivedByName: snapshotDisplayName(event.archived_by_name),
     slots: 0,
     openSignupRoles: Array.isArray(event.open_signup_roles)
       ? event.open_signup_roles.filter(role => signupRoleDisplayOrder.includes(role))
@@ -794,17 +814,17 @@ function normalizeMeeting(meeting) {
     audience: meeting.audience || 'general',
     relatedEventId: meeting.related_event_id || '',
     organizerMemberId: meeting.organizer_member_id || '',
-    organizerName: meeting.organizer_name || 'Media Club',
+    organizerName: snapshotDisplayName(meeting.organizer_name, meeting.organizer_member_id) || 'Media Club',
     createdAt: meeting.created_at || '',
     updatedAt: meeting.updated_at || '',
     archivedAt: meeting.archived_at || '',
-    archivedByName: meeting.archived_by_name || '',
+    archivedByName: snapshotDisplayName(meeting.archived_by_name),
     attendees: (meeting.meeting_attendees || []).map(attendee => ({
       id: attendee.id,
       memberId: attendee.member_id,
       response: attendee.response || 'maybe',
       respondedAt: attendee.responded_at || '',
-      name: attendee.members?.name || 'Media Club member',
+      name: snapshotDisplayName(attendee.members?.name, attendee.member_id, attendee.members?.role) || 'Media Club member',
       role: attendee.members?.role || 'Member',
       avatarUrl: attendee.members?.avatar_url || '',
     })),
@@ -824,7 +844,7 @@ function normalizeGallery(item) {
     eventId: visitor ? '' : item.event_id || '',
     eventTitle: visitor ? '' : linkedEvent?.title || '',
     eventDate: visitor ? '' : linkedEvent?.date ? berlinDateKey(linkedEvent.date) : '',
-    author: visitor ? 'Media Club' : item.members?.name || directoryMember?.name || 'Media Club member',
+    author: visitor ? 'Media Club' : snapshotDisplayName(item.members?.name || directoryMember?.name, item.member_id) || 'Media Club member',
     desc: item.description || '',
     link: item.project_url || item.image_url || '#',
     image_url: item.image_url || '',
@@ -840,16 +860,16 @@ function normalizeEquipment(item) {
     name: item.name,
     category: item.category || 'Other',
     status: item.status || 'available',
-    assignedName: item.members?.name || 'Unassigned',
+    assignedName: snapshotDisplayName(item.members?.name, item.assigned_to) || 'Unassigned',
     detail: item.notes || 'No notes',
     compatibilityGroup: item.compatibility_group || '',
     archivedAt: item.archived_at || '',
-    archivedByName: item.archived_by_name || '',
+    archivedByName: snapshotDisplayName(item.archived_by_name),
     reservations: (item.equipment_reservations || []).map(reservation => ({
       id: reservation.id,
       groupId: reservation.reservation_group_id || '',
       memberId: reservation.member_id,
-      memberName: reservation.members?.name || 'Unknown member',
+      memberName: snapshotDisplayName(reservation.members?.name, reservation.member_id) || 'Unknown member',
       eventId: reservation.event_id,
       eventTitle: reservation.events?.title || '',
       type: reservation.reservation_type,
@@ -860,7 +880,7 @@ function normalizeEquipment(item) {
       checkedOutAt: reservation.checked_out_at || '',
       returnedAt: reservation.returned_at || '',
       returnedBy: reservation.returned_by || '',
-      returnedByName: reservation.returned_by_name || '',
+      returnedByName: snapshotDisplayName(reservation.returned_by_name),
       autoReleasedAt: reservation.auto_released_at || '',
     })),
   };
@@ -885,7 +905,7 @@ function normalizeAnnouncement(item) {
 }
 
 function normalizeApplication(item) {
-  const nameParts = splitName(item.name || '');
+  const nameParts = splitName(studentDisplayName(item.name));
   return {
     id: item.id,
     fname: nameParts.fname,

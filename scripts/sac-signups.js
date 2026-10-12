@@ -322,7 +322,9 @@ async function renderSacSignups(preserveContent = false) {
       .eq('event_id', selected.id).is('cancelled_at', null).order('slot_start', { ascending: true });
     if (request !== sacSignupsState.request) return;
     if (signupError) throw signupError;
-    sacSignupsState.signups = signups || [];
+    sacSignupsState.signups = (signups || []).map(booking => ({ ...booking,
+      member_name_snapshot: snapshotDisplayName(booking.member_name_snapshot, booking.member_id),
+    }));
     sacSignupsState.bookingsReady = false;
     paintSacSignupSheet();
     await loadSacSignupAvailability();
