@@ -427,7 +427,7 @@ test('route changes, filters, settings tabs, and toasts expose accessible state'
   assert.match(appStyles, /\.page :is\(h1, \.page-title\)\[tabindex="-1"\]:focus \{ outline: none; \}/);
   assert.match(appSource, /t\.setAttribute\('role', type === 'error' \? 'alert' : 'status'\)/);
   assert.match(indexHtml, /id="event-filters" role="group" aria-label="Filter events"/);
-  assert.match(indexHtml, /class="filter-chip active" aria-pressed="true"/);
+  assert.match(indexHtml, /class="filter-chip active"[^>]*aria-pressed="true"/);
   assert.match(indexHtml, /class="settings-nav" role="tablist"/);
   assert.match(indexHtml, /data-settings-section="appearance" role="tabpanel"/);
   assert.match(appSource, /item\.setAttribute\('aria-selected', String\(active\)\)/);

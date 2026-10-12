@@ -1143,7 +1143,7 @@ test('production staff can edit events without replacing linked records or lifec
   const saveEvent = extractFunction('addEvent');
   const updateGrant = policiesSql.match(/grant update \(([\s\S]*?)\) on table public\.events to authenticated/)?.[1] || '';
   const renderEventCard = canManage => runFunctions(
-    ['renderEvents'],
+    ['eventMatchesSearch', 'renderEventBrowseStatus', 'renderEvents'],
     {
       state: {
         eventFilter: 'all',

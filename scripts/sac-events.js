@@ -1,6 +1,6 @@
 // SAC events are independent of Media Club production events. The server owns
 // permissions and exposes only limited livestream details for linking.
-const sacEventsState = { events: [], livestreams: [], coverage: null, showPast: false, editingId: null, loaded: false, request: 0 };
+const sacEventsState = { events: [], livestreams: [], coverage: null, showPast: false, editingId: null, loaded: false, destinationApplied: false, request: 0 };
 let mediaSacLinkRequest = 0;
 
 function resetSacEventsState() {
@@ -12,6 +12,7 @@ function resetSacEventsState() {
   sacEventsState.showPast = false;
   sacEventsState.editingId = null;
   sacEventsState.loaded = false;
+  sacEventsState.destinationApplied = false;
   const list = document.getElementById('sac-events-list');
   if (list) list.textContent = '';
   const mediaCallout = document.getElementById('sheet-sac-linked');
@@ -41,6 +42,7 @@ function paintSacEventOpenings() {
 }
 
 window.resetSacEventsState = resetSacEventsState;
+window.prepareSacEventBrowseDestination = () => { sacEventsState.destinationApplied = false; };
 
 function sacEventLinkable(eventId) {
   return sacEventsState.livestreams.find(event => event.id === eventId);
@@ -100,13 +102,20 @@ function paintSacEvents() {
   const list = document.getElementById('sac-events-list');
   if (!list) return;
   const now = Date.now();
-  const events = sacEventsState.events.filter(event => sacEventsState.showPast || Date.parse(event.ends_at) >= now);
+  const query = document.getElementById('sac-events-search')?.value || '';
+  const visibleByDate = sacEventsState.events.filter(event => sacEventsState.showPast || Date.parse(event.ends_at) >= now);
+  const events = visibleByDate.filter(event => eventMatchesSearch(event, query)).sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at) || a.title.localeCompare(b.title));
   document.getElementById('sac-event-create').hidden = !canCreateSacEvents();
   const toggle = document.getElementById('sac-events-past-toggle');
   toggle.textContent = sacEventsState.showPast ? 'Hide past events' : 'Show past events';
   toggle.setAttribute('aria-pressed', String(sacEventsState.showPast));
+  if (!sacEventsState.loaded) {
+    renderEventBrowseStatus('sac', 0, 0, sacEventsState.showPast, document.getElementById('sac-events-status')?.textContent || 'Loading events…');
+    return;
+  }
+  renderEventBrowseStatus('sac', events.length, visibleByDate.length, sacEventsState.showPast);
   if (!events.length) {
-    list.innerHTML = `<div class="empty-state" role="status"><p>${sacEventsState.showPast ? 'No SAC events yet.' : 'No upcoming SAC events yet.'}</p>${canCreateSacEvents() ? '<button class="btn btn-accent btn-sm" type="button" onclick="openSacEventEditor()">Create the first event</button>' : ''}</div>`;
+    list.innerHTML = `<div class="empty-state event-browse-empty"><p>${query.trim() ? 'No matching SAC events.' : sacEventsState.showPast ? 'No SAC events yet.' : 'No upcoming SAC events yet.'}</p>${query.trim() ? '<span>Try another name, location or date, or reset the filters above.</span>' : ''}${canCreateSacEvents() && !sacEventsState.events.length && !query.trim() ? '<button class="btn btn-accent btn-sm" type="button" onclick="openSacEventEditor()">Create the first event</button>' : ''}</div>`;
     return;
   }
   list.innerHTML = events.map(event => {
@@ -130,8 +139,13 @@ async function renderSacEvents() {
   const list = document.getElementById('sac-events-list');
   if (!list || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()) return;
   const request = ++sacEventsState.request;
+  if (!sacEventsState.destinationApplied && new URLSearchParams(window.location.search).get('event')) {
+    const input = document.getElementById('sac-events-search'); if (input) input.value = '';
+  }
+  renderEventBrowseStatus('sac', 0, 0, sacEventsState.showPast, sacEventsState.loaded ? 'Refreshing events…' : 'Loading events…');
   if (!sacEventsState.loaded) list.innerHTML = '<div class="empty-state" role="status"><p>Loading SAC events…</p></div>';
   if (!supabaseClient) {
+    renderEventBrowseStatus('sac', 0, 0, sacEventsState.showPast, 'Events unavailable.');
     list.innerHTML = '<div class="empty-state" role="alert"><p>SAC events cannot load until Supabase is configured.</p></div>';
     return;
   }
@@ -143,11 +157,15 @@ async function renderSacEvents() {
       canCreateSacEvents() ? supabaseClient.rpc('get_sac_linkable_livestreams') : Promise.resolve({ data: [], error: null }),
     ]);
   } catch (_error) {
-    if (request === sacEventsState.request) list.innerHTML = '<div class="empty-state" role="alert"><p>SAC events could not load. Check your connection and try opening Events again.</p></div>';
+    if (request === sacEventsState.request) {
+      renderEventBrowseStatus('sac', 0, 0, sacEventsState.showPast, 'Events could not load.');
+      list.innerHTML = '<div class="empty-state" role="alert"><p>SAC events could not load. Check your connection and try opening Events again.</p></div>';
+    }
     return;
   }
   if (request !== sacEventsState.request) return;
   if (eventResult.error) {
+    renderEventBrowseStatus('sac', 0, 0, sacEventsState.showPast, 'Events unavailable.');
     list.innerHTML = '<div class="empty-state" role="alert"><p>SAC events are not available yet. The new database schema and permissions must be applied before this page can load.</p></div>';
     document.getElementById('sac-event-create').hidden = true;
     return;
@@ -158,8 +176,21 @@ async function renderSacEvents() {
   sacEventsState.coverage = null;
   const requestedEventId = new URLSearchParams(window.location.search).get('event');
   const requestedEvent = sacEventsState.events.find(event => event.id === requestedEventId);
-  if (requestedEvent && Date.parse(requestedEvent.ends_at) < Date.now()) sacEventsState.showPast = true;
+  const focusRequestedEvent = requestedEvent && !sacEventsState.destinationApplied;
+  if (focusRequestedEvent) {
+    sacEventsState.destinationApplied = true;
+    sacEventsState.showPast = Date.parse(requestedEvent.ends_at) < Date.now();
+  }
   paintSacEvents();
+  if (focusRequestedEvent) requestAnimationFrame(() => {
+    if (request !== sacEventsState.request || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()
+      || !document.getElementById('page-sac-events')?.classList.contains('active')
+      || new URLSearchParams(window.location.search).get('event') !== requestedEventId
+      || document.getElementById('sac-events-search')?.value.trim()) return;
+    const card = document.getElementById(`sac-event-${requestedEvent.id}`);
+    card?.focus({ preventScroll: true });
+    card?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  });
   const coverageActor = window.CREW_CENTER_AUTH_USER?.id;
   const eventIds = sacEventsState.events.filter(event => Date.parse(event.ends_at) > Date.now()).map(event => event.id);
   if (canClaimSacSlot() && eventIds.length) {
@@ -169,14 +200,6 @@ async function renderSacEvents() {
       if (!result.error && Array.isArray(result.data)) { sacEventsState.coverage = result.data; paintSacEventOpenings(); }
     } catch (_error) { /* Availability hints are optional; the booking sheet remains authoritative. */ }
   }
-  if (requestedEvent) requestAnimationFrame(() => {
-    if (request !== sacEventsState.request || currentCrewCenterWorkspace() !== 'sac' || !canAccessSacWorkspace()
-      || !document.getElementById('page-sac-events')?.classList.contains('active')
-      || new URLSearchParams(window.location.search).get('event') !== requestedEventId) return;
-    const card = document.getElementById(`sac-event-${requestedEvent.id}`);
-    card?.focus({ preventScroll: true });
-    card?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
-  });
   if (linkResult.error && canCreateSacEvents()) showToast('SAC events loaded, but Media Club livestream linking is unavailable until the database update is applied.', 'error', 7000);
 }
 

@@ -31,6 +31,18 @@ test('quick search finds event and equipment records, not only page names',()=>{
   assert.equal(h.context.crewQuickSearchEntries('missing').length,0);
 });
 
+test('opening an event link clears a previous Events search only on arrival', () => {
+  const h = harness(); const input = { value: 'another event' };
+  h.context.window.location = new URL('https://fismediaclub.org/events?event=event');
+  h.context.URLSearchParams = URLSearchParams;
+  h.context.document.getElementById = id => id === 'events-search' ? input : null;
+  h.context.document.querySelectorAll = () => [];
+  assert.equal(h.context.applyCrewQuickSearchDestination('event').id, 'event');
+  assert.equal(input.value, '');
+  input.value = 'new search'; h.context.applyCrewQuickSearchDestination('event');
+  assert.equal(input.value, 'new search', 'Later searches remain usable on the linked page');
+});
+
 test('search hides unavailable pages, restricted meetings and archived records',()=>{
   const h=harness();
   assert.equal(h.context.crewQuickSearchEntries('admin').length,0);

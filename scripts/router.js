@@ -99,6 +99,7 @@ function navigate(id, el, options = {}) {
     page = 'home';
   }
   window.prepareCrewQuickSearchDestination?.();
+  window.prepareSacEventBrowseDestination?.();
   window.closeCrewDatePicker?.({ immediate: true, returnFocus: false });
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-page]').forEach(n => {

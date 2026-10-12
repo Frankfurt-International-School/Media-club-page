@@ -388,8 +388,9 @@
       <div class="sac-page-hero-mark" aria-hidden="true"><img src="assets/sac-warriors-mark.png" width="430" height="320" alt=""></div>
       <div class="page-hero-actions"><button type="button" class="btn btn-accent" id="sac-event-create" onclick="openSacEventEditor()" hidden>Create SAC event</button></div>
     </section>
-    <div class="sac-events-toolbar"><button type="button" class="btn btn-ghost btn-sm" id="sac-events-past-toggle" aria-pressed="false" onclick="togglePastSacEvents()">Show past events</button></div>
-    <div id="sac-events-list" aria-live="polite"></div>
+    <div class="sac-events-toolbar event-browse-toolbar"><div class="event-browse-search"><label class="visually-hidden" for="sac-events-search">Search SAC events</label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input class="form-input" id="sac-events-search" type="search" placeholder="Search name, location or date" autocomplete="off" aria-controls="sac-events-list" oninput="paintSacEvents()"></div><button type="button" class="btn btn-ghost btn-sm" id="sac-events-past-toggle" aria-pressed="false" onclick="togglePastSacEvents()">Show past events</button></div>
+    <div class="event-browse-summary sac-event-browse-summary"><p id="sac-events-status" role="status" aria-live="polite" aria-atomic="true"></p><button class="btn btn-ghost btn-sm" id="sac-events-reset" type="button" onclick="resetEventBrowse('sac')" hidden>Reset filters</button></div>
+    <div id="sac-events-list"></div>
   </div>
 
   <div id="page-sac-signups" class="page">
@@ -487,14 +488,16 @@
           Add event
         </button></div>
     </section>
+    <div class="event-browse-toolbar"><div class="event-browse-search"><label class="visually-hidden" for="events-search">Search Media Club events</label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input class="form-input" id="events-search" type="search" placeholder="Search name, location or date" autocomplete="off" aria-controls="events-list" oninput="renderEvents()"></div>
     <div class="filter-row" id="event-filters" role="group" aria-label="Filter events">
-      <button class="filter-chip active" aria-pressed="true" onclick="filterEvents('all', this)">All</button>
-      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Livestream', this)">Livestream</button>
-      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
-      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Event', this)">Event</button>
-      <button class="filter-chip" aria-pressed="false" onclick="filterEvents('Other', this)">Other</button>
+      <button class="filter-chip active" data-event-category="all" aria-pressed="true" onclick="filterEvents('all', this)">All</button>
+      <button class="filter-chip" data-event-category="Livestream" aria-pressed="false" onclick="filterEvents('Livestream', this)">Livestream</button>
+      <button class="filter-chip" data-event-category="Recording (live cut)" aria-pressed="false" onclick="filterEvents('Recording (live cut)', this)">Recording (live cut)</button>
+      <button class="filter-chip" data-event-category="Event" aria-pressed="false" onclick="filterEvents('Event', this)">Event</button>
+      <button class="filter-chip" data-event-category="Other" aria-pressed="false" onclick="filterEvents('Other', this)">Other</button>
       <button class="filter-chip" id="past-events-toggle" aria-pressed="false" onclick="togglePastEvents()">Show past events</button>
-    </div>
+    </div></div>
+    <div class="event-browse-summary"><p id="events-status" role="status" aria-live="polite" aria-atomic="true"></p><button class="btn btn-ghost btn-sm" id="events-reset" type="button" onclick="resetEventBrowse('media')" hidden>Reset filters</button></div>
     <div id="events-list"></div>
     <section class="archived-panel" id="archived-events-panel" hidden>
       <div><div class="section-head" style="margin:0;">Archived events</div><div class="text-muted">Hidden from schedules and signup sheets, with signups and reservation history preserved.</div></div>
@@ -1026,7 +1029,7 @@
         <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-12">12 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Shortened student names across club tools with database privacy safeguards, and refreshed date selection with compact, themed calendars.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <ul class="crew-update-list"><li>Shortened student names with database privacy safeguards, refreshed date pickers, and made Media Club and SAC events easier to find.</li><li>Fixed minor issues and improved user experience.</li></ul>
         <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">3 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-11">11 October 2026</time></header><ul class="crew-update-list"><li>Improved announcements and the inbox, added My week and crew-opening hints, and made equipment reservations and signup clearer.</li><li>Fixed minor issues and improved user experience.</li></ul></article>

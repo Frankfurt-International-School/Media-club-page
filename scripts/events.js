@@ -1,6 +1,65 @@
 // ══════════════════════════════
 // EVENTS
 // ══════════════════════════════
+function eventMatchesSearch(event, query) {
+  const normalize = value => String(value || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  const date = event.date || (event.starts_at ? berlinDateKey(event.starts_at) : '');
+  const dateLabel = /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? formatBerlinCalendarDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const [year, month, day] = date.split('-');
+  const numericDates = dateLabel ? `${day}.${month}.${year} ${Number(day)}.${Number(month)}.${year} ${day}/${month}/${year} ${Number(day)}/${Number(month)}/${year}` : '';
+  const text = normalize([event.title, event.loc || event.location, event.cat, event.desc || event.description, date, dateLabel, numericDates].join(' '));
+  // Keep a day such as 3 from matching the digits in 13 or 2030.
+  return terms.every(term => /^\d+(?:[./-]\d+)*$/.test(term)
+    ? new RegExp(`(?:^|\\D)${term.replace(/\./g, '\\.')}(?!\\d)`).test(text)
+    : text.includes(term));
+}
+
+function renderEventBrowseStatus(workspace, count, total, showPast, message = '') {
+  const prefix = workspace === 'sac' ? 'sac-events' : 'events';
+  const status = document.getElementById(`${prefix}-status`);
+  if (status) {
+    const noun = showPast ? 'events' : 'upcoming events';
+    status.textContent = message || `${count === total ? count : `${count} of ${total}`} ${count === total && count === 1 ? noun.replace('events', 'event') : noun}${showPast ? ' · including past events' : ''}`;
+  }
+  const reset = document.getElementById(`${prefix}-reset`);
+  if (reset) reset.hidden = !document.getElementById(`${prefix}-search`)?.value.trim()
+    && !(workspace === 'sac' ? showPast : showPast || state.eventFilter !== 'all');
+}
+
+function syncEventCategoryFilters() {
+  document.querySelectorAll('#event-filters [data-event-category]').forEach(button => {
+    const active = button.dataset.eventCategory === state.eventFilter;
+    button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function resetEventBrowse(workspace) {
+  const input = document.getElementById(workspace === 'sac' ? 'sac-events-search' : 'events-search');
+  if (input) input.value = '';
+  if (workspace === 'sac') {
+    sacEventsState.showPast = false;
+    paintSacEvents();
+  } else {
+    state.eventFilter = 'all'; state.showPastEvents = false;
+    syncEventCategoryFilters();
+    renderEvents();
+  }
+  input?.focus({ preventScroll: true });
+}
+
+window.resetEventBrowseFilters = () => {
+  state.eventFilter = 'all'; state.showPastEvents = false;
+  syncEventCategoryFilters();
+  for (const prefix of ['events', 'sac-events']) {
+    const input = document.getElementById(`${prefix}-search`); if (input) input.value = '';
+    const status = document.getElementById(`${prefix}-status`); if (status) status.textContent = '';
+    document.getElementById(`${prefix}-reset`)?.setAttribute('hidden', '');
+  }
+};
+
 function eventRoleSetupCaption(event) {
   if (!eventCategorySupportsRoleSetup(event?.cat)) return '';
   const roles = eventOpenRoleLabels(event);
@@ -27,8 +86,13 @@ function renderEvents(filter) {
   if (typeof applyCrewQuickSearchDestination === 'function') applyCrewQuickSearchDestination('event');
   renderArchivedEvents();
   const f = state.eventFilter;
+  const query = document.getElementById('events-search')?.value || '';
   const visibleByDate = state.showPastEvents ? state.events : state.events.filter(event => !isPastEvent(event));
-  const list = f === 'all' ? visibleByDate : visibleByDate.filter(e => e.cat === f);
+  const list = visibleByDate.filter(event => (f === 'all' || event.cat === f) && eventMatchesSearch(event, query))
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '') || a.title.localeCompare(b.title));
+  const pendingMessage = state.dataLoaded?.events === false
+    ? state.dataErrors?.events ? 'Events could not load. Use Retry above.' : 'Loading events…' : '';
+  renderEventBrowseStatus('media', list.length, visibleByDate.length, state.showPastEvents, pendingMessage);
   const pastToggle = document.getElementById('past-events-toggle');
   if (pastToggle) {
     pastToggle.textContent = state.showPastEvents ? 'Hide past events' : 'Show past events';
@@ -36,7 +100,11 @@ function renderEvents(filter) {
     pastToggle.setAttribute('aria-pressed', String(state.showPastEvents));
   }
   const el = document.getElementById('events-list');
-  if (!list.length) { el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>${state.showPastEvents ? 'No events in this category.' : 'No upcoming events in this category.'}</p></div>`; return; }
+  if (!list.length) {
+    const filtered = query.trim() || f !== 'all';
+    el.innerHTML = `<div class="empty-state event-browse-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>${pendingMessage || (filtered ? 'No matching events.' : state.showPastEvents ? 'No events yet.' : 'No upcoming events yet.')}</p>${filtered && !pendingMessage ? '<span>Try another name, location or date, or reset the filters above.</span>' : ''}</div>`;
+    return;
+  }
   const eventCard = ev => {
     const past = isPastEvent(ev);
     return `

@@ -147,6 +147,7 @@ function applyCrewQuickSearchDestination(kind) {
   if (!crewQuickSearchState.selectionApplied) {
     if (kind === 'event') {
       state.eventFilter = 'all'; state.showPastEvents = isPastEvent(record);
+      const input = document.getElementById('events-search'); if (input) input.value = '';
       document.querySelectorAll('#event-filters .filter-chip:not(#past-events-toggle)').forEach(button => {
         const all = button.textContent.trim() === 'All'; button.classList.toggle('active', all); button.setAttribute('aria-pressed', String(all));
       });
