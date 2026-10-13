@@ -68,8 +68,16 @@ authStyle.textContent = `
   .auth-gate-logo {
     width: 34px;
     height: 34px;
+    flex-shrink: 0;
+    object-fit: contain;
     border-radius: 50%;
     border: 1px solid rgba(176,5,43,0.2);
+  }
+
+  .auth-gate-logo-sac {
+    border-radius: 8px;
+    padding: 3px;
+    background: #fff;
   }
 
   .auth-gate-name,
@@ -531,7 +539,7 @@ document.body.insertAdjacentHTML("afterbegin", `
   <section class="auth-gate" aria-labelledby="auth-gate-title">
     <div class="auth-gate-card">
       <div class="auth-gate-brand">
-        <img class="auth-gate-logo" src="${authEntryIsSac ? "assets/sac-warriors-mark.png" : "assets/media-club-logo.png"}" width="128" height="128" alt="${authEntryIsSac ? "Frankfurt Warriors" : "Media Club"} logo">
+        <img class="auth-gate-logo${authEntryIsSac ? " auth-gate-logo-sac" : ""}" src="${authEntryIsSac ? "assets/sac-warriors-mark.png" : "assets/media-club-logo.png"}" width="${authEntryIsSac ? 430 : 128}" height="${authEntryIsSac ? 320 : 128}" alt="${authEntryIsSac ? "Frankfurt Warriors" : "Media Club"} logo">
         <div>
           <div class="auth-gate-name">${authEntryIsSac ? "SAC" : "Media Club"}</div>
           <div class="auth-gate-kicker">${authEntryIsSac ? "Student Athletic Council" : "FIS Student Media Club"}</div>
