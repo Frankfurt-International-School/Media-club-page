@@ -467,7 +467,7 @@
         <div class="page-title"><span id="dashboard-greeting">Good afternoon</span> <span class="wave-hand" id="wave-hand">👋</span></div>
         <div class="page-sub" id="dashboard-subtitle">Your personal Media Club operations overview.</div>
       </div>
-      <div class="dashboard-header-actions"><button class="btn btn-ghost btn-sm" type="button" data-personal-week-open hidden title="See your shifts and meetings together">My week</button><a class="btn btn-ghost" id="dashboard-customize-button" href="/profile?tab=dashboard" hidden>Customize dashboard</a></div>
+      <div class="dashboard-header-actions"><button class="btn btn-ghost btn-sm" type="button" data-personal-week-open hidden title="See your shifts and meetings together">My week</button><a class="btn btn-ghost btn-sm" id="dashboard-calendar-subscribe" href="/my-crew-schedule#media-calendar-subscriptions" hidden>Subscribe to calendars</a><a class="btn btn-ghost" id="dashboard-customize-button" href="/profile?tab=dashboard" hidden>Customize dashboard</a></div>
     </div>
     <section class="dashboard-hero" id="dashboard-focus"></section>
     <aside class="announcement-pinned" id="media-pinned-announcement" aria-label="Pinned Media Club announcement" hidden></aside>
@@ -539,6 +539,30 @@
       <div class="page-hero-actions crew-personal-calendar-action"><button class="btn btn-accent" type="button" id="my-crew-schedule-download" aria-describedby="my-crew-schedule-calendar-status" onclick="downloadCrewScheduleCalendar()" disabled>Download calendar</button><p class="crew-personal-calendar-status" id="my-crew-schedule-calendar-status" role="status">Loading your bookings…</p></div>
     </header>
     <div class="crew-personal-stats" id="my-crew-schedule-stats"></div>
+    <section class="media-calendar-section" id="media-calendar-subscriptions" aria-labelledby="media-calendar-title" hidden>
+      <div class="media-calendar-heading"><div><h2 id="media-calendar-title">Keep it in your calendar</h2><p>Add once. Your calendar app checks for changes automatically.</p></div><span class="badge badge-green">Live subscriptions</span></div>
+      <div class="media-calendar-grid">
+        <article class="media-calendar-card" id="media-calendar-personal" data-calendar-kind="personal">
+          <div class="media-calendar-card-heading"><span class="media-calendar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 5 3 3 5-5"/></svg></span><div><h3>My signed-up events</h3><span data-calendar-state>Checking subscriptions…</span></div></div>
+          <p>Only events you join, using your booked crew time. Maybe sign-ups appear as tentative.</p>
+          <button class="btn btn-accent btn-sm" type="button" data-calendar-create disabled>Create subscription link</button>
+          <div class="media-calendar-links" data-calendar-links hidden><label for="media-calendar-personal-url">Private subscription URL</label><input id="media-calendar-personal-url" type="text" readonly autocomplete="off" spellcheck="false" aria-describedby="media-calendar-privacy"><div class="media-calendar-actions"><button class="btn btn-accent btn-sm" type="button" data-calendar-copy>Copy link</button><a class="btn btn-ghost btn-sm" data-calendar-native referrerpolicy="no-referrer">Open Calendar app ↗</a></div></div>
+          <p class="media-calendar-recover" data-calendar-recover hidden>Your existing calendar keeps syncing. Replace the link only if you need to add it again.</p>
+          <button class="media-calendar-revoke" type="button" data-calendar-revoke hidden>Revoke link</button>
+        </article>
+        <article class="media-calendar-card" id="media-calendar-events" data-calendar-kind="events">
+          <div class="media-calendar-card-heading"><span class="media-calendar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h3m3 0h3m-9 3h3m3 0h3"/></svg></span><div><h3>All Media Club events</h3><span data-calendar-state>Checking subscriptions…</span></div></div>
+          <p>Every Media Club event and its full event time, whether or not you sign up. No crew roster.</p>
+          <button class="btn btn-ghost btn-sm" type="button" data-calendar-create disabled>Create subscription link</button>
+          <div class="media-calendar-links" data-calendar-links hidden><label for="media-calendar-events-url">Private subscription URL</label><input id="media-calendar-events-url" type="text" readonly autocomplete="off" spellcheck="false" aria-describedby="media-calendar-privacy"><div class="media-calendar-actions"><button class="btn btn-accent btn-sm" type="button" data-calendar-copy>Copy link</button><a class="btn btn-ghost btn-sm" data-calendar-native referrerpolicy="no-referrer">Open Calendar app ↗</a></div></div>
+          <p class="media-calendar-recover" data-calendar-recover hidden>Your existing calendar keeps syncing. Replace the link only if you need to add it again.</p>
+          <button class="media-calendar-revoke" type="button" data-calendar-revoke hidden>Revoke link</button>
+        </article>
+      </div>
+      <div class="media-calendar-error" id="media-calendar-error" role="status" hidden><span id="media-calendar-error-copy"></span><button class="btn btn-ghost btn-sm" type="button" data-calendar-retry>Retry</button></div>
+      <p class="media-calendar-note">Keep your links private. Adding a feed shares its event details with your chosen calendar provider.</p>
+      <details class="media-calendar-help"><summary>How to subscribe &amp; keep your link private</summary><div><p><strong>Google Calendar:</strong> On a computer, choose Other calendars → + → From URL, then paste your copied link. <strong>Outlook:</strong> Add calendar → Subscribe from web. <strong>Apple Calendar:</strong> Open Calendar app above, or add a new calendar subscription with the copied URL.</p><p id="media-calendar-privacy">Anyone with the link can read that feed. Keep it private. Adding it to a calendar service shares event details and, for the personal feed, your booked times and crew role with that service. Revoke a link here to stop future access; remove the calendar in your app to clear saved entries.</p><p>Updates appear when your calendar app refreshes; this can take several hours. Feeds include the last 180 days and the next two years, excluding archived events. Meetings and equipment loans remain in the calendar download below. Calendar subscriptions do not create sign-ups.</p><p>To avoid seeing the same event twice, enable one feed at a time in your calendar app. Your booked time may differ from the full event time.</p></div></details>
+    </section>
     <div class="crew-personal-toolbar"><div class="crew-personal-filters tab-row" role="group" aria-label="Show commitments"><button class="tab active" type="button" data-crew-schedule-filter="all" aria-pressed="true">All</button><button class="tab" type="button" data-crew-schedule-filter="assignment" aria-pressed="false">Assignments</button><button class="tab" type="button" data-crew-schedule-filter="equipment" aria-pressed="false">Equipment</button><button class="tab" type="button" data-crew-schedule-filter="meeting" aria-pressed="false">Meetings</button></div><div class="personal-week-shortcuts"><button class="btn btn-ghost btn-sm" type="button" data-personal-week-open hidden title="See your shifts and meetings together">My week</button><button class="btn btn-ghost btn-sm" type="button" id="my-crew-schedule-refresh" onclick="refreshMyCrewSchedule()">Refresh</button></div></div>
     <div class="crew-agenda-overview" id="my-crew-schedule-overview" hidden></div>
     <div class="crew-personal-calendar-note"><details class="crew-personal-calendar-help"><summary>How to use Download calendar</summary><ol><li>Choose All, Assignments, Equipment or Meetings to select the entries to export.</li><li>Download calendar saves those entries as a calendar file (.ics). Add to calendar on a card saves just that entry.</li><li>Open the file in your calendar app. For a web calendar, use its import option and select the downloaded file.</li></ol></details><p>Calendar files are a snapshot, with no automatic sync. If details change, update or remove the entry in your calendar too. Meeting RSVPs stay separate from attendance. All times below use Berlin time.</p></div>
@@ -1026,12 +1050,13 @@
         <img src="assets/media-club-logo.png" width="128" height="128" alt="" class="crew-updates-mark">
         <span class="page-kicker">Media Club</span><h2 id="crew-updates-title">Crew Center</h2>
         <p class="crew-updates-tagline"><span class="visually-hidden">A little clearer. A little smoother.</span><span id="crew-updates-type" aria-hidden="true" data-type-text="A little clearer. A little smoother.">A little clearer. A little smoother.</span></p>
-        <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-12">12 October 2026</time>
+        <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-13">13 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Shortened student names with database safeguards, improved event browsing and date pickers, and fixed links to Settings tabs and event details.</li><li>Fixed minor issues and improved user experience.</li></ul>
-        <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">3 earlier updates</span></summary>
+        <ul class="crew-update-list"><li>Added private, revocable calendar subscriptions for personal sign-ups and all Media Club events, with a dashboard shortcut.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">4 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
+            <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-12">12 October 2026</time></header><ul class="crew-update-list"><li>Shortened student names with database safeguards, improved event browsing and date pickers, and fixed links to Settings tabs and event details.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-11">11 October 2026</time></header><ul class="crew-update-list"><li>Improved announcements and the inbox, added My week and crew-opening hints, and made equipment reservations and signup clearer.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-10">10 October 2026</time></header><ul class="crew-update-list"><li>Refreshed themes and Settings, with smoother update history and typed introductions on the public site.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-09">9 October 2026</time></header><ul class="crew-update-list"><li>Brought commitments into a daily agenda and made search and schedule filters easier to use.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
@@ -1632,6 +1657,7 @@
 <script src="scripts/gallery.js"></script>
 <script src="scripts/equipment.js"></script>
 <script src="scripts/my-crew-schedule.js"></script>
+<script src="scripts/calendar-subscriptions.js"></script>
 <script src="scripts/personal-week.js"></script>
 <script src="scripts/cas-attendance.js"></script>
 <script src="scripts/admin.js"></script>

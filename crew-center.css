@@ -1324,6 +1324,35 @@
   :root[data-theme="dark"] .crew-personal-filters .tab-indicator { border-color: rgba(246,164,189,.28); background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(164,1,52,.22)); box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 3px 10px rgba(0,0,0,.16); }
   :root[data-theme="dark"] .crew-personal-filters button[aria-pressed="true"], :root[data-theme="dark"] .crew-personal-filters button:hover { color: #f6a4bd; }
   @media (prefers-reduced-motion: reduce) { .crew-personal-filters .tab-indicator, .crew-personal-filters button { transition: none; } }
+  .media-calendar-section { margin: 0 0 28px; scroll-margin-top: 80px; }
+  .media-calendar-heading, .media-calendar-card-heading, .media-calendar-actions { display: flex; align-items: center; gap: 12px; }
+  .media-calendar-heading { justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; }
+  .media-calendar-heading h2 { margin: 0; font: 24px var(--font-head); letter-spacing: .02em; }
+  .media-calendar-heading p { margin: 5px 0 0; color: var(--text3); font-size: 12px; }
+  .media-calendar-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .media-calendar-card { min-width: 0; padding: 22px; border: 1px solid var(--border2); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--accent-dim2), var(--bg2) 70%); box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
+  .media-calendar-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; color: var(--accent); background: var(--accent-dim2); }
+  .media-calendar-icon svg { width: 24px; height: 24px; stroke-width: 1.6; }
+  .media-calendar-card h3 { margin: 0 0 3px; font: 600 15px var(--font-body); letter-spacing: normal; }
+  .media-calendar-section .btn { min-height: 36px; padding: 8px 12px; font-size: 14px; }
+  .media-calendar-card [data-calendar-state] { color: var(--text3); font-size: 11px; }
+  .media-calendar-card p { color: var(--text2); font-size: 12px; line-height: 1.65; margin: 14px 0 16px; }
+  .media-calendar-links { margin-top: 16px; animation: media-calendar-reveal .22s ease-out; }
+  .media-calendar-links label { display: block; color: var(--text3); font-size: 11px; margin-bottom: 6px; }
+  .media-calendar-links input { box-sizing: border-box; width: 100%; min-width: 0; height: 42px; border: 1px solid var(--border2); border-radius: 10px; padding: 10px; background: var(--bg); color: var(--text2); font: 12px var(--font-body); }
+  .media-calendar-actions { flex-wrap: wrap; margin-top: 10px; gap: 8px; }
+  .media-calendar-revoke { display: block; margin-top: 16px; background: none; border: 0; color: var(--text3); font: 12px var(--font-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 8px 0; }
+  .media-calendar-card .media-calendar-recover { margin-bottom: 0; color: var(--text3); font-size: 11px; }
+  .media-calendar-help { margin-top: 12px; font-size: 12px; color: var(--text3); line-height: 1.7; }
+  .media-calendar-note { color: var(--text3); font-size: 11px; line-height: 1.6; margin: 14px 0 0; }
+  .media-calendar-help summary { color: var(--text2); cursor: pointer; padding: 8px 0; }
+  .media-calendar-help p { margin: 8px 0 12px; max-width: 880px; }
+  .media-calendar-error { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px; margin-top: 12px; border: 1px solid var(--border2); border-radius: 12px; color: var(--text2); font-size: 12px; }
+  .media-calendar-section [hidden] { display: none !important; }
+  .media-calendar-section button:focus-visible, .media-calendar-section a:focus-visible, .media-calendar-links input:focus-visible, .media-calendar-help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  @keyframes media-calendar-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @media (max-width: 620px) { .media-calendar-grid { grid-template-columns: 1fr; } .media-calendar-card { padding: 18px; } .media-calendar-links input { font-size: 16px; height: 44px; } .media-calendar-section .btn, .media-calendar-revoke, .media-calendar-help summary { min-height: 44px; } }
+  @media (prefers-reduced-motion: reduce) { .media-calendar-links { animation: none; } }
   .crew-personal-calendar-note { margin: 16px 0 24px; color: var(--text3); font-size: 12px; line-height: 1.6; }
   .crew-personal-calendar-action { display: grid; justify-items: end; gap: 8px; max-width: 240px; }
   .crew-personal-calendar-status { color: var(--text2); font-size: 11px; line-height: 1.5; text-align: right; }

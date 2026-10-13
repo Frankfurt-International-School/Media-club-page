@@ -10,7 +10,7 @@ const fisSchoolEmailPattern = /^[^\s@]+@fis\.edu$/i;
 const fisAliasEmailMessage = "Use your school alias email: exactly 2 letters followed by at least 4 numbers, ending in @fis.edu (for example, XX12345@fis.edu).";
 // The hashes are checked against the published HTML by tests. Change either document,
 // update its date and hash here, and existing members will see the new agreement.
-const legalDocumentVersions = Object.freeze({ terms: "2026-09-28-831101336107", privacy: "2026-10-12-e6973f6f9bf1" });
+const legalDocumentVersions = Object.freeze({ terms: "2026-09-28-831101336107", privacy: "2026-10-13-2ff7a4ddb941" });
 const authEntryIsSac = window.location.hostname === "sac.fismediaclub.org"
   || /^\/sac(?:\/|$)/.test(window.location.pathname)
   || new URLSearchParams(window.location.search).get("workspace") === "sac";

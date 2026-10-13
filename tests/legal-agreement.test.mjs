@@ -14,9 +14,9 @@ test('agreement is account bound, versioned, and required before dashboard revea
   const versions = auth.match(/const legalDocumentVersions = Object\.freeze\(\{ terms: "([^"]+)", privacy: "([^"]+)" \}\);/);
   assert.ok(versions, 'Expected explicit Terms and Privacy versions');
   assert.match(terms, /Last updated: 28 September 2026/);
-  assert.match(privacy, /Last updated: 12 October 2026/);
+  assert.match(privacy, /Last updated: 13 October 2026/);
   assert.equal(versions[1], `2026-09-28-${createHash('sha256').update(terms).digest('hex').slice(0, 12)}`);
-  assert.equal(versions[2], `2026-10-12-${createHash('sha256').update(privacy).digest('hex').slice(0, 12)}`);
+  assert.equal(versions[2], `2026-10-13-${createHash('sha256').update(privacy).digest('hex').slice(0, 12)}`);
 
   const decision = auth.match(/function needsLegalAgreement\(record\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(decision, 'Expected an independently testable version check');

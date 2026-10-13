@@ -128,6 +128,7 @@ test('Crew Center assets stay static-host compatible and load in dependency orde
     'scripts/gallery.js',
     'scripts/equipment.js',
     'scripts/my-crew-schedule.js',
+    'scripts/calendar-subscriptions.js',
     'scripts/personal-week.js',
     'scripts/cas-attendance.js',
     'scripts/admin.js',

@@ -2,6 +2,10 @@
   "since": "2026-10-09",
   "entries": [
     {
+      "date": "2026-10-13",
+      "summary": "Added private, revocable calendar subscriptions for personal sign-ups and all Media Club events, with a dashboard shortcut."
+    },
+    {
       "date": "2026-10-12",
       "summary": "Shortened student names with database safeguards, improved event browsing and date pickers, and fixed links to Settings tabs and event details."
     },

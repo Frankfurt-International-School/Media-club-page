@@ -6,3 +6,7 @@ verify_jwt = false
 
 [functions.send-schedule-notification]
 verify_jwt = true
+
+# Calendar apps authenticate with a revocable link secret; see media-calendar/index.ts.
+[functions.media-calendar]
+verify_jwt = false

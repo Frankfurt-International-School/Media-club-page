@@ -26,7 +26,7 @@ test('sign-in, member settings, and public application surface expose legal link
 });
 
 test('privacy notice is dated, contactable, and accurately names the active processors', () => {
-  assert.match(privacy, /Last updated: 12 October 2026/);
+  assert.match(privacy, /Last updated: 13 October 2026/);
   assert.match(privacy, /mailto:shenghan_lang@fis\.edu/);
   assert.match(privacy, /Supabase[\s\S]*Cloudflare[\s\S]*Resend/);
   assert.match(privacy, /Ireland \(<code>eu-west-1<\/code>\)/);
