@@ -10,10 +10,14 @@ function harness() {
   let active = false;
   const element = id => {
     if (!nodes.has(id)) nodes.set(id, { hidden: false, value: '', textContent: '', disabled: false, dataset: {}, attrs: {},
-      setAttribute(name, value) { this.attrs[name] = value; }, removeAttribute(name) { delete this.attrs[name]; },
+      setAttribute(name, value) { this.attrs[name] = value; }, removeAttribute(name) { delete this.attrs[name]; if (name === 'href') delete this.href; },
       toggleAttribute(name, value) { value ? this.setAttribute(name, '') : this.removeAttribute(name); },
       classList: { contains: () => active }, focus() { this.focused = true; }, select() { this.selected = true; },
-      querySelector(selector) { return element(`${id}:${selector}`); }, querySelectorAll() { return []; } });
+      querySelector(selector) { return element(`${id}:${selector}`); },
+      querySelectorAll(selector) {
+        return id === 'media-calendar-subscriptions'
+          ? ['personal', 'events'].flatMap(kind => selector.split(', ').map(part => element(`media-calendar-${kind}:${part}`))) : [];
+      } });
     return nodes.get(id);
   };
   const context = vm.createContext({ URL, Uint8Array, TextEncoder, crypto: webcrypto, setTimeout: callback => callback(),
@@ -36,7 +40,7 @@ test('dashboard hint makes no subscription requests; schedules load two owner-bo
   assert.ok(h.calls.every(call => call.args.p_expected_user_id === 'account-a' && call.args.p_action === 'status'));
   assert.equal(h.state.loaded, true);
 });
-test('creation sends only a random secret digest and shows copy/native controls after success', async () => {
+test('creation sends only a random secret digest and provides a Google subscription URL with the full feed encoded', async () => {
   const h = harness(); await h.context.loadMediaCalendarSubscriptions();
   assert.equal(await h.context.updateMediaCalendarSubscription('personal', 'create'), true);
   const url = h.state.feeds.personal.url; const secret = new URL(url).searchParams.get('token');
@@ -46,8 +50,32 @@ test('creation sends only a random secret digest and shows copy/native controls 
   assert.doesNotMatch(JSON.stringify(h.calls), new RegExp(secret));
   assert.equal(h.element('media-calendar-personal:[data-calendar-links]').hidden, false);
   assert.equal(h.element('media-calendar-personal:[data-calendar-native]').href, url.replace('https:', 'webcal:'));
+  const google = new URL(h.element('media-calendar-personal:[data-calendar-google]').href);
+  assert.equal(google.origin, 'https://calendar.google.com');
+  assert.equal(google.pathname, '/calendar/u/0/r');
+  assert.equal(google.searchParams.get('cid'), url);
+  assert.deepEqual([...google.searchParams.keys()], ['cid']);
+  assert.ok(google.href.includes('%3Ftoken%3D'));
   await h.context.copyMediaCalendarLink('personal'); assert.equal(h.copied[0], url);
   assert.doesNotMatch(source, /localStorage|sessionStorage|console\./);
+});
+test('Google shortcuts remain feed-specific and secrets disappear on revocation or sign-out', async () => {
+  const h = harness(); await h.context.loadMediaCalendarSubscriptions();
+  for (const kind of ['personal', 'events']) {
+    await h.context.updateMediaCalendarSubscription(kind, 'create');
+    assert.equal(new URL(h.element(`media-calendar-${kind}:[data-calendar-google]`).href).searchParams.get('cid'), h.state.feeds[kind].url);
+  }
+  const eventsGoogle = h.element('media-calendar-events:[data-calendar-google]').href;
+  assert.notEqual(eventsGoogle, h.element('media-calendar-personal:[data-calendar-google]').href);
+  await h.context.updateMediaCalendarSubscription('personal', 'revoke');
+  for (const provider of ['google', 'native']) assert.equal(h.element(`media-calendar-personal:[data-calendar-${provider}]`).href, undefined);
+  assert.equal(h.element('media-calendar-events:[data-calendar-google]').href, eventsGoogle);
+  h.context.window.resetMediaCalendarSubscriptions();
+  for (const kind of ['personal', 'events']) {
+    assert.equal(h.element(`media-calendar-${kind}:input`).value, '');
+    assert.equal(h.element(`media-calendar-${kind}:[data-calendar-links]`).hidden, true);
+    for (const provider of ['google', 'native']) assert.equal(h.element(`media-calendar-${kind}:[data-calendar-${provider}]`).href, undefined);
+  }
 });
 test('existing links require explicit replacement, revocation is scoped, and reload needs no regeneration', async () => {
   const h = harness();

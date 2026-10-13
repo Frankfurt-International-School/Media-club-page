@@ -55,8 +55,16 @@ function renderMediaCalendarSubscriptions() {
     card.querySelector('input').value = feed.url || '';
     card.querySelector('[data-calendar-copy]').disabled = Boolean(feed.busy);
     const nativeLink = card.querySelector('[data-calendar-native]');
-    if (feed.url) nativeLink.href = feed.url.replace(/^https:/, 'webcal:');
-    else nativeLink.removeAttribute('href');
+    const googleLink = card.querySelector('[data-calendar-google]');
+    if (feed.url) {
+      nativeLink.href = feed.url.replace(/^https:/, 'webcal:');
+      const googleUrl = new URL('https://calendar.google.com/calendar/u/0/r');
+      googleUrl.searchParams.set('cid', feed.url);
+      googleLink.href = googleUrl.href;
+    } else {
+      nativeLink.removeAttribute('href');
+      googleLink.removeAttribute('href');
+    }
     const revoke = card.querySelector('[data-calendar-revoke]');
     revoke.hidden = !feed.active; revoke.disabled = mediaCalendarState.loading || Boolean(feed.busy);
     card.querySelector('[data-calendar-recover]').hidden = !feed.active || Boolean(feed.url);
@@ -159,7 +167,7 @@ window.resetMediaCalendarSubscriptions = function() {
   if (panel) {
     panel.hidden = true;
     panel.querySelectorAll('input').forEach(input => { input.value = ''; });
-    panel.querySelectorAll('[data-calendar-native]').forEach(link => link.removeAttribute('href'));
+    panel.querySelectorAll('[data-calendar-native], [data-calendar-google]').forEach(link => link.removeAttribute('href'));
     panel.querySelectorAll('[data-calendar-links]').forEach(links => { links.hidden = true; });
   }
   document.getElementById('dashboard-calendar-subscribe')?.setAttribute('hidden', '');
