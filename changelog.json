@@ -3,7 +3,7 @@
   "entries": [
     {
       "date": "2026-10-13",
-      "summary": "Added private, revocable calendar subscriptions for personal sign-ups and all Media Club events, with dashboard access and Google Calendar shortcuts."
+      "summary": "Added private calendar subscriptions with Google Calendar shortcuts, condensed saved signup forms, and smoothed inbox filters."
     },
     {
       "date": "2026-10-12",

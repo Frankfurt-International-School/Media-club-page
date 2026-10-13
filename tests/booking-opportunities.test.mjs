@@ -70,12 +70,14 @@ test('past periods and closed event roles are never advertised as bookable', () 
 });
 
 test('a stale opening link never silently selects a different role', () => {
+  const disclosures = [];
   const nodes = new Map([['signup-attendance', { value: 'game_2', options: [{ value: 'game_1', disabled: true }, { value: 'game_2' }] }], ['signup-role', { value: 'Photographer', options: [{ value: 'OBS', disabled: true }, { value: 'Photographer' }] }], ['signup-role-availability', {}], ['signup-attendance-guidance', {}]]);
-  const h = vm.createContext({ URLSearchParams, state: { events: [{ id: 'game' }] }, document: { getElementById: id => nodes.get(id) }, window: { location: { search: '?event=game&attendance=game_1&role=OBS' }, CREW_CENTER_AUTH_USER: { id: 'me' } }, updateSignupAttendanceFields() {}, updateReserveRoleFields() {}, renderSignupBookingSummary() {} });
+  const h = vm.createContext({ URLSearchParams, state: { events: [{ id: 'game' }] }, document: { getElementById: id => nodes.get(id) }, window: { location: { search: '?event=game&attendance=game_1&role=OBS' }, CREW_CENTER_AUTH_USER: { id: 'me' } }, toggleMediaSignupForm: expanded => disclosures.push(expanded), updateSignupAttendanceFields() {}, updateReserveRoleFields() {}, renderSignupBookingSummary() {} });
   vm.runInContext(`let appliedSignupIntent='';\n${extract(signups, 'applySignupIntent')}`, h);
   h.applySignupIntent(); assert.equal(nodes.get('signup-role').value, '');
   assert.match(nodes.get('signup-role-availability').textContent, /opening has changed/);
   assert.match(nodes.get('signup-attendance-guidance').textContent, /no longer available/);
+  assert.deepEqual(disclosures, [true], 'opening links reveal the form even when an earlier signup condensed it');
 });
 
 test('SAC openings ignore cancelled bookings and count each physical spot once', () => {

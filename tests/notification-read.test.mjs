@@ -6,16 +6,21 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../scripts/ui.js', import.meta.url), 'utf8');
 
 function harness() {
-  const elements = new Map(); const saved = new Map(); const notices = []; const calls = [];
+  const elements = new Map(); const saved = new Map(); const notices = []; const calls = []; const animations = []; const listeners = new Map();
+  let panelOpen = false; let reducedMotion = false;
   const element = id => {
-    if (!elements.has(id)) elements.set(id, { textContent: '', innerHTML: '', disabled: false,
-      classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {} });
+    if (!elements.has(id)) elements.set(id, { textContent: '', innerHTML: '', disabled: false, dataset: {}, attrs: {},
+      classList: { add() {}, remove() {}, toggle() {}, contains: () => id === 'notification-panel' && panelOpen },
+      setAttribute(name, value) { this.attrs[name] = value; },
+      addEventListener(name, callback) { listeners.set(`${id}:${name}`, callback); },
+      getBoundingClientRect() { return { height: this.innerHTML.includes('Earlier meeting') ? 300 : 160 }; },
+      animate(keyframes, options) { const animation = { keyframes, options, cancelled: false, cancel() { this.cancelled = true; } }; animations.push(animation); return animation; } });
     return elements.get(id);
   };
   let member = { id: 'member-a', email: 'a@example.test' }; let response = () => ({ data: 1, error: null });
   const context = vm.createContext({
-    window: { CREW_CENTER_AUTH_USER: { id: 'account-a', email: 'a@example.test' }, CREW_CENTER_AUTH_EPOCH: 1 },
-    document: { getElementById: element },
+    window: { CREW_CENTER_AUTH_USER: { id: 'account-a', email: 'a@example.test' }, CREW_CENTER_AUTH_EPOCH: 1, matchMedia: () => ({ matches: reducedMotion }) },
+    document: { getElementById: element, querySelectorAll: () => ['all', 'unread'].map(filter => { const button = element(`filter-${filter}`); button.dataset.notificationFilter = filter; return button; }) },
     state: { notifications: [{ id: 'first', member_id: 'member-a', notification_type: 'event_created', title: 'First', read_at: null }], events: [] },
     currentMemberRecord: () => member, isVisitorSession: () => false,
     currentNotificationPreferences: () => ({ event_created: true, maybe_reminders: true, event_reminders: true }),
@@ -29,7 +34,10 @@ function harness() {
   vm.runInContext(source.slice(source.indexOf('function ownUpcomingSignups'), source.indexOf('const PROFILE_MAX_FILE_SIZE')), context);
   context.currentGeneratedNotificationItems = () => ({ maybeItems: [], upcomingItems: [{ readKey: 'reminder-a', event: { id: 'event-a', title: 'Upcoming' } }] });
   context.fmtDate = () => 'Today'; context.eventScheduleTimeLabel = () => '12:00';
-  return { context, element, saved, notices, calls, response: value => { response = value; }, member: value => { member = value; } };
+  return { context, element, saved, notices, calls, animations,
+    filter(value) { listeners.get('notification-panel:click')({ target: { closest: () => element(`filter-${value}`) } }); },
+    open(value = true) { panelOpen = value; }, reducedMotion(value = true) { reducedMotion = value; },
+    response: value => { response = value; }, member: value => { member = value; } };
 }
 
 test('a rejected notification request recovers the button and preserves unread items for retry', async () => {
@@ -188,4 +196,40 @@ test('membership approval notices open the active workspace dashboard', () => {
   h.context.sidebarCategories.club.pages.push('home');
   const row = h.context.notificationInboxRow({ kind:'application_approved',date:Date.now(),stored:{id:'approval',page:'home',title:'Approved'} });
   assert.match(row, /data-personal-destination="sac"/);
+});
+
+test('filter transitions keep read state and badge intact, while rapid switches cancel the previous animation', () => {
+  const h = harness(); h.open();
+  h.context.state.notifications.push({ id: 'read', member_id: 'member-a', notification_type: 'meeting_invite', title: 'Earlier meeting', read_at: '2030-10-01T10:00:00Z' });
+  h.context.renderNotificationCenter(); h.filter('unread');
+  assert.doesNotMatch(h.element('notification-list').innerHTML, /Earlier meeting/);
+  assert.equal(h.element('notification-count').textContent, 2);
+  assert.equal(h.element('filter-unread').attrs['aria-pressed'], 'true');
+  assert.equal(h.animations[0].keyframes[0].height, '300px');
+  assert.equal(h.animations[0].keyframes[1].height, '160px');
+  h.filter('all');
+  assert.equal(h.animations[0].cancelled, true);
+  assert.match(h.element('notification-list').innerHTML, /Earlier meeting/);
+  h.filter('all'); assert.equal(h.animations.length, 2);
+  assert.equal(h.calls.length, 0); assert.equal(h.context.state.notifications[0].read_at, null);
+});
+
+test('reduced motion switches instantly and account changes cancel animation without retaining another member’s content', () => {
+  const h = harness(); h.open(); h.reducedMotion(); h.context.renderNotificationCenter(); h.filter('unread');
+  assert.equal(h.animations.length, 0);
+  h.reducedMotion(false); h.filter('all');
+  assert.equal(h.animations.length, 1);
+  h.context.window.CREW_CENTER_AUTH_USER = { id: 'account-b', email: 'b@example.test' };
+  h.member({ id: 'member-b', email: 'b@example.test' }); h.context.renderNotificationCenter(true);
+  assert.equal(h.animations[0].cancelled, true); assert.equal(h.animations.length, 1);
+  assert.doesNotMatch(h.element('notification-list').innerHTML, /First/);
+  assert.equal(h.element('filter-all').attrs['aria-pressed'], 'true');
+});
+
+test('workspace teardown cancels an active filter transition and clears the rendered inbox', () => {
+  const h = harness(); h.open(); h.context.renderNotificationCenter(); h.filter('unread');
+  h.context.window.resetNotificationInbox();
+  assert.equal(h.animations[0].cancelled, true);
+  assert.equal(h.element('notification-list').innerHTML, '');
+  assert.equal(h.element('notification-button').attrs['aria-expanded'], 'false');
 });

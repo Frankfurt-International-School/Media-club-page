@@ -21,7 +21,10 @@ function extract(source, name) {
 function harness({ staff = false, visitor = false, pending, error = null } = {}) {
   const elements = new Map(); const writes = []; const notices = [];
   const element = id => {
-    if (!elements.has(id)) elements.set(id, { value: '', textContent: '', innerHTML: '', hidden: false, disabled: false, dataset: {}, attrs: {}, style: {}, classList: { toggle() {} }, setAttribute(k, v) { this.attrs[k] = String(v); }, removeAttribute(k) { delete this.attrs[k]; }, getAttribute(k) { return this.attrs[k]; }, focus() {}, scrollIntoView() {} });
+    if (!elements.has(id)) elements.set(id, { id, value: '', textContent: '', innerHTML: '', hidden: false, disabled: false, dataset: {}, attrs: {}, style: {}, classList: { toggle() {} }, setAttribute(k, v) { this.attrs[k] = String(v); }, removeAttribute(k) { delete this.attrs[k]; }, getAttribute(k) { return this.attrs[k]; },
+      focus() { context.document.activeElement = this; }, scrollIntoView() {},
+      contains(target) { return id === 'signup-entry-body' && ['signup-name', 'signup-role', 'signup-submit'].includes(target?.id); },
+      querySelector(selector) { return element(`${id}:${selector}`); } });
     return elements.get(id);
   };
   const members = [
@@ -36,7 +39,7 @@ function harness({ staff = false, visitor = false, pending, error = null } = {})
     isVisitorSession: () => visitor, canSignupForOtherMembers: () => staff, currentMemberRecord: () => ownMember,
     setSignupNameHelp: message => { element('signup-name-help').textContent = message; },
     renderSignupCameraSource() {}, paintSignupMemberMatches() {}, renderSignupBookingSummary() {},
-    renderSignupSheet() {}, updateReserveRoleFields() {}, loadCrewCenterData: async () => {},
+    renderSignupSheet() { context.syncMediaSignupDisclosure(event); }, updateReserveRoleFields() {}, loadCrewCenterData: async () => {},
     showToast: message => notices.push(message),
     selectedAttendanceWindow: () => ({ type: 'whole', start: Date.parse('2030-10-28T11:00:00Z'), end: Date.parse('2030-10-28T13:00:00Z'), startTime: '12:00', endTime: '14:00' }),
     timeValue: () => Date.parse('2030-10-28T11:00:00Z'), eventRoleCapacity: () => 2,
@@ -51,8 +54,8 @@ function harness({ staff = false, visitor = false, pending, error = null } = {})
     } }) },
   });
   const names = ['studentDisplayName', 'personDisplayName', 'snapshotDisplayName', 'normalizedSignupName', 'matchingSignupMembers', 'selectedMediaSignupMember', 'validateSignupNameInput', 'signupMemberForEquipmentPreference', 'clearSignupNameValidation', 'selectMediaSignupMember'];
-  const formNames = ['showSignupFormError', 'clearSignupFormErrors', 'setMediaSignupBusy', 'renderSignupBookingSummary', 'addSignupRow'];
-  vm.runInContext(`let mediaSignupSaveInFlight = false;\n${names.map(name => extract(core, name)).join('\n')}\n${formNames.map(name => extract(signups, name)).join('\n')}`, context);
+  const formNames = ['activeCrewSignups', 'syncMediaSignupDisclosure', 'toggleMediaSignupForm', 'showSignupFormError', 'clearSignupFormErrors', 'setMediaSignupBusy', 'renderSignupBookingSummary', 'addSignupRow'];
+  vm.runInContext(`let mediaSignupSaveInFlight = false; let mediaSignupDisclosure = { actor: '', eventId: '', signupIds: [], expanded: true };\n${names.map(name => extract(core, name)).join('\n')}\n${formNames.map(name => extract(signups, name)).join('\n')}`, context);
   element('sheet-event-select').value = 'game'; element('signup-name').value = 'Alex Example';
   element('signup-role').value = 'CAMERAMAN'; element('signup-confirmation').value = 'confirmed';
   return { context, element, writes, notices, event, ownMember(value) { ownMember = value; } };
@@ -166,4 +169,69 @@ test('failed saves retain the chosen member and report a safe retry message', as
   assert.match(h.element('signup-submit-status').textContent, /couldn't save/i);
   assert.doesNotMatch(h.element('signup-submit-status').textContent, /Private database detail/);
   assert.equal(h.element('signup-submit').disabled, false);
+});
+
+test('only the current member’s active signup condenses the selected event form', () => {
+  const h = harness();
+  h.event.signups = [{ id: 'other', memberId: 'other' }, { id: 'expired', memberId: 'me', confirmationStatus: 'expired' },
+    { id: 'elapsed', memberId: 'me', confirmationStatus: 'maybe', confirmationDeadline: '2000-01-01' }];
+  h.context.syncMediaSignupDisclosure(h.event);
+  assert.equal(h.element('signup-entry-body').inert, false);
+  assert.equal(h.element('signup-form-toggle').hidden, true);
+  h.event.signups.push({ id: 'mine', memberId: 'me', role: 'CAMERAMAN', confirmationStatus: 'maybe', confirmationDeadline: '2099-01-01' });
+  h.context.syncMediaSignupDisclosure(h.event);
+  assert.equal(h.element('signup-entry-body').inert, true);
+  assert.equal(h.element('signup-form-toggle').getAttribute('aria-expanded'), 'false');
+  assert.equal(h.element('signup-entry-title').textContent, 'You’re signed up');
+  assert.match(h.element('signup-entry-subtitle').textContent, /CAMERAMAN.*Maybe.*confirm/);
+});
+
+test('reopening preserves choices across updates, and closing restores focus outside the inert form', () => {
+  const h = harness(); h.event.signups.push({ id: 'mine', memberId: 'me', role: 'CAMERAMAN' });
+  h.context.syncMediaSignupDisclosure(h.event); h.context.toggleMediaSignupForm();
+  assert.equal(h.element('signup-entry-body').inert, false);
+  h.context.syncMediaSignupDisclosure(h.event);
+  assert.equal(h.element('signup-form-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal(h.element('signup-role').value, 'CAMERAMAN');
+  h.context.document.activeElement = h.element('signup-role'); h.context.toggleMediaSignupForm();
+  assert.equal(h.context.document.activeElement, h.element('signup-form-toggle'));
+  assert.equal(h.element('signup-entry-body').getAttribute('aria-hidden'), 'true');
+  h.context.toggleMediaSignupForm(true);
+  assert.equal(h.element('signup-entry-body').inert, false);
+});
+
+test('removing the last signup opens the form, and event or session changes reset manual disclosure', () => {
+  const h = harness(); h.event.signups.push({ id: 'mine', memberId: 'me' });
+  h.context.syncMediaSignupDisclosure(h.event); h.context.toggleMediaSignupForm();
+  h.context.window.CREW_CENTER_AUTH_EPOCH = 2; h.context.syncMediaSignupDisclosure(h.event);
+  assert.equal(h.element('signup-entry-body').inert, true);
+  h.element('signup-submit-status').textContent = 'Saved for the previous event';
+  h.context.syncMediaSignupDisclosure({ id: 'another', signups: [] });
+  assert.equal(h.element('signup-entry-body').inert, false);
+  assert.equal(h.element('signup-submit-status').textContent, '');
+  h.context.syncMediaSignupDisclosure(h.event);
+  assert.equal(h.element('signup-entry-body').inert, true);
+  h.event.signups = []; h.context.syncMediaSignupDisclosure(h.event);
+  assert.equal(h.element('signup-entry-body').inert, false);
+  assert.equal(h.element('signup-form-toggle').hidden, true);
+});
+
+test('a successful self-booking condenses the form but keeps saved feedback focusable', async () => {
+  const h = harness(); h.context.syncMediaSignupDisclosure(h.event);
+  h.context.document.activeElement = h.element('signup-submit');
+  await h.context.addSignupRow();
+  assert.equal(h.element('signup-entry-body').inert, true);
+  assert.equal(h.element('signup-form-toggle').disabled, false);
+  assert.equal(h.context.document.activeElement, h.element('signup-submit-status'));
+  assert.match(h.element('signup-submit-status').textContent, /saved.*crew sheet/);
+});
+
+test('an additional booking failure keeps the reopened form and choices available', async () => {
+  const h = harness({ error: { code: '42501' } });
+  h.event.signups.push({ id: 'mine', memberId: 'me', role: 'Photographer' });
+  h.context.syncMediaSignupDisclosure(h.event); h.context.toggleMediaSignupForm();
+  await h.context.addSignupRow();
+  assert.equal(h.element('signup-entry-body').inert, false);
+  assert.equal(h.element('signup-role').value, 'CAMERAMAN');
+  assert.match(h.element('signup-submit-status').textContent, /couldn't save/i);
 });

@@ -187,7 +187,7 @@
       </div>
     </div>
   </div>
-  <div class="notification-panel" id="notification-panel" role="dialog" aria-label="Notifications"><div class="notification-panel-head"><div><div class="all-pages-title">Notifications</div><div class="text-muted">Updates and actions that need your attention.</div></div><button class="btn btn-ghost btn-sm" id="notification-mark-read" onclick="markNotificationsRead()">Mark all read</button></div><div class="notification-inbox-filters" role="group" aria-label="Filter notifications"><button type="button" data-notification-filter="all" aria-pressed="true">All</button><button type="button" data-notification-filter="unread" aria-pressed="false">Unread</button></div><div class="notification-list" id="notification-list"></div></div>
+  <div class="notification-panel" id="notification-panel" role="dialog" aria-label="Notifications"><div class="notification-panel-head"><div><div class="all-pages-title">Notifications</div><div class="text-muted">Updates and actions that need your attention.</div></div><button class="btn btn-ghost btn-sm" id="notification-mark-read" onclick="markNotificationsRead()">Mark all read</button></div><div class="notification-inbox-filters tab-row" role="group" aria-label="Filter notifications"><button class="tab active" type="button" data-notification-filter="all" aria-pressed="true" aria-controls="notification-list">All</button><button class="tab" type="button" data-notification-filter="unread" aria-pressed="false" aria-controls="notification-list">Unread</button></div><div class="notification-list" id="notification-list"></div></div>
   <div class="data-status-banner" id="data-status-banner" role="status" aria-live="polite" aria-atomic="true" hidden><span class="data-status-copy"><span class="data-status-dot" aria-hidden="true"></span><span id="data-status-message"></span></span><button type="button" class="btn btn-ghost btn-sm" onclick="retryFailedDatasets()">Retry</button></div>
   <div class="visually-hidden" id="route-announcer" aria-live="polite" aria-atomic="true"></div>
 
@@ -584,9 +584,11 @@
     <div class="sac-linked-callout" id="sheet-sac-linked" hidden aria-live="polite"></div>
     <div class="card mb16 signup-entry-card" id="signup-entry-card">
       <div class="signup-entry-head">
-        <div class="signup-entry-title">Join this event</div>
-        <div class="signup-entry-sub" id="signup-entry-subtitle">Choose your time and role, review the details below, then confirm your signup.</div>
+        <div><div class="signup-entry-title" id="signup-entry-title">Join this event</div>
+        <div class="signup-entry-sub" id="signup-entry-subtitle">Choose your time and role, review the details below, then confirm your signup.</div></div>
+        <button class="btn btn-ghost signup-form-toggle" type="button" id="signup-form-toggle" aria-expanded="true" aria-controls="signup-entry-body" hidden><span>Add another signup</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
       </div>
+      <div class="signup-entry-body" id="signup-entry-body" role="region" aria-labelledby="signup-entry-title"><div class="signup-entry-inner">
       <fieldset class="signup-fields" id="signup-fields"><legend class="visually-hidden">Your signup choices</legend>
         <div class="form-group signup-field" id="signup-member-field">
           <label class="form-label" for="signup-name">Member</label>
@@ -642,10 +644,12 @@
       </div>
       </fieldset>
       <section class="signup-booking-summary" aria-labelledby="signup-booking-title"><div class="signup-booking-head"><h3 id="signup-booking-title">3 · Review & confirm</h3><span>Preview · not saved yet</span></div><dl class="signup-booking-details" id="signup-booking-details"></dl><div id="signup-personal-conflict" aria-live="polite"></div></section>
-      <div class="signup-entry-actions"><div id="signup-submit-status" role="status" aria-live="polite"></div><button class="btn btn-accent" type="button" id="signup-submit" onclick="addSignupRow()">
+      <div class="signup-entry-actions"><button class="btn btn-accent" type="button" id="signup-submit" onclick="addSignupRow()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span id="signup-submit-label">Confirm signup</span>
         </button></div>
+      </div></div>
+      <div id="signup-submit-status" role="status" aria-live="polite"></div>
     </div>
     <div class="card signup-sheet-card">
       <div class="signup-entry-head"><h2 class="signup-entry-title">Crew sheet</h2><p class="signup-entry-sub">See who is covering each period. Maybe holds still need confirmation.</p></div>
@@ -1053,7 +1057,7 @@
         <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-13">13 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Added private, revocable calendar subscriptions for personal sign-ups and all Media Club events, with dashboard access and Google Calendar shortcuts.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <ul class="crew-update-list"><li>Added private calendar subscriptions with Google Calendar shortcuts, condensed saved signup forms, and smoothed inbox filters.</li><li>Fixed minor issues and improved user experience.</li></ul>
         <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">4 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-12">12 October 2026</time></header><ul class="crew-update-list"><li>Shortened student names with database safeguards, improved event browsing and date pickers, and fixed links to Settings tabs and event details.</li><li>Fixed minor issues and improved user experience.</li></ul></article>

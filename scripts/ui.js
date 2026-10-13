@@ -609,6 +609,7 @@ function currentGeneratedNotificationItems(now = Date.now()) {
 let notificationReadRequest = null;
 let notificationInboxFilter = 'all';
 let notificationInboxActor = '';
+let notificationInboxAnimation = null;
 const notificationItemRequests = new Map();
 
 function notificationReadActor() {
@@ -680,13 +681,24 @@ function notificationInboxRow(item) {
   return `<a class="notification-item${unread}" href="${escapeHtml(href)}" data-personal-destination="${workspace}" data-notification-id="${escapeHtml(notice.id)}">${content}</a>`;
 }
 
-function renderNotificationCenter() {
+function renderNotificationCenter(animate = false) {
   const list = document.getElementById('notification-list');
   const badge = document.getElementById('notification-count');
   if (!list || !badge) return;
   const actor = notificationReadActor();
-  if (notificationInboxActor !== actor) { notificationInboxActor = actor; notificationInboxFilter = 'all'; }
-  document.querySelectorAll?.('[data-notification-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.notificationFilter === notificationInboxFilter)));
+  const actorChanged = notificationInboxActor !== actor;
+  const transition = animate && !actorChanged && actor && typeof list.animate === 'function'
+    && document.getElementById('notification-panel')?.classList.contains('open')
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const previousHeight = transition ? list.getBoundingClientRect().height : 0;
+  notificationInboxAnimation?.cancel(); notificationInboxAnimation = null;
+  if (actorChanged) { notificationInboxActor = actor; notificationInboxFilter = 'all'; }
+  document.querySelectorAll?.('[data-notification-filter]').forEach(button => {
+    const selected = button.dataset.notificationFilter === notificationInboxFilter;
+    button.setAttribute('aria-pressed', String(selected));
+    button.classList.toggle('active', selected);
+  });
+  if (typeof updateSlidingTab === 'function') updateSlidingTab(document.querySelector('.notification-inbox-filters'));
   const markReadButton = document.getElementById('notification-mark-read');
   const pending = Boolean(actor && notificationReadRequest?.actor === actor);
   if (markReadButton) {
@@ -707,7 +719,19 @@ function renderNotificationCenter() {
   const visible = notificationInboxFilter === 'unread' ? items.filter(item => !item.read) : items;
   list.innerHTML = notificationInboxGroups(visible).map(group => `<section class="notification-group"><h3>${escapeHtml(group.label)}</h3>${group.items.map(notificationInboxRow).join('')}</section>`).join('')
     || `<div class="empty-state" style="padding:28px 12px;"><p>${notificationInboxFilter === 'unread' ? 'No unread notifications. You’re all caught up.' : 'You’re all caught up.'}</p></div>`;
+  if (transition) notificationInboxAnimation = list.animate([
+    { height: `${previousHeight}px`, opacity: .35, transform: 'translateY(4px)' },
+    { height: `${list.getBoundingClientRect().height}px`, opacity: 1, transform: 'translateY(0)' },
+  ], { duration: 220, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
+
+window.resetNotificationInbox = function() {
+  notificationInboxAnimation?.cancel(); notificationInboxAnimation = null;
+  notificationInboxActor = ''; notificationInboxFilter = 'all';
+  const list = document.getElementById('notification-list');
+  if (list) list.innerHTML = '';
+  closeNotificationPanel();
+};
 
 async function markNotificationRead(id) {
   const actor = notificationReadActor();
@@ -735,7 +759,11 @@ async function markNotificationRead(id) {
 
 document.getElementById('notification-panel')?.addEventListener?.('click', event => {
   const filter = event.target.closest?.('[data-notification-filter]');
-  if (filter) { notificationInboxFilter = filter.dataset.notificationFilter === 'unread' ? 'unread' : 'all'; renderNotificationCenter(); return; }
+  if (filter) {
+    const next = filter.dataset.notificationFilter === 'unread' ? 'unread' : 'all';
+    if (next !== notificationInboxFilter) { notificationInboxFilter = next; renderNotificationCenter(true); }
+    return;
+  }
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const notice = event.target.closest?.('[data-notification-id]');
   if (notice) markNotificationRead(notice.dataset.notificationId);

@@ -245,6 +245,8 @@ function syncCrewCenterWorkspaceFromLocation() {
 function resetCrewCenterWorkspace() {
   window.closeCrewCenterModals?.();
   window.resetMediaCalendarSubscriptions?.();
+  window.resetMediaSignupDisclosure?.();
+  window.resetNotificationInbox?.();
   window.resetCrewQuickSearch?.();
   window.resetEventBrowseFilters?.();
   window.resetSacDashboardState?.();

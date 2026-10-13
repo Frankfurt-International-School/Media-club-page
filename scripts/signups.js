@@ -3,6 +3,63 @@
 // ══════════════════════════════
 const signupSheetPeriodSelection = new Map();
 let mediaSignupSaveInFlight = false;
+let mediaSignupDisclosure = { actor: '', eventId: '', signupIds: [], expanded: true };
+
+function syncMediaSignupDisclosure(event) {
+  const card = document.getElementById('signup-entry-card');
+  const body = document.getElementById('signup-entry-body');
+  const toggle = document.getElementById('signup-form-toggle');
+  if (!card || !body || !toggle) return;
+  const memberId = currentMemberRecord()?.id;
+  const actor = `${window.CREW_CENTER_AUTH_USER?.id || ''}:${memberId || ''}:${window.CREW_CENTER_AUTH_EPOCH || 0}`;
+  const ownSignups = !isVisitorSession() && memberId ? activeCrewSignups(event).filter(signup => signup.memberId === memberId) : [];
+  const changed = mediaSignupDisclosure.actor !== actor || mediaSignupDisclosure.eventId !== event?.id;
+  if (changed) clearSignupFormErrors();
+  const addedOwnSignup = ownSignups.some(signup => !mediaSignupDisclosure.signupIds.includes(signup.id));
+  const expanded = changed || !ownSignups.length ? !ownSignups.length : addedOwnSignup ? false : mediaSignupDisclosure.expanded;
+  mediaSignupDisclosure = { actor, eventId: event?.id || '', signupIds: ownSignups.map(signup => signup.id), expanded };
+  toggle.hidden = !ownSignups.length;
+  toggle.disabled = mediaSignupSaveInFlight;
+  toggle.setAttribute('aria-expanded', String(expanded));
+  toggle.querySelector('span').textContent = expanded ? 'Hide form' : 'Add another signup';
+  // Move focus before making the form inert; the saved feedback stays outside it.
+  if (!expanded && body.contains(document.activeElement)) toggle.focus({ preventScroll: true });
+  body.inert = !expanded;
+  body.setAttribute('aria-hidden', String(!expanded));
+  card.dataset.formExpanded = String(expanded);
+  document.getElementById('signup-entry-title').textContent = ownSignups.length ? expanded ? 'Add another signup' : 'You’re signed up' : 'Join this event';
+  const subtitle = document.getElementById('signup-entry-subtitle');
+  if (!expanded) {
+    const signup = ownSignups[0];
+    const maybeCount = ownSignups.filter(item => item.confirmationStatus === 'maybe').length;
+    subtitle.textContent = ownSignups.length === 1
+      ? `${signup.role || 'Event crew'} · ${attendanceLabel(signup)} · ${maybeCount ? 'Maybe — confirm on the crew sheet below' : 'Confirmed'}`
+      : `${ownSignups.length} saved signups${maybeCount ? ` · ${maybeCount} Maybe — confirm on the crew sheet below` : ' · Confirmed'}. See your bookings below.`;
+  } else {
+    subtitle.textContent = canSignupForOtherMembers()
+      ? 'Choose a member match and an available time and role, then review the details before assigning the signup.'
+      : 'Choose your time and role, review the details below, then confirm your signup.';
+  }
+}
+
+function toggleMediaSignupForm(forceOpen = false) {
+  if (mediaSignupSaveInFlight) return;
+  const event = state.events.find(item => item.id === document.getElementById('sheet-event-select')?.value);
+  syncMediaSignupDisclosure(event);
+  mediaSignupDisclosure.expanded = forceOpen || !mediaSignupDisclosure.expanded;
+  syncMediaSignupDisclosure(event);
+}
+
+document.getElementById('signup-form-toggle')?.addEventListener('click', () => toggleMediaSignupForm());
+window.resetMediaSignupDisclosure = function() {
+  mediaSignupDisclosure = { actor: '', eventId: '', signupIds: [], expanded: true };
+  const body = document.getElementById('signup-entry-body');
+  if (body) body.inert = true;
+  const card = document.getElementById('signup-entry-card');
+  if (card) card.style.display = 'none';
+  const status = document.getElementById('signup-submit-status');
+  if (status) status.textContent = '';
+};
 
 function clearSignupFormErrors() {
   document.querySelectorAll('#signup-entry-card [aria-invalid]').forEach(input => input.removeAttribute('aria-invalid'));
@@ -35,6 +92,8 @@ function setMediaSignupBusy(pending) {
   if (eventSelect) eventSelect.disabled = pending;
   const fields = document.getElementById('signup-fields');
   if (fields) fields.disabled = pending;
+  const toggle = document.getElementById('signup-form-toggle');
+  if (toggle) toggle.disabled = pending;
   document.getElementById('signup-entry-card')?.setAttribute('aria-busy', String(pending));
   const label = document.getElementById('signup-submit-label');
   if (label) label.textContent = pending ? 'Saving…' : document.getElementById('signup-confirmation')?.value === 'maybe' ? 'Save Maybe signup' : 'Confirm signup';
@@ -97,6 +156,7 @@ function applySignupIntent() {
   const key = `${window.CREW_CENTER_AUTH_USER?.id || ''}:${window.CREW_CENTER_AUTH_EPOCH || 0}|${params.get('event')}|${params.get('attendance')}|${params.get('role')}`;
   if (!event || key === appliedSignupIntent) return;
   appliedSignupIntent = key;
+  if (params.get('attendance') || params.get('role')) toggleMediaSignupForm(true);
   const attendance = document.getElementById('signup-attendance');
   const choice = [...attendance.options].find(option => option.value === params.get('attendance') && !option.disabled);
   if (choice) { attendance.value = choice.value; updateSignupAttendanceFields(); }
@@ -311,6 +371,7 @@ function renderSignupWindowAvailability(ev) {
   const focusedWindow = document.activeElement?.dataset?.signupWindow;
   const choices = signupAttendanceAvailability(ev);
   if (!ev) {
+    syncMediaSignupDisclosure(null);
     container.innerHTML = '';
     return;
   }
@@ -604,6 +665,7 @@ function renderSignupSheet() {
   document.getElementById('sheet-table').innerHTML = `
     <thead><tr><th>#</th><th>Name</th><th>Event role</th><th>Staying for</th><th>Signed up</th>${removeHeader}</tr></thead>
     <tbody>${rows}</tbody>`;
+  syncMediaSignupDisclosure(ev);
 }
 
 function confirmationCountdown(deadline) {
@@ -774,7 +836,7 @@ async function addSignupRow() {
     if (status) {
       status.textContent = `${confirmationStatus === 'maybe' ? 'Tentative signup saved' : 'Confirmed signup saved'} for ${ev.title}. Your booking is now on the crew sheet.`;
       status.insertAdjacentHTML?.('beforeend', ` <a href="${escapeHtml(pageUrl('my-crew-schedule'))}">View my schedule →</a>${role === signupRoleLabels.photographer && equipmentSource === 'club' ? ` <a href="${escapeHtml(pageUrl('equipment', { event: ev.id, start: attendance.startTime, end: attendance.endTime }))}">Reserve a camera kit →</a>` : ''}`);
-      if (restoreFocus) { status.setAttribute('tabindex', '-1'); status.focus({ preventScroll: true }); }
+      if (restoreFocus || document.getElementById('signup-entry-body')?.inert) { status.setAttribute('tabindex', '-1'); status.focus({ preventScroll: true }); }
     }
   } catch (_error) {
     if ((window.CREW_CENTER_AUTH_USER?.id || currentMemberRecord()?.id) === actorId) showSignupFormError("Couldn't save signup. Check your connection and try again; your choices have been kept.");
