@@ -27,7 +27,7 @@ function downloadMeetingCalendar(workspace, meetingId) {
   const user = window.CREW_CENTER_AUTH_USER;
   const member = currentMemberRecord();
   if (!user?.id || isVisitorSession() || currentCrewCenterWorkspace() !== workspace
-    || member && user.email && String(member.email || '').toLowerCase() !== user.email.toLowerCase()) return;
+    || member && !memberMatchesCurrentSession(member)) return;
   let meeting; let response = '';
   if (workspace === 'media') {
     if (!canAccessMediaWorkspace()) return;

@@ -615,8 +615,7 @@ const notificationItemRequests = new Map();
 function notificationReadActor() {
   const user = window.CREW_CENTER_AUTH_USER;
   const member = currentMemberRecord();
-  if (isVisitorSession() || !user?.id || !user.email || !member?.id
-    || String(member.email || '').toLowerCase() !== user.email.toLowerCase()) return '';
+  if (!memberMatchesCurrentSession(member)) return '';
   return `${user.id}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}:${member.id}`;
 }
 

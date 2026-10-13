@@ -95,6 +95,15 @@ function currentMemberRecord() {
   return state.members.find(member => (member.name || '').toLowerCase() === name) || null;
 }
 
+function memberMatchesCurrentSession(member = currentMemberRecord()) {
+  const user = window.CREW_CENTER_AUTH_USER;
+  if (!user?.id || !member?.id || isVisitorSession()) return false;
+  // The directory's owner marker is server-generated; bind it to the session that loaded it.
+  if (member.directoryActor) return member.isCurrentUser
+    && member.directoryActor === `${user.id}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}`;
+  return Boolean(user.email && member.email && member.email.toLowerCase() === user.email.toLowerCase());
+}
+
 function canAccessAdminPanel() {
   if (window.CREW_CENTER_IS_ADMIN || state.currentUser.isAdmin) return true;
   const role = normalizeRoleName(currentMemberRecord()?.role || '');
@@ -177,11 +186,9 @@ function canSignupForOtherMembers() {
 }
 
 function canAccessMyCrewSchedule() {
-  const user = window.CREW_CENTER_AUTH_USER;
   const member = currentMemberRecord();
-  const ownsRecord = user?.id && member?.id && (!user.email || String(member.email || '').toLowerCase() === user.email.toLowerCase());
   const mediaAccess = typeof canAccessMediaWorkspace === 'function' && canAccessMediaWorkspace();
-  return !isVisitorSession() && mediaAccess && Boolean(ownsRecord);
+  return mediaAccess && memberMatchesCurrentSession(member);
 }
 
 function canAccessEquipmentStatus() {
@@ -691,6 +698,8 @@ function normalizeMember(member, index = 0) {
     name,
     email: member.email || '',
     isCurrentUser: Boolean(member.is_current_user),
+    directoryActor: member.is_current_user && window.CREW_CENTER_AUTH_USER?.id
+      ? `${window.CREW_CENTER_AUTH_USER.id}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}` : '',
     gradeLevel: member.grade_level || '',
     role: member.role || 'Member',
     spec: member.status || 'active',
@@ -998,6 +1007,7 @@ function applyCrewCenterDataset(dataset, rows) {
 
 async function loadCrewCenterDatasetBatch(datasets, silent) {
   const visitor = isVisitorSession();
+  const authUserId = window.CREW_CENTER_AUTH_USER?.id || '';
   const authEpoch = Number(window.CREW_CENTER_AUTH_EPOCH || 0);
   const results = await Promise.all(datasets.map(async dataset => {
     try {
@@ -1006,7 +1016,7 @@ async function loadCrewCenterDatasetBatch(datasets, silent) {
       return [dataset, { data: null, error }];
     }
   }));
-  if (authEpoch !== Number(window.CREW_CENTER_AUTH_EPOCH || 0)) return;
+  if (authEpoch !== Number(window.CREW_CENTER_AUTH_EPOCH || 0) || authUserId !== (window.CREW_CENTER_AUTH_USER?.id || '')) return;
   const failed = [];
   results.forEach(([dataset, result]) => {
     if (result?.error) {

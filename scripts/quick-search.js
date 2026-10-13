@@ -9,8 +9,7 @@ function crewQuickSearchAllowed() {
   if (!window.CREW_CENTER_AUTH_USER?.id && !isVisitorSession()) return false;
   const member = currentMemberRecord();
   if (!isVisitorSession() && !member && !canAccessAdminPanel()) return false;
-  const email = window.CREW_CENTER_AUTH_USER?.email;
-  if (!isVisitorSession() && member && email && String(member.email || '').toLowerCase() !== email.toLowerCase()) return false;
+  if (!isVisitorSession() && member && !memberMatchesCurrentSession(member)) return false;
   return currentCrewCenterWorkspace() === 'sac' ? canAccessSacWorkspace() : isVisitorSession() || canAccessMediaWorkspace();
 }
 

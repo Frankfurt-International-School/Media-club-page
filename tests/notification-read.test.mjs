@@ -4,6 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../scripts/ui.js', import.meta.url), 'utf8');
+const memberSession = readFileSync(new URL('../scripts/core.js', import.meta.url), 'utf8').match(/function memberMatchesCurrentSession\([\s\S]*?\n\}/)[0];
 
 function harness() {
   const elements = new Map(); const saved = new Map(); const notices = []; const calls = []; const animations = []; const listeners = new Map();
@@ -31,7 +32,7 @@ function harness() {
     berlinDateKey: (value = Date.now()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value)),
     showToast: (...args) => notices.push(args),
   });
-  vm.runInContext(source.slice(source.indexOf('function ownUpcomingSignups'), source.indexOf('const PROFILE_MAX_FILE_SIZE')), context);
+  vm.runInContext(memberSession + '\n' + source.slice(source.indexOf('function ownUpcomingSignups'), source.indexOf('const PROFILE_MAX_FILE_SIZE')), context);
   context.currentGeneratedNotificationItems = () => ({ maybeItems: [], upcomingItems: [{ readKey: 'reminder-a', event: { id: 'event-a', title: 'Upcoming' } }] });
   context.fmtDate = () => 'Today'; context.eventScheduleTimeLabel = () => '12:00';
   return { context, element, saved, notices, calls, animations,
@@ -232,4 +233,13 @@ test('workspace teardown cancels an active filter transition and clears the rend
   assert.equal(h.animations[0].cancelled, true);
   assert.equal(h.element('notification-list').innerHTML, '');
   assert.equal(h.element('notification-button').attrs['aria-expanded'], 'false');
+});
+
+test('regular accounts can read and acknowledge their inbox without receiving directory emails', async () => {
+  const h=harness(); h.member({id:'member-a',email:'',isCurrentUser:true,directoryActor:'account-a:1'});
+  h.context.renderNotificationCenter(); assert.match(h.element('notification-list').innerHTML,/First/);
+  await h.context.markNotificationsRead(); assert.equal(h.calls.length,1); assert.ok(h.context.state.notifications[0].read_at);
+  h.context.window.CREW_CENTER_AUTH_EPOCH=2; h.context.renderNotificationCenter();
+  assert.doesNotMatch(h.element('notification-list').innerHTML,/First/);
+  assert.equal(h.element('notification-mark-read').disabled,true);
 });

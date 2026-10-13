@@ -5,21 +5,22 @@ import vm from 'node:vm';
 
 const path = new URL('../scripts/quick-search.js', import.meta.url);
 const source = existsSync(path) ? readFileSync(path, 'utf8') : '';
+const memberSession = readFileSync(new URL('../scripts/core.js', import.meta.url), 'utf8').match(/function memberMatchesCurrentSession\([\s\S]*?\n\}/)[0];
 function harness() {
   let workspace='media'; const reads=[]; const pending=[];
   const context=vm.createContext({
-    window:{CREW_CENTER_AUTH_USER:{id:'account-a'},CREW_CENTER_AUTH_EPOCH:1},
+    window:{CREW_CENTER_AUTH_USER:{id:'account-a',email:'me@example.test'},CREW_CENTER_AUTH_EPOCH:1},
     state:{events:[{id:'event',title:'Basketball finals',loc:'Sports hall'}],meetings:[{id:'meeting',title:'News planning',audience:'news_team',startsAt:'2030-10-28T11:00Z',endsAt:'2030-10-28T12:00Z'}],equipment:[{id:'camera',name:'Canon R6',category:'Camera',detail:'Photo kit'}],dataLoaded:{events:true,meetings:true,equipment:true},dataErrors:{}},
     sidebarCategories:{main:{label:'Main',pages:['home','events','meetings','admin']}},pageTitles:{home:'Dashboard',events:'Events',meetings:'Meetings',admin:'Admin Panel',profile:'Settings','sac-home':'SAC Dashboard','sac-events':'SAC Events','sac-meetings':'SAC Meetings','sac-signups':'SAC Sign-up Sheets'},
     currentCrewCenterWorkspace:()=>workspace,canAccessMediaWorkspace:()=>true,canAccessSacWorkspace:()=>true,canCreateSacEvents:()=>false,
-    currentMemberRecord:()=>({id:'me'}),canAccessAdminPanel:()=>false,
+    currentMemberRecord:()=>({id:'me',email:'me@example.test'}),canAccessAdminPanel:()=>false,
     canViewMeeting:meeting=>meeting.audience==='general',isVisitorSession:()=>false,sidebarPageAvailable:page=>page!=='admin',
     isPastEvent:()=>false,meetingIsPast:()=>false,pageUrl:(page,params={})=>'/' + page + '?' + new URLSearchParams(params),
     sacSignupUrl:id=>'/sac/signups?event='+id,sacEventUrl:id=>'/sac/events?event='+id,formatBerlinDateTime:()=> '28 Oct',escapeHtml:String,
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     supabaseClient:{from(table){reads.push(table);const q={select(){return q;},gt(){return q;},order(){return new Promise(resolve=>pending.push(resolve));}};return q;}},
   });
-  vm.runInContext(source,context);
+  vm.runInContext(memberSession+'\n'+source,context);
   return {context,reads,pending,setWorkspace:value=>{workspace=value;},run:code=>vm.runInContext(code,context)};
 }
 
@@ -92,6 +93,14 @@ test('a stale linked member cannot expose the previous account records during si
   h.context.currentMemberRecord=()=>({id:'old',email:'old@example.test'});
   assert.equal(h.context.crewQuickSearchEntries('basketball').length,0);
   assert.equal(h.context.crewQuickSearchEntries('canon').length,0);
+});
+
+test('regular accounts can search with redacted directory emails, while stale owner markers are rejected',()=>{
+  const h=harness();
+  h.context.currentMemberRecord=()=>({id:'me',email:'',isCurrentUser:true,directoryActor:'account-a:1'});
+  assert.equal(h.context.crewQuickSearchEntries('basketball')[0].kind,'event');
+  h.context.window.CREW_CENTER_AUTH_USER={id:'account-b',email:'other@example.test'};
+  assert.equal(h.context.crewQuickSearchEntries('basketball').length,0);
 });
 
 test('search page results carry their destination and use the matching sidebar or settings icon',()=>{

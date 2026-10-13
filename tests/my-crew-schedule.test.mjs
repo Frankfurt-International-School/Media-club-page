@@ -8,6 +8,7 @@ const source = existsSync(path) ? readFileSync(path, 'utf8') : '';
 const sac = readFileSync(new URL('../scripts/sac-signups.js', import.meta.url), 'utf8');
 const equipment = readFileSync(new URL('../scripts/equipment.js', import.meta.url), 'utf8');
 const core = readFileSync(new URL('../scripts/core.js', import.meta.url), 'utf8');
+const memberSession = core.match(/function memberMatchesCurrentSession\([\s\S]*?\n\}/)[0];
 const meetings = readFileSync(new URL('../scripts/meetings.js', import.meta.url), 'utf8');
 const meetingCalendar = readFileSync(new URL('../scripts/meeting-calendar.js', import.meta.url), 'utf8');
 const accessStart = core.indexOf('function canAccessMyCrewSchedule(');
@@ -42,7 +43,7 @@ function harness() {
   vm.runInContext(sac, context);
   vm.runInContext(meetingCalendar, context);
   vm.runInContext(equipment.slice(0, equipment.indexOf('function activeEquipmentReservation')), context);
-  vm.runInContext(access, context);
+  vm.runInContext(memberSession + '\n' + access, context);
   vm.runInContext(meetings.slice(meetings.indexOf('function ownMeetingResponse('), meetings.indexOf('function canRsvpMeeting(')), context);
   vm.runInContext(core.slice(core.indexOf('const BERLIN_TIME_ZONE'), core.indexOf('function timeValue')), context);
   vm.runInContext(source, context);
@@ -126,6 +127,17 @@ test('a changed or signed-out account cannot use a stale linked member record', 
   h.context.window.CREW_CENTER_AUTH_USER = null;
   h.context.downloadCrewScheduleCalendar();
   assert.equal(h.downloads.length, 0);
+});
+
+test('ordinary members can view and export their own schedule when the directory hides email', () => {
+  const h = harness();
+  h.context.currentMemberRecord = () => ({ id: 'me', email: '', isCurrentUser: true, directoryActor: 'account-a:0' });
+  assert.equal(h.context.canAccessMyCrewSchedule(), true);
+  assert.equal(h.context.ownCrewScheduleItems(now).length, 2);
+  h.context.downloadCrewScheduleCalendar(); assert.equal(h.downloads.length, 1);
+  h.context.window.CREW_CENTER_AUTH_EPOCH = 1;
+  assert.equal(h.context.canAccessMyCrewSchedule(), false);
+  assert.equal(h.context.ownCrewScheduleItems(now).length, 0);
 });
 
 test('the schedule access check is available before the page scripts and denies unresolved workspace access', () => {

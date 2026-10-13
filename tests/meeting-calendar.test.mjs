@@ -5,6 +5,7 @@ import vm from 'node:vm';
 
 const path=new URL('../scripts/meeting-calendar.js',import.meta.url);
 const source=existsSync(path)?readFileSync(path,'utf8'):'';
+const memberSession=readFileSync(new URL('../scripts/core.js',import.meta.url),'utf8').match(/function memberMatchesCurrentSession\([\s\S]*?\n\}/)[0];
 const sac=readFileSync(new URL('../scripts/sac-signups.js',import.meta.url),'utf8');
 const now=Date.parse('2030-10-01T08:00:00Z');
 const meeting={id:'meeting',title:'Planning, roles; next steps',location:'Room 12',startsAt:'2030-10-28T11:00:00Z',endsAt:'2030-10-28T12:00:00Z',response:'attending',attendees:[{name:'Private Member',email:'private@example.test'}]};
@@ -21,7 +22,7 @@ function harness(){
     ownMeetingResponse:m=>m.response,meetingById:id=>context.state.meetings.find(m=>m.id===id),
     pageUrl:(page,params={})=>'/' + page + '?' + new URLSearchParams(params),showToast(){},
   });
-  vm.runInContext(sac,context);vm.runInContext(source,context);
+  vm.runInContext(sac,context);vm.runInContext(memberSession+'\n'+source,context);
   return{context,downloads,setWorkspace:value=>{workspace=value;}};
 }
 
@@ -70,4 +71,12 @@ test('an eligible SAC preview member can add a meeting without claiming a signup
   const h=harness();h.setWorkspace('sac');h.context.downloadMeetingCalendar('sac','sac-meeting');
   assert.equal(h.downloads.length,1);assert.match(await h.downloads[0].text(),/SAC meeting/);
   h.context.canAccessSacWorkspace=()=>false;h.context.downloadMeetingCalendar('sac','sac-meeting');assert.equal(h.downloads.length,1);
+});
+
+test('private-directory members can export a meeting, but cannot reuse the marker after session replacement',()=>{
+  const h=harness();
+  h.context.currentMemberRecord=()=>({id:'me',email:'',isCurrentUser:true,directoryActor:'account-a:0'});
+  h.context.downloadMeetingCalendar('media','meeting');assert.equal(h.downloads.length,1);
+  h.context.window.CREW_CENTER_AUTH_EPOCH=1;
+  h.context.downloadMeetingCalendar('media','meeting');assert.equal(h.downloads.length,1);
 });
