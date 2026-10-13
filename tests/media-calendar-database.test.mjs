@@ -29,7 +29,7 @@ before(async () => {
       ('${f}','Unjoined event','Field',now()+interval '2 days',now()+interval '2 days 2 hours','Private note');
     insert into signups(id,event_id,member_id,attendance_start,attendance_end,signup_role)
       values ('20000000-0000-0000-0000-000000000001','${e}','${m}',now()+interval '1 day 1 hour',now()+interval '1 day 2 hours','Photographer');`);
-  await db.exec(readFileSync(new URL('../supabase/migrations/20261013171530_media_calendar_subscriptions.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261013173717_media_calendar_subscriptions.sql', import.meta.url), 'utf8'));
 });
 after(() => db.close());
 async function actor(id, role = 'authenticated') {

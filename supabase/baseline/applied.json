@@ -2,9 +2,9 @@
   "format": 1,
   "projectRef": "prswuqzzgordywowbwtc",
   "appliedVia": "Supabase plugin",
-  "verifiedAt": "2026-10-12T16:51:36Z",
+  "verifiedAt": "2026-10-13T17:42:18.021693Z",
   "baselineFingerprint": "d24a58a233d5baf643a31eb642e21494",
-  "postMigrationFingerprint": "f671fc4434eec3fe0714c98f8809854b",
+  "postMigrationFingerprint": "0b1830fe751626044aa896bc85053d80",
   "migrations": [
     {
       "version": "20261009100219",
@@ -41,6 +41,12 @@
       "name": "minimize_student_names",
       "file": "20261012164321_minimize_student_names.sql",
       "sqlSha256": "927d0be7ba36f58718ee0b9cee5c00a540cd5386e072d4843665eae99540259d"
+    },
+    {
+      "version": "20261013173717",
+      "name": "media_calendar_subscriptions",
+      "file": "20261013173717_media_calendar_subscriptions.sql",
+      "sqlSha256": "d69dd97c10e1b576bc5d34c9d8eb5c61ea25a4a388c4939f868bfb8e3b8c88a2"
     }
   ],
   "verification": {
@@ -144,5 +150,47 @@
         "sourceSha256": "550256ec0f973360c24c92464dce5c3f9248603eb0a8f98c60be074e911b277a"
       }
     ]
+  },
+  "calendarSubscriptionVerification": {
+    "verifiedAt": "2026-10-13T17:42:18.021693Z",
+    "previousRecordedFingerprint": "f671fc4434eec3fe0714c98f8809854b",
+    "postMigrationFingerprint": "0b1830fe751626044aa896bc85053d80",
+    "storedSQLMatchesLocal": true,
+    "privateTableRLSEnabled": true,
+    "directSecretReadsDenied": true,
+    "ownerManagementVerifiedAsAuthenticated": true,
+    "foreignAccountDenied": true,
+    "anonymousRPCsDenied": true,
+    "allEventsProjectionVerified": true,
+    "emptyPersonalSignupScopeVerified": true,
+    "replaceAndRevokeVerified": true,
+    "feedsIndependentlyRevocable": true,
+    "liveICSResponseVerified": true,
+    "headAndConditionalRequestsVerified": true,
+    "invalidAndRevokedLinksReturn404": true,
+    "revocationCheckedBeforeConditionalResponse": true,
+    "testTransactionRolledBack": true,
+    "temporaryLinksRemoved": true,
+    "newSecurityWarnings": 0,
+    "privateTableNoPolicyInfoIntentional": true,
+    "frontendDeployed": false,
+    "edgeFunction": {
+      "name": "media-calendar",
+      "version": 1,
+      "status": "ACTIVE",
+      "verifyJwt": false,
+      "authentication": "revocable 256-bit subscription secret",
+      "storedSourceMatchesLocal": true,
+      "files": [
+        {
+          "name": "index.ts",
+          "sourceSha256": "705daeadfa6d4d8bb1e655eeef972190d5d349858a3679fccf356d9b7cb06107"
+        },
+        {
+          "name": "calendar.mjs",
+          "sourceSha256": "5ab441c917a685db16317f58dfc3c1ca90efd0e8a2ff2e1e851f0e2dae30f09a"
+        }
+      ]
+    }
   }
 }
