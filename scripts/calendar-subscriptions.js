@@ -53,17 +53,17 @@ function renderMediaCalendarSubscriptions() {
     const links = card.querySelector('[data-calendar-links]');
     links.hidden = !feed.url;
     card.querySelector('input').value = feed.url || '';
-    card.querySelector('[data-calendar-copy]').disabled = Boolean(feed.busy);
+    card.querySelector('[data-calendar-copy]').disabled = Boolean(feed.busy || feed.copying);
     const nativeLink = card.querySelector('[data-calendar-native]');
-    const googleLink = card.querySelector('[data-calendar-google]');
+    const googleButton = card.querySelector('[data-calendar-google]');
+    googleButton.disabled = !feed.url || Boolean(feed.busy || feed.copying);
+    googleButton.setAttribute('aria-expanded', String(Boolean(feed.url && feed.googleSetup)));
+    card.querySelector('[data-calendar-google-setup]').hidden = !feed.url || !feed.googleSetup;
+    card.querySelector('[data-calendar-copy-status]').textContent = feed.copyStatus || 'Copy your private link above, then paste it in Google Calendar.';
     if (feed.url) {
       nativeLink.href = feed.url.replace(/^https:/, 'webcal:');
-      const googleUrl = new URL('https://calendar.google.com/calendar/u/0/r');
-      googleUrl.searchParams.set('cid', feed.url);
-      googleLink.href = googleUrl.href;
     } else {
       nativeLink.removeAttribute('href');
-      googleLink.removeAttribute('href');
     }
     const revoke = card.querySelector('[data-calendar-revoke]');
     revoke.hidden = !feed.active; revoke.disabled = mediaCalendarState.loading || Boolean(feed.busy);
@@ -71,7 +71,7 @@ function renderMediaCalendarSubscriptions() {
   }
 }
 async function loadMediaCalendarSubscriptions() {
-  if (!mediaCalendarActor() || mediaCalendarState.loading || Object.values(mediaCalendarState.feeds).some(feed => feed.busy)) return;
+  if (!mediaCalendarActor() || mediaCalendarState.loading || Object.values(mediaCalendarState.feeds).some(feed => feed.busy || feed.copying)) return;
   const request = mediaCalendarState;
   request.loading = true; request.error = '';
   renderMediaCalendarSubscriptions();
@@ -83,7 +83,12 @@ async function loadMediaCalendarSubscriptions() {
       const kind = mediaCalendarKinds[index];
       const previous = request.feeds[kind];
       request.feeds[kind] = { ...request.feeds[kind], ...result.data };
-      if (!result.data.active || previous?.created_at !== result.data.created_at) delete request.feeds[kind].url;
+      if (!result.data.active || previous?.created_at !== result.data.created_at) {
+        delete request.feeds[kind].url;
+        delete request.feeds[kind].googleSetup;
+        delete request.feeds[kind].copyStatus;
+        delete request.feeds[kind].copying;
+      }
     });
     request.loaded = true;
   } catch {
@@ -99,7 +104,7 @@ async function updateMediaCalendarSubscription(kind, action) {
     || !mediaCalendarState.loaded || mediaCalendarState.loading || mediaCalendarState.actor !== mediaCalendarActor()) return false;
   const request = mediaCalendarState;
   const feed = request.feeds[kind];
-  if (!feed || feed.busy) return false;
+  if (!feed || feed.busy || feed.copying) return false;
   feed.busy = true; request.error = ''; renderMediaCalendarSubscriptions();
   try {
     let secret; let hash;
@@ -136,7 +141,7 @@ async function updateMediaCalendarSubscription(kind, action) {
 function requestMediaCalendarChange(kind, action) {
   if (mediaCalendarState.actor !== mediaCalendarActor() || !mediaCalendarState.loaded) return;
   const feed = mediaCalendarState.feeds[kind];
-  if (!feed || feed.busy) return;
+  if (!feed || feed.busy || feed.copying) return;
   if (action === 'create' && !feed.active) { void updateMediaCalendarSubscription(kind, action); return; }
   if (!feed.active || !['create', 'revoke'].includes(action)) return;
   const actor = mediaCalendarState.actor;
@@ -149,16 +154,35 @@ function requestMediaCalendarChange(kind, action) {
 }
 async function copyMediaCalendarLink(kind) {
   const request = mediaCalendarState;
-  const url = request.feeds[kind]?.url;
-  if (!url || request.actor !== mediaCalendarActor()) return;
+  const feed = request.feeds[kind];
+  const url = feed?.url;
+  if (!url || feed.busy || feed.copying || request.actor !== mediaCalendarActor()) return false;
+  const stillCurrent = () => request === mediaCalendarState && request.actor === mediaCalendarActor()
+    && request.feeds[kind] === feed && feed.url === url;
+  feed.copying = true; feed.copyStatus = 'Copying your link…'; renderMediaCalendarSubscriptions();
   try {
     await navigator.clipboard.writeText(url);
-    if (request === mediaCalendarState && request.actor === mediaCalendarActor()) showToast('Subscription link copied. Choose “From URL” or “Subscribe from web” in your calendar app.');
+    if (!stillCurrent()) return false;
+    feed.copyStatus = 'Link copied. Paste it into “URL of calendar” in Google Calendar.';
+    if (!feed.googleSetup) showToast('Subscription link copied. Choose “From URL” or “Subscribe from web” in your calendar app.');
+    return true;
   } catch {
-    if (request !== mediaCalendarState || request.actor !== mediaCalendarActor()) return;
+    if (!stillCurrent()) return false;
+    feed.copyStatus = 'Copying was blocked. Copy the selected URL above with ⌘C / Ctrl+C, then paste it in Google Calendar.';
     const input = document.getElementById(`media-calendar-${kind}`).querySelector('input');
-    input.focus(); input.select(); showToast('Select and copy the link shown here.');
+    input.focus(); input.select();
+    if (!feed.googleSetup) showToast('Select and copy the link shown here.');
+    return false;
+  } finally {
+    if (stillCurrent()) { feed.copying = false; renderMediaCalendarSubscriptions(); }
   }
+}
+function toggleMediaGoogleCalendarSetup(kind) {
+  const feed = mediaCalendarState.feeds[kind];
+  if (!feed?.url || feed.busy || feed.copying || mediaCalendarState.actor !== mediaCalendarActor()) return;
+  feed.googleSetup = !feed.googleSetup;
+  renderMediaCalendarSubscriptions();
+  if (feed.googleSetup) void copyMediaCalendarLink(kind);
 }
 window.resetMediaCalendarSubscriptions = function() {
   mediaCalendarAnchorHandled = false;
@@ -167,17 +191,21 @@ window.resetMediaCalendarSubscriptions = function() {
   if (panel) {
     panel.hidden = true;
     panel.querySelectorAll('input').forEach(input => { input.value = ''; });
-    panel.querySelectorAll('[data-calendar-native], [data-calendar-google]').forEach(link => link.removeAttribute('href'));
+    panel.querySelectorAll('[data-calendar-native]').forEach(link => link.removeAttribute('href'));
+    panel.querySelectorAll('[data-calendar-google]').forEach(button => { button.disabled = true; button.setAttribute('aria-expanded', 'false'); });
+    panel.querySelectorAll('[data-calendar-google-setup]').forEach(setup => { setup.hidden = true; });
+    panel.querySelectorAll('[data-calendar-copy-status]').forEach(status => { status.textContent = ''; });
     panel.querySelectorAll('[data-calendar-links]').forEach(links => { links.hidden = true; });
   }
   document.getElementById('dashboard-calendar-subscribe')?.setAttribute('hidden', '');
 };
 window.syncMediaCalendarSubscriptions = syncMediaCalendarSubscriptions;
 document.addEventListener('click', event => {
-  const target = event.target.closest?.('[data-calendar-create], [data-calendar-revoke], [data-calendar-copy], [data-calendar-retry]');
+  const target = event.target.closest?.('[data-calendar-create], [data-calendar-revoke], [data-calendar-copy], [data-calendar-google], [data-calendar-retry]');
   if (!target || target.disabled) return;
   if (target.hasAttribute('data-calendar-retry')) { void loadMediaCalendarSubscriptions(); return; }
   const kind = target.closest('[data-calendar-kind]')?.dataset.calendarKind;
-  if (target.hasAttribute('data-calendar-copy')) void copyMediaCalendarLink(kind);
+  if (target.hasAttribute('data-calendar-google')) toggleMediaGoogleCalendarSetup(kind);
+  else if (target.hasAttribute('data-calendar-copy')) void copyMediaCalendarLink(kind);
   else requestMediaCalendarChange(kind, target.hasAttribute('data-calendar-revoke') ? 'revoke' : 'create');
 });

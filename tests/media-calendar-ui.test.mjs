@@ -40,7 +40,7 @@ test('dashboard hint makes no subscription requests; schedules load two owner-bo
   assert.ok(h.calls.every(call => call.args.p_expected_user_id === 'account-a' && call.args.p_action === 'status'));
   assert.equal(h.state.loaded, true);
 });
-test('creation sends only a random secret digest and provides a Google subscription URL with the full feed encoded', async () => {
+test('creation sends only a random secret digest and exposes the full HTTPS subscription URL', async () => {
   const h = harness(); await h.context.loadMediaCalendarSubscriptions();
   assert.equal(await h.context.updateMediaCalendarSubscription('personal', 'create'), true);
   const url = h.state.feeds.personal.url; const secret = new URL(url).searchParams.get('token');
@@ -50,32 +50,73 @@ test('creation sends only a random secret digest and provides a Google subscript
   assert.doesNotMatch(JSON.stringify(h.calls), new RegExp(secret));
   assert.equal(h.element('media-calendar-personal:[data-calendar-links]').hidden, false);
   assert.equal(h.element('media-calendar-personal:[data-calendar-native]').href, url.replace('https:', 'webcal:'));
-  const google = new URL(h.element('media-calendar-personal:[data-calendar-google]').href);
-  assert.equal(google.origin, 'https://calendar.google.com');
-  assert.equal(google.pathname, '/calendar/u/0/r');
-  assert.equal(google.searchParams.get('cid'), url);
-  assert.deepEqual([...google.searchParams.keys()], ['cid']);
-  assert.ok(google.href.includes('%3Ftoken%3D'));
+  assert.equal(h.element('media-calendar-personal:input').value, url);
+  assert.equal(h.element('media-calendar-personal:[data-calendar-google]').disabled, false);
+  assert.equal(h.element('media-calendar-personal:[data-calendar-google-setup]').hidden, true);
   await h.context.copyMediaCalendarLink('personal'); assert.equal(h.copied[0], url);
   assert.doesNotMatch(source, /localStorage|sessionStorage|console\./);
 });
-test('Google shortcuts remain feed-specific and secrets disappear on revocation or sign-out', async () => {
+test('Google setup copies the chosen feed without regenerating it, and revocation clears only that setup', async () => {
   const h = harness(); await h.context.loadMediaCalendarSubscriptions();
   for (const kind of ['personal', 'events']) {
     await h.context.updateMediaCalendarSubscription(kind, 'create');
-    assert.equal(new URL(h.element(`media-calendar-${kind}:[data-calendar-google]`).href).searchParams.get('cid'), h.state.feeds[kind].url);
+    h.context.toggleMediaGoogleCalendarSetup(kind);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(h.copied.at(-1), h.state.feeds[kind].url);
+    assert.equal(h.element(`media-calendar-${kind}:[data-calendar-google-setup]`).hidden, false);
+    assert.equal(h.element(`media-calendar-${kind}:[data-calendar-google]`).attrs['aria-expanded'], 'true');
+    assert.match(h.element(`media-calendar-${kind}:[data-calendar-copy-status]`).textContent, /Link copied/);
   }
-  const eventsGoogle = h.element('media-calendar-events:[data-calendar-google]').href;
-  assert.notEqual(eventsGoogle, h.element('media-calendar-personal:[data-calendar-google]').href);
+  assert.notEqual(h.copied[0], h.copied[1]);
+  assert.equal(h.calls.length, 4, 'opening Google setup does not replace subscriptions');
   await h.context.updateMediaCalendarSubscription('personal', 'revoke');
-  for (const provider of ['google', 'native']) assert.equal(h.element(`media-calendar-personal:[data-calendar-${provider}]`).href, undefined);
-  assert.equal(h.element('media-calendar-events:[data-calendar-google]').href, eventsGoogle);
+  assert.equal(h.element('media-calendar-personal:[data-calendar-native]').href, undefined);
+  assert.equal(h.element('media-calendar-personal:[data-calendar-google]').disabled, true);
+  assert.equal(h.element('media-calendar-personal:[data-calendar-google-setup]').hidden, true);
+  assert.equal(h.element('media-calendar-events:[data-calendar-google-setup]').hidden, false);
+  h.context.toggleMediaGoogleCalendarSetup('events');
+  assert.equal(h.element('media-calendar-events:[data-calendar-google-setup]').hidden, true);
+  assert.equal(h.element('media-calendar-events:[data-calendar-google]').attrs['aria-expanded'], 'false');
   h.context.window.resetMediaCalendarSubscriptions();
   for (const kind of ['personal', 'events']) {
     assert.equal(h.element(`media-calendar-${kind}:input`).value, '');
     assert.equal(h.element(`media-calendar-${kind}:[data-calendar-links]`).hidden, true);
-    for (const provider of ['google', 'native']) assert.equal(h.element(`media-calendar-${kind}:[data-calendar-${provider}]`).href, undefined);
+    assert.equal(h.element(`media-calendar-${kind}:[data-calendar-native]`).href, undefined);
+    assert.equal(h.element(`media-calendar-${kind}:[data-calendar-google]`).disabled, true);
+    assert.equal(h.element(`media-calendar-${kind}:[data-calendar-google-setup]`).hidden, true);
+    assert.equal(h.element(`media-calendar-${kind}:[data-calendar-copy-status]`).textContent, '');
   }
+});
+test('blocked clipboard access selects the complete link and explains manual Google setup', async () => {
+  const h = harness(); await h.context.loadMediaCalendarSubscriptions();
+  await h.context.updateMediaCalendarSubscription('personal', 'create');
+  h.context.navigator.clipboard.writeText = async () => { throw new Error('Denied'); };
+  h.context.toggleMediaGoogleCalendarSetup('personal');
+  await new Promise(resolve => setImmediate(resolve));
+  const input = h.element('media-calendar-personal:input');
+  assert.equal(input.focused, true); assert.equal(input.selected, true);
+  assert.equal(input.value, h.state.feeds.personal.url);
+  assert.match(h.element('media-calendar-personal:[data-calendar-copy-status]').textContent, /Copying was blocked/);
+  assert.equal(h.element('media-calendar-personal:[data-calendar-google]').disabled, false);
+});
+test('delayed clipboard feedback cannot reopen Google setup or restore a signed-out secret', async () => {
+  const h = harness(); await h.context.loadMediaCalendarSubscriptions();
+  await h.context.updateMediaCalendarSubscription('personal', 'create');
+  let finish;
+  h.context.navigator.clipboard.writeText = () => new Promise(resolve => { finish = resolve; });
+  const notices = h.notices.length;
+  h.context.toggleMediaGoogleCalendarSetup('personal');
+  const calls = h.calls.length;
+  await h.context.loadMediaCalendarSubscriptions();
+  assert.equal(h.calls.length, calls, 'a status refresh cannot detach a pending copy');
+  assert.equal(await h.context.updateMediaCalendarSubscription('personal', 'replace'), false);
+  h.context.window.CREW_CENTER_AUTH_EPOCH++;
+  h.context.window.resetMediaCalendarSubscriptions(); finish();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.element('media-calendar-personal:input').value, '');
+  assert.equal(h.element('media-calendar-personal:[data-calendar-google-setup]').hidden, true);
+  assert.equal(h.element('media-calendar-personal:[data-calendar-copy-status]').textContent, '');
+  assert.equal(h.notices.length, notices);
 });
 test('existing links require explicit replacement, revocation is scoped, and reload needs no regeneration', async () => {
   const h = harness();
