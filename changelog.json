@@ -3,7 +3,7 @@
   "entries": [
     {
       "date": "2026-10-14",
-      "summary": "Added previous-day setup participation for CAS with quick helper logging and a clearer member picker, improved email delivery, and made Settings saves more reliable."
+      "summary": "Added previous-day setup attendance for CAS and clearer member selection, improved email and Settings reliability, and updated the club motto and header alignment."
     },
     {
       "date": "2026-10-13",

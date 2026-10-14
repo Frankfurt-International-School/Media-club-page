@@ -146,7 +146,7 @@ function applyWorkspacePresentation({ animate = false } = {}) {
   const motto = document.querySelector('.topbar-motto');
   if (name) name.textContent = isSac ? 'SAC' : 'Media Club';
   if (subtitle) subtitle.textContent = isSac ? 'Student Athletic Council' : 'FIS Student Media Club';
-  if (motto) motto.textContent = isSac ? 'Students supporting athletics' : 'Vox Populi, Vox Media';
+  if (motto) motto.textContent = isSac ? 'Students supporting athletics' : "If we didn't record it, it didn't happen";
 
   const button = document.getElementById('workspace-switcher-button');
   if (button) {
