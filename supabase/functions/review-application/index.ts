@@ -387,7 +387,8 @@ Deno.serve(async request => {
             body: JSON.stringify({ from, to: [normalizedEmail], subject: rendered.subject, html: rendered.html, text: rendered.text }),
             signal: AbortSignal.timeout(10_000),
           });
-          approvalEmailSent = response.ok;
+          const responseBody = await response.json().catch(() => null);
+          approvalEmailSent = response.ok && typeof responseBody?.id === "string" && Boolean(responseBody.id.trim());
         } catch {
           approvalEmailSent = false;
         }
@@ -446,9 +447,9 @@ Deno.serve(async request => {
     return json({ error: `Rejection email was not sent: ${message}` }, 502);
   }
 
-  if (!emailResponse.ok || typeof emailResponseBody.id !== "string") {
+  if (!emailResponse.ok || typeof emailResponseBody?.id !== "string" || !emailResponseBody.id.trim()) {
     await releaseApplication();
-    const message = String(emailResponseBody.message || emailResponseBody.error || `Resend returned ${emailResponse.status}`);
+    const message = String(emailResponseBody?.message || emailResponseBody?.error || `Resend returned ${emailResponse.status}`);
     return json({ error: `Rejection email was not sent: ${message}` }, 502);
   }
 

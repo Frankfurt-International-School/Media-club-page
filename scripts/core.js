@@ -156,13 +156,27 @@ async function sendScheduleEmailNotification(resourceType, resourceId, action) {
   if (!supabaseClient?.functions || !['event', 'meeting'].includes(resourceType) || !resourceId || !['created', 'updated'].includes(action)) {
     return { ok: false, sentCount: 0, error: 'Email delivery is not configured.' };
   }
-  const { data, error } = await supabaseClient.functions.invoke('send-schedule-notification', {
-    body: { resourceType, resourceId, action },
-  });
-  if (error || !data?.ok) {
-    return { ok: false, sentCount: 0, error: data?.error || error?.message || 'Email delivery failed.' };
+  let timer;
+  try {
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Email delivery is still unconfirmed. The saved schedule item is available.')), 45_000);
+    });
+    const { data, error } = await Promise.race([supabaseClient.functions.invoke('send-schedule-notification', {
+      body: { resourceType, resourceId, action },
+    }), deadline]);
+    if (error || !data?.ok) {
+      let detail = data?.error;
+      if (!detail && error?.context?.clone) {
+        try { detail = (await error.context.clone().json())?.error; } catch (_) { /* Keep the useful fallback. */ }
+      }
+      return { ok: false, sentCount: 0, error: detail || error?.message || 'Email delivery failed.' };
+    }
+    return { ok: true, sentCount: Number(data.sentCount) || 0, duplicate: Boolean(data.duplicate) };
+  } catch (error) {
+    return { ok: false, sentCount: 0, error: error?.message || 'Email delivery failed.' };
+  } finally {
+    clearTimeout(timer);
   }
-  return { ok: true, sentCount: Number(data.sentCount) || 0, duplicate: Boolean(data.duplicate) };
 }
 
 window.sendCrewCenterScheduleEmailNotification = sendScheduleEmailNotification;

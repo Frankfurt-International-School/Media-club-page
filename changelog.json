@@ -2,6 +2,10 @@
   "since": "2026-10-09",
   "entries": [
     {
+      "date": "2026-10-14",
+      "summary": "Made schedule emails more reliable, kept saved events and meetings usable during delivery, and restored announcements for members with private directory emails."
+    },
+    {
       "date": "2026-10-13",
       "summary": "Added calendar subscriptions with clearer Google setup, smoothed signup and inbox interactions, and restored personal features for privacy-safe member accounts."
     },

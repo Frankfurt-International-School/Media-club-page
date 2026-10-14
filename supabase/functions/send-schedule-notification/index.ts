@@ -554,19 +554,25 @@ Deno.serve(async request => {
         .eq("resource_version", record.updated_at)
         .single();
       if (existingError) throw new Error(`Existing email dispatch could not be read: ${existingError.message}`);
-      dispatchId = existing.id;
       const processingRecently = existing.status === "processing"
         && Date.now() - new Date(existing.last_attempt_at).getTime() < 5 * 60 * 1000;
-      if (existing.status === "completed" || processingRecently) {
+      if (existing.status === "completed") {
         return json({ ok: true, duplicate: true, sentCount: Number(existing.sent_count) || 0 });
       }
-      const { error: retryError } = await adminClient.from("schedule_email_dispatches").update({
+      if (processingRecently) {
+        return json({ error: "Email delivery is already in progress.", inProgress: true }, 409);
+      }
+      // Compare the observed state so concurrent retries cannot both become senders.
+      const { data: retryClaim, error: retryError } = await adminClient.from("schedule_email_dispatches").update({
         status: "processing",
         error_message: null,
         last_attempt_at: new Date().toISOString(),
         completed_at: null,
-      }).eq("id", dispatchId);
+      }).eq("id", existing.id).eq("status", existing.status).eq("last_attempt_at", existing.last_attempt_at)
+        .select("id").maybeSingle();
       if (retryError) throw new Error(`Email dispatch retry could not start: ${retryError.message}`);
+      if (!retryClaim) return json({ error: "Another request claimed this email delivery.", inProgress: true }, 409);
+      dispatchId = retryClaim.id;
     }
 
     const recipientSelection = await eligibleRecipients(adminClient, resourceType, record, action, previousSnapshot, currentSnapshot);
@@ -588,18 +594,23 @@ Deno.serve(async request => {
     if (pendingError) throw new Error(`Pending email lookup failed: ${pendingError.message}`);
 
     const membersById = new Map(recipients.map(member => [member.id, member]));
-    const staleRows = (pendingRows || []).filter(delivery => !membersById.has(delivery.member_id));
+    const recipientStillMatches = (delivery: { member_id: string; recipient_email: string }) => {
+      const member = membersById.get(delivery.member_id);
+      return member && member.email.trim().toLowerCase() === delivery.recipient_email.trim().toLowerCase();
+    };
+    const staleRows = (pendingRows || []).filter(delivery => !recipientStillMatches(delivery));
     if (staleRows.length) {
-      await Promise.all(staleRows.map(delivery => adminClient!.from("schedule_email_deliveries").update({
+      const results = await Promise.all(staleRows.map(delivery => adminClient!.from("schedule_email_deliveries").update({
         status: "failed",
-        error_message: "Recipient is no longer subscribed or eligible.",
+        error_message: "Recipient is no longer subscribed, eligible, or using this email address.",
       }).eq("id", delivery.id)));
+      if (results.some(result => result.error)) throw new Error("Ineligible email recipients could not be recorded.");
     }
-    const eligiblePendingRows = (pendingRows || []).filter(delivery => membersById.has(delivery.member_id));
+    const eligiblePendingRows = (pendingRows || []).filter(recipientStillMatches);
     const deliveryFailures: string[] = [];
     for (let index = 0; index < eligiblePendingRows.length; index += 1) {
       const delivery = eligiblePendingRows[index];
-      const member = membersById.get(delivery.member_id) || { id: delivery.member_id, name: "Media Club member", email: delivery.recipient_email, role: "Member", status: "active", notification_preferences: {} };
+      const member = membersById.get(delivery.member_id)!;
       const rendered = renderEmail(member, record, resourceType, action, siteUrl, previousSnapshot, {
         affectedRole: recipientSelection.affectedRoleByMember.get(delivery.member_id),
         availabilityExpanded: recipientSelection.availabilityExpanded,
@@ -620,33 +631,44 @@ Deno.serve(async request => {
 
       let response: Response | null = null;
       let responseBody: Record<string, unknown> = {};
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        response = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json",
-            "Idempotency-Key": `schedule-${dispatchId}-${delivery.id}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        responseBody = await response.json().catch(() => ({}));
-        if (response.status !== 429 || attempt === 1) break;
-        const retryAfter = Math.max(1, Number(response.headers.get("retry-after")) || 1);
-        await new Promise(resolve => setTimeout(resolve, Math.min(10_000, retryAfter * 1000)));
+      let sendError = "";
+      try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `schedule-${dispatchId}-${delivery.id}`,
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(10_000),
+          });
+          const body = await response.json().catch(() => ({}));
+          responseBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+          if (response.status !== 429 || attempt === 1) break;
+          const retryAfter = Math.max(1, Number(response.headers.get("retry-after")) || 1);
+          await new Promise(resolve => setTimeout(resolve, Math.min(10_000, retryAfter * 1000)));
+        }
+      } catch (error) {
+        sendError = error instanceof Error ? error.message : "The email provider could not be reached.";
       }
 
-      if (!response?.ok || typeof responseBody.id !== "string") {
-        const message = String(responseBody.message || responseBody.error || `Resend returned ${response?.status || 0}`);
-        await adminClient.from("schedule_email_deliveries").update({ status: "failed", error_message: message }).eq("id", delivery.id);
+      if (sendError || !response?.ok || typeof responseBody.id !== "string" || !responseBody.id.trim()) {
+        const message = sendError || String(responseBody.message || responseBody.error || `Resend returned ${response?.status || 0}`);
+        const { error: failedWriteError } = await adminClient.from("schedule_email_deliveries").update({ status: "failed", error_message: message }).eq("id", delivery.id);
+        if (failedWriteError) throw new Error("Email failure could not be recorded. Retry this dispatch without changing the schedule item.");
         deliveryFailures.push(message);
       } else {
-        await adminClient.from("schedule_email_deliveries").update({
+        const { error: sentWriteError } = await adminClient.from("schedule_email_deliveries").update({
           status: "sent",
           provider_message_id: responseBody.id,
           error_message: null,
           sent_at: new Date().toISOString(),
         }).eq("id", delivery.id);
+        if (sentWriteError) {
+          throw new Error("The provider accepted an email, but its delivery record could not be saved. Retry this dispatch promptly; provider deduplication lasts 24 hours.");
+        }
       }
       if (index < eligiblePendingRows.length - 1) await new Promise(resolve => setTimeout(resolve, 250));
     }

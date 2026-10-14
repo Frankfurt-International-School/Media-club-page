@@ -609,16 +609,19 @@ async function addEvent() {
     state.events.push(ev);
   }
   state.events.sort((a, b) => a.date.localeCompare(b.date));
-  const emailDelivery = await sendScheduleEmailNotification('event', ev.id, editingEvent ? 'updated' : 'created');
   closeEventEditor();
   const savedMessage = editingEvent ? `Event “${ev.title}” updated.` : `Event “${ev.title}” created!`;
-  if (!emailDelivery.ok) {
-    showToast(`${savedMessage} Subscriber email delivery needs attention.`, 'error', 8000);
-  } else {
-    showToast(emailDelivery.sentCount ? `${savedMessage} Emailed ${emailDelivery.sentCount} subscriber${emailDelivery.sentCount === 1 ? '' : 's'}.` : savedMessage);
-  }
+  showToast(savedMessage);
   renderEvents();
   renderDashboard();
+  const emailActor = `${window.CREW_CENTER_AUTH_USER?.id || ''}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}`;
+  const emailDelivery = await sendScheduleEmailNotification('event', ev.id, editingEvent ? 'updated' : 'created');
+  if (emailActor !== `${window.CREW_CENTER_AUTH_USER?.id || ''}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}`) return;
+  if (!emailDelivery.ok) {
+    showToast('Event saved. Subscriber email delivery is unconfirmed.', 'error', 8000);
+  } else if (emailDelivery.sentCount && !emailDelivery.duplicate) {
+    showToast(`Event email accepted for ${emailDelivery.sentCount} subscriber${emailDelivery.sentCount === 1 ? '' : 's'}.`);
+  }
 }
 
 function eventById(id) {

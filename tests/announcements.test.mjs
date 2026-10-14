@@ -34,10 +34,30 @@ function harness() {
     closeNotificationPanel(){},openModal:()=>{element('announcement-reader-modal').open=true;},closeModal:()=>{element('announcement-reader-modal').open=false;context.window.announcementReaderClosed?.();},
     showToast:(...args)=>notices.push(args),openActionConfirmation:options=>{context.confirmation=options;},
   });
-  vm.runInContext(normalize+script,context);
+  const identity = core.match(/function memberMatchesCurrentSession\([\s\S]*?\n\}/)[0];
+  vm.runInContext(identity+normalize+script,context);
   return {context,element,calls,notices,intervals,result:value=>result=value,rpc:value=>rpcResult=value,admin:value=>admin=value,visitor:value=>visitor=value,member:value=>member=value};
 }
 const post = (id,audience='sac',extra={}) => ({id,title:`Post ${id}`,body:'Full message',audience,date:'11 Oct',created_at:'2026-10-11T00:00:00Z',...extra});
+
+test('private-directory members can read their club announcements without revealing email', async () => {
+  const h = harness();
+  h.member({ id: 'member-a', email: '', isCurrentUser: true, directoryActor: 'user-a:1', teamKeys: ['media_club'] });
+  h.context.state.announcements = [post('media', 'media_club'), post('sac', 'sac'), post('shared', 'both')];
+  assert.deepEqual(Array.from(h.context.activeAnnouncements('media'), item => item.id), ['media', 'shared']);
+  assert.equal(h.context.canReadAnnouncement(post('sac')), false);
+  h.result(() => ({ data: { ...post('ann-a', 'media_club'), body: 'Club message' }, error: null }));
+  await h.context.openAnnouncement('ann-a');
+  assert.equal(h.element('announcement-reader-message').textContent, 'Club message');
+  assert.ok(h.context.state.notifications[0].read_at);
+  h.context.window.CREW_CENTER_AUTH_EPOCH++;
+  assert.equal(h.context.canReadAnnouncement(post('media', 'media_club')), false);
+  h.member({ id: 'member-a', email: '', isCurrentUser: true, directoryActor: 'user-a:2', teamKeys: ['sac'] });
+  assert.equal(h.context.canReadAnnouncement(post('sac')), true);
+  assert.equal(h.context.canReadAnnouncement(post('media', 'media_club')), false);
+  h.context.window.CREW_CENTER_AUTH_USER.id = 'user-b';
+  assert.equal(h.context.canReadAnnouncement(post('shared', 'both')), false);
+});
 
 test('feeds enforce real membership, club audience, archive, expiry and pinned order', () => {
   const h=harness();h.context.state.announcements=[post('media','media_club'),post('shared','both'),post('expired','sac',{expires_at:'2000-01-01T00:00:00Z'}),post('archived','sac',{archived_at:'2026-10-10'}),post('pin','sac',{pinned:true})];

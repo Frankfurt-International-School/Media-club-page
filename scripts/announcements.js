@@ -15,7 +15,7 @@ function canReadAnnouncement(announcement) {
   if (!announcementActor() || !announcementAudiences[announcement.audience]) return false;
   if (canAccessAdminPanel()) return true;
   const member = currentMemberRecord();
-  if (String(member?.email || '').toLowerCase() !== String(window.CREW_CENTER_AUTH_USER?.email || '').toLowerCase()) return false;
+  if (!memberMatchesCurrentSession(member)) return false;
   return (['media_club', 'both'].includes(announcement.audience) && member?.teamKeys?.includes('media_club'))
     || (['sac', 'both'].includes(announcement.audience) && member?.teamKeys?.includes('sac'));
 }

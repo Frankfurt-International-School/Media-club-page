@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { stripTypeScriptTypes } from 'node:module';
+import vm from 'node:vm';
 
 const reviewFunction = readFileSync(new URL('../supabase/functions/review-application/index.ts', import.meta.url), 'utf8');
 const template = readFileSync(new URL('../email-templates/application-rejected.html', import.meta.url), 'utf8');
@@ -14,6 +16,21 @@ const rendererSource = reviewFunction.slice(rendererStart, rendererEnd)
   .replace(/: unknown/g, '')
   .replace(/\[character\]!/, '[character]');
 const renderRejectionEmail = Function(`${rendererSource}\nreturn renderRejectionEmail;`)();
+
+test('approval email success requires a provider message ID, including malformed-response failures', async () => {
+  const start = reviewFunction.indexOf('        try {\n          const response = await fetch');
+  const end = reviewFunction.indexOf('        if (!approvalEmailSent)', start);
+  const sendBlock = stripTypeScriptTypes(reviewFunction.slice(start, end));
+  for (const [body, expected] of [['{"id":"provider-a"}', true], ['{}', false], ['null', false], ['{"id":""}', false]]) {
+    const context = vm.createContext({
+      approvalEmailSent: false, resendApiKey: 'synthetic', applicationId: 'synthetic', from: 'test@example.test', normalizedEmail: 'ax1234@fis.edu',
+      rendered: { subject: 'Synthetic', html: '<p>Synthetic</p>', text: 'Synthetic' }, AbortSignal,
+      fetch: async () => new Response(body),
+    });
+    await vm.runInContext(`(async () => { ${sendBlock} })()`, context);
+    assert.equal(context.approvalEmailSent, expected);
+  }
+});
 
 test('rejection email renders branded HTML and a plain-text alternative', () => {
   const rendered = renderRejectionEmail({
