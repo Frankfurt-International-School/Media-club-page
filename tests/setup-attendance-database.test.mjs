@@ -4,7 +4,8 @@ import { before, after, test } from 'node:test';
 import { PGlite } from '@electric-sql/pglite';
 
 const db = new PGlite();
-const migration = readFileSync(new URL('../supabase/migrations/20261014201503_previous_day_setup_attendance.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../supabase/migrations/20261014204418_previous_day_setup_attendance.sql', import.meta.url), 'utf8');
+const optimization = readFileSync(new URL('../supabase/migrations/20261014204831_optimize_setup_attendance_access.sql', import.meta.url), 'utf8');
 const ids = { admin: '00000000-0000-0000-0000-000000000001', faculty: '00000000-0000-0000-0000-000000000002', member: '00000000-0000-0000-0000-000000000003', other: '00000000-0000-0000-0000-000000000004', event: '10000000-0000-0000-0000-000000000001', future: '10000000-0000-0000-0000-000000000002' };
 before(async () => {
   await db.exec(`create role anon; create role authenticated; create role service_role;
@@ -24,6 +25,7 @@ before(async () => {
     insert into member_team_memberships values('${ids.faculty}','media_club'),('${ids.member}','media_club'),('${ids.other}','media_club');
     insert into events values('${ids.event}','Livestream',((now() at time zone 'Europe/Berlin')::date+1+time '12:00') at time zone 'Europe/Berlin',now()+interval '1 day 2 hours',(now() at time zone 'Europe/Berlin')::date,null),('${ids.future}','Livestream',((now() at time zone 'Europe/Berlin')::date+2+time '12:00') at time zone 'Europe/Berlin',now()+interval '2 days 2 hours',(now() at time zone 'Europe/Berlin')::date+1,null);`);
   await db.exec(migration);
+  await db.exec(optimization);
   await db.exec(`update events set livestream_setup_start='00:00',livestream_setup_end='23:59'`);
 });
 after(() => db.close());

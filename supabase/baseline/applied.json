@@ -2,9 +2,9 @@
   "format": 1,
   "projectRef": "prswuqzzgordywowbwtc",
   "appliedVia": "Supabase plugin",
-  "verifiedAt": "2026-10-13T17:42:18.021693Z",
+  "verifiedAt": "2026-10-14T20:51:51Z",
   "baselineFingerprint": "d24a58a233d5baf643a31eb642e21494",
-  "postMigrationFingerprint": "0b1830fe751626044aa896bc85053d80",
+  "postMigrationFingerprint": "c4bdc4fd666b6f27ab283f3db8abbf6a",
   "migrations": [
     {
       "version": "20261009100219",
@@ -47,6 +47,18 @@
       "name": "media_calendar_subscriptions",
       "file": "20261013173717_media_calendar_subscriptions.sql",
       "sqlSha256": "d69dd97c10e1b576bc5d34c9d8eb5c61ea25a4a388c4939f868bfb8e3b8c88a2"
+    },
+    {
+      "version": "20261014204418",
+      "name": "previous_day_setup_attendance",
+      "file": "20261014204418_previous_day_setup_attendance.sql",
+      "sqlSha256": "42b54cb4a82443b55265636662ac7bda7b579bc98ba7d163eed5b402de411a08"
+    },
+    {
+      "version": "20261014204831",
+      "name": "optimize_setup_attendance_access",
+      "file": "20261014204831_optimize_setup_attendance_access.sql",
+      "sqlSha256": "a3f9f14a0c1bf81cb68d2b12b2b56338fcd1825ed59e4de05b83a3f4668e6b9f"
     }
   ],
   "verification": {
@@ -238,5 +250,57 @@
     "inboxDeliveryVerified": false,
     "databaseChanged": false,
     "frontendDeploymentChecked": false
+  },
+  "setupAttendanceVerification": {
+    "verifiedAt": "2026-10-14T20:51:51Z",
+    "sourceCommit": "60e099cfceae9dec1cd09077323387c54cbd8118",
+    "preMigrationFingerprint": "0b1830fe751626044aa896bc85053d80",
+    "postMigrationFingerprint": "c4bdc4fd666b6f27ab283f3db8abbf6a",
+    "storedSQLMatchesLocal": true,
+    "publicFunctionIsInvoker": true,
+    "privateFunctionIsDefiner": true,
+    "emptyFunctionSearchPaths": true,
+    "bothTablesRLSEnabled": true,
+    "realtimeEnabled": true,
+    "authAdminRecordingValidationVerified": true,
+    "facultyReadAuthorityVerified": true,
+    "facultyRosterReadVerified": true,
+    "authAdminRosterReadVerified": true,
+    "ownSetupReadVerified": true,
+    "facultyRecordingDenied": true,
+    "anonymousRPCAndRosterDenied": true,
+    "visitorReadAndRecordingDenied": true,
+    "unlinkedMemberReadDenied": true,
+    "selfDeclaredAdminRecordingDenied": true,
+    "directAttendanceWritesDenied": true,
+    "directAuditReadsDenied": true,
+    "existingEventDataPreserved": true,
+    "existingSignupDataPreserved": true,
+    "existingCatalogEntriesPreserved": true,
+    "eventCount": 11,
+    "signupCount": 50,
+    "setupAttendanceCount": 0,
+    "setupAuditCount": 0,
+    "accessVerificationTransactionRolledBack": true,
+    "rosterReadVerificationTransactionRolledBack": true,
+    "noTestSetupRecordsRemain": true,
+    "productionAttendanceWritesTested": false,
+    "authenticatedBrowserVerified": false,
+    "noProductionEmailSent": true,
+    "frontendDeployed": false,
+    "performance": {
+      "sessionChecksEvaluatedOnce": true,
+      "foreignKeysIndexed": true,
+      "newTablePerformanceWarnings": 0
+    },
+    "securityAdvisories": {
+      "privateAuditTableNoPolicyInfoIntentional": true,
+      "authenticatedRoleAnonymousWarning": {
+        "linter": "auth_allow_anonymous_sign_ins",
+        "visitorGuardExplicit": true,
+        "liveDenialVerified": true,
+        "remediation": "https://supabase.com/docs/guides/database/database-advisors?queryGroups=lint&lint=0012_auth_allow_anonymous_sign_ins"
+      }
+    }
   }
 }

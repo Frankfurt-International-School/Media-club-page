@@ -1386,3 +1386,12 @@ revoke all on public.event_setup_attendance from public, anon, authenticated;
 grant select on public.event_setup_attendance to authenticated;
 grant all on public.event_setup_attendance to service_role;
 revoke all on crew_private.event_setup_attendance_history from public, anon, authenticated;
+
+create index if not exists event_setup_attendance_marked_by_idx
+  on public.event_setup_attendance (marked_by);
+create index if not exists event_setup_attendance_history_event_idx
+  on crew_private.event_setup_attendance_history (event_id);
+create index if not exists event_setup_attendance_history_member_idx
+  on crew_private.event_setup_attendance_history (member_id);
+create index if not exists event_setup_attendance_history_actor_idx
+  on crew_private.event_setup_attendance_history (actor_id);

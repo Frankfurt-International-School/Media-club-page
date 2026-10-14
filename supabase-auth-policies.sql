@@ -2908,8 +2908,8 @@ end $$;
 grant update (livestream_setup_start,livestream_setup_end) on public.events to authenticated;
 drop policy if exists "Read setup attendance" on public.event_setup_attendance;
 create policy "Read setup attendance" on public.event_setup_attendance for select to authenticated
-using (not public.is_visitor_session() and auth.uid() is not null
-  and (public.is_admin_panel_user() or member_id = public.current_member_id()));
+using (not (select public.is_visitor_session()) and (select auth.uid()) is not null
+  and ((select public.is_admin_panel_user()) or member_id = (select public.current_member_id())));
 
 create or replace function crew_private.record_event_setup_attendance(p_event_id uuid, p_member_ids uuid[], p_status text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
