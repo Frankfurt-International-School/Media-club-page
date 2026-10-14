@@ -279,6 +279,7 @@ function renderCrewDeployment() {
         const attendanceOpen = attendanceState.isOpen;
         return `<article class="deployment-event${pastLog ? ' past-log' : ''}">
           <div class="deployment-event-head"><div><div class="deployment-event-title">${escapeHtml(event.title)}</div><div class="text-muted">${escapeHtml(event.loc)} · ${escapeHtml(eventScheduleTimeLabel(event))}</div></div><span class="deployment-attendance-state${attendanceOpen ? ' open' : ''}${pastLog && !attendanceOpen ? ' logged' : ''}" data-deployment-attendance-state="${event.id}">${escapeHtml(attendanceState.text)}</span></div>
+          ${typeof setupRosterButtonHtml === 'function' ? setupRosterButtonHtml(event) : ''}
           ${blocks.map(block => {
             const crew = event.signups.filter(signup => signupCoversDeploymentBlock(signup, block));
             return `<div class="deployment-game"><div class="deployment-game-head"><span>${block.label}</span><span>${block.start}–${block.end}</span></div>${crew.length ? crew.map(signup => {

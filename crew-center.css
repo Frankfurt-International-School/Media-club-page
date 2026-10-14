@@ -1445,6 +1445,46 @@
   .signup-member-match:hover, .signup-member-match:focus-visible { border-color: var(--accent); background: var(--accent-dim2); }
   .signup-member-match strong, .signup-member-match small { display: block; overflow-wrap: anywhere; }
   .signup-member-match small { margin-top: 5px; color: var(--text3); font-size: 11px; line-height: 1.5; }
+  .signup-member-matches, .member-picker-results { max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .member-picker-results { display: grid; gap: 7px; margin-top: 12px; }
+  .member-picker-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 15px; border-color: var(--border); border-radius: 13px; background: linear-gradient(110deg, var(--accent-dim2), var(--bg2) 55%); transition: border-color .15s, background .15s; }
+  .member-picker-row.is-selected, .member-picker-row.is-active { border-color: var(--accent); background: var(--accent-dim2); }
+  .member-picker-avatar { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 38px; border: 1px solid var(--border); border-radius: 12px; background: var(--accent-dim2); color: var(--accent); font-size: 12px; font-weight: 700; }
+  .member-picker-copy { flex: 1; min-width: 0; }
+  .member-picker-copy strong { font-size: 13px; }
+  .member-picker-copy small { margin-top: 3px; }
+  .member-picker-copy > span { display: block; margin-top: 3px; color: var(--text3); font-size: 11px; overflow-wrap: anywhere; }
+  .member-picker-indicator { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: var(--accent); background: var(--accent-dim2); flex-shrink: 0; }
+  .member-picker-selection { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 14px; border: 1px solid var(--accent); border-radius: 13px; background: var(--accent-dim2); }
+  .member-picker-selection[hidden] { display: none; }
+  .member-picker-selection > div { flex: 1; min-width: 0; }
+  .member-picker-selection strong, .member-picker-selection small { display: block; overflow-wrap: anywhere; }
+  .member-picker-selection small { margin-top: 4px; color: var(--text3); font-size: 11px; }
+  .setup-signup-callout { display: flex; gap: 20px; align-items: center; justify-content: space-between; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 16px; background: linear-gradient(110deg, var(--accent-dim2), var(--bg2)); }
+  .setup-signup-callout[hidden], .setup-roster-editor[hidden] { display: none; }
+  .setup-signup-callout strong { display: block; margin-top: 6px; font-size: 15px; }
+  .setup-signup-callout p, .setup-credit-help { color: var(--text3); font-size: 12px; line-height: 1.7; }
+  .setup-signup-callout p { max-width: 620px; margin-top: 6px; }
+  .setup-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .setup-roster-modal { max-width: 720px; }
+  .setup-roster-status { margin: 14px 0; color: var(--text2); font-size: 12px; line-height: 1.7; }
+  .setup-roster-editor { padding: 16px; border: 1px solid var(--border); border-radius: 15px; background: var(--bg2); }
+  .setup-selected-members { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+  .setup-member-chip { border: 1px solid var(--border); border-radius: 100px; padding: 7px 11px; background: var(--accent-dim2); color: var(--text); font-size: 12px; cursor: pointer; }
+  .setup-roster-actions { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+  .setup-roster-actions label { min-width: 140px; }
+  .setup-roster-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 24px 0 12px; }
+  .setup-roster-heading h3 { font-size: 24px; }
+  .setup-roster-person { display: flex; align-items: center; gap: 12px; justify-content: space-between; border-top: 1px solid var(--border); padding: 13px 0; }
+  .setup-roster-person > div { min-width: 0; }
+  .setup-roster-person strong, .setup-roster-person small { display: block; overflow-wrap: anywhere; }
+  .setup-roster-person small { font-size: 11px; color: var(--text3); margin-top: 5px; }
+  .setup-roster-person select { flex: 0 0 132px; width: 132px; }
+  .setup-roster-empty { border: 1px dashed var(--border); border-radius: 12px; padding: 20px; color: var(--text3); font-size: 13px; }
+  .setup-credit-help { margin-top: 18px; }
+  .setup-open-button { margin: 10px 0; }
+  @media (max-width: 520px) { .setup-signup-callout { align-items: stretch; flex-direction: column; gap: 10px; padding: 16px; } .setup-roster-editor { padding: 12px; } .setup-roster-person { align-items: stretch; flex-direction: column; } .setup-roster-person select { width: 100%; flex-basis: auto; } .member-picker-row { padding: 11px; gap: 9px; } }
+  @media (prefers-reduced-motion: reduce) { .member-picker-row { transition: none; } }
   .signup-field-error { margin-top: 6px; color: var(--coral); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
   .signup-field-error:empty { display: none; }
   #signup-entry-card [aria-invalid="true"] { border-color: var(--coral); box-shadow: 0 0 0 2px var(--coral-dim); }

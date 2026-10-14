@@ -184,7 +184,7 @@ function dateBefore(date) {
 
 const eventEditorFieldIds = [
   'ev-title', 'ev-date', 'ev-time', 'ev-end-time', 'ev-loc', 'ev-desc',
-  'ev-livestream-setup-date', 'ev-game1-start', 'ev-game1-end', 'ev-game2-start',
+  'ev-livestream-setup-date', 'ev-livestream-setup-start', 'ev-livestream-setup-end', 'ev-game1-start', 'ev-game1-end', 'ev-game2-start',
   'ev-game2-end', 'ev-game3-start', 'ev-game3-end', 'ev-game4-start', 'ev-game4-end',
   'ev-setup-start', 'ev-setup-end', 'ev-shift1-start', 'ev-shift1-end',
   'ev-shift2-start', 'ev-shift2-end', 'ev-takedown-start', 'ev-takedown-end',
@@ -263,6 +263,8 @@ function resetEventEditor() {
   document.getElementById('ev-cat').value = 'Event';
   document.getElementById('ev-single-role-slot-limit').value = '1';
   document.getElementById('ev-photographer-slot-limit').value = '1';
+  document.getElementById('ev-livestream-setup-start').value = '15:15';
+  document.getElementById('ev-livestream-setup-end').value = '16:15';
   setEventSignupRoles(signupRoleDisplayOrder);
   editingEventId = '';
   updateLivestreamSetupField();
@@ -302,6 +304,8 @@ function openEventEditor(id = '') {
     document.getElementById('ev-end-time').value = event.endTime;
     document.getElementById('ev-end-time').dataset.manualValue = event.endTime;
     document.getElementById('ev-livestream-setup-date').value = event.livestreamSetupDate;
+    document.getElementById('ev-livestream-setup-start').value = event.livestreamSetupStart || '15:15';
+    document.getElementById('ev-livestream-setup-end').value = event.livestreamSetupEnd || '16:15';
     document.getElementById('ev-sports').checked = event.isSports;
     document.getElementById('ev-isst').checked = event.isIsst;
     document.getElementById('ev-festival').checked = event.isFestival;
@@ -464,6 +468,13 @@ async function addEvent() {
   const date = document.getElementById('ev-date').value;
   if (!title || !date) { showToast('Please fill in title and date.', 'error'); return; }
   const category = document.getElementById('ev-cat').value;
+  const setupDate = document.getElementById('ev-livestream-setup-date').value;
+  const setupStart = document.getElementById('ev-livestream-setup-start').value;
+  const setupEnd = document.getElementById('ev-livestream-setup-end').value;
+  if (category === 'Livestream' && setupDate && (setupDate !== dateBefore(date) || !setupStart || !setupEnd || setupEnd <= setupStart)) {
+    showToast('Schedule setup on the day before the game, with an end time after its start.', 'error');
+    return;
+  }
   const openSignupRoles = eventCategorySupportsRoleSetup(category) ? selectedEventSignupRoles() : signupRoleDisplayOrder.slice();
   if (!openSignupRoles.length) {
     showToast('Open at least one crew role for this event.', 'error');
@@ -566,6 +577,8 @@ async function addEvent() {
     livestream_setup_date: category === 'Livestream'
       ? document.getElementById('ev-livestream-setup-date').value || null
       : null,
+    livestream_setup_start: category === 'Livestream' ? setupStart || '15:15' : '15:15',
+    livestream_setup_end: category === 'Livestream' ? setupEnd || '16:15' : '16:15',
     is_sports: isSports,
     is_isst: isIsst,
     game_1_start: isSports || isIsst ? gameTimes[0] : null,

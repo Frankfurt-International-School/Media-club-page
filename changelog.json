@@ -3,7 +3,7 @@
   "entries": [
     {
       "date": "2026-10-14",
-      "summary": "Made schedule emails more reliable, kept saved events and meetings usable during delivery, restored member announcements, and made personal settings safer to save."
+      "summary": "Added previous-day setup participation for CAS with quick helper logging and a clearer member picker, improved email delivery, and made Settings saves more reliable."
     },
     {
       "date": "2026-10-13",

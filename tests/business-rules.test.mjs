@@ -900,8 +900,8 @@ test('Crew Schedule and attendance are Auth Admin-only in the UI and database', 
 
 test('CAS attendance updates when a member is marked and counts completed Berlin event dates once', () => {
   const stats = eventData => JSON.parse(JSON.stringify(runFunctions(
-    ['casAttendanceWasRecorded', 'casAttendanceEventEligibleForMember', 'casAttendanceStats'],
-    { isPastEvent: event => event.completed },
+    ['casAttendanceWasRecorded', 'casAttendanceMarks', 'casAttendanceEventEligibleForMember', 'casAttendanceStats'],
+    { isPastEvent: event => event.completed, state: { setupAttendance: [] } },
     `casAttendanceStats({ id: 'member-1', joined_date: '2026-10-01' }, ${JSON.stringify(eventData)}, { start: '2026-09-10', end: '2026-11-15' }, 1)`,
   )));
   const events = [
@@ -926,7 +926,7 @@ test('CAS attendance updates when a member is marked and counts completed Berlin
   assert.match(policiesSql, /Admin Panel users can read CAS attendance settings[\s\S]*?public\.is_admin_panel_user\(\)/);
   assert.match(policiesSql, /Admin Panel users can add CAS memberships[\s\S]*?team_key = 'cas'/);
   assert.match(appStyles, /\.badge-cas \{[^}]*background: #75DDDD;[^}]*color: #153f42;/);
-  assert.match(appSource, /\$\{stats\.attendedDays\} of \$\{stats\.eventDays\} event days attended/);
+  assert.match(appSource, /\$\{stats\.attendedDays\} of \$\{stats\.eventDays\} event days contributed to/);
   assert.match(appSource, /Percentages appear as attendance is recorded or when an event finishes\./);
   assert.match(appSource, /Eligible days[\s\S]*?Attended[\s\S]*?Missed[\s\S]*?CAS tracking/);
   assert.match(appStyles, /\.cas-tracker-summary \{[^}]*repeat\(4,minmax\(0,1fr\)\)/);

@@ -594,6 +594,7 @@
       <select class="form-select" id="sheet-event-select" onchange="renderSignupSheet()"></select>
     </div>
     <div class="sac-linked-callout" id="sheet-sac-linked" hidden aria-live="polite"></div>
+    <div id="setup-signup-callout" class="setup-signup-callout" hidden></div>
     <div class="card mb16 signup-entry-card" id="signup-entry-card">
       <div class="signup-entry-head">
         <div><div class="signup-entry-title" id="signup-entry-title">Join this event</div>
@@ -606,6 +607,7 @@
           <label class="form-label" for="signup-name">Member</label>
           <input class="form-input" id="signup-name" autocomplete="off" placeholder="Type a member name or FIS email" aria-controls="signup-member-matches" aria-describedby="signup-name-help signup-name-error" oninput="clearSignupNameValidation()" />
           <div class="signup-member-matches" id="signup-member-matches" role="group" aria-label="Matching Media Club members" hidden></div>
+          <div id="signup-member-selection" class="member-picker-selection" hidden></div>
           <div class="signup-name-help" id="signup-name-help">Type a name or FIS email, then choose the correct member.</div>
           <div class="signup-field-error" id="signup-name-error"></div>
         </div>
@@ -1069,7 +1071,7 @@
         <span class="crew-update-edition">October 2026 update</span><time datetime="2026-10-14">14 October 2026</time>
       </div>
       <div class="crew-updates-body"><div class="crew-updates-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><h3>What’s new</h3></div>
-        <ul class="crew-update-list"><li>Made schedule emails more reliable, kept saved events and meetings usable during delivery, restored member announcements, and made personal settings safer to save.</li><li>Fixed minor issues and improved user experience.</li></ul>
+        <ul class="crew-update-list"><li>Added previous-day setup participation for CAS with quick helper logging and a clearer member picker, improved email delivery, and made Settings saves more reliable.</li><li>Fixed minor issues and improved user experience.</li></ul>
         <details class="crew-update-history" id="crew-full-changelog"><summary><span>View full changelog</span><span class="crew-update-history-hint">5 earlier updates</span></summary>
           <div class="crew-update-history-content"><div class="crew-update-timeline">
             <article><header><span class="crew-update-tag">Daily update</span><time datetime="2026-10-13">13 October 2026</time></header><ul class="crew-update-list"><li>Added calendar subscriptions with clearer Google setup, smoothed signup and inbox interactions, and restored personal features for privacy-safe member accounts.</li><li>Fixed minor issues and improved user experience.</li></ul></article>
@@ -1130,7 +1132,7 @@
     </div>
     <div class="tab-content" id="admin-tab-cas-attendance" role="tabpanel" aria-labelledby="admin-tab-button-cas-attendance" hidden>
       <section class="cas-tracker-intro">
-        <div><span class="cas-tracker-kicker">CAS participation analytics</span><h2>Attendance overview</h2><p>One calendar date counts once. A member's result appears as soon as their attendance is recorded, or when the event finishes. Present or Late earns the day; Absent, Excused, Not taken, and no signup do not. Archived events keep their attendance history; deleted events do not.</p></div>
+        <div><span class="cas-tracker-kicker">CAS participation analytics</span><h2>Attendance overview</h2><p>One game or event date counts once. Present or Late at the event or its previous-day setup earns the linked event day; doing both still counts once. Setup records keep the actual setup date. A member's result appears as soon as participation is recorded, or when the event finishes. Absent, Excused, Not taken, and unverified signups do not earn the day. Archived events keep their attendance history; deleted events do not.</p></div>
         <div class="cas-threshold"><strong>50%</strong><span>minimum attendance</span></div>
       </section>
       <div class="cas-tracker-toolbar">
@@ -1226,7 +1228,8 @@
       <div class="form-group" id="ev-livestream-setup-group">
         <label class="form-label" for="ev-livestream-setup-date">Previous-day Livestream setup (optional)</label>
         <input class="form-input" id="ev-livestream-setup-date" type="date" />
-        <div class="text-muted" style="margin-top:6px;">Adds a setup notice at 15:15 on the selected date.</div>
+        <div class="form-row2" style="margin-top:12px;"><div><label class="form-label" for="ev-livestream-setup-start">Setup starts</label><input class="form-input" id="ev-livestream-setup-start" type="time" value="15:15"></div><div><label class="form-label" for="ev-livestream-setup-end">Setup ends</label><input class="form-input" id="ev-livestream-setup-end" type="time" value="16:15"></div></div>
+        <div class="text-muted" style="margin-top:6px;">Use the day before the game. Verified setup participation counts toward the linked game day once.</div>
       </div>
       <div class="event-schedule-option" id="ev-sports-group" style="display:none;">
         <label class="checkbox-label" id="ev-sports-label"><input type="checkbox" id="ev-sports" onchange="updateSportsFields()"> Sports Livestream — two game windows</label>
@@ -1670,6 +1673,7 @@
 <script src="scripts/meetings.js"></script>
 <script src="scripts/signups.js"></script>
 <script src="scripts/crew-schedule.js"></script>
+<script src="scripts/setup-attendance.js"></script>
 <script src="scripts/members.js"></script>
 <script src="scripts/gallery.js"></script>
 <script src="scripts/equipment.js"></script>

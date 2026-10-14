@@ -259,7 +259,7 @@ function formatEventDate(date) {
 
 function livestreamSetupCaption(ev) {
   if (ev.cat !== 'Livestream' || !ev.livestreamSetupDate) return '';
-  return `Setup occurs on ${formatEventDate(ev.livestreamSetupDate)} at 15:15.`;
+  return `Setup occurs on ${formatEventDate(ev.livestreamSetupDate)} at ${ev.livestreamSetupStart || '15:15'}–${ev.livestreamSetupEnd || '16:15'}.`;
 }
 
 function sportsScheduleCaption(ev) {

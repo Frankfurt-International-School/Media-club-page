@@ -1352,3 +1352,37 @@ create index if not exists join_applications_status_idx on public.join_applicati
 create unique index if not exists join_applications_one_pending_email_idx
 on public.join_applications (lower(btrim(email)))
 where status = 'pending';
+
+-- Setup roster tables. No existing signup or game-attendance rows are changed.
+alter table public.events add column if not exists livestream_setup_start time not null default '15:15';
+alter table public.events add column if not exists livestream_setup_end time not null default '16:15';
+alter table public.events drop constraint if exists events_livestream_setup_window_check;
+alter table public.events add constraint events_livestream_setup_window_check check (livestream_setup_end > livestream_setup_start);
+
+create schema if not exists crew_private;
+create table if not exists public.event_setup_attendance (
+  event_id uuid not null references public.events(id) on delete cascade,
+  member_id uuid not null references public.members(id) on delete cascade,
+  setup_starts_at timestamptz not null,
+  setup_ends_at timestamptz not null check (setup_ends_at > setup_starts_at),
+  attendance_status text not null check (attendance_status in ('not_taken','present','late','absent','excused')),
+  marked_by uuid references auth.users(id) on delete set null,
+  marked_at timestamptz not null default now(),
+  primary key (event_id, member_id)
+);
+create index if not exists event_setup_attendance_member_idx on public.event_setup_attendance(member_id);
+create table if not exists crew_private.event_setup_attendance_history (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  member_id uuid not null references public.members(id) on delete cascade,
+  previous_status text,
+  attendance_status text not null,
+  actor_id uuid references auth.users(id) on delete set null,
+  recorded_at timestamptz not null default now()
+);
+alter table public.event_setup_attendance enable row level security;
+alter table crew_private.event_setup_attendance_history enable row level security;
+revoke all on public.event_setup_attendance from public, anon, authenticated;
+grant select on public.event_setup_attendance to authenticated;
+grant all on public.event_setup_attendance to service_role;
+revoke all on crew_private.event_setup_attendance_history from public, anon, authenticated;

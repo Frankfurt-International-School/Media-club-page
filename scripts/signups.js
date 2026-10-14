@@ -565,6 +565,7 @@ function scheduleReserveActivation(ev) {
 function renderSignupSheet() {
   const id = document.getElementById('sheet-event-select').value;
   const ev = state.events.find(e => e.id === id);
+  window.renderSetupSignupCallout?.(ev);
   if (!ev) {
     refreshMediaSignupSacLinks(null);
     document.getElementById('sheet-table').innerHTML = '<tbody><tr><td>No upcoming events available.</td></tr></tbody>';

@@ -57,12 +57,17 @@ function casAttendanceWasRecorded(signup) {
   return Boolean(signup?.attendanceStatus && signup.attendanceStatus !== 'not_taken');
 }
 
+function casAttendanceMarks(event) {
+  return [...event.signups, ...(state.setupAttendance || []).filter(row => row.event_id === event.id)
+    .map(row => ({ memberId: row.member_id, attendanceStatus: row.attendance_status }))];
+}
+
 function casAttendanceEventEligible(event, now = Date.now()) {
-  return isPastEvent(event, now) || event.signups.some(casAttendanceWasRecorded);
+  return isPastEvent(event, now) || casAttendanceMarks(event).some(casAttendanceWasRecorded);
 }
 
 function casAttendanceEventEligibleForMember(event, memberId, now = Date.now()) {
-  return isPastEvent(event, now) || event.signups.some(signup => signup.memberId === memberId && casAttendanceWasRecorded(signup));
+  return isPastEvent(event, now) || casAttendanceMarks(event).some(signup => signup.memberId === memberId && casAttendanceWasRecorded(signup));
 }
 
 function casAttendanceStats(member, events, range, now = Date.now()) {
@@ -75,7 +80,7 @@ function casAttendanceStats(member, events, range, now = Date.now()) {
   ));
   const eventDates = new Set(eligibleEvents.map(event => event.date));
   const attendedDates = new Set(eligibleEvents
-    .filter(event => event.signups.some(signup => signup.memberId === member.id && ['present', 'late'].includes(signup.attendanceStatus)))
+    .filter(event => casAttendanceMarks(event).some(signup => signup.memberId === member.id && ['present', 'late'].includes(signup.attendanceStatus)))
     .map(event => event.date));
   const eventDays = eventDates.size;
   const attendedDays = attendedDates.size;
@@ -168,9 +173,9 @@ function changeCasCustomRange() {
 }
 
 function casAttendanceRateMarkup(stats, contextLabel) {
-  if (stats.rate === null) return '<div class="cas-rate is-empty"><div class="cas-rate-value"><strong>—</strong><span>0 of 0 event days attended</span></div><div class="cas-rate-bar" aria-label="No eligible event days"><span style="width:0%"></span></div><span class="cas-rate-empty">Awaiting data</span></div>';
+  if (stats.rate === null) return '<div class="cas-rate is-empty"><div class="cas-rate-value"><strong>—</strong><span>0 of 0 event days contributed to</span></div><div class="cas-rate-bar" aria-label="No eligible event days"><span style="width:0%"></span></div><span class="cas-rate-empty">Awaiting data</span></div>';
   const risk = stats.rate < 50;
-  return `<div class="cas-rate${risk ? ' is-risk' : ' is-on-track'}"><div class="cas-rate-value"><strong>${stats.rate}%</strong><span>${stats.attendedDays} of ${stats.eventDays} event days attended</span></div><div class="cas-rate-bar" aria-label="${escapeHtml(contextLabel)} attendance ${stats.rate}%"><span style="width:${stats.rate}%"></span></div>${risk ? '<span class="cas-rate-warning">Below 50%</span>' : '<span class="cas-rate-pass">On track</span>'}</div>`;
+  return `<div class="cas-rate${risk ? ' is-risk' : ' is-on-track'}"><div class="cas-rate-value"><strong>${stats.rate}%</strong><span>${stats.attendedDays} of ${stats.eventDays} event days contributed to</span></div><div class="cas-rate-bar" aria-label="${escapeHtml(contextLabel)} participation ${stats.rate}%"><span style="width:${stats.rate}%"></span></div>${risk ? '<span class="cas-rate-warning">Below 50%</span>' : '<span class="cas-rate-pass">On track</span>'}</div>`;
 }
 
 function renderCasAttendanceTracker() {
@@ -184,9 +189,10 @@ function renderCasAttendanceTracker() {
   const yearRange = casAttendancePeriodRange('year');
   const status = document.getElementById('cas-tracker-status');
   const validRange = Boolean(range.start && range.end && range.start <= range.end);
+  const setupWarning = state.dataErrors.setupAttendance ? 'Setup contributions could not load. Attendance totals may be incomplete.' : '';
   if (status) {
-    status.classList.toggle('has-warning', Boolean(casAttendanceSettingsError || !validRange));
-    status.textContent = casAttendanceSettingsError || (!validRange ? `Add both ${casAttendancePeriodLabel(period)} dates in Season date settings.` : `${casAttendancePeriodLabel(period)} · ${formatBerlinCalendarDate(range.start, { day: 'numeric', month: 'short', year: 'numeric' })}–${formatBerlinCalendarDate(range.end, { day: 'numeric', month: 'short', year: 'numeric' })}`);
+    status.classList.toggle('has-warning', Boolean(casAttendanceSettingsError || setupWarning || !validRange));
+    status.textContent = casAttendanceSettingsError || setupWarning || (!validRange ? `Add both ${casAttendancePeriodLabel(period)} dates in Season date settings.` : `${casAttendancePeriodLabel(period)} · ${formatBerlinCalendarDate(range.start, { day: 'numeric', month: 'short', year: 'numeric' })}–${formatBerlinCalendarDate(range.end, { day: 'numeric', month: 'short', year: 'numeric' })}`);
   }
   if (!validRange) {
     document.getElementById('cas-tracker-summary').innerHTML = '';

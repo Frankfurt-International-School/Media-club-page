@@ -27,6 +27,7 @@ const state = {
   announcements: [],
   applications: [],
   notifications: [],
+  setupAttendance: [],
   dataErrors: {},
   dataLoaded: {},
   dataUpdatedAt: {},
@@ -517,6 +518,14 @@ function matchingSignupMembers(value) {
     || normalizedSignupName(member.email || '').includes(normalized));
 }
 
+function memberPickerRowHtml(member, { attribute = 'data-media-signup-member', selected = false, index = 0 } = {}) {
+  const name = personDisplayName(member.name, member.role);
+  const parts = splitName(name);
+  const monogram = `${parts.fname.slice(0, 1)}${parts.lname.slice(0, 1)}`.toUpperCase();
+  const details = [member.gradeLevel, member.role].filter(Boolean).join(' · ');
+  return `<button type="button" class="signup-member-match member-picker-row${selected ? ' is-selected' : ''}" ${attribute}="${escapeHtml(member.id)}"${attribute === 'data-media-signup-member' ? ` id="signup-member-option-${index}" role="option" aria-selected="false"` : ` aria-pressed="${selected}"`}><span class="member-picker-avatar" aria-hidden="true">${escapeHtml(monogram)}</span><span class="member-picker-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(details)}</small>${member.email ? `<span>${escapeHtml(member.email)}</span>` : ''}</span><span class="member-picker-indicator" aria-hidden="true">${selected ? '✓' : '+'}</span></button>`;
+}
+
 function selectedMediaSignupMember() {
   if (!canSignupForOtherMembers()) return currentMemberRecord();
   const input = document.getElementById('signup-name');
@@ -541,11 +550,23 @@ function paintSignupMemberMatches() {
   const results = document.getElementById('signup-member-matches');
   if (!input || !results) return;
   const canChoose = canSignupForOtherMembers() && !isVisitorSession();
-  const matches = canChoose && !selectedMediaSignupMember() ? matchingSignupMembers(input.value) : [];
+  const chosen = canChoose ? selectedMediaSignupMember() : null;
+  const matches = canChoose && !chosen ? (input.value.trim() ? matchingSignupMembers(input.value) : state.members.slice().sort((a, b) => a.name.localeCompare(b.name))) : [];
   results.hidden = !matches.length;
-  results.innerHTML = matches.slice(0, 6).map(member => `<button class="signup-member-match" type="button" data-media-signup-member="${escapeHtml(member.id)}"><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml([member.gradeLevel, member.email].filter(Boolean).join(' · '))}</small></button>`).join('');
+  results.innerHTML = matches.slice(0, 6).map((member, index) => memberPickerRowHtml(member, { index })).join('');
+  const selection = document.getElementById('signup-member-selection');
+  if (selection) {
+    selection.hidden = !chosen;
+    selection.innerHTML = chosen ? `<span class="member-picker-avatar" aria-hidden="true">✓</span><div><strong>${escapeHtml(chosen.name)}</strong><small>${escapeHtml([chosen.gradeLevel, chosen.role].filter(Boolean).join(' · '))}</small></div><button type="button" class="btn btn-ghost btn-sm" data-media-member-clear aria-label="Change selected member">Change</button>` : '';
+  }
+  results.setAttribute('role', 'listbox');
+  input.setAttribute('aria-expanded', String(!results.hidden));
+  input.removeAttribute('aria-activedescendant');
+  input.dataset.activeMatch = '-1';
+  if (canChoose) { input.setAttribute('role', 'combobox'); input.setAttribute('aria-autocomplete', 'list'); }
+  else { input.removeAttribute('role'); input.removeAttribute('aria-autocomplete'); }
   if (canChoose && !selectedMediaSignupMember()) setSignupNameHelp(!input.value.trim()
-    ? 'Type a name or FIS email, then choose the correct member.'
+    ? 'Choose a member below or search by name or FIS email. Arrow keys and Enter also work.'
     : matches.length ? `${matches.length} matching member${matches.length === 1 ? '' : 's'}. Choose a match${matches.length > 6 ? '; type more to narrow the results' : ''}.`
       : 'No matching member. Try their FIS email or check Members.');
 }
@@ -585,6 +606,26 @@ function signupMemberForEquipmentPreference() {
 document.addEventListener('click', event => {
   const match = event.target.closest?.('[data-media-signup-member]');
   if (match) selectMediaSignupMember(match.dataset.mediaSignupMember);
+  if (event.target.closest?.('[data-media-member-clear]') && canSignupForOtherMembers() && !isVisitorSession()) {
+    const input = document.getElementById('signup-name'); input.value = ''; clearSignupNameValidation(); input.focus();
+  }
+});
+
+document.getElementById('signup-name')?.addEventListener('keydown', event => {
+  if (!canSignupForOtherMembers() || isVisitorSession()) return;
+  const input = event.currentTarget;
+  const results = document.getElementById('signup-member-matches');
+  const options = [...results.querySelectorAll('[data-media-signup-member]')];
+  if (event.key === 'Escape') { results.hidden = true; input.dataset.activeMatch = '-1'; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); options.forEach(option => { option.classList.remove('is-active'); option.setAttribute('aria-selected', 'false'); }); return; }
+  if (event.key === 'Enter' && !results.hidden && Number(input.dataset.activeMatch) >= 0) {
+    event.preventDefault(); selectMediaSignupMember(options[Number(input.dataset.activeMatch)]?.dataset.mediaSignupMember); return;
+  }
+  if (!['ArrowDown', 'ArrowUp'].includes(event.key) || !options.length) return;
+  event.preventDefault(); results.hidden = false; input.setAttribute('aria-expanded', 'true');
+  const index = Math.max(0, Math.min(options.length - 1, Number(input.dataset.activeMatch || -1) + (event.key === 'ArrowDown' ? 1 : -1)));
+  input.dataset.activeMatch = String(index); input.setAttribute('aria-activedescendant', options[index].id);
+  options.forEach((option, i) => { option.classList.toggle('is-active', i === index); option.setAttribute('aria-selected', String(i === index)); });
+  options[index].scrollIntoView({ block: 'nearest' });
 });
 
 function renderSignupCameraSource() {
@@ -627,6 +668,7 @@ const datasetLabels = {
   announcements: 'announcements',
   applications: 'applications',
   notifications: 'notifications',
+  setupAttendance: 'setup attendance',
 };
 
 const datasetErrorTargets = {
@@ -789,6 +831,8 @@ function normalizeEvent(event) {
     loc: event.location || 'TBC',
     cat: legacyCategoryMap[event.category] || event.category || 'Event',
     livestreamSetupDate: event.livestream_setup_date || '',
+    livestreamSetupStart: event.livestream_setup_start?.slice(0, 5) || '15:15',
+    livestreamSetupEnd: event.livestream_setup_end?.slice(0, 5) || '16:15',
     isSports: Boolean(event.is_sports),
     game1Start: event.game_1_start?.slice(0, 5) || '',
     game1End: event.game_1_end?.slice(0, 5) || '',
@@ -947,7 +991,7 @@ function normalizeApplication(item) {
   };
 }
 
-const crewCenterDatasets = ['members', 'events', 'meetings', 'gallery', 'equipment', 'announcements', 'applications', 'notifications'];
+const crewCenterDatasets = ['members', 'events', 'meetings', 'gallery', 'equipment', 'announcements', 'applications', 'notifications', 'setupAttendance'];
 const crewCenterPublicDatasets = ['events', 'gallery', 'equipment'];
 const crewCenterDataTimeoutMs = 10000;
 const queuedDatasets = new Set();
@@ -978,6 +1022,7 @@ function crewCenterDatasetRequest(dataset, visitor) {
     return Promise.resolve({ data: [], error: null });
   }
   const requests = {
+    setupAttendance: () => canAccessAdminPanel() ? supabaseClient.from('event_setup_attendance').select('*') : Promise.resolve({ data: [], error: null }),
     members: () => supabaseClient.rpc('get_member_directory'),
     events: () => supabaseClient.from('events').select('*, signups(id, member_id, signup_role, role_slot, reserve_role_1, reserve_role_2, equipment_source, own_camera_name, attendance_type, attendance_start, attendance_end, attendance_status, attendance_marked_at, attendance_marked_by, attendance_marked_by_name, confirmation_status, confirmation_deadline, confirmed_at, signed_up_at, members(name, role))').order('date', { ascending: true }),
     meetings: () => supabaseClient.from('meetings').select('*, meeting_attendees(id, member_id, response, responded_at, members(name, role, avatar_url))').order('starts_at', { ascending: true }),
@@ -1014,6 +1059,8 @@ function applyCrewCenterDataset(dataset, rows) {
     state.announcements = data.map(normalizeAnnouncement);
   } else if (dataset === 'applications') {
     state.applications = canAccessAdminPanel() || canReviewSacApplications() ? data.map(normalizeApplication) : [];
+  } else if (dataset === 'setupAttendance') {
+    state.setupAttendance = data;
   } else if (dataset === 'notifications') {
     state.notifications = data;
   }
@@ -1109,16 +1156,16 @@ async function loadCrewCenterInitialData() {
     'sac-attendance': [],
     events: ['events'],
     meetings: ['meetings'],
-    signup: ['events', 'equipment'],
+    signup: ['events', 'equipment', 'setupAttendance'],
     'my-crew-schedule': ['events', 'equipment', 'meetings'],
     members: [],
     gallery: ['gallery'],
     equipment: ['equipment'],
     'equipment-status': ['equipment'],
-    'crew-deployment': ['events'],
+    'crew-deployment': ['events', 'setupAttendance'],
     profile: ['notifications'],
     join: [],
-    admin: ['applications'],
+    admin: ['applications', 'setupAttendance'],
   }[page] || [];
   const eligibleDatasets = visitor
     ? crewCenterPublicDatasets
@@ -1179,6 +1226,7 @@ function subscribeToCrewCenterChanges() {
     meetings: ['meetings'],
     meeting_attendees: ['meetings'],
     signups: ['events'],
+    event_setup_attendance: ['setupAttendance'],
     gallery: ['gallery'],
     equipment: ['equipment'],
     equipment_reservations: ['equipment'],
@@ -1214,6 +1262,8 @@ function subscribeToCrewCenterChanges() {
 }
 
 function stopCrewCenterLiveUpdates() {
+  state.setupAttendance = [];
+  window.resetSetupAttendance?.();
   if (realtimeLoadTimer) clearTimeout(realtimeLoadTimer);
   realtimeLoadTimer = null;
   queuedDatasets.clear();
@@ -1228,6 +1278,8 @@ function stopCrewCenterLiveUpdates() {
 window.stopCrewCenterLiveUpdates = stopCrewCenterLiveUpdates;
 
 function renderCurrentPage(refreshedDatasets = null) {
+  window.refreshSetupAttendanceSurface?.();
+  if (refreshedDatasets?.includes('setupAttendance') && canAccessAdminPanel()) window.renderCasAttendanceTracker?.();
   window.renderAnnouncementSurfaces?.();
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '') || 'home';
   // Keep booking controls steady when only unrelated background data was refreshed.
