@@ -451,7 +451,58 @@ function currentNotificationPreferences() {
   return currentMemberRecord()?.notificationPreferences || { event_created: true, event_reminders: true, maybe_reminders: true, email_event_updates: false, email_meeting_updates: false };
 }
 
+const memberPreferenceSaveRequests = new Map();
+const memberPreferenceSaveControls = {
+  notifications: { buttonId: 'notification-preference-save', label: 'Save notifications', error: "Couldn't save notification settings. Check your connection and try again." },
+  personalKit: { buttonId: 'personal-equipment-save', label: 'Save personal kit', error: "Couldn't save your personal kit. Check your connection and try again." },
+};
+
+function memberPreferenceSaveActor() {
+  const member = currentMemberRecord();
+  if (!memberMatchesCurrentSession(member)) return '';
+  return `${window.CREW_CENTER_AUTH_USER.id}:${Number(window.CREW_CENTER_AUTH_EPOCH || 0)}:${member.id}`;
+}
+
+function syncMemberPreferenceSaveButton(key) {
+  const control = memberPreferenceSaveControls[key];
+  const request = memberPreferenceSaveRequests.get(key);
+  const actor = memberPreferenceSaveActor();
+  const busy = Boolean(actor && request?.actor === actor);
+  // A different account can save immediately without waiting for the old request.
+  if (request && !busy) memberPreferenceSaveRequests.delete(key);
+  const button = document.getElementById(control.buttonId);
+  if (button) { button.disabled = busy; button.textContent = busy ? 'Saving…' : control.label; }
+  return busy;
+}
+
+async function saveMemberPreferences({ key, rpc, preferences, apply, success }) {
+  const actor = memberPreferenceSaveActor();
+  if (!actor || !supabaseClient || memberPreferenceSaveRequests.get(key)?.actor === actor) return false;
+  const request = { actor };
+  memberPreferenceSaveRequests.set(key, request);
+  syncMemberPreferenceSaveButton(key);
+  try {
+    const { data, error } = await withCrewCenterDataTimeout(supabaseClient.rpc(rpc, { p_preferences: preferences }), 'members');
+    if (memberPreferenceSaveRequests.get(key) !== request || memberPreferenceSaveActor() !== actor) return false;
+    if (error || !data) throw new Error('Preference save failed.');
+    apply(currentMemberRecord());
+    showToast(success);
+    return true;
+  } catch (_error) {
+    if (memberPreferenceSaveRequests.get(key) === request && memberPreferenceSaveActor() === actor) {
+      showToast(memberPreferenceSaveControls[key].error, 'error');
+    }
+    return false;
+  } finally {
+    if (memberPreferenceSaveRequests.get(key) === request) {
+      memberPreferenceSaveRequests.delete(key);
+      syncMemberPreferenceSaveButton(key);
+    }
+  }
+}
+
 function renderNotificationSettings() {
+  if (syncMemberPreferenceSaveButton('notifications')) return;
   const preferences = currentNotificationPreferences();
   const mapping = {
     'notify-event-created': 'event_created',
@@ -468,6 +519,7 @@ function currentPersonalEquipmentPreferences() {
 }
 
 function renderPersonalEquipmentSettings() {
+  if (syncMemberPreferenceSaveButton('personalKit')) return;
   const cameraInput = document.getElementById('personal-camera-name');
   const autoUseInput = document.getElementById('personal-camera-auto-use');
   if (!cameraInput || !autoUseInput) return;
@@ -510,20 +562,16 @@ async function savePersonalEquipmentPreferences() {
     showToast('Keep the camera name within 80 characters.', 'error');
     return;
   }
-  const button = document.getElementById('personal-equipment-save');
-  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
   const preferences = { camera_name: cameraName, auto_use_camera: autoUseCamera };
-  const { data, error } = await supabaseClient.rpc('update_own_personal_equipment_preferences', { p_preferences: preferences });
-  if (button) { button.disabled = false; button.textContent = 'Save personal kit'; }
-  if (error || !data) {
-    showToast("Couldn't save your personal kit. Run the latest Supabase SQL files first.", 'error');
-    return;
-  }
-  const member = currentMemberRecord();
-  if (member) member.personalEquipmentPreferences = { cameraName, autoUseCamera };
-  updatePersonalEquipmentPreview();
-  renderSignupCameraSource();
-  showToast(cameraName ? 'Personal camera synced to your account.' : 'Personal camera removed from your account.');
+  return saveMemberPreferences({
+    key: 'personalKit', rpc: 'update_own_personal_equipment_preferences', preferences,
+    apply: member => {
+      member.personalEquipmentPreferences = { cameraName, autoUseCamera };
+      updatePersonalEquipmentPreview();
+      renderSignupCameraSource();
+    },
+    success: cameraName ? 'Personal camera synced to your account.' : 'Personal camera removed from your account.',
+  });
 }
 
 async function saveNotificationPreferences() {
@@ -534,15 +582,11 @@ async function saveNotificationPreferences() {
     email_event_updates: Boolean(document.getElementById('notify-email-event-updates')?.checked),
     email_meeting_updates: Boolean(document.getElementById('notify-email-meeting-updates')?.checked),
   };
-  const button = document.getElementById('notification-preference-save');
-  if (button) { button.disabled = true; button.textContent = 'Saving…'; }
-  const { data, error } = await supabaseClient.rpc('update_own_notification_preferences', { p_preferences: preferences });
-  if (button) { button.disabled = false; button.textContent = 'Save notifications'; }
-  if (error || !data) { showToast("Couldn't save notification settings. Run the latest Supabase SQL files first.", 'error'); return; }
-  const member = currentMemberRecord();
-  if (member) member.notificationPreferences = preferences;
-  renderNotificationCenter();
-  showToast('Notification settings saved.');
+  return saveMemberPreferences({
+    key: 'notifications', rpc: 'update_own_notification_preferences', preferences,
+    apply: member => { member.notificationPreferences = preferences; renderNotificationCenter(); },
+    success: 'Notification settings saved.',
+  });
 }
 
 function ownUpcomingSignups() {
