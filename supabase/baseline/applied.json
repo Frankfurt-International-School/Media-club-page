@@ -192,5 +192,51 @@
         }
       ]
     }
+  },
+  "emailFunctionDeploymentVerification": {
+    "verifiedAt": "2026-10-14T19:22:39.886Z",
+    "projectRef": "prswuqzzgordywowbwtc",
+    "sourceCommit": "3fcbd70c0b5a51fa2649fb922c7100968fbd3261",
+    "appliedVia": "Supabase plugin",
+    "edgeFunctions": [
+      {
+        "name": "review-application",
+        "version": 16,
+        "status": "ACTIVE",
+        "verifyJwt": true,
+        "storedSourceMatchesLocal": true,
+        "bundleSha256": "47e0ab21d56877ac3e22b6f0590d6b2fba2fa520e7d8da1f762a64ed9ca8e7a0",
+        "files": [
+          {
+            "name": "index.ts",
+            "sourceSha256": "2114fa951ea2c9cb01dca78030a6c6cd69c77c0f0bc35454476cfbdf06b28ca3"
+          }
+        ]
+      },
+      {
+        "name": "send-schedule-notification",
+        "version": 7,
+        "status": "ACTIVE",
+        "verifyJwt": true,
+        "storedSourceMatchesLocal": true,
+        "bundleSha256": "8ab976479b9b25ace46896e548ea40bf51bd27e81dc5c2540d9f15c8e4eeede7",
+        "files": [
+          {
+            "name": "index.ts",
+            "sourceSha256": "43b472be4b16f5e4862e7201e7de13b36e32fba0669c07eca226d4e704f2a6a0"
+          },
+          {
+            "name": "routing.ts",
+            "sourceSha256": "79bf276aa540730b7d133fa8475135ffc461e1b1625c8fabf826379333d46a9f"
+          }
+        ]
+      }
+    ],
+    "corsPreflightStatus": 200,
+    "unauthenticatedPostStatus": 401,
+    "noProductionEmailSent": true,
+    "inboxDeliveryVerified": false,
+    "databaseChanged": false,
+    "frontendDeploymentChecked": false
   }
 }
